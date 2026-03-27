@@ -1,4 +1,5 @@
 import { Activity, ActivityStatus, CompanyConfig, CompanySummary, MonthlyProgress } from './types';
+import ExcelJS from 'exceljs';
 
 // Month column mapping: G=ม.ค.(Jan), H=ก.พ.(Feb), ... R=ธ.ค.(Dec)
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -16,79 +17,140 @@ interface CellData {
   hasBackground: boolean; // true if cell has non-white/non-default background color
 }
 
-// Check if a backgroundColor is default (white/no color)
-function isDefaultBg(bg: any): boolean {
-  if (!bg) return true;
-  const r = bg.red ?? 1;
-  const g = bg.green ?? 1;
-  const b = bg.blue ?? 1;
-  // White or very close to white
-  return r >= 0.95 && g >= 0.95 && b >= 0.95;
-}
-
-// ── Method 1: Google Sheets API with Service Account (includes formatting) ──
-async function fetchViaServiceAccount(sheetId: string, sheetName: string): Promise<CellData[][]> {
-  const { google } = await import('googleapis');
+// ── Get Google Auth token from Service Account ──
+async function getServiceAccountToken(): Promise<string> {
   const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!credentials) throw new Error('No service account');
+  if (!credentials) throw new Error('No service account credentials');
 
+  const { google } = await import('googleapis');
   const parsed = JSON.parse(credentials);
   const auth = new google.auth.GoogleAuth({
     credentials: parsed,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   });
-  const sheets = google.sheets({ version: 'v4', auth });
-
-  const range = `'${sheetName}'!A1:U500`;
-  const response = await sheets.spreadsheets.get({
-    spreadsheetId: sheetId,
-    ranges: [range],
-    includeGridData: true,
-    fields: 'sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)',
-  });
-
-  const gridData = response.data.sheets?.[0]?.data?.[0]?.rowData || [];
-  return gridData.map((row: any) => {
-    const values = row.values || [];
-    return values.map((cell: any) => {
-      const bg = cell?.effectiveFormat?.backgroundColor;
-      return {
-        value: cell?.formattedValue || '',
-        hasBackground: !isDefaultBg(bg),
-      };
-    });
-  });
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  if (!tokenResponse.token) throw new Error('Failed to get access token');
+  return tokenResponse.token;
 }
 
-// ── Method 2: Google Sheets API with API Key (includes formatting, for public sheets) ──
-async function fetchViaApiKey(sheetId: string, sheetName: string): Promise<CellData[][]> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error('No API key');
+// ── Check if a fill color is non-white (has meaningful background) ──
+function hasNonWhiteFill(cell: ExcelJS.Cell): boolean {
+  try {
+    const fill = cell.fill as any;
+    if (!fill || fill.type !== 'pattern') return false;
+    if (fill.pattern === 'none') return false;
 
-  const range = encodeURIComponent(`'${sheetName}'!A1:U500`);
-  const fields = encodeURIComponent('sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)');
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?ranges=${range}&includeGridData=true&fields=${fields}&key=${apiKey}`;
+    // Check fgColor (foreground of the pattern)
+    const fg = fill.fgColor;
+    if (fg) {
+      // Has a theme or indexed color — likely a real background
+      if (fg.theme !== undefined && fg.theme !== null) return true;
+      if (fg.indexed !== undefined && fg.indexed !== null && fg.indexed !== 64) return true;
+      if (fg.argb) {
+        const argb = String(fg.argb).toUpperCase();
+        // Check if it's white or near-white
+        if (argb === 'FFFFFFFF' || argb === '00FFFFFF' || argb === 'FFFFFF') return false;
+        return true;
+      }
+    }
 
-  const response = await fetch(url, { next: { revalidate: 300 } });
+    // Check bgColor as fallback
+    const bg = fill.bgColor;
+    if (bg) {
+      if (bg.theme !== undefined && bg.theme !== null) return true;
+      if (bg.indexed !== undefined && bg.indexed !== null && bg.indexed !== 64 && bg.indexed !== 65) return true;
+      if (bg.argb) {
+        const argb = String(bg.argb).toUpperCase();
+        if (argb === 'FFFFFFFF' || argb === '00FFFFFF' || argb === 'FFFFFF') return false;
+        return true;
+      }
+    }
+
+    // If pattern is 'solid' with no color info, could still mean colored
+    if (fill.pattern === 'solid' && !fg && !bg) return false;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// ── Method 1: Download .xlsx via Drive API + parse with exceljs (reads colors!) ──
+async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData[][]> {
+  const token = await getServiceAccountToken();
+
+  // Download the file content via Google Drive API
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
   if (!response.ok) {
-    throw new Error(`API Key fetch failed: ${response.status} ${response.statusText}`);
+    const text = await response.text();
+    throw new Error(`Drive download failed: ${response.status} ${response.statusText} — ${text.slice(0, 200)}`);
   }
 
-  const data = await response.json();
-  const gridData = data.sheets?.[0]?.data?.[0]?.rowData || [];
-  return gridData.map((row: any) => {
-    const values = row.values || [];
-    return values.map((cell: any) => {
-      const bg = cell?.effectiveFormat?.backgroundColor;
-      return {
-        value: cell?.formattedValue || '',
-        hasBackground: !isDefaultBg(bg),
-      };
-    });
+  const arrayBuffer = await response.arrayBuffer();
+
+  // Parse with exceljs
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(arrayBuffer as any);
+
+  // Find the worksheet by name
+  let worksheet = workbook.getWorksheet(sheetName);
+  if (!worksheet) {
+    // Try partial match
+    worksheet = workbook.worksheets.find(ws =>
+      ws.name.toLowerCase().includes(sheetName.toLowerCase().split(' ')[0])
+    );
+  }
+  if (!worksheet) {
+    // Fall back to first sheet
+    console.warn(`[sheets] Sheet "${sheetName}" not found, using first sheet: "${workbook.worksheets[0]?.name}"`);
+    worksheet = workbook.worksheets[0];
+  }
+  if (!worksheet) {
+    throw new Error(`No worksheets found in workbook`);
+  }
+
+  console.log(`[sheets] Parsing sheet "${worksheet.name}" with ${worksheet.rowCount} rows`);
+
+  const rows: CellData[][] = [];
+  worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    if (rowNumber > 500) return; // safety limit
+    const cells: CellData[] = [];
+    // Read columns A through U (1-21)
+    for (let col = 1; col <= 21; col++) {
+      const cell = row.getCell(col);
+      let value = '';
+      if (cell.value !== null && cell.value !== undefined) {
+        if (typeof cell.value === 'object' && 'richText' in cell.value) {
+          // Handle rich text
+          value = (cell.value as ExcelJS.CellRichTextValue).richText
+            .map((rt: any) => rt.text || '')
+            .join('');
+        } else if (typeof cell.value === 'object' && 'result' in cell.value) {
+          // Formula — use the result
+          const result = (cell.value as ExcelJS.CellFormulaValue).result;
+          value = result !== undefined && result !== null ? String(result) : '';
+        } else {
+          value = String(cell.value);
+        }
+      }
+
+      cells.push({
+        value: value.trim(),
+        hasBackground: hasNonWhiteFill(cell),
+      });
+    }
+    rows.push(cells);
   });
+
+  return rows;
 }
 
-// ── Method 3: Public CSV export (no formatting data — Plan detection may be incomplete) ──
+// ── Method 2: Public CSV export (no formatting data — Plan detection may be incomplete) ──
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
   let current = '';
@@ -147,29 +209,19 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<Ce
   return rows.map(row => row.map(cell => ({ value: cell.trim(), hasBackground: false })));
 }
 
-// ── Unified fetch: try Service Account → API Key → CSV export ──
+// ── Unified fetch: try xlsx download (Drive API) → CSV export ──
 async function fetchSheetRows(sheetId: string, sheetName: string): Promise<CellData[][]> {
-  // Method 1: Service Account (best — includes formatting)
+  // Method 1: Download .xlsx via Drive API and parse with exceljs (reads cell colors!)
   if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
     try {
-      console.log(`[sheets] Using Service Account for ${sheetName}`);
-      return await fetchViaServiceAccount(sheetId, sheetName);
+      console.log(`[sheets] Downloading .xlsx for ${sheetName} via Drive API + exceljs`);
+      return await fetchViaXlsx(sheetId, sheetName);
     } catch (err) {
-      console.warn(`Service account failed for ${sheetName}:`, err);
+      console.warn(`[sheets] xlsx download failed for ${sheetName}:`, err);
     }
   }
 
-  // Method 2: API Key (good — includes formatting, public sheets only)
-  if (process.env.GOOGLE_API_KEY) {
-    try {
-      console.log(`[sheets] Using API Key for ${sheetName}`);
-      return await fetchViaApiKey(sheetId, sheetName);
-    } catch (err) {
-      console.warn(`API Key failed for ${sheetName}:`, err);
-    }
-  }
-
-  // Method 3: CSV export (fallback — no formatting, Plan detection may be incomplete)
+  // Method 2: CSV export (fallback — no formatting, Plan detection may be incomplete)
   console.log(`[sheets] Using CSV export for ${sheetName} (no cell color data)`);
   return await fetchViaCSVExport(sheetId, sheetName);
 }
@@ -203,7 +255,7 @@ function hasPlanMark(cell: CellData | undefined): boolean {
 // Detect status from actual row content
 function detectStatus(
   planMonths: Record<string, string>,
-  planMonthsHighlighted: Record<string, boolean>, // whether plan cell had background color
+  planMonthsHighlighted: Record<string, boolean>,
   actualMonths: Record<string, string>,
   allRowCells: string[]
 ): ActivityStatus {
