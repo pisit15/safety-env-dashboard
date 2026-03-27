@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { CompanySummary } from '@/lib/types';
+import { CompanySummary, MonthlyProgress } from '@/lib/types';
 
 declare const Chart: any;
 
@@ -85,7 +85,14 @@ export function RankingChart({ companies }: RankingChartProps) {
   return <canvas ref={canvasRef} />;
 }
 
-export function StatusPieChart({ done, inProgress, notStarted }: { done: number; inProgress: number; notStarted: number }) {
+interface StatusPieChartProps {
+  done: number;
+  notStarted: number;
+  postponed: number;
+  cancelled: number;
+}
+
+export function StatusPieChart({ done, notStarted, postponed, cancelled }: StatusPieChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
 
@@ -96,10 +103,10 @@ export function StatusPieChart({ done, inProgress, notStarted }: { done: number;
     chartRef.current = new Chart(canvasRef.current, {
       type: 'doughnut',
       data: {
-        labels: ['ดำเนินการแล้ว', 'กำลังดำเนินการ', 'ยังไม่เริ่ม'],
+        labels: ['เสร็จแล้ว', 'ยังไม่เริ่ม', 'เลื่อน', 'ยกเลิก'],
         datasets: [{
-          data: [done, inProgress, notStarted],
-          backgroundColor: ['#4ade80', '#fbbf24', '#fb923c'],
+          data: [done, notStarted, postponed, cancelled],
+          backgroundColor: ['#4ade80', '#fb923c', '#60a5fa', '#f87171'],
           borderWidth: 0,
         }],
       },
@@ -117,7 +124,7 @@ export function StatusPieChart({ done, inProgress, notStarted }: { done: number;
     });
 
     return () => { if (chartRef.current) chartRef.current.destroy(); };
-  }, [done, inProgress, notStarted]);
+  }, [done, notStarted, postponed, cancelled]);
 
   return <canvas ref={canvasRef} />;
 }
@@ -169,6 +176,108 @@ export function BudgetChart({ companies }: RankingChartProps) {
 
     return () => { if (chartRef.current) chartRef.current.destroy(); };
   }, [companies]);
+
+  return <canvas ref={canvasRef} />;
+}
+
+// Monthly Progress Chart — Plan vs Actual by month
+interface MonthlyProgressChartProps {
+  monthlyProgress: MonthlyProgress[];
+}
+
+export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || typeof Chart === 'undefined') return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    const currentMonth = new Date().getMonth();
+    const labels = monthlyProgress.map(m => m.label);
+    const planned = monthlyProgress.map(m => m.planned);
+    const completed = monthlyProgress.map(m => m.completed);
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Plan (แผน)',
+            data: planned,
+            backgroundColor: 'rgba(99, 102, 241, 0.5)',
+            borderColor: '#6366f1',
+            borderWidth: 1,
+            borderRadius: 4,
+          },
+          {
+            label: 'Actual (ดำเนินการ)',
+            data: completed,
+            backgroundColor: 'rgba(74, 222, 128, 0.7)',
+            borderColor: '#4ade80',
+            borderWidth: 1,
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#a1a1aa', padding: 15, font: { size: 11 } },
+          },
+          tooltip: {
+            callbacks: {
+              afterBody: (ctx: any) => {
+                const idx = ctx[0].dataIndex;
+                const mp = monthlyProgress[idx];
+                return mp.planned > 0 ? `\nCompletion: ${mp.pctComplete}%` : '';
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: '#27272a' },
+            ticks: {
+              color: (ctx: any) => ctx.index <= currentMonth ? '#fafafa' : '#52525b',
+              font: { size: 11, weight: (ctx: any) => ctx.index === currentMonth ? 'bold' : 'normal' },
+            },
+          },
+          y: {
+            grid: { color: '#27272a' },
+            ticks: { color: '#71717a' },
+            beginAtZero: true,
+          },
+        },
+      },
+      plugins: [{
+        id: 'currentMonthLine',
+        afterDraw(chart: any) {
+          const xScale = chart.scales.x;
+          const x = xScale.getPixelForValue(currentMonth);
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, chart.chartArea.top);
+          ctx.lineTo(x, chart.chartArea.bottom);
+          ctx.stroke();
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = '10px Inter, sans-serif';
+          ctx.fillText('เดือนปัจจุบัน', x + 5, chart.chartArea.top + 10);
+          ctx.restore();
+        },
+      }],
+    });
+
+    return () => { if (chartRef.current) chartRef.current.destroy(); };
+  }, [monthlyProgress]);
 
   return <canvas ref={canvasRef} />;
 }

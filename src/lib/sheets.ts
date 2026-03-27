@@ -1,4 +1,4 @@
-import { Activity, CompanyConfig, CompanySummary } from './types';
+import { Activity, ActivityStatus, CompanyConfig, CompanySummary, MonthlyProgress } from './types';
 
 // Month column mapping: G=ม.ค.(Jan), H=ก.พ.(Feb), ... R=ธ.ค.(Dec)
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -90,7 +90,6 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<st
 
 // ── Unified fetch: try Service Account first, then CSV export ──
 async function fetchSheetRows(sheetId: string, sheetName: string): Promise<string[][]> {
-  // Try service account first
   if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
     try {
       return await fetchViaServiceAccount(sheetId, sheetName);
@@ -98,8 +97,6 @@ async function fetchSheetRows(sheetId: string, sheetName: string): Promise<strin
       console.warn(`Service account failed for ${sheetName}, trying CSV export...`, err);
     }
   }
-
-  // Try public CSV export
   return await fetchViaCSVExport(sheetId, sheetName);
 }
 
@@ -110,15 +107,64 @@ async function fetchSheetRows(sheetId: string, sheetName: string): Promise<strin
 // G-R(6-17) = ม.ค.-ธ.ค.  S(18) = เป้าหมาย  T(19) = ผู้ติดตาม
 
 function findDataStartRow(rows: string[][]): number {
-  // Find the row that contains "ม.ค." or "ลำดับ" header
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
     const rowText = rows[i]?.join(' ') || '';
     if (rowText.includes('ม.ค.') || rowText.includes('ม.ค')) {
       return i + 1; // Data starts after this header row
     }
   }
-  // Default: data starts at row index 7 (row 8 in sheet)
   return 7;
+}
+
+// Detect status from actual row content
+function detectStatus(
+  planMonths: Record<string, string>,
+  actualMonths: Record<string, string>,
+  allRowCells: string[]
+): ActivityStatus {
+  // Check all cells for "เลื่อน" (postponed) or "ยกเลิก" (cancelled) keywords
+  const allText = allRowCells.join(' ').toLowerCase();
+  if (allText.includes('ยกเลิก') || allText.includes('cancel')) {
+    return 'cancelled';
+  }
+  if (allText.includes('เลื่อน') || allText.includes('postpone') || allText.includes('เลือน')) {
+    return 'postponed';
+  }
+
+  const currentMonth = new Date().getMonth(); // 0-indexed (0=Jan)
+
+  // Get which months had plan marks
+  const plannedMonthIndices = MONTH_KEYS
+    .map((k, idx) => ({ key: k, idx, val: planMonths[k] || '' }))
+    .filter(m => m.val !== '' && !m.val.includes('เมื่อ'));
+
+  // Get which months have actual marks
+  const actualMonthIndices = MONTH_KEYS
+    .map((k, idx) => ({ key: k, idx, val: actualMonths[k] || '' }))
+    .filter(m => m.val !== '');
+
+  if (actualMonthIndices.length > 0) {
+    // Has some actual data — check if all planned months up to current are completed
+    const plannedUpToCurrent = plannedMonthIndices.filter(m => m.idx <= currentMonth);
+    if (plannedUpToCurrent.length === 0) {
+      // No planned activities up to current month, but has actual marks → done
+      return 'done';
+    }
+    const completedUpToCurrent = plannedUpToCurrent.filter(m => {
+      const actual = actualMonths[m.key] || '';
+      return actual !== '';
+    });
+    if (completedUpToCurrent.length >= plannedUpToCurrent.length) {
+      return 'done';
+    }
+    // Some completed but not all — still count as done if any month done
+    if (completedUpToCurrent.length > 0) {
+      return 'done';
+    }
+  }
+
+  // No actual data at all → not_started
+  return 'not_started';
 }
 
 export async function fetchActivities(
@@ -131,7 +177,6 @@ export async function fetchActivities(
   const dataStart = findDataStartRow(rows);
   const activities: Activity[] = [];
 
-  // Process rows in pairs (Plan row + Actual row)
   let i = dataStart;
   while (i < rows.length) {
     const row = rows[i];
@@ -146,9 +191,8 @@ export async function fetchActivities(
     const budget = parseFloat(budgetStr) || 0;
     const planActual = (row[5] || '').toString().trim().toLowerCase();
 
-    // Skip category headers (rows with number like "1", "2", etc. with bold text but no Plan/Actual)
+    // Skip category headers
     if (no && !planActual && activity && !activity.match(/^\d/)) {
-      // This is a section header, skip it
       i++;
       continue;
     }
@@ -170,7 +214,7 @@ export async function fetchActivities(
       // Look for corresponding Actual row (next row)
       let actualMonths: Record<string, string> = {};
       let actualResponsible = responsible;
-      let status: Activity['status'] = 'not_started';
+      let status: ActivityStatus = 'not_started';
 
       if (i + 1 < rows.length) {
         const nextRow = rows[i + 1];
@@ -183,29 +227,14 @@ export async function fetchActivities(
           });
           actualResponsible = (nextRow[3] || '').toString().trim() || responsible;
 
-          // Determine status
-          const currentMonth = new Date().getMonth(); // 0-indexed
-          const filledActual = MONTH_KEYS.filter((k, idx) => actualMonths[k] && actualMonths[k] !== '');
-          const plannedMonths = MONTH_KEYS.filter((k, idx) => planMonths[k] && planMonths[k] !== '');
-
-          if (filledActual.length > 0) {
-            // Check if all planned months up to current month have actual data
-            const plannedUpToCurrent = plannedMonths.filter((k) => MONTH_KEYS.indexOf(k) <= currentMonth);
-            const actualUpToCurrent = plannedUpToCurrent.filter(k => actualMonths[k] && actualMonths[k] !== '');
-
-            if (plannedUpToCurrent.length > 0 && actualUpToCurrent.length >= plannedUpToCurrent.length) {
-              status = 'done';
-            } else {
-              status = 'in_progress';
-            }
-          } else {
-            // No actual data yet — check if any plan month is <= current month
-            const shouldHaveStarted = plannedMonths.some(k => MONTH_KEYS.indexOf(k) <= currentMonth);
-            status = shouldHaveStarted ? 'not_started' : 'not_started';
-          }
+          // Detect status from actual row content
+          const actualRowCells = nextRow.map(c => (c || '').toString().trim());
+          status = detectStatus(planMonths, actualMonths, actualRowCells);
 
           i += 2; // Skip both Plan and Actual rows
         } else {
+          // No Actual row follows
+          status = 'not_started';
           i++;
         }
       } else {
@@ -218,7 +247,8 @@ export async function fetchActivities(
         responsible: actualResponsible || responsible,
         budget,
         type: 'actual',
-        months: Object.keys(actualMonths).length > 0 ? actualMonths : planMonths,
+        planMonths,
+        actualMonths,
         target,
         status,
         follower,
@@ -231,6 +261,29 @@ export async function fetchActivities(
   return activities;
 }
 
+// Calculate monthly progress from activities
+function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
+  return MONTH_KEYS.map((key, idx) => {
+    const planned = activities.filter(a => {
+      const planVal = a.planMonths[key] || '';
+      return planVal !== '' && !planVal.includes('เมื่อ');
+    }).length;
+
+    const completed = activities.filter(a => {
+      const actualVal = a.actualMonths[key] || '';
+      return actualVal !== '' && a.status !== 'cancelled';
+    }).length;
+
+    return {
+      month: key,
+      label: MONTH_LABELS[key],
+      planned,
+      completed,
+      pctComplete: planned > 0 ? Math.round((completed / planned) * 1000) / 10 : 0,
+    };
+  });
+}
+
 export async function getCompanySummary(company: CompanyConfig, planType: 'safety' | 'environment'): Promise<CompanySummary> {
   const sheetName = planType === 'safety' ? company.safetySheet : company.enviSheet;
 
@@ -239,7 +292,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total: 0, done: 0, inProgress: 0, notStarted: 0,
+      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0,
       budget: 0, pctDone: 0,
     };
   }
@@ -248,16 +301,19 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
     const activities = await fetchActivities(company, sheetName);
     const total = activities.length || 0;
     const done = activities.filter(a => a.status === 'done').length;
-    const inProgress = activities.filter(a => a.status === 'in_progress').length;
     const notStarted = activities.filter(a => a.status === 'not_started').length;
+    const postponed = activities.filter(a => a.status === 'postponed').length;
+    const cancelled = activities.filter(a => a.status === 'cancelled').length;
     const budget = activities.reduce((sum, a) => sum + a.budget, 0);
+    const monthlyProgress = calculateMonthlyProgress(activities);
 
     return {
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total, done, inProgress, notStarted, budget,
+      total, done, notStarted, postponed, cancelled, budget,
       pctDone: total > 0 ? Math.round((done / total) * 1000) / 10 : 0,
+      monthlyProgress,
     };
   } catch (error) {
     console.error(`Error fetching data for ${company.name} (${sheetName}):`, error);
@@ -265,7 +321,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total: 0, done: 0, inProgress: 0, notStarted: 0,
+      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0,
       budget: 0, pctDone: 0,
     };
   }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
-import { RankingChart, StatusPieChart, BudgetChart } from '@/components/Charts';
+import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
 import Link from 'next/link';
 
@@ -87,13 +87,13 @@ export default function HQOverview() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
           <KPICard
             label="กิจกรรมทั้งหมด"
             value={data.totalActivities}
           />
           <KPICard
-            label="ดำเนินการแล้ว"
+            label="เสร็จแล้ว"
             value={data.totalDone}
             color="#4ade80"
             delta={`▲ ${data.overallPct}%`}
@@ -101,14 +101,19 @@ export default function HQOverview() {
             progress={data.overallPct}
           />
           <KPICard
-            label="กำลังดำเนินการ"
-            value={data.totalInProgress}
-            color="#fbbf24"
-          />
-          <KPICard
             label="ยังไม่เริ่ม"
             value={data.totalNotStarted}
             color="#fb923c"
+          />
+          <KPICard
+            label="เลื่อน"
+            value={data.totalPostponed}
+            color="#60a5fa"
+          />
+          <KPICard
+            label="ยกเลิก"
+            value={data.totalCancelled}
+            color="#f87171"
           />
           <KPICard
             label="งบประมาณรวม"
@@ -116,6 +121,47 @@ export default function HQOverview() {
             color="#00d4ff"
             subtext="บาท"
           />
+        </div>
+
+        {/* Monthly Progress Chart */}
+        <div className="bg-card border border-border rounded-xl p-5 mb-6">
+          <h3 className="text-sm text-muted mb-4 border-l-2 border-accent pl-3">
+            📅 ติดตามความก้าวหน้ารายเดือน — Plan vs Actual
+          </h3>
+          <div style={{ height: 300 }}>
+            <MonthlyProgressChart monthlyProgress={data.monthlyProgress || []} />
+          </div>
+          {/* Monthly summary row */}
+          <div className="grid grid-cols-12 gap-1 mt-4">
+            {(data.monthlyProgress || []).map((mp, idx) => {
+              const currentMonthIdx = new Date().getMonth();
+              const isPast = idx < currentMonthIdx;
+              const isCurrent = idx === currentMonthIdx;
+              return (
+                <div
+                  key={mp.month}
+                  className={`text-center p-1.5 rounded-lg text-[10px] ${
+                    isCurrent ? 'bg-amber-900/30 border border-amber-600/50' :
+                    isPast ? 'bg-zinc-800/50' : 'bg-zinc-900/30'
+                  }`}
+                >
+                  <div className={`font-semibold ${isCurrent ? 'text-amber-400' : 'text-zinc-400'}`}>
+                    {mp.label}
+                  </div>
+                  <div className={`text-lg font-bold ${
+                    mp.pctComplete >= 100 ? 'text-green-400' :
+                    mp.pctComplete > 0 ? 'text-amber-400' :
+                    isPast ? 'text-red-400' : 'text-zinc-600'
+                  }`}>
+                    {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
+                  </div>
+                  <div className="text-zinc-500">
+                    {mp.completed}/{mp.planned}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Charts Row */}
@@ -135,8 +181,9 @@ export default function HQOverview() {
             <div style={{ height: 320 }}>
               <StatusPieChart
                 done={data.totalDone}
-                inProgress={data.totalInProgress}
                 notStarted={data.totalNotStarted}
+                postponed={data.totalPostponed}
+                cancelled={data.totalCancelled}
               />
             </div>
           </div>
@@ -154,8 +201,9 @@ export default function HQOverview() {
                   <th className="text-left py-3 px-3 text-muted font-semibold">บริษัท</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">ทั้งหมด</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">เสร็จ</th>
-                  <th className="text-center py-3 px-3 text-muted font-semibold">กำลังทำ</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">ยังไม่เริ่ม</th>
+                  <th className="text-center py-3 px-3 text-muted font-semibold">เลื่อน</th>
+                  <th className="text-center py-3 px-3 text-muted font-semibold">ยกเลิก</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">% สำเร็จ</th>
                   <th className="text-right py-3 px-3 text-muted font-semibold">งบประมาณ</th>
                   <th className="py-3 px-3"></th>
@@ -167,10 +215,11 @@ export default function HQOverview() {
                   .map((c) => (
                     <tr key={c.companyId} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
                       <td className="py-3 px-3 font-medium text-white">{c.companyName}</td>
-                      <td className="text-center py-3 px-3">{c.total}</td>
-                      <td className="text-center py-3 px-3 text-green-400">{c.done}</td>
-                      <td className="text-center py-3 px-3 text-yellow-400">{c.inProgress}</td>
-                      <td className="text-center py-3 px-3 text-orange-400">{c.notStarted}</td>
+                      <td className="text-center py-3 px-3">{c.total || '-'}</td>
+                      <td className="text-center py-3 px-3 text-green-400">{c.done || '-'}</td>
+                      <td className="text-center py-3 px-3 text-orange-400">{c.notStarted || '-'}</td>
+                      <td className="text-center py-3 px-3 text-blue-400">{c.postponed || '-'}</td>
+                      <td className="text-center py-3 px-3 text-red-400">{c.cancelled || '-'}</td>
                       <td className="text-center py-3 px-3">
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-16 bg-zinc-800 rounded-full h-1.5">

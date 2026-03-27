@@ -9,16 +9,27 @@ export interface CompanyConfig {
   enviSheet: string;       // Sheet name for Environment Plan
 }
 
+export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled';
+
 export interface Activity {
   no: string;
   activity: string;
   responsible: string;
   budget: number;
   type: 'plan' | 'actual';
-  months: Record<string, string>; // { jan: '✓', feb: '', ... }
+  planMonths: Record<string, string>;   // Plan row marks per month
+  actualMonths: Record<string, string>; // Actual row marks per month
   target: string;
-  status: 'done' | 'in_progress' | 'not_started';
+  status: ActivityStatus;
   follower: string;
+}
+
+export interface MonthlyProgress {
+  month: string;        // 'jan', 'feb', etc.
+  label: string;        // 'ม.ค.', 'ก.พ.', etc.
+  planned: number;      // activities planned for this month
+  completed: number;    // activities with actual mark this month
+  pctComplete: number;  // completion % for this month
 }
 
 export interface CompanySummary {
@@ -27,20 +38,24 @@ export interface CompanySummary {
   shortName: string;
   total: number;
   done: number;
-  inProgress: number;
   notStarted: number;
+  postponed: number;
+  cancelled: number;
   budget: number;
   pctDone: number;
+  monthlyProgress?: MonthlyProgress[];
 }
 
 export interface DashboardData {
   companies: CompanySummary[];
   totalActivities: number;
   totalDone: number;
-  totalInProgress: number;
   totalNotStarted: number;
+  totalPostponed: number;
+  totalCancelled: number;
   totalBudget: number;
   overallPct: number;
+  monthlyProgress: MonthlyProgress[];
 }
 
 export type PlanType = 'safety' | 'environment';
