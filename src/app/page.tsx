@@ -87,7 +87,7 @@ export default function HQOverview() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
           <KPICard
             label="กิจกรรมทั้งหมด"
             value={data.totalActivities}
@@ -114,6 +114,11 @@ export default function HQOverview() {
             label="ยกเลิก"
             value={data.totalCancelled}
             color="#f87171"
+          />
+          <KPICard
+            label="ไม่เข้าเงื่อนไข"
+            value={data.totalNotApplicable || 0}
+            color="#71717a"
           />
           <KPICard
             label="งบประมาณรวม"
@@ -184,6 +189,7 @@ export default function HQOverview() {
                 notStarted={data.totalNotStarted}
                 postponed={data.totalPostponed}
                 cancelled={data.totalCancelled}
+                notApplicable={data.totalNotApplicable || 0}
               />
             </div>
           </div>
@@ -204,6 +210,7 @@ export default function HQOverview() {
                   <th className="text-center py-3 px-3 text-muted font-semibold">ยังไม่เริ่ม</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">เลื่อน</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">ยกเลิก</th>
+                  <th className="text-center py-3 px-3 text-muted font-semibold">N/A</th>
                   <th className="text-center py-3 px-3 text-muted font-semibold">% สำเร็จ</th>
                   <th className="text-right py-3 px-3 text-muted font-semibold">งบประมาณ</th>
                   <th className="py-3 px-3"></th>
@@ -220,6 +227,7 @@ export default function HQOverview() {
                       <td className="text-center py-3 px-3 text-orange-400">{c.notStarted || '-'}</td>
                       <td className="text-center py-3 px-3 text-blue-400">{c.postponed || '-'}</td>
                       <td className="text-center py-3 px-3 text-red-400">{c.cancelled || '-'}</td>
+                      <td className="text-center py-3 px-3 text-zinc-400">{c.notApplicable || '-'}</td>
                       <td className="text-center py-3 px-3">
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-16 bg-zinc-800 rounded-full h-1.5">

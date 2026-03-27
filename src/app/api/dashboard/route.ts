@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       companyId: c.id,
       companyName: c.name,
       shortName: c.shortName,
-      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0,
+      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0, notApplicable: 0,
       budget: 0, pctDone: 0,
     }));
 
@@ -72,6 +72,7 @@ export async function GET(request: Request) {
       totalNotStarted: all.reduce((s, c) => s + c.notStarted, 0),
       totalPostponed: all.reduce((s, c) => s + c.postponed, 0),
       totalCancelled: all.reduce((s, c) => s + c.cancelled, 0),
+      totalNotApplicable: all.reduce((s, c) => s + (c.notApplicable || 0), 0),
       totalBudget: all.reduce((s, c) => s + c.budget, 0),
       overallPct: totalActs > 0
         ? Math.round((all.reduce((s, c) => s + c.done, 0) / totalActs) * 1000) / 10

@@ -10,8 +10,24 @@ const MONTH_LABELS: Record<string, string> = {
 
 export { MONTH_KEYS, MONTH_LABELS };
 
-// ── Method 1: Google Sheets API with Service Account ──
-async function fetchViaServiceAccount(sheetId: string, sheetName: string): Promise<string[][]> {
+// ── Cell data with formatting info ──
+interface CellData {
+  value: string;
+  hasBackground: boolean; // true if cell has non-white/non-default background color
+}
+
+// Check if a backgroundColor is default (white/no color)
+function isDefaultBg(bg: any): boolean {
+  if (!bg) return true;
+  const r = bg.red ?? 1;
+  const g = bg.green ?? 1;
+  const b = bg.blue ?? 1;
+  // White or very close to white
+  return r >= 0.95 && g >= 0.95 && b >= 0.95;
+}
+
+// ── Method 1: Google Sheets API with Service Account (includes formatting) ──
+async function fetchViaServiceAccount(sheetId: string, sheetName: string): Promise<CellData[][]> {
   const { google } = await import('googleapis');
   const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!credentials) throw new Error('No service account');
@@ -24,14 +40,55 @@ async function fetchViaServiceAccount(sheetId: string, sheetName: string): Promi
   const sheets = google.sheets({ version: 'v4', auth });
 
   const range = `'${sheetName}'!A1:U500`;
-  const response = await sheets.spreadsheets.values.get({
+  const response = await sheets.spreadsheets.get({
     spreadsheetId: sheetId,
-    range,
+    ranges: [range],
+    includeGridData: true,
+    fields: 'sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)',
   });
-  return response.data.values || [];
+
+  const gridData = response.data.sheets?.[0]?.data?.[0]?.rowData || [];
+  return gridData.map((row: any) => {
+    const values = row.values || [];
+    return values.map((cell: any) => {
+      const bg = cell?.effectiveFormat?.backgroundColor;
+      return {
+        value: cell?.formattedValue || '',
+        hasBackground: !isDefaultBg(bg),
+      };
+    });
+  });
 }
 
-// ── Method 2: Public CSV export (sheets must be "Anyone with link can view") ──
+// ── Method 2: Google Sheets API with API Key (includes formatting, for public sheets) ──
+async function fetchViaApiKey(sheetId: string, sheetName: string): Promise<CellData[][]> {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error('No API key');
+
+  const range = encodeURIComponent(`'${sheetName}'!A1:U500`);
+  const fields = encodeURIComponent('sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?ranges=${range}&includeGridData=true&fields=${fields}&key=${apiKey}`;
+
+  const response = await fetch(url, { next: { revalidate: 300 } });
+  if (!response.ok) {
+    throw new Error(`API Key fetch failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const gridData = data.sheets?.[0]?.data?.[0]?.rowData || [];
+  return gridData.map((row: any) => {
+    const values = row.values || [];
+    return values.map((cell: any) => {
+      const bg = cell?.effectiveFormat?.backgroundColor;
+      return {
+        value: cell?.formattedValue || '',
+        hasBackground: !isDefaultBg(bg),
+      };
+    });
+  });
+}
+
+// ── Method 3: Public CSV export (no formatting data — Plan detection may be incomplete) ──
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
   let current = '';
@@ -67,13 +124,13 @@ function parseCSV(csv: string): string[][] {
   return rows;
 }
 
-async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<string[][]> {
+async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<CellData[][]> {
   const encodedName = encodeURIComponent(sheetName);
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodedName}`;
 
   const response = await fetch(url, {
     headers: { 'Accept': 'text/csv' },
-    next: { revalidate: 300 }, // cache 5 minutes
+    next: { revalidate: 300 },
   });
 
   if (!response.ok) {
@@ -85,18 +142,35 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<st
     throw new Error('Sheet is not publicly accessible');
   }
 
-  return parseCSV(csv);
+  const rows = parseCSV(csv);
+  // CSV has no formatting data — hasBackground is always false
+  return rows.map(row => row.map(cell => ({ value: cell.trim(), hasBackground: false })));
 }
 
-// ── Unified fetch: try Service Account first, then CSV export ──
-async function fetchSheetRows(sheetId: string, sheetName: string): Promise<string[][]> {
+// ── Unified fetch: try Service Account → API Key → CSV export ──
+async function fetchSheetRows(sheetId: string, sheetName: string): Promise<CellData[][]> {
+  // Method 1: Service Account (best — includes formatting)
   if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
     try {
+      console.log(`[sheets] Using Service Account for ${sheetName}`);
       return await fetchViaServiceAccount(sheetId, sheetName);
     } catch (err) {
-      console.warn(`Service account failed for ${sheetName}, trying CSV export...`, err);
+      console.warn(`Service account failed for ${sheetName}:`, err);
     }
   }
+
+  // Method 2: API Key (good — includes formatting, public sheets only)
+  if (process.env.GOOGLE_API_KEY) {
+    try {
+      console.log(`[sheets] Using API Key for ${sheetName}`);
+      return await fetchViaApiKey(sheetId, sheetName);
+    } catch (err) {
+      console.warn(`API Key failed for ${sheetName}:`, err);
+    }
+  }
+
+  // Method 3: CSV export (fallback — no formatting, Plan detection may be incomplete)
+  console.log(`[sheets] Using CSV export for ${sheetName} (no cell color data)`);
   return await fetchViaCSVExport(sheetId, sheetName);
 }
 
@@ -106,37 +180,60 @@ async function fetchSheetRows(sheetId: string, sheetName: string): Promise<strin
 // D(3) = ผู้รับผิดชอบ  E(4) = งบประมาณ  F(5) = Plan/Actual
 // G-R(6-17) = ม.ค.-ธ.ค.  S(18) = เป้าหมาย  T(19) = ผู้ติดตาม
 
-function findDataStartRow(rows: string[][]): number {
+function findDataStartRow(rows: CellData[][]): number {
   for (let i = 0; i < Math.min(rows.length, 15); i++) {
-    const rowText = rows[i]?.join(' ') || '';
+    const rowText = rows[i]?.map(c => c.value).join(' ') || '';
     if (rowText.includes('ม.ค.') || rowText.includes('ม.ค')) {
-      return i + 1; // Data starts after this header row
+      return i + 1;
     }
   }
   return 7;
 }
 
+// Check if a Plan month cell has a plan mark (text content OR background color)
+function hasPlanMark(cell: CellData | undefined): boolean {
+  if (!cell) return false;
+  // Has text content (and not a "when" note)
+  if (cell.value !== '' && !cell.value.includes('เมื่อ')) return true;
+  // Has background color highlighting
+  if (cell.hasBackground) return true;
+  return false;
+}
+
 // Detect status from actual row content
 function detectStatus(
   planMonths: Record<string, string>,
+  planMonthsHighlighted: Record<string, boolean>, // whether plan cell had background color
   actualMonths: Record<string, string>,
   allRowCells: string[]
 ): ActivityStatus {
-  // Check all cells for "เลื่อน" (postponed) or "ยกเลิก" (cancelled) keywords
   const allText = allRowCells.join(' ').toLowerCase();
+
+  // Check for "ไม่เข้าเงื่อนไข" (not applicable)
+  if (allText.includes('ไม่เข้าเงื่อนไข') || allText.includes('not applicable') || allText.includes('n/a')) {
+    return 'not_applicable';
+  }
+
+  // Check for "ยกเลิก" (cancelled)
   if (allText.includes('ยกเลิก') || allText.includes('cancel')) {
     return 'cancelled';
   }
+
+  // Check for "เลื่อน" (postponed)
   if (allText.includes('เลื่อน') || allText.includes('postpone') || allText.includes('เลือน')) {
     return 'postponed';
   }
 
-  const currentMonth = new Date().getMonth(); // 0-indexed (0=Jan)
+  const currentMonth = new Date().getMonth(); // 0-indexed
 
-  // Get which months had plan marks
+  // Get which months had plan marks (text OR background color)
   const plannedMonthIndices = MONTH_KEYS
-    .map((k, idx) => ({ key: k, idx, val: planMonths[k] || '' }))
-    .filter(m => m.val !== '' && !m.val.includes('เมื่อ'));
+    .map((k, idx) => ({ key: k, idx }))
+    .filter(m => {
+      const hasText = planMonths[m.key] !== '' && !planMonths[m.key]?.includes('เมื่อ');
+      const hasColor = planMonthsHighlighted[m.key] || false;
+      return hasText || hasColor;
+    });
 
   // Get which months have actual marks
   const actualMonthIndices = MONTH_KEYS
@@ -144,10 +241,8 @@ function detectStatus(
     .filter(m => m.val !== '');
 
   if (actualMonthIndices.length > 0) {
-    // Has some actual data — check if all planned months up to current are completed
     const plannedUpToCurrent = plannedMonthIndices.filter(m => m.idx <= currentMonth);
     if (plannedUpToCurrent.length === 0) {
-      // No planned activities up to current month, but has actual marks → done
       return 'done';
     }
     const completedUpToCurrent = plannedUpToCurrent.filter(m => {
@@ -157,13 +252,11 @@ function detectStatus(
     if (completedUpToCurrent.length >= plannedUpToCurrent.length) {
       return 'done';
     }
-    // Some completed but not all — still count as done if any month done
     if (completedUpToCurrent.length > 0) {
       return 'done';
     }
   }
 
-  // No actual data at all → not_started
   return 'not_started';
 }
 
@@ -182,14 +275,14 @@ export async function fetchActivities(
     const row = rows[i];
     if (!row || row.length < 6) { i++; continue; }
 
-    const no = (row[0] || '').toString().trim();
-    const activityB = (row[1] || '').toString().trim();
-    const activityC = (row[2] || '').toString().trim();
+    const no = (row[0]?.value || '').trim();
+    const activityB = (row[1]?.value || '').trim();
+    const activityC = (row[2]?.value || '').trim();
     const activity = activityB || activityC;
-    const responsible = (row[3] || '').toString().trim();
-    const budgetStr = (row[4] || '0').toString().replace(/,/g, '').replace(/[^\d.]/g, '');
+    const responsible = (row[3]?.value || '').trim();
+    const budgetStr = (row[4]?.value || '0').replace(/,/g, '').replace(/[^\d.]/g, '');
     const budget = parseFloat(budgetStr) || 0;
-    const planActual = (row[5] || '').toString().trim().toLowerCase();
+    const planActual = (row[5]?.value || '').trim().toLowerCase();
 
     // Skip category headers
     if (no && !planActual && activity && !activity.match(/^\d/)) {
@@ -202,14 +295,17 @@ export async function fetchActivities(
 
     // We care about Plan rows that have a sub-number (like "1.1", "2.1", etc.)
     if (no && no.includes('.') && planActual.includes('plan')) {
-      // Read Plan row monthly marks
+      // Read Plan row monthly marks (both text and color)
       const planMonths: Record<string, string> = {};
+      const planMonthsHighlighted: Record<string, boolean> = {};
       MONTH_KEYS.forEach((key, idx) => {
-        planMonths[key] = (row[6 + idx] || '').toString().trim();
+        const cell = row[6 + idx];
+        planMonths[key] = cell?.value || '';
+        planMonthsHighlighted[key] = cell?.hasBackground || false;
       });
 
-      const target = (row[18] || '').toString().trim();
-      const follower = (row[19] || '').toString().trim() || (row[20] || '').toString().trim();
+      const target = (row[18]?.value || '').trim();
+      const follower = (row[19]?.value || '').trim() || (row[20]?.value || '').trim();
 
       // Look for corresponding Actual row (next row)
       let actualMonths: Record<string, string> = {};
@@ -218,28 +314,34 @@ export async function fetchActivities(
 
       if (i + 1 < rows.length) {
         const nextRow = rows[i + 1];
-        const nextPlanActual = (nextRow?.[5] || '').toString().trim().toLowerCase();
+        const nextPlanActual = (nextRow?.[5]?.value || '').trim().toLowerCase();
 
         if (nextPlanActual.includes('actual')) {
           // Read Actual row
           MONTH_KEYS.forEach((key, idx) => {
-            actualMonths[key] = (nextRow[6 + idx] || '').toString().trim();
+            actualMonths[key] = (nextRow[6 + idx]?.value || '').trim();
           });
-          actualResponsible = (nextRow[3] || '').toString().trim() || responsible;
+          actualResponsible = (nextRow[3]?.value || '').trim() || responsible;
 
           // Detect status from actual row content
-          const actualRowCells = nextRow.map(c => (c || '').toString().trim());
-          status = detectStatus(planMonths, actualMonths, actualRowCells);
+          const actualRowCells = nextRow.map(c => (c?.value || '').trim());
+          status = detectStatus(planMonths, planMonthsHighlighted, actualMonths, actualRowCells);
 
           i += 2; // Skip both Plan and Actual rows
         } else {
-          // No Actual row follows
           status = 'not_started';
           i++;
         }
       } else {
         i++;
       }
+
+      // For planMonths display: if cell had background color but no text, mark it with a plan indicator
+      MONTH_KEYS.forEach(key => {
+        if (planMonths[key] === '' && planMonthsHighlighted[key]) {
+          planMonths[key] = '▪'; // Visual indicator that plan exists (from color)
+        }
+      });
 
       activities.push({
         no,
@@ -266,12 +368,13 @@ function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
   return MONTH_KEYS.map((key, idx) => {
     const planned = activities.filter(a => {
       const planVal = a.planMonths[key] || '';
+      // Count as planned if has text (not "เมื่อ") — the '▪' marker from color is included
       return planVal !== '' && !planVal.includes('เมื่อ');
     }).length;
 
     const completed = activities.filter(a => {
       const actualVal = a.actualMonths[key] || '';
-      return actualVal !== '' && a.status !== 'cancelled';
+      return actualVal !== '' && a.status !== 'cancelled' && a.status !== 'not_applicable';
     }).length;
 
     return {
@@ -292,7 +395,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0,
+      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0, notApplicable: 0,
       budget: 0, pctDone: 0,
     };
   }
@@ -304,6 +407,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
     const notStarted = activities.filter(a => a.status === 'not_started').length;
     const postponed = activities.filter(a => a.status === 'postponed').length;
     const cancelled = activities.filter(a => a.status === 'cancelled').length;
+    const notApplicable = activities.filter(a => a.status === 'not_applicable').length;
     const budget = activities.reduce((sum, a) => sum + a.budget, 0);
     const monthlyProgress = calculateMonthlyProgress(activities);
 
@@ -311,7 +415,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total, done, notStarted, postponed, cancelled, budget,
+      total, done, notStarted, postponed, cancelled, notApplicable, budget,
       pctDone: total > 0 ? Math.round((done / total) * 1000) / 10 : 0,
       monthlyProgress,
     };
@@ -321,7 +425,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0,
+      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0, notApplicable: 0,
       budget: 0, pctDone: 0,
     };
   }

@@ -52,6 +52,7 @@ export default function CompanyDrilldown() {
     not_started: activities.filter(a => a.status === 'not_started').length,
     postponed: activities.filter(a => a.status === 'postponed').length,
     cancelled: activities.filter(a => a.status === 'cancelled').length,
+    not_applicable: activities.filter(a => a.status === 'not_applicable').length,
   };
 
   return (
@@ -102,12 +103,13 @@ export default function CompanyDrilldown() {
         ) : (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6">
               <KPICard label="กิจกรรมทั้งหมด" value={summary?.total || 0} />
               <KPICard label="เสร็จแล้ว" value={summary?.done || 0} color="#4ade80" progress={summary?.pctDone || 0} delta={`${summary?.pctDone || 0}%`} />
               <KPICard label="ยังไม่เริ่ม" value={summary?.notStarted || 0} color="#fb923c" />
               <KPICard label="เลื่อน" value={summary?.postponed || 0} color="#60a5fa" />
               <KPICard label="ยกเลิก" value={summary?.cancelled || 0} color="#f87171" />
+              <KPICard label="ไม่เข้าเงื่อนไข" value={summary?.notApplicable || 0} color="#71717a" />
               <KPICard label="งบประมาณ" value={summary?.budget ? summary.budget.toLocaleString() : '-'} color="#00d4ff" subtext="บาท" />
             </div>
 
@@ -159,6 +161,7 @@ export default function CompanyDrilldown() {
                 { key: 'not_started', label: '⏳ ยังไม่เริ่ม', color: 'text-orange-400' },
                 { key: 'postponed', label: '📅 เลื่อน', color: 'text-blue-400' },
                 { key: 'cancelled', label: '❌ ยกเลิก', color: 'text-red-400' },
+                { key: 'not_applicable', label: '⊘ ไม่เข้าเงื่อนไข', color: 'text-zinc-400' },
               ].map(f => (
                 <button
                   key={f.key}

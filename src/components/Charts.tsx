@@ -90,9 +90,10 @@ interface StatusPieChartProps {
   notStarted: number;
   postponed: number;
   cancelled: number;
+  notApplicable?: number;
 }
 
-export function StatusPieChart({ done, notStarted, postponed, cancelled }: StatusPieChartProps) {
+export function StatusPieChart({ done, notStarted, postponed, cancelled, notApplicable = 0 }: StatusPieChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
 
@@ -100,13 +101,27 @@ export function StatusPieChart({ done, notStarted, postponed, cancelled }: Statu
     if (!canvasRef.current || typeof Chart === 'undefined') return;
     if (chartRef.current) chartRef.current.destroy();
 
+    const labels = ['เสร็จแล้ว', 'ยังไม่เริ่ม', 'เลื่อน', 'ยกเลิก', 'ไม่เข้าเงื่อนไข'];
+    const data = [done, notStarted, postponed, cancelled, notApplicable];
+    const colors = ['#4ade80', '#fb923c', '#60a5fa', '#f87171', '#71717a'];
+
+    // Filter out zero values for cleaner chart
+    const filtered = labels.reduce((acc: { l: string[]; d: number[]; c: string[] }, label, idx) => {
+      if (data[idx] > 0) {
+        acc.l.push(label);
+        acc.d.push(data[idx]);
+        acc.c.push(colors[idx]);
+      }
+      return acc;
+    }, { l: [], d: [], c: [] });
+
     chartRef.current = new Chart(canvasRef.current, {
       type: 'doughnut',
       data: {
-        labels: ['เสร็จแล้ว', 'ยังไม่เริ่ม', 'เลื่อน', 'ยกเลิก'],
+        labels: filtered.l,
         datasets: [{
-          data: [done, notStarted, postponed, cancelled],
-          backgroundColor: ['#4ade80', '#fb923c', '#60a5fa', '#f87171'],
+          data: filtered.d,
+          backgroundColor: filtered.c,
           borderWidth: 0,
         }],
       },
@@ -124,7 +139,7 @@ export function StatusPieChart({ done, notStarted, postponed, cancelled }: Statu
     });
 
     return () => { if (chartRef.current) chartRef.current.destroy(); };
-  }, [done, notStarted, postponed, cancelled]);
+  }, [done, notStarted, postponed, cancelled, notApplicable]);
 
   return <canvas ref={canvasRef} />;
 }

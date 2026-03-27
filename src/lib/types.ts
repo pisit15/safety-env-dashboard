@@ -9,7 +9,7 @@ export interface CompanyConfig {
   enviSheet: string;       // Sheet name for Environment Plan
 }
 
-export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled';
+export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled' | 'not_applicable';
 
 export interface Activity {
   no: string;
@@ -41,6 +41,7 @@ export interface CompanySummary {
   notStarted: number;
   postponed: number;
   cancelled: number;
+  notApplicable: number;
   budget: number;
   pctDone: number;
   monthlyProgress?: MonthlyProgress[];
@@ -53,6 +54,7 @@ export interface DashboardData {
   totalNotStarted: number;
   totalPostponed: number;
   totalCancelled: number;
+  totalNotApplicable: number;
   totalBudget: number;
   overallPct: number;
   monthlyProgress: MonthlyProgress[];
