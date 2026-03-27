@@ -16,8 +16,8 @@ export const COMPANIES: CompanyConfig[] = [
     name: 'EA Kabin',
     shortName: 'EA Kabin',
     sheetId: '15lcITbJ_IL8MHm_W4J-2msjLqPUiKYK5',
-    safetySheet: 'EA Kabin Safety Plan',
-    enviSheet: 'EA Kabin Envi Plan',
+    safetySheet: 'EA Kabin SafetyPlan Rev1',
+    enviSheet: 'EA Kabin Envi Plan Rev1',
   },
   {
     id: 'ebi',

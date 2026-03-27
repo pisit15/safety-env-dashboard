@@ -11,8 +11,8 @@ export async function GET(request: Request) {
   const planType = (searchParams.get('plan') || 'environment') as 'safety' | 'environment';
   const useDemo = searchParams.get('demo') === 'true';
 
-  // Demo mode
-  if (useDemo || !process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+  // Demo mode only if explicitly requested
+  if (useDemo) {
     if (companyId === 'ebi') {
       return NextResponse.json({ activities: DEMO_EBI_ACTIVITIES });
     }
@@ -27,9 +27,21 @@ export async function GET(request: Request) {
   try {
     const sheetName = planType === 'safety' ? company.safetySheet : company.enviSheet;
     const activities = await fetchActivities(company, sheetName);
+
+    if (activities.length === 0) {
+      // Fallback to demo if no real data
+      if (companyId === 'ebi') {
+        return NextResponse.json({ activities: DEMO_EBI_ACTIVITIES });
+      }
+    }
+
     return NextResponse.json({ activities });
   } catch (error) {
     console.error(`Company API error for ${companyId}:`, error);
+    // Fallback to demo on error
+    if (companyId === 'ebi') {
+      return NextResponse.json({ activities: DEMO_EBI_ACTIVITIES });
+    }
     return NextResponse.json({ activities: [], error: 'Failed to fetch data' }, { status: 500 });
   }
 }
