@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -12,6 +12,22 @@ import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
+const STATUS_OPTIONS: { value: MonthStatus; label: string; icon: string; color: string }[] = [
+  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: 'text-green-400' },
+  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: 'text-red-400' },
+  { value: 'planned', label: 'มีแผน', icon: '○', color: 'text-zinc-500' },
+  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: 'text-blue-400' },
+  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: 'text-red-400' },
+  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: 'text-zinc-500' },
+  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: 'text-zinc-700' },
+];
+
+interface StatusOverride {
+  activity_no: string;
+  month: string;
+  status: string;
+}
+
 export default function CompanyDrilldown() {
   const params = useParams();
   const companyId = params.id as string;
@@ -21,6 +37,30 @@ export default function CompanyDrilldown() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginCompanyName, setLoginCompanyName] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // Status update state
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ actNo: string; month: string; actName: string } | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [savingStatus, setSavingStatus] = useState(false);
+
+  // Check if already logged in from sessionStorage
+  useEffect(() => {
+    const saved = sessionStorage.getItem(`auth_${companyId}`);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setIsLoggedIn(true);
+      setLoginCompanyName(parsed.companyName);
+    }
+  }, [companyId]);
+
+  // Fetch activities
   useEffect(() => {
     setLoading(true);
     fetch(`/api/company?id=${companyId}&plan=${planType}`)
@@ -37,8 +77,34 @@ export default function CompanyDrilldown() {
       });
   }, [companyId, planType]);
 
+  // Fetch status overrides from Supabase
+  const fetchOverrides = useCallback(() => {
+    fetch(`/api/status?companyId=${companyId}&planType=${planType}`)
+      .then(res => res.json())
+      .then(data => {
+        const map: Record<string, string> = {};
+        (data.overrides || []).forEach((o: StatusOverride) => {
+          map[`${o.activity_no}:${o.month}`] = o.status;
+        });
+        setOverrides(map);
+      })
+      .catch(() => {});
+  }, [companyId, planType]);
+
+  useEffect(() => {
+    fetchOverrides();
+  }, [fetchOverrides]);
+
   const companyName = summary?.companyName || companyId.toUpperCase();
   const currentMonthIdx = new Date().getMonth();
+
+  // Get effective month status (override > auto)
+  const getEffectiveStatus = (act: Activity, monthKey: string): MonthStatus => {
+    const overrideKey = `${act.no}:${monthKey}`;
+    const override = overrides[overrideKey];
+    if (override) return override as MonthStatus;
+    return act.monthStatuses?.[monthKey] || 'not_planned';
+  };
 
   // Filter activities by status
   const filteredActivities = statusFilter === 'all'
@@ -53,6 +119,96 @@ export default function CompanyDrilldown() {
     postponed: activities.filter(a => a.status === 'postponed').length,
     cancelled: activities.filter(a => a.status === 'cancelled').length,
     not_applicable: activities.filter(a => a.status === 'not_applicable').length,
+  };
+
+  // Login handler
+  const handleLogin = async () => {
+    setLoginError('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, password: loginPassword }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsLoggedIn(true);
+        setLoginCompanyName(data.companyName);
+        sessionStorage.setItem(`auth_${companyId}`, JSON.stringify(data));
+        setShowLoginModal(false);
+        setLoginPassword('');
+      } else {
+        setLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
+      }
+    } catch {
+      setLoginError('เกิดข้อผิดพลาด');
+    }
+  };
+
+  // Save status override
+  const handleSaveStatus = async (newStatus: MonthStatus) => {
+    if (!editingCell) return;
+    setSavingStatus(true);
+    try {
+      await fetch('/api/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType,
+          activityNo: editingCell.actNo,
+          month: editingCell.month,
+          status: newStatus,
+          updatedBy: loginCompanyName,
+        }),
+      });
+      // Update local state
+      setOverrides(prev => ({
+        ...prev,
+        [`${editingCell.actNo}:${editingCell.month}`]: newStatus,
+      }));
+      setShowStatusModal(false);
+      setEditingCell(null);
+    } catch {
+      alert('บันทึกไม่สำเร็จ');
+    }
+    setSavingStatus(false);
+  };
+
+  // Revert to auto-detected status
+  const handleRevertStatus = async () => {
+    if (!editingCell) return;
+    setSavingStatus(true);
+    try {
+      await fetch(`/api/status?companyId=${companyId}&planType=${planType}&activityNo=${editingCell.actNo}&month=${editingCell.month}`, {
+        method: 'DELETE',
+      });
+      setOverrides(prev => {
+        const copy = { ...prev };
+        delete copy[`${editingCell.actNo}:${editingCell.month}`];
+        return copy;
+      });
+      setShowStatusModal(false);
+      setEditingCell(null);
+    } catch {
+      alert('ลบไม่สำเร็จ');
+    }
+    setSavingStatus(false);
+  };
+
+  // Cell click handler
+  const handleCellClick = (actNo: string, month: string, actName: string) => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+    setEditingCell({ actNo, month, actName });
+    setShowStatusModal(true);
+  };
+
+  // Export handler
+  const handleExport = () => {
+    window.open(`/api/export?companyId=${companyId}&planType=${planType}`, '_blank');
   };
 
   return (
@@ -73,7 +229,27 @@ export default function CompanyDrilldown() {
           <h1 className="text-2xl font-bold text-white">
             🔍 {companyName} — แผนงาน{planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'} 2026
           </h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {/* Auth indicator */}
+            {isLoggedIn ? (
+              <span className="text-xs text-green-400 bg-green-900/30 px-2 py-1 rounded">
+                ✓ {loginCompanyName}
+              </span>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="text-xs text-amber-400 bg-amber-900/30 px-2 py-1 rounded hover:bg-amber-900/50"
+              >
+                🔑 เข้าสู่ระบบเพื่อแก้ไข
+              </button>
+            )}
+            {/* Export button */}
+            <button
+              onClick={handleExport}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-700 text-white hover:bg-emerald-600 transition-colors"
+            >
+              📥 Export .xlsx
+            </button>
             <button
               onClick={() => setPlanType('safety')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -122,7 +298,6 @@ export default function CompanyDrilldown() {
                 <div style={{ height: 250 }}>
                   <MonthlyProgressChart monthlyProgress={summary.monthlyProgress} />
                 </div>
-                {/* Monthly mini cards */}
                 <div className="grid grid-cols-12 gap-1 mt-4">
                   {summary.monthlyProgress.map((mp, idx) => {
                     const isPast = idx < currentMonthIdx;
@@ -216,12 +391,12 @@ export default function CompanyDrilldown() {
                           <td className="py-2.5 px-2 text-white text-xs">{act.activity}</td>
                           <td className="py-2.5 px-2 text-zinc-400 text-xs">{act.responsible}</td>
                           {MONTH_KEYS.map((k, idx) => {
-                            const monthStatus: MonthStatus = act.monthStatuses?.[k] || 'not_planned';
+                            const effectiveStatus = getEffectiveStatus(act, k);
+                            const hasOverride = overrides[`${act.no}:${k}`] !== undefined;
                             const planMark = act.planMonths?.[k] || '';
                             const actualMark = act.actualMonths?.[k] || '';
                             const isCurrent = idx === currentMonthIdx;
 
-                            // Status-based rendering
                             const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = {
                               not_planned: { icon: '-', color: 'text-zinc-800', title: 'ไม่มีแผน' },
                               planned: { icon: '○', color: 'text-zinc-500', title: `แผน: ${planMark}` },
@@ -231,12 +406,13 @@ export default function CompanyDrilldown() {
                               cancelled: { icon: '✕', color: 'text-red-400', title: `ยกเลิก: ${actualMark}` },
                               not_applicable: { icon: '⊘', color: 'text-zinc-500', title: 'ไม่เข้าเงื่อนไข' },
                             };
-                            const cfg = statusConfig[monthStatus];
+                            const cfg = statusConfig[effectiveStatus];
 
                             return (
                               <td
                                 key={k}
-                                className={`text-center py-2.5 px-1 ${isCurrent ? 'bg-amber-900/10' : ''}`}
+                                className={`text-center py-2.5 px-1 cursor-pointer hover:bg-zinc-700/50 transition-colors ${isCurrent ? 'bg-amber-900/10' : ''} ${hasOverride ? 'ring-1 ring-amber-500/30' : ''}`}
+                                onClick={() => handleCellClick(act.no, k, act.activity)}
                               >
                                 <span className={`${cfg.color} text-sm`} title={cfg.title}>{cfg.icon}</span>
                               </td>
@@ -270,9 +446,103 @@ export default function CompanyDrilldown() {
                 <span><span className="text-red-400">✕</span> ยกเลิก</span>
                 <span><span className="text-zinc-500">⊘</span> ไม่เข้าเงื่อนไข</span>
                 <span><span className="text-zinc-800">-</span> ไม่มีแผน</span>
+                <span className="ml-4"><span className="inline-block w-3 h-3 ring-1 ring-amber-500/50 rounded-sm mr-1 align-middle"></span> แก้ไขจาก Dashboard</span>
               </div>
             </div>
           </>
+        )}
+
+        {/* Login Modal */}
+        {showLoginModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-white mb-4">🔑 เข้าสู่ระบบ</h3>
+              <p className="text-sm text-zinc-400 mb-4">กรอกรหัสผ่านของ <span className="text-white font-semibold">{companyName}</span> เพื่อแก้ไขสถานะ</p>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={e => setLoginPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                placeholder="รหัสผ่าน"
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-accent"
+                autoFocus
+              />
+              {loginError && <p className="text-red-400 text-xs mb-3">{loginError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowLoginModal(false)}
+                  className="flex-1 px-3 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm hover:bg-zinc-600"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleLogin}
+                  className="flex-1 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/80"
+                >
+                  เข้าสู่ระบบ
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status Update Modal */}
+        {showStatusModal && editingCell && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setShowStatusModal(false); setEditingCell(null); }}>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-white mb-2">เปลี่ยนสถานะ</h3>
+              <p className="text-sm text-zinc-400 mb-1">
+                กิจกรรม: <span className="text-white">{editingCell.actNo}</span>
+              </p>
+              <p className="text-sm text-zinc-400 mb-4">
+                เดือน: <span className="text-white">{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</span>
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {STATUS_OPTIONS.map(opt => {
+                  const currentStatus = getEffectiveStatus(
+                    activities.find(a => a.no === editingCell.actNo)!,
+                    editingCell.month
+                  );
+                  const isActive = currentStatus === opt.value;
+
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleSaveStatus(opt.value)}
+                      disabled={savingStatus}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                        isActive
+                          ? 'bg-accent/20 border border-accent text-white'
+                          : 'bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                      } ${savingStatus ? 'opacity-50' : ''}`}
+                    >
+                      <span className={`${opt.color} text-lg`}>{opt.icon}</span>
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Revert button - only show if there's an override */}
+              {overrides[`${editingCell.actNo}:${editingCell.month}`] && (
+                <button
+                  onClick={handleRevertStatus}
+                  disabled={savingStatus}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 text-zinc-400 rounded-lg text-xs hover:bg-zinc-700 mb-3"
+                >
+                  ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
+                </button>
+              )}
+
+              <button
+                onClick={() => { setShowStatusModal(false); setEditingCell(null); }}
+                className="w-full px-3 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm hover:bg-zinc-600"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
         )}
       </main>
     </div>

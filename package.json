@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
     "exceljs": "^4.4.0",
     "googleapis": "^171.4.0",
     "next": "^14.2.20",
