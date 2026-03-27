@@ -1,4 +1,4 @@
-import { Activity, ActivityStatus, CompanyConfig, CompanySummary, MonthlyProgress } from './types';
+import { Activity, ActivityStatus, MonthStatus, CompanyConfig, CompanySummary, MonthlyProgress } from './types';
 import ExcelJS from 'exceljs';
 
 // Month column mapping: G=ม.ค.(Jan), H=ก.พ.(Feb), ... R=ธ.ค.(Dec)
@@ -252,6 +252,58 @@ function hasPlanMark(cell: CellData | undefined): boolean {
   return false;
 }
 
+// Compute per-month status for an activity
+function computeMonthStatuses(
+  planMonths: Record<string, string>,
+  planMonthsHighlighted: Record<string, boolean>,
+  actualMonths: Record<string, string>,
+  actualRowCells: string[],
+): Record<string, MonthStatus> {
+  const currentMonth = new Date().getMonth(); // 0-indexed
+  const monthStatuses: Record<string, MonthStatus> = {};
+  const actualText = actualRowCells.join(' ').toLowerCase();
+
+  MONTH_KEYS.forEach((key, idx) => {
+    const hasPlanText = planMonths[key] !== '' && !planMonths[key]?.includes('เมื่อ');
+    const hasPlanColor = planMonthsHighlighted[key] || false;
+    const isPlanned = hasPlanText || hasPlanColor;
+    const actualVal = (actualMonths[key] || '').trim();
+    const hasActual = actualVal !== '';
+
+    if (!isPlanned) {
+      monthStatuses[key] = 'not_planned';
+    } else if (hasActual) {
+      // Check actual cell text for special statuses
+      const cellText = actualVal.toLowerCase();
+      if (cellText.includes('ยกเลิก') || cellText.includes('cancel')) {
+        monthStatuses[key] = 'cancelled';
+      } else if (cellText.includes('เลื่อน') || cellText.includes('postpone') || cellText.includes('เลือน')) {
+        monthStatuses[key] = 'postponed';
+      } else if (cellText.includes('ไม่เข้าเงื่อนไข') || cellText.includes('n/a')) {
+        monthStatuses[key] = 'not_applicable';
+      } else {
+        monthStatuses[key] = 'done';
+      }
+    } else if (idx < currentMonth) {
+      // Planned but no actual mark and month has passed
+      // Check if the whole activity was cancelled/postponed/n-a
+      if (actualText.includes('ยกเลิก') || actualText.includes('cancel')) {
+        monthStatuses[key] = 'cancelled';
+      } else if (actualText.includes('เลื่อน') || actualText.includes('postpone')) {
+        monthStatuses[key] = 'postponed';
+      } else if (actualText.includes('ไม่เข้าเงื่อนไข')) {
+        monthStatuses[key] = 'not_applicable';
+      } else {
+        monthStatuses[key] = 'overdue';
+      }
+    } else {
+      monthStatuses[key] = 'planned';
+    }
+  });
+
+  return monthStatuses;
+}
+
 // Detect status from actual row content
 function detectStatus(
   planMonths: Record<string, string>,
@@ -363,6 +415,7 @@ export async function fetchActivities(
       let actualMonths: Record<string, string> = {};
       let actualResponsible = responsible;
       let status: ActivityStatus = 'not_started';
+      let actualRowCells: string[] = [];
 
       if (i + 1 < rows.length) {
         const nextRow = rows[i + 1];
@@ -376,7 +429,7 @@ export async function fetchActivities(
           actualResponsible = (nextRow[3]?.value || '').trim() || responsible;
 
           // Detect status from actual row content
-          const actualRowCells = nextRow.map(c => (c?.value || '').trim());
+          actualRowCells = nextRow.map(c => (c?.value || '').trim());
           status = detectStatus(planMonths, planMonthsHighlighted, actualMonths, actualRowCells);
 
           i += 2; // Skip both Plan and Actual rows
@@ -387,6 +440,17 @@ export async function fetchActivities(
       } else {
         i++;
       }
+
+      // Compute per-month statuses
+      const monthStatuses = computeMonthStatuses(planMonths, planMonthsHighlighted, actualMonths, actualRowCells);
+
+      // Determine if recurring (planned for 3+ months)
+      const plannedMonthCount = MONTH_KEYS.filter(k => {
+        const hasText = planMonths[k] !== '' && !planMonths[k]?.includes('เมื่อ');
+        const hasColor = planMonthsHighlighted[k] || false;
+        return hasText || hasColor;
+      }).length;
+      const isRecurring = plannedMonthCount >= 3;
 
       // For planMonths display: if cell had background color but no text, mark it with a plan indicator
       MONTH_KEYS.forEach(key => {
@@ -405,6 +469,8 @@ export async function fetchActivities(
         actualMonths,
         target,
         status,
+        monthStatuses,
+        isRecurring,
         follower,
       });
     } else {

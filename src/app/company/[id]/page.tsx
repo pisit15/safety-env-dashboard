@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import StatusBadge from '@/components/StatusBadge';
 import { MonthlyProgressChart } from '@/components/Charts';
-import { Activity, CompanySummary } from '@/lib/types';
+import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -216,24 +216,29 @@ export default function CompanyDrilldown() {
                           <td className="py-2.5 px-2 text-white text-xs">{act.activity}</td>
                           <td className="py-2.5 px-2 text-zinc-400 text-xs">{act.responsible}</td>
                           {MONTH_KEYS.map((k, idx) => {
+                            const monthStatus: MonthStatus = act.monthStatuses?.[k] || 'not_planned';
                             const planMark = act.planMonths?.[k] || '';
                             const actualMark = act.actualMonths?.[k] || '';
-                            const hasplan = planMark !== '' && !planMark.includes('เมื่อ');
-                            const hasActual = actualMark !== '';
                             const isCurrent = idx === currentMonthIdx;
+
+                            // Status-based rendering
+                            const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = {
+                              not_planned: { icon: '-', color: 'text-zinc-800', title: 'ไม่มีแผน' },
+                              planned: { icon: '○', color: 'text-zinc-500', title: `แผน: ${planMark}` },
+                              done: { icon: '●', color: 'text-green-400', title: `เสร็จ: ${actualMark}` },
+                              overdue: { icon: '○', color: 'text-red-400', title: `เกินกำหนด (แผน: ${planMark})` },
+                              postponed: { icon: '◐', color: 'text-blue-400', title: `เลื่อน: ${actualMark}` },
+                              cancelled: { icon: '✕', color: 'text-red-400', title: `ยกเลิก: ${actualMark}` },
+                              not_applicable: { icon: '⊘', color: 'text-zinc-500', title: 'ไม่เข้าเงื่อนไข' },
+                            };
+                            const cfg = statusConfig[monthStatus];
 
                             return (
                               <td
                                 key={k}
                                 className={`text-center py-2.5 px-1 ${isCurrent ? 'bg-amber-900/10' : ''}`}
                               >
-                                {hasActual ? (
-                                  <span className="text-green-400 text-sm" title={`Plan: ${planMark} | Actual: ${actualMark}`}>●</span>
-                                ) : hasplan ? (
-                                  <span className={`text-sm ${idx <= currentMonthIdx ? 'text-red-400' : 'text-zinc-500'}`} title={`Plan: ${planMark}`}>○</span>
-                                ) : (
-                                  <span className="text-zinc-800 text-sm">-</span>
-                                )}
+                                <span className={`${cfg.color} text-sm`} title={cfg.title}>{cfg.icon}</span>
                               </td>
                             );
                           })}
@@ -258,10 +263,13 @@ export default function CompanyDrilldown() {
             {/* Legend */}
             <div className="mt-4 p-3 bg-card border border-border rounded-lg">
               <div className="flex flex-wrap gap-4 text-xs text-muted">
-                <span><span className="text-green-400">●</span> ดำเนินการแล้ว (Actual)</span>
-                <span><span className="text-red-400">○</span> มีแผนแต่ยังไม่ดำเนินการ (เกินกำหนด)</span>
+                <span><span className="text-green-400">●</span> เสร็จแล้ว</span>
+                <span><span className="text-red-400">○</span> เกินกำหนด</span>
                 <span><span className="text-zinc-500">○</span> มีแผน (ยังไม่ถึงกำหนด)</span>
-                <span><span className="text-zinc-800">-</span> ไม่มีแผนในเดือนนี้</span>
+                <span><span className="text-blue-400">◐</span> เลื่อน</span>
+                <span><span className="text-red-400">✕</span> ยกเลิก</span>
+                <span><span className="text-zinc-500">⊘</span> ไม่เข้าเงื่อนไข</span>
+                <span><span className="text-zinc-800">-</span> ไม่มีแผน</span>
               </div>
             </div>
           </>

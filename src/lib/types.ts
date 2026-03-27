@@ -11,6 +11,8 @@ export interface CompanyConfig {
 
 export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled' | 'not_applicable';
 
+export type MonthStatus = 'not_planned' | 'planned' | 'done' | 'overdue' | 'postponed' | 'cancelled' | 'not_applicable';
+
 export interface Activity {
   no: string;
   activity: string;
@@ -21,6 +23,8 @@ export interface Activity {
   actualMonths: Record<string, string>; // Actual row marks per month
   target: string;
   status: ActivityStatus;
+  monthStatuses: Record<string, MonthStatus>; // Per-month status tracking
+  isRecurring: boolean; // true if activity is planned for 3+ months
   follower: string;
 }
 
