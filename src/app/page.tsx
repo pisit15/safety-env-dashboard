@@ -1,15 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart } from '@/components/Charts';
-import { getDemoDashboard } from '@/lib/demo-data';
+import { DashboardData } from '@/lib/types';
 import Link from 'next/link';
 
 export default function HQOverview() {
   const [planType, setPlanType] = useState<'environment' | 'safety'>('environment');
-  const data = getDemoDashboard();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/dashboard?plan=${planType}`)
+      .then(res => res.json())
+      .then((d: DashboardData) => {
+        setData(d);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [planType]);
+
+  if (!data) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 p-6 lg:p-8 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
+            <p className="text-muted">กำลังโหลดข้อมูล...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const currentMonth = monthNames[new Date().getMonth()];
 
   return (
     <div className="flex min-h-screen">
@@ -29,11 +58,11 @@ export default function HQOverview() {
               📊 HQ Overview — แผนงาน{planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'} 2026
             </h1>
             <p className="text-sm text-muted mt-1">
-              ภาพรวมกลุ่ม — 13 บริษัท | ข้อมูล ณ มีนาคม 2026
+              ภาพรวมกลุ่ม — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} 2026
+              {loading && <span className="ml-2 text-accent animate-pulse">กำลังอัปเดต...</span>}
             </p>
           </div>
           <div className="flex gap-2">
-            {/* Tab switcher */}
             <button
               onClick={() => setPlanType('safety')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -83,7 +112,7 @@ export default function HQOverview() {
           />
           <KPICard
             label="งบประมาณรวม"
-            value={`${(data.totalBudget / 1000000).toFixed(2)}M`}
+            value={data.totalBudget > 0 ? `${(data.totalBudget / 1000000).toFixed(2)}M` : '-'}
             color="#00d4ff"
             subtext="บาท"
           />
@@ -159,15 +188,19 @@ export default function HQOverview() {
                         </div>
                       </td>
                       <td className="text-right py-3 px-3 text-zinc-300">
-                        {c.budget.toLocaleString()}
+                        {c.budget > 0 ? c.budget.toLocaleString() : '-'}
                       </td>
                       <td className="py-3 px-3">
-                        <Link
-                          href={`/company/${c.companyId}`}
-                          className="text-xs text-accent hover:underline"
-                        >
-                          ดูรายละเอียด →
-                        </Link>
+                        {c.total > 0 ? (
+                          <Link
+                            href={`/company/${c.companyId}`}
+                            className="text-xs text-accent hover:underline"
+                          >
+                            ดูรายละเอียด →
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-zinc-600">ยังไม่เชื่อม</span>
+                        )}
                       </td>
                     </tr>
                   ))}
