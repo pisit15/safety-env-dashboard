@@ -24,12 +24,18 @@ export async function GET(request: Request) {
       getCompanySummary(company, planType),
     ]);
 
-    return NextResponse.json({ activities, summary });
+    return NextResponse.json({ activities, summary }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'CDN-Cache-Control': 'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
+      },
+    });
   } catch (error) {
     console.error(`Company API error for ${companyId}:`, error);
     return NextResponse.json(
       { activities: [], summary: null, error: 'Failed to fetch data' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }
