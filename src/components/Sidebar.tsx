@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation';
 
 const PROJECTS = [
   { id: 'action-plan', label: 'แผนงานประจำปี', icon: '📋', href: '/' },
-  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: '🚨', href: '/incidents' },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: '🎓', href: '/training' },
+  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: '🚨', href: '/incidents' },
+  { id: 'safety-patrol', label: 'Safety Patrol', icon: '🔍', href: '/safety-patrol' },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: '⚠️', href: '/risk' },
   { id: 'nearmiss', label: 'Near Miss Report', icon: '📝', href: '/nearmiss' },
-  { id: 'fire-ext', label: 'ตรวจถังดับเพลิง', icon: '🧯', href: '/fire-ext' },
 ];
 
 export default function Sidebar() {
