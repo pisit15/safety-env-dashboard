@@ -14,7 +14,7 @@ export default function KPICard({ label, value, color, delta, deltaColor, subtex
   const valueColor = color || 'var(--text-primary)';
   
   return (
-    <div className="glass-card p-5 flex flex-col relative overflow-hidden group">
+    <div className="glass-card p-5 flex flex-col relative overflow-hidden group flex-1 w-full">
       {/* Subtle accent glow */}
       {color && (
         <div

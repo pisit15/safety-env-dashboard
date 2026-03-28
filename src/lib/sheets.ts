@@ -567,16 +567,29 @@ export async function fetchActivities(
 // Calculate monthly progress from activities
 function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
   return MONTH_KEYS.map((key, idx) => {
-    const planned = activities.filter(a => {
-      const planVal = a.planMonths[key] || '';
-      // Count as planned if has text (not "เมื่อ") — the '▪' marker from color is included
-      return planVal !== '' && !planVal.includes('เมื่อ');
-    }).length;
+    let planned = 0;
+    let doneCount = 0;
+    let notApplicableCount = 0;
 
-    const completed = activities.filter(a => {
-      const actualVal = a.actualMonths[key] || '';
-      return actualVal !== '' && a.status !== 'cancelled' && a.status !== 'not_applicable';
-    }).length;
+    activities.forEach(a => {
+      const planVal = a.planMonths[key] || '';
+      const hasPlan = planVal !== '' && !planVal.includes('เมื่อ');
+      const monthStatus = a.monthStatuses?.[key];
+
+      if (monthStatus === 'not_applicable') {
+        // ยกประโยชน์ให้ — count as planned + completed
+        notApplicableCount++;
+        planned++;
+      } else if (hasPlan) {
+        planned++;
+        const actualVal = a.actualMonths[key] || '';
+        if (actualVal !== '' && a.status !== 'cancelled') {
+          doneCount++;
+        }
+      }
+    });
+
+    const completed = doneCount + notApplicableCount;
 
     return {
       month: key,
@@ -584,6 +597,8 @@ function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
       planned,
       completed,
       pctComplete: planned > 0 ? Math.round((completed / planned) * 1000) / 10 : 0,
+      doneCount,
+      notApplicableCount,
     };
   });
 }
@@ -604,11 +619,17 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
   try {
     const activities = await fetchActivities(company, sheetName);
     const total = activities.length || 0;
-    const done = activities.filter(a => a.status === 'done').length;
+    const baseDone = activities.filter(a => a.status === 'done').length;
     const notStarted = activities.filter(a => a.status === 'not_started').length;
     const postponed = activities.filter(a => a.status === 'postponed').length;
     const cancelled = activities.filter(a => a.status === 'cancelled').length;
-    const notApplicable = activities.filter(a => a.status === 'not_applicable').length;
+    // Count activities with any month-level not_applicable OR activity-level not_applicable
+    const notApplicable = activities.filter(a => {
+      if (a.status === 'not_applicable') return true;
+      return MONTH_KEYS.some(k => a.monthStatuses?.[k] === 'not_applicable');
+    }).length;
+    // ยกประโยชน์ให้ — include not_applicable in done
+    const done = baseDone + activities.filter(a => a.status === 'not_applicable').length;
     const budget = activities.reduce((sum, a) => sum + a.budget, 0);
     const monthlyProgress = calculateMonthlyProgress(activities);
 

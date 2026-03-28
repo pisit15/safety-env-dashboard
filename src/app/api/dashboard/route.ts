@@ -48,11 +48,15 @@ export async function GET(request: Request) {
     const monthlyProgress: MonthlyProgress[] = MONTH_KEYS.map((key, idx) => {
       let totalPlanned = 0;
       let totalCompleted = 0;
+      let totalDoneCount = 0;
+      let totalNACount = 0;
       summaries.forEach(s => {
         const mp = s.monthlyProgress?.find(m => m.month === key);
         if (mp) {
           totalPlanned += mp.planned;
           totalCompleted += mp.completed;
+          totalDoneCount += mp.doneCount ?? mp.completed;
+          totalNACount += mp.notApplicableCount ?? 0;
         }
       });
       return {
@@ -61,6 +65,8 @@ export async function GET(request: Request) {
         planned: totalPlanned,
         completed: totalCompleted,
         pctComplete: totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 1000) / 10 : 0,
+        doneCount: totalDoneCount,
+        notApplicableCount: totalNACount,
       };
     });
 
