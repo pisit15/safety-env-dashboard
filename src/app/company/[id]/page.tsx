@@ -144,8 +144,10 @@ export default function CompanyDrilldown() {
         } else {
           setSummary(s1 || s2 || null);
         }
-        // Merge activities from both
-        const allActs = [...(safetyData.activities || []), ...(enviData.activities || [])];
+        // Merge activities from both — add _planTag to prevent override key collisions
+        const safetyActs = (safetyData.activities || []).map((a: Activity) => ({ ...a, _planTag: 'S' }));
+        const enviActs = (enviData.activities || []).map((a: Activity) => ({ ...a, _planTag: 'E' }));
+        const allActs = [...safetyActs, ...enviActs];
         setActivities(allActs);
         setLoading(false);
       }).catch(() => {
@@ -178,8 +180,12 @@ export default function CompanyDrilldown() {
         fetch(`/api/status?companyId=${companyId}&planType=environment`).then(r => r.json()),
       ]).then(([s, e]) => {
         const map: Record<string, string> = {};
-        [...(s.overrides || []), ...(e.overrides || [])].forEach((o: StatusOverride) => {
-          map[`${o.activity_no}:${o.month}`] = o.status;
+        // Prefix with S:/E: to match _planTag in Total mode
+        (s.overrides || []).forEach((o: StatusOverride) => {
+          map[`S:${o.activity_no}:${o.month}`] = o.status;
+        });
+        (e.overrides || []).forEach((o: StatusOverride) => {
+          map[`E:${o.activity_no}:${o.month}`] = o.status;
         });
         setOverrides(map);
       }).catch(() => {});
@@ -209,8 +215,12 @@ export default function CompanyDrilldown() {
         fetch(`/api/responsible?companyId=${companyId}&planType=environment`).then(r => r.json()),
       ]).then(([s, e]) => {
         const map: Record<string, string> = {};
-        [...(s.overrides || []), ...(e.overrides || [])].forEach((o: ResponsibleOverride) => {
-          map[o.activity_no] = o.responsible;
+        // Prefix with S:/E: to match _planTag in Total mode
+        (s.overrides || []).forEach((o: ResponsibleOverride) => {
+          map[`S:${o.activity_no}`] = o.responsible;
+        });
+        (e.overrides || []).forEach((o: ResponsibleOverride) => {
+          map[`E:${o.activity_no}`] = o.responsible;
         });
         setResponsibleOverrides(map);
       }).catch(() => {});
@@ -236,8 +246,10 @@ export default function CompanyDrilldown() {
   const currentMonthIdx = new Date().getMonth();
 
   // Get effective month status (override > auto)
-  const getEffectiveStatus = (act: Activity, monthKey: string): MonthStatus => {
-    const overrideKey = `${act.no}:${monthKey}`;
+  // In Total mode, activities have _planTag ('S' or 'E') and overrides use 'S:no:month' / 'E:no:month'
+  const getEffectiveStatus = (act: Activity & { _planTag?: string }, monthKey: string): MonthStatus => {
+    const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+    const overrideKey = `${prefix}${act.no}:${monthKey}`;
     const override = overrides[overrideKey];
     if (override) return override as MonthStatus;
     return act.monthStatuses?.[monthKey] || 'not_planned';
@@ -470,8 +482,14 @@ export default function CompanyDrilldown() {
   };
 
   // Get effective responsible (override > sheet)
-  const getEffectiveResponsible = (act: Activity): string => {
-    return responsibleOverrides[act.no] || act.responsible;
+  const getEffectiveResponsible = (act: Activity & { _planTag?: string }): string => {
+    const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+    return responsibleOverrides[`${prefix}${act.no}`] || act.responsible;
+  };
+
+  // Get override key prefix for an activity (handles Total mode S:/E: prefixes)
+  const getOverridePrefix = (act: Activity & { _planTag?: string }): string => {
+    return (act as any)._planTag ? `${(act as any)._planTag}:` : '';
   };
 
   // Responsible click handler
@@ -863,10 +881,10 @@ export default function CompanyDrilldown() {
                           <td
                             className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
                             style={{
-                              color: responsibleOverrides[act.no] ? 'var(--warning)' : 'var(--text-secondary)',
-                              border: responsibleOverrides[act.no] ? '1px solid rgba(255,159,10,0.3)' : 'none',
-                              borderRadius: responsibleOverrides[act.no] ? '4px' : '0px',
-                              padding: responsibleOverrides[act.no] ? '2px 5px' : '10px 8px'
+                              color: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? 'var(--warning)' : 'var(--text-secondary)',
+                              border: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '1px solid rgba(255,159,10,0.3)' : 'none',
+                              borderRadius: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '4px' : '0px',
+                              padding: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '2px 5px' : '10px 8px'
                             }}
                             onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}
                             title="คลิกเพื่อเปลี่ยนผู้รับผิดชอบ"
@@ -875,7 +893,7 @@ export default function CompanyDrilldown() {
                           </td>
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
-                            const hasOverride = overrides[`${act.no}:${k}`] !== undefined;
+                            const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
                             const planMark = act.planMonths?.[k] || '';
                             const actualMark = act.actualMonths?.[k] || '';
                             const isCurrent = idx === currentMonthIdx;
