@@ -48,6 +48,9 @@ export default function CompanyDrilldown() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [editingCell, setEditingCell] = useState<{ actNo: string; month: string; actName: string } | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+
+  // Sort state
+  const [sortMonth, setSortMonth] = useState<string>('none');
   const [savingStatus, setSavingStatus] = useState(false);
 
   // Check if already logged in from sessionStorage
@@ -142,10 +145,34 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, summary?.monthlyProgress]);
 
+  // Status sort priority (lower = higher priority when sorting)
+  const STATUS_SORT_ORDER: Record<string, number> = {
+    done: 1,
+    overdue: 2,
+    planned: 3,
+    postponed: 4,
+    cancelled: 5,
+    not_applicable: 6,
+    not_planned: 7,
+  };
+
   // Filter activities by status
-  const filteredActivities = statusFilter === 'all'
-    ? activities
-    : activities.filter(a => a.status === statusFilter);
+  const filteredActivities = useMemo(() => {
+    let list = statusFilter === 'all'
+      ? [...activities]
+      : activities.filter(a => a.status === statusFilter);
+
+    if (sortMonth !== 'none') {
+      list = [...list].sort((a, b) => {
+        const statusA = getEffectiveStatus(a, sortMonth);
+        const statusB = getEffectiveStatus(b, sortMonth);
+        return (STATUS_SORT_ORDER[statusA] || 99) - (STATUS_SORT_ORDER[statusB] || 99);
+      });
+    }
+
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, statusFilter, sortMonth, overrides]);
 
   // Count statuses
   const statusCounts = {
@@ -396,9 +423,25 @@ export default function CompanyDrilldown() {
             {/* Activity Table */}
             <div className="bg-card border border-border rounded-xl p-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <h3 className="text-sm text-muted border-l-2 border-accent pl-3">
-                  รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
-                </h3>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm text-muted border-l-2 border-accent pl-3">
+                    รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
+                  </h3>
+                  {/* Sort by month */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-zinc-500">เรียงตามเดือน:</span>
+                    <select
+                      value={sortMonth}
+                      onChange={e => setSortMonth(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 rounded px-2 py-1 focus:outline-none focus:border-accent"
+                    >
+                      <option value="none">ไม่เรียง</option>
+                      {MONTH_KEYS.map((k, idx) => (
+                        <option key={k} value={k}>{MONTH_LABELS[idx]}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 {/* Legend in header */}
                 <div className="flex flex-wrap gap-3 text-[10px] text-muted">
                   <span><span className="text-green-400">●</span> เสร็จแล้ว</span>
