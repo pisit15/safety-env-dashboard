@@ -16,6 +16,7 @@ interface CellData {
   value: string;
   hasBackground: boolean; // true if cell has non-white/non-default background color
   bgColor: string; // extracted ARGB hex e.g. 'FF00B050' or '' if none
+  isMergeSlave: boolean; // true if this cell is part of a merged range but NOT the master cell
 }
 
 // ── Get Google Auth token from Service Account ──
@@ -170,6 +171,31 @@ async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData
 
   console.log(`[sheets] Parsing sheet "${worksheet.name}" with ${worksheet.rowCount} rows`);
 
+  // Build a set of merge-slave cells (cells that are part of a merged range but not the top-left master)
+  const mergeSlaveCells = new Set<string>();
+  if ((worksheet as any).model?.merges) {
+    for (const mergeRange of (worksheet as any).model.merges) {
+      // mergeRange is like "E10:E13"
+      const range = worksheet.getCell(mergeRange.split(':')[0]);
+      const masterRow = range.row;
+      const masterCol = range.col;
+      // Parse the range to find all cells
+      try {
+        const [startRef, endRef] = mergeRange.split(':');
+        const startCell = worksheet.getCell(startRef);
+        const endCell = worksheet.getCell(endRef);
+        for (let r = startCell.row; r <= endCell.row; r++) {
+          for (let c = startCell.col; c <= endCell.col; c++) {
+            if (r !== masterRow || c !== masterCol) {
+              mergeSlaveCells.add(`${r}:${c}`);
+            }
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
+  console.log(`[sheets] Found ${mergeSlaveCells.size} merge-slave cells`);
+
   const rows: CellData[][] = [];
   worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
     if (rowNumber > 500) return; // safety limit
@@ -193,11 +219,13 @@ async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData
         }
       }
 
+      const isMergeSlave = mergeSlaveCells.has(`${rowNumber}:${col}`);
       const fillInfo = extractFillInfo(cell);
       cells.push({
         value: value.trim(),
         hasBackground: fillInfo.hasBackground,
         bgColor: fillInfo.bgColor,
+        isMergeSlave,
       });
     }
     rows.push(cells);
@@ -261,8 +289,8 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<Ce
   }
 
   const rows = parseCSV(csv);
-  // CSV has no formatting data — hasBackground is always false
-  return rows.map(row => row.map(cell => ({ value: cell.trim(), hasBackground: false, bgColor: '' })));
+  // CSV has no formatting data — hasBackground is always false, no merge info
+  return rows.map(row => row.map(cell => ({ value: cell.trim(), hasBackground: false, bgColor: '', isMergeSlave: false })));
 }
 
 // ── Unified fetch: try xlsx download (Drive API) → CSV export ──
@@ -449,7 +477,9 @@ export async function fetchActivities(
     const activityC = (row[2]?.value || '').trim();
     const activity = activityB || activityC;
     const responsible = (row[3]?.value || '').trim();
-    const budgetStr = (row[4]?.value || '0').replace(/,/g, '').replace(/[^\d.]/g, '');
+    // Skip budget if this cell is a merge-slave (value inherited from merged master cell)
+    const budgetIsMergeSlave = row[4]?.isMergeSlave || false;
+    const budgetStr = budgetIsMergeSlave ? '0' : (row[4]?.value || '0').replace(/,/g, '').replace(/[^\d.]/g, '');
     const budget = parseFloat(budgetStr) || 0;
     const planActual = (row[5]?.value || '').trim().toLowerCase();
 
