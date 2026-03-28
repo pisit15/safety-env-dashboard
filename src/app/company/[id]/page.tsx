@@ -28,10 +28,15 @@ interface StatusOverride {
   status: string;
 }
 
+interface ResponsibleOverride {
+  activity_no: string;
+  responsible: string;
+}
+
 export default function CompanyDrilldown() {
   const params = useParams();
   const companyId = params.id as string;
-  const [planType, setPlanType] = useState<'safety' | 'environment'>('environment');
+  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>('environment');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +58,12 @@ export default function CompanyDrilldown() {
   const [sortMonth, setSortMonth] = useState<string>('none');
   const [savingStatus, setSavingStatus] = useState(false);
 
+  // Responsible override state
+  const [responsibleOverrides, setResponsibleOverrides] = useState<Record<string, string>>({});
+  const [showResponsibleModal, setShowResponsibleModal] = useState(false);
+  const [editingResponsible, setEditingResponsible] = useState<{ actNo: string; actName: string; current: string } | null>(null);
+  const [newResponsible, setNewResponsible] = useState('');
+
   // Check if already logged in from sessionStorage
   useEffect(() => {
     const saved = sessionStorage.getItem(`auth_${companyId}`);
@@ -66,37 +77,131 @@ export default function CompanyDrilldown() {
   // Fetch activities
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/company?id=${companyId}&plan=${planType}`)
-      .then(res => res.json())
-      .then(data => {
-        setActivities(data.activities || []);
-        setSummary(data.summary || null);
+    if (planType === 'total') {
+      // Fetch both safety and environment, merge summaries
+      Promise.all([
+        fetch(`/api/company?id=${companyId}&plan=safety`).then(r => r.json()),
+        fetch(`/api/company?id=${companyId}&plan=environment`).then(r => r.json()),
+      ]).then(([safetyData, enviData]) => {
+        const s1 = safetyData.summary;
+        const s2 = enviData.summary;
+        if (s1 && s2) {
+          const merged: CompanySummary = {
+            companyId: s1.companyId,
+            companyName: s1.companyName,
+            shortName: s1.shortName,
+            total: (s1.total || 0) + (s2.total || 0),
+            done: (s1.done || 0) + (s2.done || 0),
+            notStarted: (s1.notStarted || 0) + (s2.notStarted || 0),
+            postponed: (s1.postponed || 0) + (s2.postponed || 0),
+            cancelled: (s1.cancelled || 0) + (s2.cancelled || 0),
+            notApplicable: (s1.notApplicable || 0) + (s2.notApplicable || 0),
+            budget: (s1.budget || 0) + (s2.budget || 0),
+            pctDone: 0,
+            monthlyProgress: s1.monthlyProgress?.map((m: any, i: number) => {
+              const m2 = s2.monthlyProgress?.[i] || { planned: 0, completed: 0 };
+              const planned = (m.planned || 0) + (m2.planned || 0);
+              const completed = (m.completed || 0) + (m2.completed || 0);
+              return {
+                ...m,
+                planned,
+                completed,
+                pctComplete: planned > 0 ? Math.round((completed / planned) * 100) : 0,
+              };
+            }),
+          };
+          merged.pctDone = merged.total > 0 ? Math.round((merged.done / merged.total) * 100) : 0;
+          setSummary(merged);
+        } else {
+          setSummary(s1 || s2 || null);
+        }
+        // Merge activities from both
+        const allActs = [...(safetyData.activities || []), ...(enviData.activities || [])];
+        setActivities(allActs);
         setLoading(false);
-      })
-      .catch(() => {
+      }).catch(() => {
         setActivities([]);
         setSummary(null);
         setLoading(false);
       });
+    } else {
+      fetch(`/api/company?id=${companyId}&plan=${planType}`)
+        .then(res => res.json())
+        .then(data => {
+          setActivities(data.activities || []);
+          setSummary(data.summary || null);
+          setLoading(false);
+        })
+        .catch(() => {
+          setActivities([]);
+          setSummary(null);
+          setLoading(false);
+        });
+    }
   }, [companyId, planType]);
 
   // Fetch status overrides from Supabase
   const fetchOverrides = useCallback(() => {
-    fetch(`/api/status?companyId=${companyId}&planType=${planType}`)
-      .then(res => res.json())
-      .then(data => {
+    if (planType === 'total') {
+      // Fetch both safety and environment overrides
+      Promise.all([
+        fetch(`/api/status?companyId=${companyId}&planType=safety`).then(r => r.json()),
+        fetch(`/api/status?companyId=${companyId}&planType=environment`).then(r => r.json()),
+      ]).then(([s, e]) => {
         const map: Record<string, string> = {};
-        (data.overrides || []).forEach((o: StatusOverride) => {
+        [...(s.overrides || []), ...(e.overrides || [])].forEach((o: StatusOverride) => {
           map[`${o.activity_no}:${o.month}`] = o.status;
         });
         setOverrides(map);
-      })
-      .catch(() => {});
+      }).catch(() => {});
+    } else {
+      fetch(`/api/status?companyId=${companyId}&planType=${planType}`)
+        .then(res => res.json())
+        .then(data => {
+          const map: Record<string, string> = {};
+          (data.overrides || []).forEach((o: StatusOverride) => {
+            map[`${o.activity_no}:${o.month}`] = o.status;
+          });
+          setOverrides(map);
+        })
+        .catch(() => {});
+    }
   }, [companyId, planType]);
 
   useEffect(() => {
     fetchOverrides();
   }, [fetchOverrides]);
+
+  // Fetch responsible overrides from Supabase
+  const fetchResponsibleOverrides = useCallback(() => {
+    if (planType === 'total') {
+      Promise.all([
+        fetch(`/api/responsible?companyId=${companyId}&planType=safety`).then(r => r.json()),
+        fetch(`/api/responsible?companyId=${companyId}&planType=environment`).then(r => r.json()),
+      ]).then(([s, e]) => {
+        const map: Record<string, string> = {};
+        [...(s.overrides || []), ...(e.overrides || [])].forEach((o: ResponsibleOverride) => {
+          map[o.activity_no] = o.responsible;
+        });
+        setResponsibleOverrides(map);
+      }).catch(() => {});
+    } else {
+      fetch(`/api/responsible?companyId=${companyId}&planType=${planType}`)
+        .then(res => res.json())
+        .then(data => {
+          const map: Record<string, string> = {};
+          (data.overrides || []).forEach((o: ResponsibleOverride) => {
+            map[o.activity_no] = o.responsible;
+          });
+          setResponsibleOverrides(map);
+        })
+        .catch(() => {});
+    }
+  }, [companyId, planType]);
+
+  useEffect(() => {
+    fetchResponsibleOverrides();
+  }, [fetchResponsibleOverrides]);
 
   const companyName = summary?.companyName || companyId.toUpperCase();
   const currentMonthIdx = new Date().getMonth();
@@ -257,6 +362,71 @@ export default function CompanyDrilldown() {
     setShowStatusModal(true);
   };
 
+  // Get effective responsible (override > sheet)
+  const getEffectiveResponsible = (act: Activity): string => {
+    return responsibleOverrides[act.no] || act.responsible;
+  };
+
+  // Responsible click handler
+  const handleResponsibleClick = (actNo: string, actName: string, current: string) => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+    setEditingResponsible({ actNo, actName, current });
+    setNewResponsible(current);
+    setShowResponsibleModal(true);
+  };
+
+  // Save responsible override
+  const handleSaveResponsible = async () => {
+    if (!editingResponsible || !newResponsible.trim()) return;
+    setSavingStatus(true);
+    try {
+      await fetch('/api/responsible', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType,
+          activityNo: editingResponsible.actNo,
+          responsible: newResponsible.trim(),
+          updatedBy: loginCompanyName,
+        }),
+      });
+      setResponsibleOverrides(prev => ({
+        ...prev,
+        [editingResponsible.actNo]: newResponsible.trim(),
+      }));
+      setShowResponsibleModal(false);
+      setEditingResponsible(null);
+    } catch {
+      alert('บันทึกไม่สำเร็จ');
+    }
+    setSavingStatus(false);
+  };
+
+  // Revert responsible to sheet value
+  const handleRevertResponsible = async () => {
+    if (!editingResponsible) return;
+    setSavingStatus(true);
+    try {
+      await fetch(`/api/responsible?companyId=${companyId}&planType=${planType}&activityNo=${editingResponsible.actNo}`, {
+        method: 'DELETE',
+      });
+      setResponsibleOverrides(prev => {
+        const copy = { ...prev };
+        delete copy[editingResponsible.actNo];
+        return copy;
+      });
+      setShowResponsibleModal(false);
+      setEditingResponsible(null);
+    } catch {
+      alert('ลบไม่สำเร็จ');
+    }
+    setSavingStatus(false);
+  };
+
   // Export handler
   const handleExport = () => {
     window.open(`/api/export?companyId=${companyId}&planType=${planType}`, '_blank');
@@ -278,7 +448,7 @@ export default function CompanyDrilldown() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-2xl font-bold text-white">
-            🔍 {companyName} — แผนงาน{planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'} 2026
+            🔍 {companyName} — {planType === 'total' ? 'ภาพรวมแผนงาน' : `แผนงาน${planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'}`} 2026
           </h1>
           <div className="flex gap-2 items-center">
             {/* Auth indicator */}
@@ -300,6 +470,14 @@ export default function CompanyDrilldown() {
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-700 text-white hover:bg-emerald-600 transition-colors"
             >
               📥 Export .xlsx
+            </button>
+            <button
+              onClick={() => setPlanType('total')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                planType === 'total' ? 'bg-accent text-white' : 'bg-card border border-border text-muted hover:text-white'
+              }`}
+            >
+              📊 Total
             </button>
             <button
               onClick={() => setPlanType('safety')}
@@ -379,8 +557,8 @@ export default function CompanyDrilldown() {
               </div>
             )}
 
-            {/* Status Filter Tabs */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            {/* Status Filter Tabs — hide in Total mode */}
+            {planType !== 'total' && <div className="flex flex-wrap gap-2 mb-4">
               {[
                 { key: 'all', label: 'ทั้งหมด', color: 'text-white' },
                 { key: 'done', label: '✅ เสร็จแล้ว', color: 'text-green-400' },
@@ -406,8 +584,10 @@ export default function CompanyDrilldown() {
                   </span>
                 </button>
               ))}
-            </div>
+            </div>}
 
+            {/* Activity Table — hide in Total mode */}
+            {planType !== 'total' && <>
             {/* Activity Table */}
             <div className="bg-card border border-border rounded-xl p-5">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
@@ -466,7 +646,15 @@ export default function CompanyDrilldown() {
                         <tr key={i} className="border-b border-zinc-800 hover:bg-zinc-800/40 transition-colors">
                           <td className="py-2.5 px-2 text-muted text-xs">{act.no}</td>
                           <td className="py-2.5 px-2 text-white text-xs">{act.activity}</td>
-                          <td className="py-2.5 px-2 text-zinc-400 text-xs">{act.responsible}</td>
+                          <td
+                            className={`py-2.5 px-2 text-xs cursor-pointer hover:bg-zinc-700/50 transition-colors ${
+                              responsibleOverrides[act.no] ? 'text-amber-300 ring-1 ring-amber-500/30' : 'text-zinc-400'
+                            }`}
+                            onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}
+                            title="คลิกเพื่อเปลี่ยนผู้รับผิดชอบ"
+                          >
+                            {getEffectiveResponsible(act)}
+                          </td>
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
                             const hasOverride = overrides[`${act.no}:${k}`] !== undefined;
@@ -508,6 +696,7 @@ export default function CompanyDrilldown() {
                 </div>
               )}
             </div>
+            </>}
           </>
         )}
 
@@ -600,6 +789,52 @@ export default function CompanyDrilldown() {
               >
                 ปิด
               </button>
+            </div>
+          </div>
+        )}
+        {/* Responsible Edit Modal */}
+        {showResponsibleModal && editingResponsible && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setShowResponsibleModal(false); setEditingResponsible(null); }}>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-white mb-2">เปลี่ยนผู้รับผิดชอบ</h3>
+              <p className="text-sm text-zinc-400 mb-4">
+                กิจกรรม: <span className="text-white">{editingResponsible.actNo}</span>
+              </p>
+              <input
+                type="text"
+                value={newResponsible}
+                onChange={e => setNewResponsible(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveResponsible()}
+                placeholder="ชื่อผู้รับผิดชอบ"
+                className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-accent"
+                autoFocus
+              />
+
+              {responsibleOverrides[editingResponsible.actNo] && (
+                <button
+                  onClick={handleRevertResponsible}
+                  disabled={savingStatus}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 text-zinc-400 rounded-lg text-xs hover:bg-zinc-700 mb-3"
+                >
+                  ↩ กลับไปใช้ค่าจาก Sheet ({activities.find(a => a.no === editingResponsible.actNo)?.responsible})
+                </button>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowResponsibleModal(false); setEditingResponsible(null); }}
+                  className="flex-1 px-3 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm hover:bg-zinc-600"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleSaveResponsible}
+                  disabled={savingStatus || !newResponsible.trim()}
+                  className="flex-1 px-3 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/80 disabled:opacity-50"
+                >
+                  บันทึก
+                </button>
+              </div>
             </div>
           </div>
         )}
