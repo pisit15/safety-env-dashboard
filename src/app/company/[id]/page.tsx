@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
+import { Search, Key, Download, BarChart3, Shield, Leaf } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 
@@ -13,13 +14,13 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
 const STATUS_OPTIONS: { value: MonthStatus; label: string; icon: string; color: string }[] = [
-  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: '#30d158' },
-  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: '#ff453a' },
-  { value: 'planned', label: 'มีแผน', icon: '○', color: 'rgba(255,255,255,0.3)' },
-  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: '#5ac8fa' },
-  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: '#ff453a' },
-  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: 'rgba(255,255,255,0.3)' },
-  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: 'rgba(255,255,255,0.1)' },
+  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: 'var(--success)' },
+  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: 'var(--danger)' },
+  { value: 'planned', label: 'มีแผน', icon: '○', color: 'var(--muted)' },
+  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: 'var(--info)' },
+  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: 'var(--danger)' },
+  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: 'var(--muted)' },
+  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: 'var(--bg-hover)' },
 ];
 
 interface StatusOverride {
@@ -566,31 +567,31 @@ export default function CompanyDrilldown() {
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs mb-1">
-          <Link href="/" style={{ color: 'rgba(255,255,255,0.3)' }} className="hover:text-white/70">Home</Link>
-          <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
-          <Link href="/" style={{ color: 'rgba(255,255,255,0.3)' }} className="hover:text-white/70">แผนงานประจำปี</Link>
-          <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
+          <Link href="/" style={{ color: 'var(--muted)' }} className="hover:text-white/70">Home</Link>
+          <span style={{ color: 'var(--muted)' }}>/</span>
+          <Link href="/" style={{ color: 'var(--muted)' }} className="hover:text-white/70">แผนงานประจำปี</Link>
+          <span style={{ color: 'var(--muted)' }}>/</span>
           <span className="text-white/70 font-medium">{companyName}</span>
         </div>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-[26px] font-bold text-white tracking-tight">
-            🔍 {companyName} — {planType === 'total' ? 'ภาพรวมแผนงาน' : `แผนงาน${planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'}`} 2026
+            <Search size={16} className="inline mr-1" /> {companyName} — {planType === 'total' ? 'ภาพรวมแผนงาน' : `แผนงาน${planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'}`} 2026
           </h1>
           <div className="flex gap-2 items-center flex-wrap">
             {/* Auth indicator */}
             {isLoggedIn ? (
-              <span className="glass-card px-3 py-1.5 text-xs font-medium" style={{ color: '#30d158' }}>
+              <span className="glass-card px-3 py-1.5 text-xs font-medium" style={{ color: 'var(--success)' }}>
                 ✓ {loginCompanyName}
               </span>
             ) : (
               <button
                 onClick={() => setShowLoginModal(true)}
                 className="glass-card px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                style={{ color: '#ff9f0a' }}
+                style={{ color: 'var(--warning)' }}
               >
-                🔑 เข้าสู่ระบบเพื่อแก้ไข
+                <Key size={14} className="inline mr-1" /> เข้าสู่ระบบเพื่อแก้ไข
               </button>
             )}
             {/* Export button */}
@@ -598,16 +599,16 @@ export default function CompanyDrilldown() {
               onClick={handleExport}
               className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
             >
-              📥 Export .xlsx
+              <Download size={14} className="inline mr-1" /> Export .xlsx
             </button>
-            <div style={{ background: 'rgba(255,255,255,0.06)' }} className="rounded-xl p-1 flex gap-1">
+            <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
               <button
                 onClick={() => setPlanType('total')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   planType === 'total' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white'
                 }`}
               >
-                📊 Total
+                <BarChart3 size={14} className="inline mr-1" /> Total
               </button>
               <button
                 onClick={() => setPlanType('safety')}
@@ -615,7 +616,7 @@ export default function CompanyDrilldown() {
                   planType === 'safety' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white'
                 }`}
               >
-                🛡️ Safety
+                <Shield size={14} className="inline mr-1" /> Safety
               </button>
               <button
                 onClick={() => setPlanType('environment')}
@@ -623,7 +624,7 @@ export default function CompanyDrilldown() {
                   planType === 'environment' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white'
                 }`}
               >
-                🌿 Environment
+                <Leaf size={14} className="inline mr-1" /> Environment
               </button>
             </div>
           </div>
@@ -641,18 +642,18 @@ export default function CompanyDrilldown() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6 animate-fade-in-up">
               <KPICard label="กิจกรรมทั้งหมด" value={summary?.total || 0} />
-              <KPICard label="เสร็จแล้ว" value={summary?.done || 0} color="#30d158" progress={summary?.pctDone || 0} delta={`${summary?.pctDone || 0}%`} />
-              <KPICard label="ยังไม่เริ่ม" value={summary?.notStarted || 0} color="#ff9f0a" />
-              <KPICard label="เลื่อน" value={summary?.postponed || 0} color="#5ac8fa" />
-              <KPICard label="ยกเลิก" value={summary?.cancelled || 0} color="#ff453a" />
-              <KPICard label="ไม่เข้าเงื่อนไข" value={summary?.notApplicable || 0} color="rgba(255,255,255,0.3)" />
-              <KPICard label="งบประมาณ" value={summary?.budget ? summary.budget.toLocaleString() : '-'} color="#0a84ff" subtext="บาท" />
+              <KPICard label="เสร็จแล้ว" value={summary?.done || 0} color="var(--success)" progress={summary?.pctDone || 0} delta={`${summary?.pctDone || 0}%`} />
+              <KPICard label="ยังไม่เริ่ม" value={summary?.notStarted || 0} color="var(--warning)" />
+              <KPICard label="เลื่อน" value={summary?.postponed || 0} color="var(--info)" />
+              <KPICard label="ยกเลิก" value={summary?.cancelled || 0} color="var(--danger)" />
+              <KPICard label="ไม่เข้าเงื่อนไข" value={summary?.notApplicable || 0} color="var(--muted)" />
+              <KPICard label="งบประมาณ" value={summary?.budget ? summary.budget.toLocaleString() : '-'} color="var(--accent)" subtext="บาท" />
             </div>
 
             {/* Monthly Progress */}
             {effectiveMonthlyProgress && effectiveMonthlyProgress.length > 0 && (
               <div className="glass-card rounded-xl p-5 mb-6 animate-fade-in-up">
-                <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'rgba(255,255,255,0.4)', borderLeft: '2px solid #0a84ff' }}>
+                <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
                   📅 ติดตามความก้าวหน้ารายเดือน
                 </h3>
                 <div style={{ height: 250 }}>
@@ -667,21 +668,21 @@ export default function CompanyDrilldown() {
                         key={mp.month}
                         className="text-center p-1.5 rounded-lg text-[10px]"
                         style={{
-                          background: isCurrent ? 'rgba(255,215,10,0.1)' : isPast ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.02)',
+                          background: isCurrent ? 'rgba(255,215,10,0.1)' : isPast ? 'var(--bg-hover)' : 'var(--bg-hover)',
                           border: isCurrent ? '1px solid rgba(255,215,10,0.3)' : '1px solid rgba(255,255,255,0.06)'
                         }}
                       >
-                        <div className="font-semibold" style={{ color: isCurrent ? '#ffd60a' : 'rgba(255,255,255,0.4)' }}>
+                        <div className="font-semibold" style={{ color: isCurrent ? 'var(--warning)' : 'var(--text-secondary)' }}>
                           {mp.label}
                         </div>
                         <div className="text-sm font-bold" style={{
-                          color: mp.pctComplete >= 100 ? '#30d158' :
-                                mp.pctComplete > 0 ? '#ffd60a' :
-                                isPast ? '#ff453a' : 'rgba(255,255,255,0.2)'
+                          color: mp.pctComplete >= 100 ? 'var(--success)' :
+                                mp.pctComplete > 0 ? 'var(--warning)' :
+                                isPast ? 'var(--danger)' : 'var(--text-muted)'
                         }}>
                           {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
                         </div>
-                        <div style={{ color: 'rgba(255,255,255,0.3)' }}>{mp.completed}/{mp.planned}</div>
+                        <div style={{ color: 'var(--muted)' }}>{mp.completed}/{mp.planned}</div>
                       </div>
                     );
                   })}
@@ -693,26 +694,26 @@ export default function CompanyDrilldown() {
             {planType !== 'total' && <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
               {[
                 { key: 'all', label: 'ทั้งหมด', color: '#ffffff' },
-                { key: 'done', label: '✅ เสร็จแล้ว', color: '#30d158' },
-                { key: 'not_started', label: '⏳ ยังไม่เริ่ม', color: '#ff9f0a' },
-                { key: 'postponed', label: '📅 เลื่อน', color: '#5ac8fa' },
-                { key: 'cancelled', label: '❌ ยกเลิก', color: '#ff453a' },
-                { key: 'not_applicable', label: '⊘ ไม่เข้าเงื่อนไข', color: 'rgba(255,255,255,0.4)' },
+                { key: 'done', label: '✅ เสร็จแล้ว', color: 'var(--success)' },
+                { key: 'not_started', label: '⏳ ยังไม่เริ่ม', color: 'var(--warning)' },
+                { key: 'postponed', label: '📅 เลื่อน', color: 'var(--info)' },
+                { key: 'cancelled', label: '❌ ยกเลิก', color: 'var(--danger)' },
+                { key: 'not_applicable', label: '⊘ ไม่เข้าเงื่อนไข', color: 'var(--text-secondary)' },
               ].map(f => (
                 <button
                   key={f.key}
                   onClick={() => setStatusFilter(f.key)}
                   className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: statusFilter === f.key ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)',
+                    background: statusFilter === f.key ? 'var(--bg-hover)' : 'var(--border)',
                     color: statusFilter === f.key ? '#ffffff' : f.color,
-                    border: `1px solid ${statusFilter === f.key ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`
+                    border: `1px solid ${statusFilter === f.key ? 'var(--text-muted)' : 'var(--border)'}`
                   }}
                 >
                   <span>
                     {f.label}
                   </span>
-                  <span style={{ marginLeft: '0.375rem', color: 'rgba(255,255,255,0.4)' }}>
+                  <span style={{ marginLeft: '0.375rem', color: 'var(--text-secondary)' }}>
                     ({statusCounts[f.key as keyof typeof statusCounts]})
                   </span>
                 </button>
@@ -725,7 +726,7 @@ export default function CompanyDrilldown() {
             <div className="glass-card rounded-xl p-5 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-[13px] pl-3" style={{ color: 'rgba(255,255,255,0.4)', borderLeft: '2px solid #0a84ff' }}>
+                  <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
                     รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
                   </h3>
                   {/* Filter by month */}
@@ -744,14 +745,14 @@ export default function CompanyDrilldown() {
                   </div>
                 </div>
                 {/* Legend in header */}
-                <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  <span><span style={{ color: '#30d158' }}>●</span> เสร็จแล้ว</span>
-                  <span><span style={{ color: '#ff453a' }}>○</span> เกินกำหนด</span>
-                  <span><span style={{ color: 'rgba(255,255,255,0.3)' }}>○</span> มีแผน</span>
-                  <span><span style={{ color: '#5ac8fa' }}>◐</span> เลื่อน</span>
-                  <span><span style={{ color: '#ff453a' }}>✕</span> ยกเลิก</span>
-                  <span><span style={{ color: 'rgba(255,255,255,0.3)' }}>⊘</span> ไม่เข้าเงื่อนไข</span>
-                  <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'rgba(255,159,10,0.5)' }}></span> แก้ไขจาก Dashboard</span>
+                <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                  <span><span style={{ color: 'var(--success)' }}>●</span> เสร็จแล้ว</span>
+                  <span><span style={{ color: 'var(--danger)' }}>○</span> เกินกำหนด</span>
+                  <span><span style={{ color: 'var(--muted)' }}>○</span> มีแผน</span>
+                  <span><span style={{ color: 'var(--info)' }}>◐</span> เลื่อน</span>
+                  <span><span style={{ color: 'var(--danger)' }}>✕</span> ยกเลิก</span>
+                  <span><span style={{ color: 'var(--muted)' }}>⊘</span> ไม่เข้าเงื่อนไข</span>
+                  <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'var(--warning)' }}></span> แก้ไขจาก Dashboard</span>
                 </div>
               </div>
               {filteredActivities.length > 0 ? (
@@ -759,16 +760,16 @@ export default function CompanyDrilldown() {
                   <table className="apple-table w-full text-[13px]">
                     <thead className="sticky top-0 z-10">
                       <tr style={{ borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>ลำดับ</th>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'rgba(255,255,255,0.4)' }}>กิจกรรม</th>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>ผู้รับผิดชอบ</th>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ลำดับ</th>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ผู้รับผิดชอบ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
                             className="text-center py-3 px-1 font-semibold text-[10px]"
                             style={{
-                              color: idx === currentMonthIdx ? '#ffd60a' : 'rgba(255,255,255,0.4)',
-                              background: idx === currentMonthIdx ? 'rgba(255,214,10,0.08)' : 'transparent'
+                              color: idx === currentMonthIdx ? 'var(--warning)' : 'var(--text-secondary)',
+                              background: idx === currentMonthIdx ? 'var(--warning)' : 'transparent'
                             }}
                           >
                             {m}
@@ -779,12 +780,12 @@ export default function CompanyDrilldown() {
                     <tbody>
                       {filteredActivities.map((act, i) => (
                         <tr key={i} style={{ borderBottom: `1px solid rgba(255,255,255,0.06)`, transition: 'background 0.2s' }} className="hover:bg-white/5">
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{act.no}</td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
                           <td className="py-2.5 px-2 text-xs text-white">{act.activity}</td>
                           <td
                             className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
                             style={{
-                              color: responsibleOverrides[act.no] ? '#ff9f0a' : 'rgba(255,255,255,0.4)',
+                              color: responsibleOverrides[act.no] ? 'var(--warning)' : 'var(--text-secondary)',
                               border: responsibleOverrides[act.no] ? '1px solid rgba(255,159,10,0.3)' : 'none',
                               borderRadius: responsibleOverrides[act.no] ? '4px' : '0px',
                               padding: responsibleOverrides[act.no] ? '2px 5px' : '10px 8px'
@@ -802,13 +803,13 @@ export default function CompanyDrilldown() {
                             const isCurrent = idx === currentMonthIdx;
 
                             const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = {
-                              not_planned: { icon: '-', color: 'rgba(255,255,255,0.1)', title: 'ไม่มีแผน' },
-                              planned: { icon: '○', color: 'rgba(255,255,255,0.3)', title: `แผน: ${planMark}` },
-                              done: { icon: '●', color: '#30d158', title: `เสร็จ: ${actualMark}` },
-                              overdue: { icon: '○', color: '#ff453a', title: `เกินกำหนด (แผน: ${planMark})` },
-                              postponed: { icon: '◐', color: '#5ac8fa', title: `เลื่อน: ${actualMark}` },
-                              cancelled: { icon: '✕', color: '#ff453a', title: `ยกเลิก: ${actualMark}` },
-                              not_applicable: { icon: '⊘', color: 'rgba(255,255,255,0.3)', title: 'ไม่เข้าเงื่อนไข' },
+                              not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' },
+                              planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` },
+                              done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` },
+                              overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` },
+                              postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` },
+                              cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` },
+                              not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' },
                             };
                             const cfg = statusConfig[effectiveStatus];
 
@@ -819,7 +820,7 @@ export default function CompanyDrilldown() {
                                 key={k}
                                 className="text-center py-2.5 px-1 cursor-pointer transition-colors relative"
                                 style={{
-                                  background: isCurrent ? 'rgba(255,214,10,0.08)' : hasOverride ? 'rgba(255,159,10,0.06)' : 'transparent',
+                                  background: isCurrent ? 'var(--warning)' : hasOverride ? 'var(--warning)' : 'transparent',
                                   border: hasOverride ? '1px solid rgba(255,159,10,0.3)' : 'none',
                                   borderRadius: hasOverride ? '4px' : '0px'
                                 }}
@@ -827,7 +828,7 @@ export default function CompanyDrilldown() {
                               >
                                 <span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>
                                 {attCount > 0 && (
-                                  <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: '#0a84ff' }} title={`${attCount} ไฟล์แนบ`}></span>
+                                  <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} title={`${attCount} ไฟล์แนบ`}></span>
                                 )}
                               </td>
                             );
@@ -838,7 +839,7 @@ export default function CompanyDrilldown() {
                   </table>
                 </div>
               ) : (
-                <div className="text-center py-10" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                <div className="text-center py-10" style={{ color: 'var(--text-secondary)' }}>
                   <p className="text-4xl mb-3">📌</p>
                   <p>ไม่พบกิจกรรม{statusFilter !== 'all' ? 'ในสถานะที่เลือก' : ''}</p>
                   <p className="text-[11px] mt-1">ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น</p>
@@ -853,8 +854,8 @@ export default function CompanyDrilldown() {
         {showLoginModal && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowLoginModal(false)}>
             <div className="glass-card rounded-2xl p-6 w-full max-w-sm" style={{ backdropFilter: 'blur(40px)' }} onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-white mb-4">🔑 เข้าสู่ระบบ</h3>
-              <p className="text-[13px] mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>กรอกรหัสผ่านของ <span className="text-white font-semibold">{companyName}</span> เพื่อแก้ไขสถานะ</p>
+              <h3 className="text-lg font-bold text-white mb-4"><Key size={14} className="inline mr-1" /> เข้าสู่ระบบ</h3>
+              <p className="text-[13px] mb-4" style={{ color: 'var(--text-secondary)' }}>กรอกรหัสผ่านของ <span className="text-white font-semibold">{companyName}</span> เพื่อแก้ไขสถานะ</p>
               <input
                 type="password"
                 value={loginPassword}
@@ -862,15 +863,15 @@ export default function CompanyDrilldown() {
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 placeholder="รหัสผ่าน"
                 className="w-full px-3 py-2 rounded-lg text-white text-sm mb-3 focus:outline-none"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
                 autoFocus
               />
-              {loginError && <p style={{ color: '#ff453a' }} className="text-xs mb-3">{loginError}</p>}
+              {loginError && <p style={{ color: 'var(--danger)' }} className="text-xs mb-3">{loginError}</p>}
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowLoginModal(false)}
                   className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
                   ยกเลิก
                 </button>
@@ -892,7 +893,7 @@ export default function CompanyDrilldown() {
               <h3 className="text-lg font-bold text-white mb-2">
                 {editingCell.actName}
               </h3>
-              <p className="text-[13px] mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p className="text-[13px] mb-1" style={{ color: 'var(--text-secondary)' }}>
                 กิจกรรม: <span className="text-white">{editingCell.actNo}</span>
                 {' | '}
                 เดือน: <span className="text-white">{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</span>
@@ -900,19 +901,19 @@ export default function CompanyDrilldown() {
 
               {/* Deadline Lock Notice */}
               {checkingLock ? (
-                <div className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>กำลังตรวจสอบกำหนดเวลา...</div>
+                <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>กำลังตรวจสอบกำหนดเวลา...</div>
               ) : deadlineLocked && !hasApproval ? (
                 <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,67,54,0.1)', border: '1px solid rgba(255,67,54,0.3)' }}>
-                  <p className="text-sm font-medium" style={{ color: '#ff453a' }}>
+                  <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
                     เลยกำหนดเวลาแก้ไขเดือนนี้แล้ว
                   </p>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(255,67,54,0.7)' }}>
+                  <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>
                     ต้องขออนุมัติจาก Admin เพื่อแก้ไขข้อมูล
                   </p>
                 </div>
               ) : deadlineLocked && hasApproval ? (
                 <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(48,209,88,0.1)', border: '1px solid rgba(48,209,88,0.3)' }}>
-                  <p className="text-sm font-medium" style={{ color: '#30d158' }}>
+                  <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>
                     ได้รับอนุมัติให้แก้ไขแล้ว (ชั่วคราว)
                   </p>
                 </div>
@@ -921,7 +922,7 @@ export default function CompanyDrilldown() {
               {/* Status Buttons - disable if locked without approval */}
               {!(deadlineLocked && !hasApproval) && (
                 <>
-                  <p className="text-xs mb-2 mt-3" style={{ color: 'rgba(255,255,255,0.4)' }}>เปลี่ยนสถานะ:</p>
+                  <p className="text-xs mb-2 mt-3" style={{ color: 'var(--text-secondary)' }}>เปลี่ยนสถานะ:</p>
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {STATUS_OPTIONS.map(opt => {
                       const currentStatus = getEffectiveStatus(
@@ -937,9 +938,9 @@ export default function CompanyDrilldown() {
                           disabled={savingStatus}
                           className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors"
                           style={{
-                            background: isActive ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)',
+                            background: isActive ? 'var(--bg-hover)' : 'var(--border)',
                             border: isActive ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.06)',
-                            color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
+                            color: isActive ? '#fff' : 'var(--text-secondary)',
                             opacity: savingStatus ? 0.5 : 1
                           }}
                         >
@@ -956,7 +957,7 @@ export default function CompanyDrilldown() {
                       onClick={handleRevertStatus}
                       disabled={savingStatus}
                       className="w-full px-3 py-2 rounded-lg text-xs transition-colors mb-3"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
+                      style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.06)' }}
                     >
                       ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
                     </button>
@@ -975,14 +976,14 @@ export default function CompanyDrilldown() {
                       ขอแก้ไขข้อมูลย้อนหลัง
                     </button>
                   ) : (
-                    <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="rounded-lg p-3" style={{ background: 'var(--border)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <p className="text-sm text-white font-medium mb-2">ขอแก้ไขข้อมูลย้อนหลัง</p>
                       <textarea
                         value={editRequestReason}
                         onChange={e => setEditRequestReason(e.target.value)}
                         placeholder="เหตุผลที่ต้องการแก้ไข..."
                         className="w-full px-3 py-2 rounded-lg text-white text-sm mb-2 focus:outline-none resize-none"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.08)' }}
                         rows={3}
                         autoFocus
                       />
@@ -990,7 +991,7 @@ export default function CompanyDrilldown() {
                         <button
                           onClick={() => { setShowEditRequestForm(false); setEditRequestReason(''); }}
                           className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
-                          style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}
+                          style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.06)' }}
                         >
                           ยกเลิก
                         </button>
@@ -1011,7 +1012,7 @@ export default function CompanyDrilldown() {
               {/* Attachments Section */}
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} className="pt-3 mt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>หลักฐาน / ไฟล์แนบ</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ</p>
                   {!(deadlineLocked && !hasApproval) && (
                     <label className={`px-3 py-1.5 btn-primary rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
                       {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
@@ -1031,22 +1032,22 @@ export default function CompanyDrilldown() {
                 </div>
 
                 {loadingAttachments ? (
-                  <div className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.4)' }}>กำลังโหลด...</div>
+                  <div className="text-xs py-2" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
                 ) : attachments.length === 0 ? (
-                  <div className="text-xs py-2 text-center" style={{ color: 'rgba(255,255,255,0.2)' }}>ยังไม่มีไฟล์แนบ</div>
+                  <div className="text-xs py-2 text-center" style={{ color: 'var(--text-muted)' }}>ยังไม่มีไฟล์แนบ</div>
                 ) : (
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {attachments.map(att => (
-                      <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'var(--bg-secondary)' }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm">
                             {att.file_type?.includes('image') ? '🖼️' :
                              att.file_type?.includes('pdf') ? '📄' :
-                             att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '📊' : '📎'}
+                             att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '<BarChart3 size={14} className="inline mr-1" />' : '📎'}
                           </span>
                           <div className="min-w-0">
                             <p className="text-xs text-white truncate">{att.file_name}</p>
-                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
                               {att.uploaded_by} | {new Date(att.created_at).toLocaleDateString('th-TH')}
                             </p>
                           </div>
@@ -1056,7 +1057,7 @@ export default function CompanyDrilldown() {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs flex-shrink-0 ml-2 transition-opacity hover:opacity-80"
-                          style={{ color: '#0a84ff' }}
+                          style={{ color: 'var(--accent)' }}
                         >
                           เปิด
                         </a>
@@ -1069,7 +1070,7 @@ export default function CompanyDrilldown() {
               <button
                 onClick={() => { setShowStatusModal(false); setEditingCell(null); }}
                 className="w-full px-3 py-2 rounded-lg text-sm transition-colors mt-4"
-                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}
+                style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
                 ปิด
               </button>
@@ -1081,7 +1082,7 @@ export default function CompanyDrilldown() {
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => { setShowResponsibleModal(false); setEditingResponsible(null); }}>
             <div className="glass-card rounded-2xl p-6 w-full max-w-sm" style={{ backdropFilter: 'blur(40px)' }} onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-bold text-white mb-2">เปลี่ยนผู้รับผิดชอบ</h3>
-              <p className="text-[13px] mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p className="text-[13px] mb-4" style={{ color: 'var(--text-secondary)' }}>
                 กิจกรรม: <span className="text-white">{editingResponsible.actNo}</span>
               </p>
               <input
@@ -1091,7 +1092,7 @@ export default function CompanyDrilldown() {
                 onKeyDown={e => e.key === 'Enter' && handleSaveResponsible()}
                 placeholder="ชื่อผู้รับผิดชอบ"
                 className="w-full px-3 py-2 rounded-lg text-white text-sm mb-3 focus:outline-none"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
                 autoFocus
               />
 
@@ -1100,7 +1101,7 @@ export default function CompanyDrilldown() {
                   onClick={handleRevertResponsible}
                   disabled={savingStatus}
                   className="w-full px-3 py-2 rounded-lg text-xs transition-colors mb-3"
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
                   ↩ กลับไปใช้ค่าจาก Sheet ({activities.find(a => a.no === editingResponsible.actNo)?.responsible})
                 </button>
@@ -1110,7 +1111,7 @@ export default function CompanyDrilldown() {
                 <button
                   onClick={() => { setShowResponsibleModal(false); setEditingResponsible(null); }}
                   className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
                   ยกเลิก
                 </button>

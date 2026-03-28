@@ -332,15 +332,15 @@ export default function AdminPage() {
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="glass-card p-8 w-full max-w-sm animate-fade-in-up">
-              <h2 className="text-[26px] font-bold text-white mb-2 text-center tracking-tight">Admin Login</h2>
-              <p className="text-[13px] mb-6 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>กรอก Username และ Password เพื่อเข้าจัดการระบบ</p>
+              <h2 className="text-[26px] font-bold mb-2 text-center tracking-tight" style={{ color: 'var(--text-primary)' }}>Admin Login</h2>
+              <p className="text-[13px] mb-6 text-center" style={{ color: 'var(--text-secondary)' }}>กรอก Username และ Password เพื่อเข้าจัดการระบบ</p>
               <input
                 type="text"
                 value={adminUsername}
                 onChange={e => setAdminUsername(e.target.value)}
                 placeholder="Username"
-                className="w-full px-4 py-3 bg-transparent border rounded-xl text-white text-[13px] mb-3 focus:outline-none focus:border-[#0a84ff] transition-colors"
-                style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                className="w-full px-4 py-3 bg-transparent border rounded-xl text-[13px] mb-3 focus:outline-none transition-colors"
+                style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                 autoFocus
               />
               <input
@@ -349,14 +349,15 @@ export default function AdminPage() {
                 onChange={e => setAdminPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
                 placeholder="Password"
-                className="w-full px-4 py-3 bg-transparent border rounded-xl text-white text-[13px] mb-3 focus:outline-none focus:border-[#0a84ff] transition-colors"
-                style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                className="w-full px-4 py-3 bg-transparent border rounded-xl text-[13px] mb-3 focus:outline-none transition-colors"
+                style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
               />
-              {adminLoginError && <p className="text-[#ff453a] text-[11px] mb-3">{adminLoginError}</p>}
+              {adminLoginError && <p className="text-[11px] mb-3" style={{ color: 'var(--danger)' }}>{adminLoginError}</p>}
               <button
                 onClick={handleAdminLogin}
                 disabled={adminLoading || !adminPassword}
-                className="w-full px-4 py-3 bg-[#0a84ff] text-white rounded-[10px] text-[13px] font-medium hover:bg-[#0a84ff]/80 disabled:opacity-50 transition-colors"
+                className="w-full px-4 py-3 rounded-[10px] text-[13px] font-medium disabled:opacity-50 transition-colors"
+                style={{ background: 'var(--accent)', color: 'var(--text-primary)' }}
               >
                 {adminLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
               </button>
@@ -372,21 +373,24 @@ export default function AdminPage() {
       <Sidebar />
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
         <div className="flex items-center gap-2 text-[11px] mb-1">
-          <span style={{ color: 'rgba(255,255,255,0.3)' }}>Home</span><span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span><span className="text-white">Admin / ตั้งค่า</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Home</span><span style={{ color: 'var(--text-secondary)' }}>/</span><span style={{ color: 'var(--text-primary)' }}>Admin / ตั้งค่า</span>
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[26px] font-bold text-white tracking-tight">Admin Panel</h1>
+          <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Admin Panel</h1>
           <div className="flex items-center gap-3">
-            <span className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>เข้าสู่ระบบเป็น: <span className="text-white font-medium">{currentAdminName}</span></span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-              isSuperAdmin ? 'bg-[#bf5af2]/20 text-[#bf5af2]' :
-              isViewer ? 'bg-white/10 text-white/60' :
-              'bg-[#0a84ff]/20 text-[#0a84ff]'
-            }`}>{ROLE_LABELS[currentAdminRole] || currentAdminRole}</span>
+            <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>เข้าสู่ระบบเป็น: <span style={{ color: 'var(--text-primary)', fontWeight: 'medium' }}>{currentAdminName}</span></span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
+              background: isSuperAdmin ? 'rgba(191,90,242,0.2)' :
+                isViewer ? 'rgba(255,255,255,0.1)' :
+                'rgba(10,132,255,0.2)',
+              color: isSuperAdmin ? '#bf5af2' :
+                isViewer ? 'rgba(255,255,255,0.4)' :
+                '#0a84ff'
+            }}>{ROLE_LABELS[currentAdminRole] || currentAdminRole}</span>
             <button
               onClick={handleAdminLogout}
-              className="px-3 py-1.5 text-[13px]" style={{ color: 'rgba(255,255,255,0.6)', border: 'rgba(255,255,255,0.1) 1px solid', borderRadius: '10px' }}
+              className="px-3 py-1.5 text-[13px] rounded-[10px]" style={{ color: 'var(--text-secondary)', border: 'var(--border) 1px solid' }}
             >
               ออกจากระบบ
             </button>
@@ -394,7 +398,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs — filtered by role */}
-        <div className="flex gap-2 mb-6 flex-wrap" style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '12px', padding: '6px', width: 'fit-content' }}>
+        <div className="flex gap-2 mb-6 flex-wrap" style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '6px', width: 'fit-content' }}>
           {[
             { key: 'audit', label: 'ประวัติการแก้ไข', minRole: 'viewer' },
             { key: 'requests', label: 'คำขอแก้ไข', minRole: 'viewer' },
@@ -411,13 +415,15 @@ export default function AdminPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
-              className={`px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors ${
-                activeTab === tab.key ? 'bg-[#0a84ff] text-white' : 'text-white/60 hover:text-white'
-              }`}
+              className="px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
+              style={{
+                background: activeTab === tab.key ? 'var(--accent)' : 'transparent',
+                color: activeTab === tab.key ? 'var(--text-primary)' : 'var(--text-secondary)'
+              }}
             >
               {tab.label}
               {tab.key === 'requests' && editRequests.filter(r => r.status === 'pending').length > 0 && (
-                <span className="ml-1.5 bg-[#ff453a] text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--danger)', color: 'var(--text-primary)' }}>
                   {editRequests.filter(r => r.status === 'pending').length}
                 </span>
               )}
@@ -430,46 +436,46 @@ export default function AdminPage() {
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
-                <h3 className="text-[13px] text-white font-medium">ประวัติการแก้ไขทั้งหมด</h3>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>ประวัติการแก้ไขทั้งหมด</h3>
               </div>
-              <select value={auditFilter} onChange={e => setAuditFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px] text-white" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <select value={auditFilter} onChange={e => setAuditFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px]" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
                 <option value="all">ทุกบริษัท</option>
                 {activeCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             {loading ? (
-              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>กำลังโหลด...</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</p>
             ) : auditEntries.length === 0 ? (
-              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีประวัติการแก้ไข</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีประวัติการแก้ไข</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="apple-table w-full text-[11px]">
                   <thead>
-                    <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>เวลา</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>บริษัท</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>การดำเนินการ</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>กิจกรรม</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>เดือน</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>ค่าเดิม → ค่าใหม่</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>ผู้ดำเนินการ</th>
+                    <tr style={{ borderColor: 'var(--border)' }}>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เวลา</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>การดำเนินการ</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เดือน</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ค่าเดิม → ค่าใหม่</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ผู้ดำเนินการ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {auditEntries.map(entry => (
-                      <tr key={entry.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                        <td className="py-2 px-2 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                        <td className="py-2 px-2 text-white font-medium">{entry.company_id.toUpperCase()}</td>
-                        <td className="py-2 px-2 text-white">{ACTION_LABELS[entry.action] || entry.action}</td>
-                        <td className="py-2 px-2" style={{ color: 'rgba(255,255,255,0.6)' }}>{entry.activity_no}</td>
-                        <td className="py-2 px-2 text-white">{MONTH_LABELS[entry.month] || entry.month}</td>
+                      <tr key={entry.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-2 px-2 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                        <td className="py-2 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>{entry.company_id.toUpperCase()}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{ACTION_LABELS[entry.action] || entry.action}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.activity_no}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[entry.month] || entry.month}</td>
                         <td className="py-2 px-2">
-                          {entry.old_value && <span style={{ color: '#ff453a' }}>{entry.old_value}</span>}
-                          {entry.old_value && entry.new_value && <span style={{ color: 'rgba(255,255,255,0.2)' }}> → </span>}
-                          {entry.new_value && <span style={{ color: '#30d158' }}>{entry.new_value}</span>}
+                          {entry.old_value && <span style={{ color: 'var(--danger)' }}>{entry.old_value}</span>}
+                          {entry.old_value && entry.new_value && <span style={{ color: 'var(--border)' }}> → </span>}
+                          {entry.new_value && <span style={{ color: 'var(--success)' }}>{entry.new_value}</span>}
                         </td>
-                        <td className="py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>{entry.performed_by}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.performed_by}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -484,10 +490,10 @@ export default function AdminPage() {
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
-                <h3 className="text-[13px] text-white font-medium">คำขอแก้ไขหลัง Deadline</h3>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>คำขอแก้ไขหลัง Deadline</h3>
               </div>
-              <select value={requestFilter} onChange={e => setRequestFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px] text-white" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <select value={requestFilter} onChange={e => setRequestFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px]" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
                 <option value="pending">รอการอนุมัติ</option>
                 <option value="approved">อนุมัติแล้ว</option>
                 <option value="rejected">ปฏิเสธ</option>
@@ -495,7 +501,7 @@ export default function AdminPage() {
               </select>
             </div>
             {editRequests.length === 0 ? (
-              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ไม่มีคำขอ</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ไม่มีคำขอ</p>
             ) : (
               <div className="space-y-3">
                 {editRequests.map(req => (
@@ -506,11 +512,11 @@ export default function AdminPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-white font-medium text-[13px]">{req.company_id.toUpperCase()}</span>
-                          <span style={{ color: 'rgba(255,255,255,0.2)' }} className="text-[11px]">|</span>
-                          <span style={{ color: 'rgba(255,255,255,0.4)' }} className="text-[11px]">กิจกรรม {req.activity_no}</span>
-                          <span style={{ color: 'rgba(255,255,255,0.2)' }} className="text-[11px]">|</span>
-                          <span style={{ color: 'rgba(255,255,255,0.4)' }} className="text-[11px]">{MONTH_LABELS[req.month] || req.month}</span>
+                          <span className="font-medium text-[13px]" style={{ color: 'var(--text-primary)' }}>{req.company_id.toUpperCase()}</span>
+                          <span style={{ color: 'var(--border)' }} className="text-[11px]">|</span>
+                          <span style={{ color: 'var(--text-secondary)' }} className="text-[11px]">กิจกรรม {req.activity_no}</span>
+                          <span style={{ color: 'var(--border)' }} className="text-[11px]">|</span>
+                          <span style={{ color: 'var(--text-secondary)' }} className="text-[11px]">{MONTH_LABELS[req.month] || req.month}</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
                             background: req.status === 'pending' ? 'rgba(255,159,10,0.2)' : req.status === 'approved' ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)',
                             color: req.status === 'pending' ? '#ff9f0a' : req.status === 'approved' ? '#30d158' : '#ff453a'
@@ -518,20 +524,20 @@ export default function AdminPage() {
                             {req.status === 'pending' ? 'รอการอนุมัติ' : req.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
                           </span>
                         </div>
-                        <p className="text-[11px] mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>เหตุผล: {req.reason}</p>
-                        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        <p className="text-[11px] mb-1" style={{ color: 'var(--text-secondary)' }}>เหตุผล: {req.reason}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
                           โดย {req.requested_by} | {new Date(req.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
                           {req.reviewed_at && ` | ตรวจสอบโดย ${req.reviewed_by} เมื่อ ${new Date(req.reviewed_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`}
                         </p>
                       </div>
                       {req.status === 'pending' && isAdmin && (
                         <div className="flex gap-2 ml-4">
-                          <button onClick={() => handleApproveReject(req.id, 'approved')} className="px-3 py-1.5 bg-[#30d158] hover:bg-[#30d158]/80 text-white text-[11px] rounded-[10px]">อนุมัติ</button>
-                          <button onClick={() => handleApproveReject(req.id, 'rejected')} className="px-3 py-1.5 bg-[#ff453a] hover:bg-[#ff453a]/80 text-white text-[11px] rounded-[10px]">ปฏิเสธ</button>
+                          <button onClick={() => handleApproveReject(req.id, 'approved')} className="px-3 py-1.5 text-[11px] rounded-[10px]" style={{ background: 'var(--success)', color: 'var(--text-primary)' }}>อนุมัติ</button>
+                          <button onClick={() => handleApproveReject(req.id, 'rejected')} className="px-3 py-1.5 text-[11px] rounded-[10px]" style={{ background: 'var(--danger)', color: 'var(--text-primary)' }}>ปฏิเสธ</button>
                         </div>
                       )}
                       {req.status === 'pending' && isViewer && (
-                        <span className="text-[10px] ml-4" style={{ color: 'rgba(255,255,255,0.3)' }}>ดูอย่างเดียว</span>
+                        <span className="text-[10px] ml-4" style={{ color: 'var(--muted)' }}>ดูอย่างเดียว</span>
                       )}
                     </div>
                   </div>
@@ -545,27 +551,27 @@ export default function AdminPage() {
         {activeTab === 'deadlines' && (
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center gap-2 mb-4">
-              <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
-              <h3 className="text-[13px] text-white font-medium">กำหนดเส้นตายการแก้ไขรายเดือน</h3>
+              <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+              <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>กำหนดเส้นตายการแก้ไขรายเดือน</h3>
             </div>
-            <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <p className="text-[11px] mb-4" style={{ color: 'var(--muted)' }}>
               กำหนดว่าแต่ละเดือนสามารถ update สถานะได้ภายในวันที่เท่าไรของเดือนถัดไป
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {deadlines.map(d => (
-                <div key={d.month} className="rounded-xl p-3" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-                  <div className="text-[13px] font-medium text-white mb-2">{MONTH_LABELS[d.month]}</div>
+                <div key={d.month} className="rounded-xl p-3" style={{ border: 'var(--border) 1px solid', background: 'var(--bg-secondary)' }}>
+                  <div className="text-[13px] font-medium mb-2" style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[d.month]}</div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>วันที่</span>
-                    <select value={d.deadline_day} onChange={e => handleDeadlineUpdate(d.month, parseInt(e.target.value))} className="bg-transparent border rounded-lg px-2 py-1 text-[11px] text-white flex-1" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                    <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>วันที่</span>
+                    <select value={d.deadline_day} onChange={e => handleDeadlineUpdate(d.month, parseInt(e.target.value))} className="bg-transparent border rounded-lg px-2 py-1 text-[11px] flex-1" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
                       {Array.from({ length: 28 }, (_, i) => i + 1).map(day => <option key={day} value={day}>{day}</option>)}
                     </select>
-                    <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ของเดือนถัดไป</span>
+                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ของเดือนถัดไป</span>
                   </div>
                 </div>
               ))}
             </div>
-            {deadlines.length === 0 && <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีข้อมูล deadline</p>}
+            {deadlines.length === 0 && <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีข้อมูล deadline</p>}
           </div>
         )}
 
@@ -574,12 +580,13 @@ export default function AdminPage() {
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
-                <h3 className="text-[13px] text-white font-medium">จัดการบัญชีบริษัท</h3>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>จัดการบัญชีบริษัท</h3>
               </div>
               <button
                 onClick={() => setShowNewCredForm(!showNewCredForm)}
-                className="px-3 py-1.5 bg-[#0a84ff] text-white text-[11px] rounded-[10px] hover:bg-[#0a84ff]/80"
+                className="px-3 py-1.5 text-[11px] rounded-[10px]"
+                style={{ background: 'var(--accent)', color: 'var(--text-primary)' }}
               >
                 + เพิ่มบัญชีใหม่
               </button>
@@ -587,18 +594,18 @@ export default function AdminPage() {
 
             {/* New credential form */}
             {showNewCredForm && (
-              <div className="rounded-xl p-4 mb-4" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-                <h4 className="text-[13px] font-medium text-white mb-3">สร้างบัญชีบริษัทใหม่</h4>
+              <div className="rounded-xl p-4 mb-4" style={{ border: 'var(--border) 1px solid', background: 'var(--bg-secondary)' }}>
+                <h4 className="text-[13px] font-medium mb-3" style={{ color: 'var(--text-primary)' }}>สร้างบัญชีบริษัทใหม่</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>เลือกบริษัท</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>เลือกบริษัท</label>
                     <select
                       value={newCredCompanyId}
                       onChange={e => {
                         setNewCredCompanyId(e.target.value);
                         if (!newCredUsername) setNewCredUsername(e.target.value);
                       }}
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     >
                       <option value="">-- เลือกบริษัท --</option>
                       {availableCompaniesForCred.map(c => (
@@ -607,30 +614,32 @@ export default function AdminPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Username</label>
                     <input
                       type="text" value={newCredUsername}
                       onChange={e => setNewCredUsername(e.target.value)}
                       placeholder="ชื่อผู้ใช้"
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     />
                   </div>
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Password</label>
                     <input
                       type="text" value={newCredPassword}
                       onChange={e => setNewCredPassword(e.target.value)}
                       placeholder="รหัสผ่าน"
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleCreateCredential} disabled={credSaving || !newCredCompanyId || !newCredUsername || !newCredPassword}
-                    className="px-4 py-2 bg-[#0a84ff] text-white text-[13px] rounded-[10px] hover:bg-[#0a84ff]/80 disabled:opacity-50">
+                    className="px-4 py-2 text-[13px] rounded-[10px] disabled:opacity-50"
+                    style={{ background: 'var(--accent)', color: 'var(--text-primary)' }}
+                  >
                     {credSaving ? 'กำลังบันทึก...' : 'สร้างบัญชี'}
                   </button>
-                  <button onClick={() => setShowNewCredForm(false)} className="px-4 py-2 text-[13px] rounded-[10px]" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                  <button onClick={() => setShowNewCredForm(false)} className="px-4 py-2 text-[13px] rounded-[10px]" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
                     ยกเลิก
                   </button>
                 </div>
@@ -639,39 +648,39 @@ export default function AdminPage() {
 
             {/* Credentials table */}
             {credentials.length === 0 ? (
-              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีบัญชีบริษัท — กรุณา run SQL migration สร้างตาราง company_credentials ก่อน</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีบัญชีบริษัท — กรุณา run SQL migration สร้างตาราง company_credentials ก่อน</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="apple-table w-full text-[11px]">
                   <thead>
-                    <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Company ID</th>
-                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</th>
-                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</th>
-                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สถานะ</th>
-                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>จัดการ</th>
+                    <tr style={{ borderColor: 'var(--border)' }}>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Company ID</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Username</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Password</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>สถานะ</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {credentials.map(cred => (
-                      <tr key={cred.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                        <td className="py-3 px-3 font-medium text-white">{cred.company_id.toUpperCase()}</td>
-                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{cred.username}</td>
+                      <tr key={cred.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{cred.company_id.toUpperCase()}</td>
+                        <td className="py-3 px-3" style={{ color: 'var(--text-secondary)' }}>{cred.username}</td>
                         <td className="py-3 px-3">
                           {editingCredId === cred.company_id ? (
                             <div className="flex items-center gap-2">
                               <input type="text" value={editCredPassword}
                                 onChange={e => setEditCredPassword(e.target.value)}
-                                className="px-2 py-1 bg-transparent border rounded text-white text-[11px] w-32 focus:outline-none focus:border-[#0a84ff]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                                className="px-2 py-1 bg-transparent border rounded text-[11px] w-32 focus:outline-none" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                                 autoFocus
                               />
                               <button onClick={() => handleUpdatePassword(cred.company_id)} disabled={credSaving}
-                                className="text-[#30d158] text-[11px] hover:text-[#30d158]/80">บันทึก</button>
+                                className="text-[11px]" style={{ color: 'var(--success)' }}>บันทึก</button>
                               <button onClick={() => { setEditingCredId(null); setEditCredPassword(''); }}
-                                className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ยกเลิก</button>
+                                className="text-[11px]" style={{ color: 'var(--muted)' }}>ยกเลิก</button>
                             </div>
                           ) : (
-                            <code className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }}>
+                            <code className="text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
                               <span className="px-2 py-0.5 rounded">{cred.password}</span>
                             </code>
                           )}
@@ -688,9 +697,9 @@ export default function AdminPage() {
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => { setEditingCredId(cred.company_id); setEditCredPassword(cred.password); }}
-                              className="text-[11px] text-[#0a84ff] hover:text-[#0a84ff]/80">แก้ไขรหัส</button>
+                              className="text-[11px]" style={{ color: 'var(--accent)' }}>แก้ไขรหัส</button>
                             <button onClick={() => handleDeleteCredential(cred.company_id)}
-                              className="text-[11px] text-[#ff453a] hover:text-[#ff453a]/80">ลบ</button>
+                              className="text-[11px]" style={{ color: 'var(--danger)' }}>ลบ</button>
                           </div>
                         </td>
                       </tr>
@@ -707,43 +716,44 @@ export default function AdminPage() {
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
-                <h3 className="text-[13px] text-white font-medium">จัดการบัญชี Admin</h3>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>จัดการบัญชี Admin</h3>
               </div>
               <button
                 onClick={() => setShowNewAdminForm(!showNewAdminForm)}
-                className="px-3 py-1.5 bg-[#0a84ff] text-white text-[11px] rounded-[10px] hover:bg-[#0a84ff]/80"
+                className="px-3 py-1.5 text-[11px] rounded-[10px]"
+                style={{ background: 'var(--accent)', color: 'var(--text-primary)' }}
               >
                 + เพิ่ม Admin ใหม่
               </button>
             </div>
 
             {showNewAdminForm && (
-              <div className="rounded-xl p-4 mb-4" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-                <h4 className="text-[13px] font-medium text-white mb-3">สร้างบัญชี Admin ใหม่</h4>
+              <div className="rounded-xl p-4 mb-4" style={{ border: 'var(--border) 1px solid', background: 'var(--bg-secondary)' }}>
+                <h4 className="text-[13px] font-medium mb-3" style={{ color: 'var(--text-primary)' }}>สร้างบัญชี Admin ใหม่</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Username</label>
                     <input type="text" value={newAdminUsername} onChange={e => setNewAdminUsername(e.target.value)}
                       placeholder="ชื่อผู้ใช้"
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }} />
                   </div>
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Password</label>
                     <input type="text" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)}
                       placeholder="รหัสผ่าน"
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }} />
                   </div>
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>ชื่อที่แสดง</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>ชื่อที่แสดง</label>
                     <input type="text" value={newAdminDisplayName} onChange={e => setNewAdminDisplayName(e.target.value)}
                       placeholder="เช่น จป.วิชาชีพ สมชาย"
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }} />
                   </div>
                   <div>
-                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>สิทธิ์</label>
+                    <label className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>สิทธิ์</label>
                     <select value={newAdminRole} onChange={e => setNewAdminRole(e.target.value)}
-                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-[13px] focus:outline-none mt-1 transition-colors" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
                       <option value="admin">Admin</option>
                       <option value="super_admin">Super Admin</option>
                       <option value="viewer">Viewer (ดูอย่างเดียว)</option>
@@ -752,53 +762,55 @@ export default function AdminPage() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleCreateAdmin} disabled={adminSaving || !newAdminUsername || !newAdminPassword}
-                    className="px-4 py-2 bg-[#0a84ff] text-white text-[13px] rounded-[10px] hover:bg-[#0a84ff]/80 disabled:opacity-50">
+                    className="px-4 py-2 text-[13px] rounded-[10px] disabled:opacity-50"
+                    style={{ background: 'var(--accent)', color: 'var(--text-primary)' }}
+                  >
                     {adminSaving ? 'กำลังบันทึก...' : 'สร้างบัญชี Admin'}
                   </button>
                   <button onClick={() => setShowNewAdminForm(false)}
-                    className="px-4 py-2 text-[13px] rounded-[10px]" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>ยกเลิก</button>
+                    className="px-4 py-2 text-[13px] rounded-[10px]" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>ยกเลิก</button>
                 </div>
               </div>
             )}
 
             {adminAccounts.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-[13px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีบัญชี Admin ในระบบ</p>
-                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ระบบใช้ fallback password จาก environment variable (ADMIN_PASSWORD) อยู่</p>
-                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>เมื่อเพิ่มบัญชี Admin แรก ระบบจะเปลี่ยนไปใช้บัญชีจาก database แทน</p>
+                <p className="text-[13px] mb-2" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีบัญชี Admin ในระบบ</p>
+                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>ระบบใช้ fallback password จาก environment variable (ADMIN_PASSWORD) อยู่</p>
+                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เมื่อเพิ่มบัญชี Admin แรก ระบบจะเปลี่ยนไปใช้บัญชีจาก database แทน</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="apple-table w-full text-[11px]">
                   <thead>
-                    <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</th>
-                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>ชื่อที่แสดง</th>
-                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</th>
-                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สิทธิ์</th>
-                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สถานะ</th>
-                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>จัดการ</th>
+                    <tr style={{ borderColor: 'var(--border)' }}>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Username</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>ชื่อที่แสดง</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Password</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>สิทธิ์</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>สถานะ</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminAccounts.map(admin => (
-                      <tr key={admin.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                        <td className="py-3 px-3 font-medium text-white">{admin.username}</td>
-                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{admin.display_name}</td>
+                      <tr key={admin.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{admin.username}</td>
+                        <td className="py-3 px-3" style={{ color: 'var(--text-secondary)' }}>{admin.display_name}</td>
                         <td className="py-3 px-3">
                           {editingAdminId === admin.id ? (
                             <div className="flex items-center gap-2">
                               <input type="text" value={editAdminPassword}
                                 onChange={e => setEditAdminPassword(e.target.value)}
-                                className="px-2 py-1 bg-transparent border rounded text-white text-[11px] w-32 focus:outline-none focus:border-[#0a84ff]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                                className="px-2 py-1 bg-transparent border rounded text-[11px] w-32 focus:outline-none" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                                 autoFocus />
                               <button onClick={() => handleUpdateAdminPassword(admin.id)}
-                                className="text-[#30d158] text-[11px] hover:text-[#30d158]/80">บันทึก</button>
+                                className="text-[11px]" style={{ color: 'var(--success)' }}>บันทึก</button>
                               <button onClick={() => { setEditingAdminId(null); setEditAdminPassword(''); }}
-                                className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ยกเลิก</button>
+                                className="text-[11px]" style={{ color: 'var(--muted)' }}>ยกเลิก</button>
                             </div>
                           ) : (
-                            <code className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }}>
+                            <code className="text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>
                               <span className="px-2 py-0.5 rounded">{admin.password}</span>
                             </code>
                           )}
@@ -823,9 +835,9 @@ export default function AdminPage() {
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => { setEditingAdminId(admin.id); setEditAdminPassword(admin.password); }}
-                              className="text-[11px] text-[#0a84ff] hover:text-[#0a84ff]/80">แก้ไขรหัส</button>
+                              className="text-[11px]" style={{ color: 'var(--accent)' }}>แก้ไขรหัส</button>
                             <button onClick={() => handleDeleteAdmin(admin.id, admin.display_name)}
-                              className="text-[11px] text-[#ff453a] hover:text-[#ff453a]/80">ลบ</button>
+                              className="text-[11px]" style={{ color: 'var(--danger)' }}>ลบ</button>
                           </div>
                         </td>
                       </tr>
@@ -841,27 +853,27 @@ export default function AdminPage() {
         {activeTab === 'companies' && (
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center gap-2 mb-4">
-              <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
-              <h3 className="text-[13px] text-white font-medium">รายชื่อบริษัท ({COMPANIES.length})</h3>
+              <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+              <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>รายชื่อบริษัท ({COMPANIES.length})</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="apple-table w-full text-[11px]">
                 <thead>
-                  <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>บริษัท</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Google Sheet ID</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Safety Sheet</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Envi Sheet</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สถานะ</th>
+                  <tr style={{ borderColor: 'var(--border)' }}>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Google Sheet ID</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Safety Sheet</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Envi Sheet</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>สถานะ</th>
                   </tr>
                 </thead>
                 <tbody>
                   {COMPANIES.map(c => (
-                    <tr key={c.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                      <td className="py-3 px-3 font-medium text-white">{c.name}</td>
-                      <td className="py-3 px-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'rgba(255,255,255,0.2)' }}>-</span>}</td>
-                      <td className="py-3 px-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{c.safetySheet || '-'}</td>
-                      <td className="py-3 px-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{c.enviSheet || '-'}</td>
+                    <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                      <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</td>
+                      <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'var(--muted)' }}>-</span>}</td>
+                      <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.safetySheet || '-'}</td>
+                      <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.enviSheet || '-'}</td>
                       <td className="py-3 px-3 text-center">
                         <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
                           background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'rgba(255,255,255,0.1)',

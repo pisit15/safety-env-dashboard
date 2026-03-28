@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Shield, Leaf } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
@@ -29,8 +30,8 @@ export default function HQOverview() {
         <Sidebar />
         <main className="flex-1 p-8 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-10 h-10 border-2 border-[#0a84ff] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>กำลังโหลดข้อมูล...</p>
+            <div className="w-10 h-10 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
+            <p className="text-[13px]" style={{ color: 'var(--muted)' }}>กำลังโหลดข้อมูล...</p>
           </div>
         </main>
       </div>
@@ -46,8 +47,8 @@ export default function HQOverview() {
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-[12px] mb-2">
-          <span style={{ color: 'rgba(255,255,255,0.3)' }}>Home</span>
-          <span style={{ color: 'rgba(255,255,255,0.15)' }}>/</span>
+          <span style={{ color: 'var(--muted)' }}>Home</span>
+          <span style={{ color: 'var(--border)' }}>/</span>
           <span className="text-white/70 font-medium">แผนงานประจำปี</span>
         </div>
 
@@ -57,33 +58,33 @@ export default function HQOverview() {
             <h1 className="text-[26px] font-bold text-white tracking-tight">
               HQ Overview — แผนงาน{planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'} 2026
             </h1>
-            <p className="text-[13px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
               ภาพรวมกลุ่ม — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} 2026
-              {loading && <span className="ml-2 text-[#0a84ff] animate-pulse">กำลังอัปเดต...</span>}
+              {loading && <span className="ml-2 animate-pulse" style={{ color: 'var(--accent)' }}>กำลังอัปเดต...</span>}
             </p>
           </div>
-          <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'var(--border)' }}>
             <button
               onClick={() => setPlanType('safety')}
-              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 ${
+              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
                 planType === 'safety'
-                  ? 'bg-[#0a84ff] text-white'
+                  ? 'text-white'
                   : 'text-white/50 hover:text-white/80'
               }`}
-              style={planType === 'safety' ? { boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
+              style={planType === 'safety' ? { background: 'var(--accent)', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
             >
-              🛡️ Safety Plan
+              <Shield size={14} /> Safety Plan
             </button>
             <button
               onClick={() => setPlanType('environment')}
-              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 ${
+              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
                 planType === 'environment'
-                  ? 'bg-[#0a84ff] text-white'
+                  ? 'text-white'
                   : 'text-white/50 hover:text-white/80'
               }`}
-              style={planType === 'environment' ? { boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
+              style={planType === 'environment' ? { background: 'var(--accent)', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
             >
-              🌿 Envi Plan
+              <Leaf size={14} /> Envi Plan
             </button>
           </div>
         </div>
@@ -107,8 +108,8 @@ export default function HQOverview() {
 
         {/* Monthly Progress Chart */}
         <div className="glass-card p-6 mb-6 animate-fade-in-up" style={{ opacity: 0, animationDelay: '0.2s' }}>
-          <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+          <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
             ติดตามความก้าวหน้ารายเดือน — Plan vs Actual
           </h3>
           <div style={{ height: 300 }}>
@@ -126,7 +127,7 @@ export default function HQOverview() {
                   className="text-center p-2 rounded-xl text-[10px] transition-all duration-200"
                   style={{
                     background: isCurrent ? 'rgba(255, 214, 10, 0.08)' :
-                      isPast ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.015)',
+                      isPast ? 'var(--bg-tertiary)' : 'rgba(255,255,255,0.015)',
                     border: isCurrent ? '1px solid rgba(255, 214, 10, 0.2)' : '1px solid transparent',
                   }}
                 >
@@ -136,13 +137,13 @@ export default function HQOverview() {
                     {mp.label}
                   </div>
                   <div className="text-lg font-bold" style={{
-                    color: mp.pctComplete >= 100 ? '#30d158' :
+                    color: mp.pctComplete >= 100 ? '#34c759' :
                       mp.pctComplete > 0 ? '#ffd60a' :
-                      isPast ? '#ff453a' : 'rgba(255,255,255,0.12)'
+                      isPast ? '#ff3b30' : 'rgba(255,255,255,0.12)'
                   }}>
                     {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.2)' }}>
+                  <div style={{ color: 'var(--border)' }}>
                     {mp.completed}/{mp.planned}
                   </div>
                 </div>
@@ -154,8 +155,8 @@ export default function HQOverview() {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
           <div className="lg:col-span-3 glass-card p-6">
-            <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+            <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+              <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
               Ranking % สำเร็จ รายบริษัท
             </h3>
             <div style={{ height: 420 }}>
@@ -163,8 +164,8 @@ export default function HQOverview() {
             </div>
           </div>
           <div className="lg:col-span-2 glass-card p-6">
-            <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              <span className="w-0.5 h-4 rounded-full bg-[#30d158]"></span>
+            <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+              <span className="w-0.5 h-4 rounded-full" style={{ background: '#34c759' }}></span>
               สัดส่วนสถานะกิจกรรม
             </h3>
             <div style={{ height: 320 }}>
@@ -181,8 +182,8 @@ export default function HQOverview() {
 
         {/* Company Table */}
         <div className="glass-card p-6 mb-6">
-          <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            <span className="w-0.5 h-4 rounded-full bg-[#5ac8fa]"></span>
+          <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <span className="w-0.5 h-4 rounded-full" style={{ background: '#5ac8fa' }}></span>
             สรุปรายบริษัท
           </h3>
           <div className="overflow-x-auto">
@@ -208,40 +209,41 @@ export default function HQOverview() {
                     <tr key={c.companyId}>
                       <td className="font-semibold text-white">{c.companyName}</td>
                       <td className="text-center">{c.total || '-'}</td>
-                      <td className="text-center" style={{ color: '#30d158' }}>{c.done || '-'}</td>
-                      <td className="text-center" style={{ color: '#ff9f0a' }}>{c.notStarted || '-'}</td>
+                      <td className="text-center" style={{ color: '#34c759' }}>{c.done || '-'}</td>
+                      <td className="text-center" style={{ color: '#ff9500' }}>{c.notStarted || '-'}</td>
                       <td className="text-center" style={{ color: '#5ac8fa' }}>{c.postponed || '-'}</td>
-                      <td className="text-center" style={{ color: '#ff453a' }}>{c.cancelled || '-'}</td>
-                      <td className="text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>{c.notApplicable || '-'}</td>
+                      <td className="text-center" style={{ color: '#ff3b30' }}>{c.cancelled || '-'}</td>
+                      <td className="text-center" style={{ color: 'var(--muted)' }}>{c.notApplicable || '-'}</td>
                       <td className="text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <div className="w-16 h-[5px] rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          <div className="w-16 h-[5px] rounded-full" style={{ background: 'var(--border)' }}>
                             <div
                               className="h-[5px] rounded-full transition-all duration-500"
                               style={{
                                 width: `${Math.min(c.pctDone * 2, 100)}%`,
-                                backgroundColor: c.pctDone >= 25 ? '#30d158' : '#ff9f0a',
+                                backgroundColor: c.pctDone >= 25 ? '#34c759' : '#ff9500',
                               }}
                             />
                           </div>
-                          <span className="text-[13px] font-semibold" style={{ color: c.pctDone >= 25 ? '#30d158' : '#ff9f0a' }}>
+                          <span className="text-[13px] font-semibold" style={{ color: c.pctDone >= 25 ? '#34c759' : '#ff9500' }}>
                             {c.pctDone}%
                           </span>
                         </div>
                       </td>
-                      <td className="text-right" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      <td className="text-right" style={{ color: 'var(--text-secondary)' }}>
                         {c.budget > 0 ? c.budget.toLocaleString() : '-'}
                       </td>
                       <td className="text-right">
                         {c.total > 0 ? (
                           <Link
                             href={`/company/${c.companyId}`}
-                            className="text-[12px] font-medium text-[#0a84ff] hover:text-[#409cff] transition-colors"
+                            className="text-[12px] font-medium transition-colors"
+                            style={{ color: 'var(--accent)' }}
                           >
                             ดูรายละเอียด →
                           </Link>
                         ) : (
-                          <span className="text-[12px]" style={{ color: 'rgba(255,255,255,0.15)' }}>ยังไม่เชื่อม</span>
+                          <span className="text-[12px]" style={{ color: 'var(--border)' }}>ยังไม่เชื่อม</span>
                         )}
                       </td>
                     </tr>
@@ -253,8 +255,8 @@ export default function HQOverview() {
 
         {/* Budget Chart */}
         <div className="glass-card p-6">
-          <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            <span className="w-0.5 h-4 rounded-full bg-[#ffd60a]"></span>
+          <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <span className="w-0.5 h-4 rounded-full" style={{ background: '#ffd60a' }}></span>
             งบประมาณรายบริษัท (บาท)
           </h3>
           <div style={{ height: 400 }}>

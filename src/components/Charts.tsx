@@ -5,6 +5,31 @@ import { CompanySummary, MonthlyProgress } from '@/lib/types';
 
 declare const Chart: any;
 
+// Helper function to get current theme
+function getTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+// Helper function to get theme-aware colors
+function getThemeColors(isDark: boolean) {
+  return {
+    grid: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+    tick: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)',
+    label: isDark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.85)',
+    legend: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)',
+  };
+}
+
+// Status/accent colors that work in both themes
+const statusColors = {
+  green: '#34c759',
+  orange: '#ff9500',
+  blue: '#007aff',
+  red: '#ff3b30',
+  gray: '#8e8e93',
+  infoBright: '#5ac8fa',
+};
+
 interface RankingChartProps {
   companies: CompanySummary[];
 }
@@ -15,6 +40,9 @@ export function RankingChart({ companies }: RankingChartProps) {
 
   useEffect(() => {
     if (!canvasRef.current || typeof Chart === 'undefined') return;
+
+    const isDark = getTheme();
+    const colors = getThemeColors(isDark);
 
     const sorted = [...companies].sort((a, b) => a.pctDone - b.pctDone);
     const labels = sorted.map(c => c.shortName);
@@ -28,7 +56,7 @@ export function RankingChart({ companies }: RankingChartProps) {
         labels,
         datasets: [{
           data,
-          backgroundColor: data.map((p: number) => p >= 25 ? '#30d158' : '#ff9f0a'),
+          backgroundColor: data.map((p: number) => p >= 25 ? statusColors.green : statusColors.orange),
           borderRadius: 6,
           barThickness: 18,
         }],
@@ -48,12 +76,12 @@ export function RankingChart({ companies }: RankingChartProps) {
         scales: {
           x: {
             max: 50,
-            grid: { color: 'rgba(255,255,255,0.06)' },
-            ticks: { color: 'rgba(255,255,255,0.4)', callback: (v: number) => v + '%' },
+            grid: { color: colors.grid },
+            ticks: { color: colors.tick, callback: (v: number) => v + '%' },
           },
           y: {
             grid: { display: false },
-            ticks: { color: 'rgba(255,255,255,0.9)', font: { size: 11 } },
+            ticks: { color: colors.label, font: { size: 11 } },
           },
         },
       },
@@ -65,13 +93,13 @@ export function RankingChart({ companies }: RankingChartProps) {
           const ctx = chart.ctx;
           ctx.save();
           ctx.setLineDash([5, 5]);
-          ctx.strokeStyle = '#ff453a';
+          ctx.strokeStyle = statusColors.red;
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x, chart.chartArea.top);
           ctx.lineTo(x, chart.chartArea.bottom);
           ctx.stroke();
-          ctx.fillStyle = '#ff453a';
+          ctx.fillStyle = statusColors.red;
           ctx.font = '10px Inter, sans-serif';
           ctx.fillText('Target Q1: 25%', x + 5, chart.chartArea.top + 10);
           ctx.restore();
@@ -79,7 +107,79 @@ export function RankingChart({ companies }: RankingChartProps) {
       }],
     });
 
-    return () => { if (chartRef.current) chartRef.current.destroy(); };
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      if (chartRef.current) chartRef.current.destroy();
+      // Trigger re-render by calling the effect again
+      const newIsDark = getTheme();
+      const newColors = getThemeColors(newIsDark);
+
+      if (canvasRef.current) {
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: data.map((p: number) => p >= 25 ? statusColors.green : statusColors.orange),
+              borderRadius: 6,
+              barThickness: 18,
+            }],
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx: any) => `${ctx.raw}% สำเร็จ`,
+                },
+              },
+            },
+            scales: {
+              x: {
+                max: 50,
+                grid: { color: newColors.grid },
+                ticks: { color: newColors.tick, callback: (v: number) => v + '%' },
+              },
+              y: {
+                grid: { display: false },
+                ticks: { color: newColors.label, font: { size: 11 } },
+              },
+            },
+          },
+          plugins: [{
+            id: 'targetLine',
+            afterDraw(chart: any) {
+              const xScale = chart.scales.x;
+              const x = xScale.getPixelForValue(25);
+              const ctx = chart.ctx;
+              ctx.save();
+              ctx.setLineDash([5, 5]);
+              ctx.strokeStyle = statusColors.red;
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.moveTo(x, chart.chartArea.top);
+              ctx.lineTo(x, chart.chartArea.bottom);
+              ctx.stroke();
+              ctx.fillStyle = statusColors.red;
+              ctx.font = '10px Inter, sans-serif';
+              ctx.fillText('Target Q1: 25%', x + 5, chart.chartArea.top + 10);
+              ctx.restore();
+            },
+          }],
+        });
+      }
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+      observer.disconnect();
+    };
   }, [companies]);
 
   return <canvas ref={canvasRef} />;
@@ -99,21 +199,25 @@ export function StatusPieChart({ done, notStarted, postponed, cancelled, notAppl
 
   useEffect(() => {
     if (!canvasRef.current || typeof Chart === 'undefined') return;
-    if (chartRef.current) chartRef.current.destroy();
+
+    const isDark = getTheme();
+    const colors = getThemeColors(isDark);
 
     const labels = ['เสร็จแล้ว', 'ยังไม่เริ่ม', 'เลื่อน', 'ยกเลิก', 'ไม่เข้าเงื่อนไข'];
     const data = [done, notStarted, postponed, cancelled, notApplicable];
-    const colors = ['#30d158', '#ff9f0a', '#5ac8fa', '#ff453a', '#636366'];
+    const chartColors = [statusColors.green, statusColors.orange, statusColors.infoBright, statusColors.red, statusColors.gray];
 
     // Filter out zero values for cleaner chart
     const filtered = labels.reduce((acc: { l: string[]; d: number[]; c: string[] }, label, idx) => {
       if (data[idx] > 0) {
         acc.l.push(label);
         acc.d.push(data[idx]);
-        acc.c.push(colors[idx]);
+        acc.c.push(chartColors[idx]);
       }
       return acc;
     }, { l: [], d: [], c: [] });
+
+    if (chartRef.current) chartRef.current.destroy();
 
     chartRef.current = new Chart(canvasRef.current, {
       type: 'doughnut',
@@ -132,13 +236,50 @@ export function StatusPieChart({ done, notStarted, postponed, cancelled, notAppl
         plugins: {
           legend: {
             position: 'bottom',
-            labels: { color: 'rgba(255,255,255,0.4)', padding: 15, font: { size: 12 } },
+            labels: { color: colors.legend, padding: 15, font: { size: 12 } },
           },
         },
       },
     });
 
-    return () => { if (chartRef.current) chartRef.current.destroy(); };
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      if (chartRef.current) chartRef.current.destroy();
+      const newIsDark = getTheme();
+      const newColors = getThemeColors(newIsDark);
+
+      if (canvasRef.current) {
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'doughnut',
+          data: {
+            labels: filtered.l,
+            datasets: [{
+              data: filtered.d,
+              backgroundColor: filtered.c,
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: newColors.legend, padding: 15, font: { size: 12 } },
+              },
+            },
+          },
+        });
+      }
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+      observer.disconnect();
+    };
   }, [done, notStarted, postponed, cancelled, notApplicable]);
 
   return <canvas ref={canvasRef} />;
@@ -150,6 +291,9 @@ export function BudgetChart({ companies }: RankingChartProps) {
 
   useEffect(() => {
     if (!canvasRef.current || typeof Chart === 'undefined') return;
+
+    const isDark = getTheme();
+    const colors = getThemeColors(isDark);
 
     const sorted = [...companies].sort((a, b) => a.budget - b.budget);
     const labels = sorted.map(c => c.shortName);
@@ -163,7 +307,7 @@ export function BudgetChart({ companies }: RankingChartProps) {
         labels,
         datasets: [{
           data,
-          backgroundColor: '#5ac8fa',
+          backgroundColor: statusColors.infoBright,
           borderRadius: 6,
           barThickness: 18,
         }],
@@ -175,21 +319,67 @@ export function BudgetChart({ companies }: RankingChartProps) {
         plugins: { legend: { display: false } },
         scales: {
           x: {
-            grid: { color: 'rgba(255,255,255,0.06)' },
+            grid: { color: colors.grid },
             ticks: {
-              color: 'rgba(255,255,255,0.4)',
+              color: colors.tick,
               callback: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'K',
             },
           },
           y: {
             grid: { display: false },
-            ticks: { color: 'rgba(255,255,255,0.9)', font: { size: 11 } },
+            ticks: { color: colors.label, font: { size: 11 } },
           },
         },
       },
     });
 
-    return () => { if (chartRef.current) chartRef.current.destroy(); };
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      if (chartRef.current) chartRef.current.destroy();
+      const newIsDark = getTheme();
+      const newColors = getThemeColors(newIsDark);
+
+      if (canvasRef.current) {
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: statusColors.infoBright,
+              borderRadius: 6,
+              barThickness: 18,
+            }],
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: {
+                grid: { color: newColors.grid },
+                ticks: {
+                  color: newColors.tick,
+                  callback: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'K',
+                },
+              },
+              y: {
+                grid: { display: false },
+                ticks: { color: newColors.label, font: { size: 11 } },
+              },
+            },
+          },
+        });
+      }
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+      observer.disconnect();
+    };
   }, [companies]);
 
   return <canvas ref={canvasRef} />;
@@ -206,8 +396,9 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
 
   useEffect(() => {
     if (!canvasRef.current || typeof Chart === 'undefined') return;
-    if (chartRef.current) chartRef.current.destroy();
 
+    const isDark = getTheme();
+    const colors = getThemeColors(isDark);
     const currentMonth = new Date().getMonth();
     const labels = monthlyProgress.map(m => m.label);
     const planned = monthlyProgress.map(m => m.planned);
@@ -215,6 +406,8 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
     // Per-status data for stacked Actual bars
     const doneData = monthlyProgress.map(m => m.doneCount ?? m.completed);
     const notApplicableData = monthlyProgress.map(m => m.notApplicableCount ?? 0);
+
+    if (chartRef.current) chartRef.current.destroy();
 
     chartRef.current = new Chart(canvasRef.current, {
       type: 'bar',
@@ -224,8 +417,8 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'Plan (แผน)',
             data: planned,
-            backgroundColor: 'rgba(10, 132, 255, 0.5)',
-            borderColor: '#0a84ff',
+            backgroundColor: 'rgba(0, 122, 255, 0.5)',
+            borderColor: statusColors.blue,
             borderWidth: 1,
             borderRadius: 6,
             stack: 'plan',
@@ -233,8 +426,8 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'เสร็จแล้ว',
             data: doneData,
-            backgroundColor: 'rgba(48, 209, 88, 0.8)',
-            borderColor: '#30d158',
+            backgroundColor: 'rgba(52, 199, 89, 0.8)',
+            borderColor: statusColors.green,
             borderWidth: 1,
             borderRadius: 0,
             stack: 'actual',
@@ -242,8 +435,8 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'ไม่เข้าเงื่อนไข',
             data: notApplicableData,
-            backgroundColor: 'rgba(99, 99, 102, 0.7)',
-            borderColor: '#636366',
+            backgroundColor: 'rgba(142, 142, 147, 0.7)',
+            borderColor: statusColors.gray,
             borderWidth: 1,
             borderRadius: 0,
             stack: 'actual',
@@ -256,7 +449,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: 'rgba(255,255,255,0.4)', padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
+            labels: { color: colors.legend, padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
           },
           tooltip: {
             callbacks: {
@@ -271,16 +464,16 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         scales: {
           x: {
             stacked: true,
-            grid: { color: 'rgba(255,255,255,0.06)' },
+            grid: { color: colors.grid },
             ticks: {
-              color: (ctx: any) => ctx.index <= currentMonth ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
+              color: (ctx: any) => ctx.index <= currentMonth ? colors.label : colors.tick,
               font: { size: 11, weight: (ctx: any) => ctx.index === currentMonth ? 'bold' : 'normal' },
             },
           },
           y: {
             stacked: true,
-            grid: { color: 'rgba(255,255,255,0.06)' },
-            ticks: { color: 'rgba(255,255,255,0.4)' },
+            grid: { color: colors.grid },
+            ticks: { color: colors.tick },
             beginAtZero: true,
           },
         },
@@ -293,13 +486,13 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           const ctx = chart.ctx;
           ctx.save();
           ctx.setLineDash([4, 4]);
-          ctx.strokeStyle = '#ffd60a';
+          ctx.strokeStyle = statusColors.orange;
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x, chart.chartArea.top);
           ctx.lineTo(x, chart.chartArea.bottom);
           ctx.stroke();
-          ctx.fillStyle = '#ffd60a';
+          ctx.fillStyle = statusColors.orange;
           ctx.font = '10px Inter, sans-serif';
           ctx.fillText('เดือนปัจจุบัน', x + 5, chart.chartArea.top + 10);
           ctx.restore();
@@ -307,7 +500,112 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
       }],
     });
 
-    return () => { if (chartRef.current) chartRef.current.destroy(); };
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      if (chartRef.current) chartRef.current.destroy();
+      const newIsDark = getTheme();
+      const newColors = getThemeColors(newIsDark);
+
+      if (canvasRef.current) {
+        chartRef.current = new Chart(canvasRef.current, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Plan (แผน)',
+                data: planned,
+                backgroundColor: 'rgba(0, 122, 255, 0.5)',
+                borderColor: statusColors.blue,
+                borderWidth: 1,
+                borderRadius: 6,
+                stack: 'plan',
+              },
+              {
+                label: 'เสร็จแล้ว',
+                data: doneData,
+                backgroundColor: 'rgba(52, 199, 89, 0.8)',
+                borderColor: statusColors.green,
+                borderWidth: 1,
+                borderRadius: 0,
+                stack: 'actual',
+              },
+              {
+                label: 'ไม่เข้าเงื่อนไข',
+                data: notApplicableData,
+                backgroundColor: 'rgba(142, 142, 147, 0.7)',
+                borderColor: statusColors.gray,
+                borderWidth: 1,
+                borderRadius: 0,
+                stack: 'actual',
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { color: newColors.legend, padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
+              },
+              tooltip: {
+                callbacks: {
+                  afterBody: (ctx: any) => {
+                    const idx = ctx[0].dataIndex;
+                    const mp = monthlyProgress[idx];
+                    return mp.planned > 0 ? `\nCompletion: ${mp.pctComplete}%` : '';
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                stacked: true,
+                grid: { color: newColors.grid },
+                ticks: {
+                  color: (ctx: any) => ctx.index <= currentMonth ? newColors.label : newColors.tick,
+                  font: { size: 11, weight: (ctx: any) => ctx.index === currentMonth ? 'bold' : 'normal' },
+                },
+              },
+              y: {
+                stacked: true,
+                grid: { color: newColors.grid },
+                ticks: { color: newColors.tick },
+                beginAtZero: true,
+              },
+            },
+          },
+          plugins: [{
+            id: 'currentMonthLine',
+            afterDraw(chart: any) {
+              const xScale = chart.scales.x;
+              const x = xScale.getPixelForValue(currentMonth);
+              const ctx = chart.ctx;
+              ctx.save();
+              ctx.setLineDash([4, 4]);
+              ctx.strokeStyle = statusColors.orange;
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.moveTo(x, chart.chartArea.top);
+              ctx.lineTo(x, chart.chartArea.bottom);
+              ctx.stroke();
+              ctx.fillStyle = statusColors.orange;
+              ctx.font = '10px Inter, sans-serif';
+              ctx.fillText('เดือนปัจจุบัน', x + 5, chart.chartArea.top + 10);
+              ctx.restore();
+            },
+          }],
+        });
+      }
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+      observer.disconnect();
+    };
   }, [monthlyProgress]);
 
   return <canvas ref={canvasRef} />;
