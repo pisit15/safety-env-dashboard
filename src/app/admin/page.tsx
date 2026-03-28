@@ -39,19 +39,27 @@ interface Credential {
   is_active: boolean; created_at: string; updated_at: string;
 }
 
+interface AdminAccount {
+  id: number; username: string; password: string; display_name: string;
+  role: string; is_active: boolean; created_at: string; updated_at: string;
+}
+
 export default function AdminPage() {
   // Admin auth state
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
+  const [currentAdminName, setCurrentAdminName] = useState('');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'admins'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
   const [auditFilter, setAuditFilter] = useState('all');
   const [requestFilter, setRequestFilter] = useState('pending');
   const [loading, setLoading] = useState(false);
@@ -67,10 +75,34 @@ export default function AdminPage() {
   const [editingCredId, setEditingCredId] = useState<string | null>(null);
   const [editCredPassword, setEditCredPassword] = useState('');
 
+  // Admin account form
+  const [showNewAdminForm, setShowNewAdminForm] = useState(false);
+  const [newAdminUsername, setNewAdminUsername] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminDisplayName, setNewAdminDisplayName] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState('admin');
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [editingAdminId, setEditingAdminId] = useState<number | null>(null);
+  const [editAdminPassword, setEditAdminPassword] = useState('');
+
   // Check admin session on mount
   useEffect(() => {
     const saved = sessionStorage.getItem('admin_auth');
-    if (saved === 'true') setIsAdminLoggedIn(true);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.loggedIn) {
+          setIsAdminLoggedIn(true);
+          setCurrentAdminName(parsed.name || 'Admin');
+        }
+      } catch {
+        // Legacy format: just 'true'
+        if (saved === 'true') {
+          setIsAdminLoggedIn(true);
+          setCurrentAdminName('Admin');
+        }
+      }
+    }
   }, []);
 
   const handleAdminLogin = async () => {
@@ -80,13 +112,14 @@ export default function AdminPage() {
       const res = await fetch('/api/admin-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: adminPassword }),
+        body: JSON.stringify({ username: adminUsername, password: adminPassword }),
       });
       const data = await res.json();
       if (data.success) {
         setIsAdminLoggedIn(true);
-        sessionStorage.setItem('admin_auth', 'true');
-        setAdminPassword('');
+        setCurrentAdminName(data.adminName || 'Admin');
+        sessionStorage.setItem('admin_auth', JSON.stringify({ loggedIn: true, name: data.adminName || 'Admin' }));
+        setAdminUsername(''); setAdminPassword('');
       } else {
         setAdminLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
       }
@@ -98,6 +131,7 @@ export default function AdminPage() {
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
+    setCurrentAdminName('');
     sessionStorage.removeItem('admin_auth');
   };
 
@@ -131,13 +165,21 @@ export default function AdminPage() {
       .catch(() => {});
   }, []);
 
+  const fetchAdminAccounts = useCallback(() => {
+    fetch('/api/admin-auth')
+      .then(r => r.json())
+      .then(d => setAdminAccounts(d.admins || []))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!isAdminLoggedIn) return;
     if (activeTab === 'audit') fetchAudit();
     if (activeTab === 'requests') fetchRequests();
     if (activeTab === 'deadlines') fetchDeadlines();
     if (activeTab === 'credentials') fetchCredentials();
-  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials]);
+    if (activeTab === 'admins') fetchAdminAccounts();
+  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchAdminAccounts]);
 
   const handleApproveReject = async (id: number, status: 'approved' | 'rejected') => {
     await fetch('/api/edit-requests', {
@@ -209,7 +251,62 @@ export default function AdminPage() {
     fetchCredentials();
   };
 
+  // Admin account CRUD
+  const handleCreateAdmin = async () => {
+    if (!newAdminUsername || !newAdminPassword) return;
+    setAdminSaving(true);
+    try {
+      const res = await fetch('/api/admin-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newAdminUsername,
+          password: newAdminPassword,
+          displayName: newAdminDisplayName || newAdminUsername,
+          role: newAdminRole,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowNewAdminForm(false);
+        setNewAdminUsername(''); setNewAdminPassword(''); setNewAdminDisplayName(''); setNewAdminRole('admin');
+        fetchAdminAccounts();
+      } else {
+        alert(data.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+    setAdminSaving(false);
+  };
+
+  const handleToggleAdminActive = async (id: number, currentActive: boolean) => {
+    await fetch('/api/admin-auth', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, isActive: !currentActive }),
+    });
+    fetchAdminAccounts();
+  };
+
+  const handleUpdateAdminPassword = async (id: number) => {
+    if (!editAdminPassword.trim()) return;
+    await fetch('/api/admin-auth', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password: editAdminPassword }),
+    });
+    setEditingAdminId(null); setEditAdminPassword('');
+    fetchAdminAccounts();
+  };
+
+  const handleDeleteAdmin = async (id: number, name: string) => {
+    if (!confirm(`ลบบัญชี Admin "${name}" จริงหรือ?`)) return;
+    await fetch(`/api/admin-auth?id=${id}`, { method: 'DELETE' });
+    fetchAdminAccounts();
+  };
+
   const activeCompanies = COMPANIES.filter(c => c.sheetId !== '');
+  const existingCredCompanyIds = credentials.map(c => c.company_id);
+  const availableCompaniesForCred = COMPANIES.filter(c => !existingCredCompanyIds.includes(c.id));
 
   // Admin Login Screen
   if (!isAdminLoggedIn) {
@@ -220,15 +317,22 @@ export default function AdminPage() {
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="bg-card border border-border rounded-xl p-8 w-full max-w-sm">
               <h2 className="text-xl font-bold text-white mb-2 text-center">Admin Login</h2>
-              <p className="text-sm text-zinc-400 mb-6 text-center">กรอกรหัสผ่าน Admin เพื่อเข้าจัดการระบบ</p>
+              <p className="text-sm text-zinc-400 mb-6 text-center">กรอก Username และ Password เพื่อเข้าจัดการระบบ</p>
+              <input
+                type="text"
+                value={adminUsername}
+                onChange={e => setAdminUsername(e.target.value)}
+                placeholder="Username"
+                className="w-full px-4 py-3 bg-bg border border-border rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-accent"
+                autoFocus
+              />
               <input
                 type="password"
                 value={adminPassword}
                 onChange={e => setAdminPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-                placeholder="รหัสผ่าน Admin"
+                placeholder="Password"
                 className="w-full px-4 py-3 bg-bg border border-border rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-accent"
-                autoFocus
               />
               {adminLoginError && <p className="text-red-400 text-xs mb-3">{adminLoginError}</p>}
               <button
@@ -255,12 +359,15 @@ export default function AdminPage() {
 
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-          <button
-            onClick={handleAdminLogout}
-            className="px-3 py-1.5 text-xs text-zinc-400 border border-zinc-700 rounded-lg hover:text-white hover:border-zinc-500"
-          >
-            ออกจากระบบ Admin
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-zinc-400">เข้าสู่ระบบเป็น: <span className="text-white font-medium">{currentAdminName}</span></span>
+            <button
+              onClick={handleAdminLogout}
+              className="px-3 py-1.5 text-xs text-zinc-400 border border-zinc-700 rounded-lg hover:text-white hover:border-zinc-500"
+            >
+              ออกจากระบบ
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -270,6 +377,7 @@ export default function AdminPage() {
             { key: 'requests', label: 'คำขอแก้ไข' },
             { key: 'deadlines', label: 'กำหนด Deadline' },
             { key: 'credentials', label: 'จัดการบัญชี' },
+            { key: 'admins', label: 'จัดการ Admin' },
             { key: 'companies', label: 'บริษัท' },
           ].map(tab => (
             <button
@@ -442,13 +550,20 @@ export default function AdminPage() {
                 <h4 className="text-sm font-medium text-white mb-3">สร้างบัญชีบริษัทใหม่</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Company ID</label>
-                    <input
-                      type="text" value={newCredCompanyId}
-                      onChange={e => setNewCredCompanyId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                      placeholder="เช่น ea-kabin"
+                    <label className="text-xs text-zinc-400 mb-1 block">เลือกบริษัท</label>
+                    <select
+                      value={newCredCompanyId}
+                      onChange={e => {
+                        setNewCredCompanyId(e.target.value);
+                        if (!newCredUsername) setNewCredUsername(e.target.value);
+                      }}
                       className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent"
-                    />
+                    >
+                      <option value="">-- เลือกบริษัท --</option>
+                      {availableCompaniesForCred.map(c => (
+                        <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-xs text-zinc-400 mb-1 block">Username</label>
@@ -531,6 +646,136 @@ export default function AdminPage() {
                             <button onClick={() => { setEditingCredId(cred.company_id); setEditCredPassword(cred.password); }}
                               className="text-xs text-accent hover:text-accent/80">แก้ไขรหัส</button>
                             <button onClick={() => handleDeleteCredential(cred.company_id)}
+                              className="text-xs text-red-400 hover:text-red-300">ลบ</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ADMIN ACCOUNTS TAB */}
+        {activeTab === 'admins' && (
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm text-muted border-l-2 border-accent pl-3">จัดการบัญชี Admin</h3>
+              <button
+                onClick={() => setShowNewAdminForm(!showNewAdminForm)}
+                className="px-3 py-1.5 bg-accent text-white text-xs rounded-lg hover:bg-accent/80"
+              >
+                + เพิ่ม Admin ใหม่
+              </button>
+            </div>
+
+            {showNewAdminForm && (
+              <div className="bg-bg border border-border rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-white mb-3">สร้างบัญชี Admin ใหม่</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">Username</label>
+                    <input type="text" value={newAdminUsername} onChange={e => setNewAdminUsername(e.target.value)}
+                      placeholder="ชื่อผู้ใช้"
+                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">Password</label>
+                    <input type="text" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)}
+                      placeholder="รหัสผ่าน"
+                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">ชื่อที่แสดง</label>
+                    <input type="text" value={newAdminDisplayName} onChange={e => setNewAdminDisplayName(e.target.value)}
+                      placeholder="เช่น จป.วิชาชีพ สมชาย"
+                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-zinc-400 mb-1 block">สิทธิ์</label>
+                    <select value={newAdminRole} onChange={e => setNewAdminRole(e.target.value)}
+                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent">
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                      <option value="viewer">Viewer (ดูอย่างเดียว)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleCreateAdmin} disabled={adminSaving || !newAdminUsername || !newAdminPassword}
+                    className="px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent/80 disabled:opacity-50">
+                    {adminSaving ? 'กำลังบันทึก...' : 'สร้างบัญชี Admin'}
+                  </button>
+                  <button onClick={() => setShowNewAdminForm(false)}
+                    className="px-4 py-2 bg-zinc-700 text-zinc-300 text-sm rounded-lg hover:bg-zinc-600">ยกเลิก</button>
+                </div>
+              </div>
+            )}
+
+            {adminAccounts.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-muted text-sm mb-2">ยังไม่มีบัญชี Admin ในระบบ</p>
+                <p className="text-xs text-zinc-600">ระบบใช้ fallback password จาก environment variable (ADMIN_PASSWORD) อยู่</p>
+                <p className="text-xs text-zinc-600">เมื่อเพิ่มบัญชี Admin แรก ระบบจะเปลี่ยนไปใช้บัญชีจาก database แทน</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-3 text-muted font-semibold">Username</th>
+                      <th className="text-left py-3 px-3 text-muted font-semibold">ชื่อที่แสดง</th>
+                      <th className="text-left py-3 px-3 text-muted font-semibold">Password</th>
+                      <th className="text-center py-3 px-3 text-muted font-semibold">สิทธิ์</th>
+                      <th className="text-center py-3 px-3 text-muted font-semibold">สถานะ</th>
+                      <th className="text-center py-3 px-3 text-muted font-semibold">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminAccounts.map(admin => (
+                      <tr key={admin.id} className="border-b border-zinc-800 hover:bg-zinc-800/40">
+                        <td className="py-3 px-3 font-medium text-white">{admin.username}</td>
+                        <td className="py-3 px-3 text-zinc-300">{admin.display_name}</td>
+                        <td className="py-3 px-3">
+                          {editingAdminId === admin.id ? (
+                            <div className="flex items-center gap-2">
+                              <input type="text" value={editAdminPassword}
+                                onChange={e => setEditAdminPassword(e.target.value)}
+                                className="px-2 py-1 bg-bg border border-border rounded text-white text-xs w-32 focus:outline-none focus:border-accent"
+                                autoFocus />
+                              <button onClick={() => handleUpdateAdminPassword(admin.id)}
+                                className="text-green-400 text-xs hover:text-green-300">บันทึก</button>
+                              <button onClick={() => { setEditingAdminId(null); setEditAdminPassword(''); }}
+                                className="text-zinc-500 text-xs hover:text-zinc-300">ยกเลิก</button>
+                            </div>
+                          ) : (
+                            <code className="text-xs text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded">{admin.password}</code>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            admin.role === 'super_admin' ? 'bg-purple-900/50 text-purple-400' :
+                            admin.role === 'viewer' ? 'bg-zinc-800 text-zinc-400' :
+                            'bg-blue-900/50 text-blue-400'
+                          }`}>
+                            {admin.role === 'super_admin' ? 'Super Admin' : admin.role === 'viewer' ? 'Viewer' : 'Admin'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <button onClick={() => handleToggleAdminActive(admin.id, admin.is_active)}
+                            className={`text-xs px-2 py-0.5 rounded-full cursor-pointer ${
+                              admin.is_active ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
+                            }`}>
+                            {admin.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                          </button>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => { setEditingAdminId(admin.id); setEditAdminPassword(admin.password); }}
+                              className="text-xs text-accent hover:text-accent/80">แก้ไขรหัส</button>
+                            <button onClick={() => handleDeleteAdmin(admin.id, admin.display_name)}
                               className="text-xs text-red-400 hover:text-red-300">ลบ</button>
                           </div>
                         </td>
