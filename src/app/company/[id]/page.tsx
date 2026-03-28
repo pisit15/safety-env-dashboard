@@ -145,28 +145,16 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, summary?.monthlyProgress]);
 
-  // Status sort priority (lower = higher priority when sorting)
-  const STATUS_SORT_ORDER: Record<string, number> = {
-    done: 1,
-    overdue: 2,
-    planned: 3,
-    postponed: 4,
-    cancelled: 5,
-    not_applicable: 6,
-    not_planned: 7,
-  };
-
-  // Filter activities by status
+  // Filter activities by status and month
   const filteredActivities = useMemo(() => {
     let list = statusFilter === 'all'
       ? [...activities]
       : activities.filter(a => a.status === statusFilter);
 
     if (sortMonth !== 'none') {
-      list = [...list].sort((a, b) => {
-        const statusA = getEffectiveStatus(a, sortMonth);
-        const statusB = getEffectiveStatus(b, sortMonth);
-        return (STATUS_SORT_ORDER[statusA] || 99) - (STATUS_SORT_ORDER[statusB] || 99);
+      list = list.filter(act => {
+        const status = getEffectiveStatus(act, sortMonth);
+        return status !== 'not_planned';
       });
     }
 
@@ -427,15 +415,15 @@ export default function CompanyDrilldown() {
                   <h3 className="text-sm text-muted border-l-2 border-accent pl-3">
                     รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
                   </h3>
-                  {/* Sort by month */}
+                  {/* Filter by month */}
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-zinc-500">เรียงตามเดือน:</span>
+                    <span className="text-[10px] text-zinc-500">แสดงเดือน:</span>
                     <select
                       value={sortMonth}
                       onChange={e => setSortMonth(e.target.value)}
                       className="bg-zinc-800 border border-zinc-700 text-xs text-zinc-300 rounded px-2 py-1 focus:outline-none focus:border-accent"
                     >
-                      <option value="none">ไม่เรียง</option>
+                      <option value="none">ทั้งหมด</option>
                       {MONTH_KEYS.map((k, idx) => (
                         <option key={k} value={k}>{MONTH_LABELS[idx]}</option>
                       ))}
