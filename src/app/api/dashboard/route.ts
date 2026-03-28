@@ -125,10 +125,12 @@ export async function GET(request: Request) {
 
     // Fetch all Supabase overrides for this plan type
     const sb = getSupabase();
-    const { data: allOverrides } = await sb
+    const { data: allOverrides, error: overrideError } = await sb
       .from('status_overrides')
       .select('company_id, activity_no, month, status')
       .eq('plan_type', planType);
+
+    console.log(`[dashboard] planType=${planType}, overrides fetched: ${allOverrides?.length ?? 'NULL'}, error: ${overrideError?.message || 'none'}`);
 
     // Group overrides by company
     const overridesByCompany: Record<string, Record<string, string>> = {};
@@ -148,9 +150,28 @@ export async function GET(request: Request) {
 
         // Always recalculate with effective statuses (overrides + month-level data)
         const companyOverrides = overridesByCompany[c.id] || {};
+        const overrideCount = Object.keys(companyOverrides).length;
+
         if (activities.length > 0) {
-          return recalcSummaryWithOverrides(baseSummary, activities, companyOverrides);
+          const result = recalcSummaryWithOverrides(baseSummary, activities, companyOverrides);
+          console.log(`[dashboard] ${c.id} (${planType}): activities=${activities.length}, overrides=${overrideCount}, base(done=${baseSummary.done},NA=${baseSummary.notApplicable}), recalc(done=${result.done},NA=${result.notApplicable},notStarted=${result.notStarted})`);
+
+          // Debug: log activities with not_applicable
+          activities.forEach(act => {
+            const naMonths = MONTH_KEYS.filter(k => {
+              const key = `${act.no}:${k}`;
+              const override = companyOverrides[key];
+              const effective = override || act.monthStatuses?.[k] || 'not_planned';
+              return effective === 'not_applicable';
+            });
+            if (naMonths.length > 0 || act.status === 'not_applicable') {
+              console.log(`[dashboard]   -> ${act.no} "${act.activity?.substring(0, 30)}" status=${act.status}, naMonths=[${naMonths}], monthStatuses(jan)=${act.monthStatuses?.jan}, overrideNA=${naMonths.filter(k => companyOverrides[`${act.no}:${k}`] === 'not_applicable').length}`);
+            }
+          });
+
+          return result;
         }
+        console.log(`[dashboard] ${c.id} (${planType}): no activities, using baseSummary(done=${baseSummary.done},NA=${baseSummary.notApplicable})`);
         return baseSummary;
       })
     );
@@ -200,6 +221,9 @@ export async function GET(request: Request) {
     });
 
     const totalActs = all.reduce((s, c) => s + c.total, 0);
+    const totalDoneCalc = all.reduce((s, c) => s + c.done, 0);
+    const totalNACalc = all.reduce((s, c) => s + (c.notApplicable || 0), 0);
+    console.log(`[dashboard] FINAL (${planType}): totalActs=${totalActs}, totalDone=${totalDoneCalc}, totalNA=${totalNACalc}`);
     const data: DashboardData = {
       companies: all,
       totalActivities: totalActs,
