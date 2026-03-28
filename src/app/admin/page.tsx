@@ -331,15 +331,16 @@ export default function AdminPage() {
         <Sidebar />
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="bg-card border border-border rounded-xl p-8 w-full max-w-sm">
-              <h2 className="text-xl font-bold text-white mb-2 text-center">Admin Login</h2>
-              <p className="text-sm text-zinc-400 mb-6 text-center">กรอก Username และ Password เพื่อเข้าจัดการระบบ</p>
+            <div className="glass-card p-8 w-full max-w-sm animate-fade-in-up">
+              <h2 className="text-[26px] font-bold text-white mb-2 text-center tracking-tight">Admin Login</h2>
+              <p className="text-[13px] mb-6 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>กรอก Username และ Password เพื่อเข้าจัดการระบบ</p>
               <input
                 type="text"
                 value={adminUsername}
                 onChange={e => setAdminUsername(e.target.value)}
                 placeholder="Username"
-                className="w-full px-4 py-3 bg-bg border border-border rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-accent"
+                className="w-full px-4 py-3 bg-transparent border rounded-xl text-white text-[13px] mb-3 focus:outline-none focus:border-[#0a84ff] transition-colors"
+                style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                 autoFocus
               />
               <input
@@ -348,13 +349,14 @@ export default function AdminPage() {
                 onChange={e => setAdminPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
                 placeholder="Password"
-                className="w-full px-4 py-3 bg-bg border border-border rounded-lg text-white text-sm mb-3 focus:outline-none focus:border-accent"
+                className="w-full px-4 py-3 bg-transparent border rounded-xl text-white text-[13px] mb-3 focus:outline-none focus:border-[#0a84ff] transition-colors"
+                style={{ borderColor: 'rgba(255,255,255,0.1)' }}
               />
-              {adminLoginError && <p className="text-red-400 text-xs mb-3">{adminLoginError}</p>}
+              {adminLoginError && <p className="text-[#ff453a] text-[11px] mb-3">{adminLoginError}</p>}
               <button
                 onClick={handleAdminLogin}
                 disabled={adminLoading || !adminPassword}
-                className="w-full px-4 py-3 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/80 disabled:opacity-50"
+                className="w-full px-4 py-3 bg-[#0a84ff] text-white rounded-[10px] text-[13px] font-medium hover:bg-[#0a84ff]/80 disabled:opacity-50 transition-colors"
               >
                 {adminLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
               </button>
@@ -369,22 +371,22 @@ export default function AdminPage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-        <div className="flex items-center gap-2 text-xs text-muted mb-1">
-          <span>Home</span><span>/</span><span className="text-white">Admin / ตั้งค่า</span>
+        <div className="flex items-center gap-2 text-[11px] mb-1">
+          <span style={{ color: 'rgba(255,255,255,0.3)' }}>Home</span><span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span><span className="text-white">Admin / ตั้งค่า</span>
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
+          <h1 className="text-[26px] font-bold text-white tracking-tight">Admin Panel</h1>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-400">เข้าสู่ระบบเป็น: <span className="text-white font-medium">{currentAdminName}</span></span>
+            <span className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>เข้าสู่ระบบเป็น: <span className="text-white font-medium">{currentAdminName}</span></span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-              isSuperAdmin ? 'bg-purple-900/50 text-purple-400' :
-              isViewer ? 'bg-zinc-800 text-zinc-400' :
-              'bg-blue-900/50 text-blue-400'
+              isSuperAdmin ? 'bg-[#bf5af2]/20 text-[#bf5af2]' :
+              isViewer ? 'bg-white/10 text-white/60' :
+              'bg-[#0a84ff]/20 text-[#0a84ff]'
             }`}>{ROLE_LABELS[currentAdminRole] || currentAdminRole}</span>
             <button
               onClick={handleAdminLogout}
-              className="px-3 py-1.5 text-xs text-zinc-400 border border-zinc-700 rounded-lg hover:text-white hover:border-zinc-500"
+              className="px-3 py-1.5 text-[13px]" style={{ color: 'rgba(255,255,255,0.6)', border: 'rgba(255,255,255,0.1) 1px solid', borderRadius: '10px' }}
             >
               ออกจากระบบ
             </button>
@@ -392,7 +394,7 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs — filtered by role */}
-        <div className="flex gap-2 mb-6 border-b border-border pb-2 flex-wrap">
+        <div className="flex gap-2 mb-6 flex-wrap" style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '12px', padding: '6px', width: 'fit-content' }}>
           {[
             { key: 'audit', label: 'ประวัติการแก้ไข', minRole: 'viewer' },
             { key: 'requests', label: 'คำขอแก้ไข', minRole: 'viewer' },
@@ -409,13 +411,13 @@ export default function AdminPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
-              className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-colors ${
-                activeTab === tab.key ? 'bg-accent text-white' : 'text-muted hover:text-white hover:bg-zinc-800'
+              className={`px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors ${
+                activeTab === tab.key ? 'bg-[#0a84ff] text-white' : 'text-white/60 hover:text-white'
               }`}
             >
               {tab.label}
               {tab.key === 'requests' && editRequests.filter(r => r.status === 'pending').length > 0 && (
-                <span className="ml-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                <span className="ml-1.5 bg-[#ff453a] text-white text-[10px] px-1.5 py-0.5 rounded-full">
                   {editRequests.filter(r => r.status === 'pending').length}
                 </span>
               )}
@@ -425,46 +427,49 @@ export default function AdminPage() {
 
         {/* AUDIT LOG TAB */}
         {activeTab === 'audit' && (
-          <div className="bg-card border border-border rounded-xl p-5">
+          <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm text-muted border-l-2 border-accent pl-3">ประวัติการแก้ไขทั้งหมด</h3>
-              <select value={auditFilter} onChange={e => setAuditFilter(e.target.value)} className="bg-bg border border-border rounded px-3 py-1.5 text-xs text-white">
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+                <h3 className="text-[13px] text-white font-medium">ประวัติการแก้ไขทั้งหมด</h3>
+              </div>
+              <select value={auditFilter} onChange={e => setAuditFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px] text-white" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                 <option value="all">ทุกบริษัท</option>
                 {activeCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             {loading ? (
-              <p className="text-muted text-sm py-8 text-center">กำลังโหลด...</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>กำลังโหลด...</p>
             ) : auditEntries.length === 0 ? (
-              <p className="text-muted text-sm py-8 text-center">ยังไม่มีประวัติการแก้ไข</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีประวัติการแก้ไข</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="apple-table w-full text-[11px]">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-2 text-muted">เวลา</th>
-                      <th className="text-left py-2 px-2 text-muted">บริษัท</th>
-                      <th className="text-left py-2 px-2 text-muted">การดำเนินการ</th>
-                      <th className="text-left py-2 px-2 text-muted">กิจกรรม</th>
-                      <th className="text-left py-2 px-2 text-muted">เดือน</th>
-                      <th className="text-left py-2 px-2 text-muted">ค่าเดิม → ค่าใหม่</th>
-                      <th className="text-left py-2 px-2 text-muted">ผู้ดำเนินการ</th>
+                    <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>เวลา</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>บริษัท</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>การดำเนินการ</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>กิจกรรม</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>เดือน</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>ค่าเดิม → ค่าใหม่</th>
+                      <th className="text-left py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>ผู้ดำเนินการ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {auditEntries.map(entry => (
-                      <tr key={entry.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                        <td className="py-2 px-2 text-zinc-400 whitespace-nowrap">{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                      <tr key={entry.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-2 px-2 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
                         <td className="py-2 px-2 text-white font-medium">{entry.company_id.toUpperCase()}</td>
-                        <td className="py-2 px-2">{ACTION_LABELS[entry.action] || entry.action}</td>
-                        <td className="py-2 px-2 text-zinc-300">{entry.activity_no}</td>
-                        <td className="py-2 px-2">{MONTH_LABELS[entry.month] || entry.month}</td>
+                        <td className="py-2 px-2 text-white">{ACTION_LABELS[entry.action] || entry.action}</td>
+                        <td className="py-2 px-2" style={{ color: 'rgba(255,255,255,0.6)' }}>{entry.activity_no}</td>
+                        <td className="py-2 px-2 text-white">{MONTH_LABELS[entry.month] || entry.month}</td>
                         <td className="py-2 px-2">
-                          {entry.old_value && <span className="text-red-400">{entry.old_value}</span>}
-                          {entry.old_value && entry.new_value && <span className="text-zinc-600"> → </span>}
-                          {entry.new_value && <span className="text-green-400">{entry.new_value}</span>}
+                          {entry.old_value && <span style={{ color: '#ff453a' }}>{entry.old_value}</span>}
+                          {entry.old_value && entry.new_value && <span style={{ color: 'rgba(255,255,255,0.2)' }}> → </span>}
+                          {entry.new_value && <span style={{ color: '#30d158' }}>{entry.new_value}</span>}
                         </td>
-                        <td className="py-2 px-2 text-zinc-400">{entry.performed_by}</td>
+                        <td className="py-2 px-2" style={{ color: 'rgba(255,255,255,0.4)' }}>{entry.performed_by}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -476,10 +481,13 @@ export default function AdminPage() {
 
         {/* EDIT REQUESTS TAB */}
         {activeTab === 'requests' && (
-          <div className="bg-card border border-border rounded-xl p-5">
+          <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm text-muted border-l-2 border-accent pl-3">คำขอแก้ไขหลัง Deadline</h3>
-              <select value={requestFilter} onChange={e => setRequestFilter(e.target.value)} className="bg-bg border border-border rounded px-3 py-1.5 text-xs text-white">
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+                <h3 className="text-[13px] text-white font-medium">คำขอแก้ไขหลัง Deadline</h3>
+              </div>
+              <select value={requestFilter} onChange={e => setRequestFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px] text-white" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                 <option value="pending">รอการอนุมัติ</option>
                 <option value="approved">อนุมัติแล้ว</option>
                 <option value="rejected">ปฏิเสธ</option>
@@ -487,45 +495,43 @@ export default function AdminPage() {
               </select>
             </div>
             {editRequests.length === 0 ? (
-              <p className="text-muted text-sm py-8 text-center">ไม่มีคำขอ</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ไม่มีคำขอ</p>
             ) : (
               <div className="space-y-3">
                 {editRequests.map(req => (
-                  <div key={req.id} className={`border rounded-lg p-4 ${
-                    req.status === 'pending' ? 'border-amber-600/50 bg-amber-900/10' :
-                    req.status === 'approved' ? 'border-green-600/50 bg-green-900/10' :
-                    'border-red-600/50 bg-red-900/10'
-                  }`}>
+                  <div key={req.id} className="rounded-xl p-4" style={{
+                    border: req.status === 'pending' ? '1px solid rgba(255,159,10,0.3)' : req.status === 'approved' ? '1px solid rgba(48,209,88,0.3)' : '1px solid rgba(255,69,58,0.3)',
+                    background: req.status === 'pending' ? 'rgba(255,159,10,0.05)' : req.status === 'approved' ? 'rgba(48,209,88,0.05)' : 'rgba(255,69,58,0.05)'
+                  }}>
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-white font-medium text-sm">{req.company_id.toUpperCase()}</span>
-                          <span className="text-zinc-500 text-xs">|</span>
-                          <span className="text-zinc-400 text-xs">กิจกรรม {req.activity_no}</span>
-                          <span className="text-zinc-500 text-xs">|</span>
-                          <span className="text-zinc-400 text-xs">{MONTH_LABELS[req.month] || req.month}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                            req.status === 'pending' ? 'bg-amber-800 text-amber-300' :
-                            req.status === 'approved' ? 'bg-green-800 text-green-300' :
-                            'bg-red-800 text-red-300'
-                          }`}>
+                          <span className="text-white font-medium text-[13px]">{req.company_id.toUpperCase()}</span>
+                          <span style={{ color: 'rgba(255,255,255,0.2)' }} className="text-[11px]">|</span>
+                          <span style={{ color: 'rgba(255,255,255,0.4)' }} className="text-[11px]">กิจกรรม {req.activity_no}</span>
+                          <span style={{ color: 'rgba(255,255,255,0.2)' }} className="text-[11px]">|</span>
+                          <span style={{ color: 'rgba(255,255,255,0.4)' }} className="text-[11px]">{MONTH_LABELS[req.month] || req.month}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
+                            background: req.status === 'pending' ? 'rgba(255,159,10,0.2)' : req.status === 'approved' ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)',
+                            color: req.status === 'pending' ? '#ff9f0a' : req.status === 'approved' ? '#30d158' : '#ff453a'
+                          }}>
                             {req.status === 'pending' ? 'รอการอนุมัติ' : req.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-300 mb-1">เหตุผล: {req.reason}</p>
-                        <p className="text-[10px] text-zinc-500">
+                        <p className="text-[11px] mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>เหตุผล: {req.reason}</p>
+                        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
                           โดย {req.requested_by} | {new Date(req.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
                           {req.reviewed_at && ` | ตรวจสอบโดย ${req.reviewed_by} เมื่อ ${new Date(req.reviewed_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`}
                         </p>
                       </div>
                       {req.status === 'pending' && isAdmin && (
                         <div className="flex gap-2 ml-4">
-                          <button onClick={() => handleApproveReject(req.id, 'approved')} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs rounded-lg">อนุมัติ</button>
-                          <button onClick={() => handleApproveReject(req.id, 'rejected')} className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs rounded-lg">ปฏิเสธ</button>
+                          <button onClick={() => handleApproveReject(req.id, 'approved')} className="px-3 py-1.5 bg-[#30d158] hover:bg-[#30d158]/80 text-white text-[11px] rounded-[10px]">อนุมัติ</button>
+                          <button onClick={() => handleApproveReject(req.id, 'rejected')} className="px-3 py-1.5 bg-[#ff453a] hover:bg-[#ff453a]/80 text-white text-[11px] rounded-[10px]">ปฏิเสธ</button>
                         </div>
                       )}
                       {req.status === 'pending' && isViewer && (
-                        <span className="text-[10px] text-zinc-500 ml-4">ดูอย่างเดียว</span>
+                        <span className="text-[10px] ml-4" style={{ color: 'rgba(255,255,255,0.3)' }}>ดูอย่างเดียว</span>
                       )}
                     </div>
                   </div>
@@ -537,37 +543,43 @@ export default function AdminPage() {
 
         {/* DEADLINES TAB */}
         {activeTab === 'deadlines' && (
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h3 className="text-sm text-muted mb-4 border-l-2 border-accent pl-3">กำหนดเส้นตายการแก้ไขรายเดือน</h3>
-            <p className="text-xs text-zinc-500 mb-4">
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+              <h3 className="text-[13px] text-white font-medium">กำหนดเส้นตายการแก้ไขรายเดือน</h3>
+            </div>
+            <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,0.3)' }}>
               กำหนดว่าแต่ละเดือนสามารถ update สถานะได้ภายในวันที่เท่าไรของเดือนถัดไป
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {deadlines.map(d => (
-                <div key={d.month} className="border border-border rounded-lg p-3 bg-bg">
-                  <div className="text-sm font-medium text-white mb-2">{MONTH_LABELS[d.month]}</div>
+                <div key={d.month} className="rounded-xl p-3" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="text-[13px] font-medium text-white mb-2">{MONTH_LABELS[d.month]}</div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-400">วันที่</span>
-                    <select value={d.deadline_day} onChange={e => handleDeadlineUpdate(d.month, parseInt(e.target.value))} className="bg-card border border-border rounded px-2 py-1 text-xs text-white flex-1">
+                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>วันที่</span>
+                    <select value={d.deadline_day} onChange={e => handleDeadlineUpdate(d.month, parseInt(e.target.value))} className="bg-transparent border rounded-lg px-2 py-1 text-[11px] text-white flex-1" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                       {Array.from({ length: 28 }, (_, i) => i + 1).map(day => <option key={day} value={day}>{day}</option>)}
                     </select>
-                    <span className="text-[10px] text-zinc-500">ของเดือนถัดไป</span>
+                    <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ของเดือนถัดไป</span>
                   </div>
                 </div>
               ))}
             </div>
-            {deadlines.length === 0 && <p className="text-muted text-sm py-8 text-center">ยังไม่มีข้อมูล deadline</p>}
+            {deadlines.length === 0 && <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีข้อมูล deadline</p>}
           </div>
         )}
 
         {/* CREDENTIALS TAB */}
         {activeTab === 'credentials' && (
-          <div className="bg-card border border-border rounded-xl p-5">
+          <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm text-muted border-l-2 border-accent pl-3">จัดการบัญชีบริษัท</h3>
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+                <h3 className="text-[13px] text-white font-medium">จัดการบัญชีบริษัท</h3>
+              </div>
               <button
                 onClick={() => setShowNewCredForm(!showNewCredForm)}
-                className="px-3 py-1.5 bg-accent text-white text-xs rounded-lg hover:bg-accent/80"
+                className="px-3 py-1.5 bg-[#0a84ff] text-white text-[11px] rounded-[10px] hover:bg-[#0a84ff]/80"
               >
                 + เพิ่มบัญชีใหม่
               </button>
@@ -575,18 +587,18 @@ export default function AdminPage() {
 
             {/* New credential form */}
             {showNewCredForm && (
-              <div className="bg-bg border border-border rounded-lg p-4 mb-4">
-                <h4 className="text-sm font-medium text-white mb-3">สร้างบัญชีบริษัทใหม่</h4>
+              <div className="rounded-xl p-4 mb-4" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                <h4 className="text-[13px] font-medium text-white mb-3">สร้างบัญชีบริษัทใหม่</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">เลือกบริษัท</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>เลือกบริษัท</label>
                     <select
                       value={newCredCompanyId}
                       onChange={e => {
                         setNewCredCompanyId(e.target.value);
                         if (!newCredUsername) setNewCredUsername(e.target.value);
                       }}
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                     >
                       <option value="">-- เลือกบริษัท --</option>
                       {availableCompaniesForCred.map(c => (
@@ -595,30 +607,30 @@ export default function AdminPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Username</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</label>
                     <input
                       type="text" value={newCredUsername}
                       onChange={e => setNewCredUsername(e.target.value)}
                       placeholder="ชื่อผู้ใช้"
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Password</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</label>
                     <input
                       type="text" value={newCredPassword}
                       onChange={e => setNewCredPassword(e.target.value)}
                       placeholder="รหัสผ่าน"
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent"
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleCreateCredential} disabled={credSaving || !newCredCompanyId || !newCredUsername || !newCredPassword}
-                    className="px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent/80 disabled:opacity-50">
+                    className="px-4 py-2 bg-[#0a84ff] text-white text-[13px] rounded-[10px] hover:bg-[#0a84ff]/80 disabled:opacity-50">
                     {credSaving ? 'กำลังบันทึก...' : 'สร้างบัญชี'}
                   </button>
-                  <button onClick={() => setShowNewCredForm(false)} className="px-4 py-2 bg-zinc-700 text-zinc-300 text-sm rounded-lg hover:bg-zinc-600">
+                  <button onClick={() => setShowNewCredForm(false)} className="px-4 py-2 text-[13px] rounded-[10px]" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
                     ยกเลิก
                   </button>
                 </div>
@@ -627,55 +639,58 @@ export default function AdminPage() {
 
             {/* Credentials table */}
             {credentials.length === 0 ? (
-              <p className="text-muted text-sm py-8 text-center">ยังไม่มีบัญชีบริษัท — กรุณา run SQL migration สร้างตาราง company_credentials ก่อน</p>
+              <p className="text-[13px] py-8 text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีบัญชีบริษัท — กรุณา run SQL migration สร้างตาราง company_credentials ก่อน</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="apple-table w-full text-[11px]">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-3 text-muted font-semibold">Company ID</th>
-                      <th className="text-left py-3 px-3 text-muted font-semibold">Username</th>
-                      <th className="text-left py-3 px-3 text-muted font-semibold">Password</th>
-                      <th className="text-center py-3 px-3 text-muted font-semibold">สถานะ</th>
-                      <th className="text-center py-3 px-3 text-muted font-semibold">จัดการ</th>
+                    <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Company ID</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สถานะ</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {credentials.map(cred => (
-                      <tr key={cred.id} className="border-b border-zinc-800 hover:bg-zinc-800/40">
+                      <tr key={cred.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
                         <td className="py-3 px-3 font-medium text-white">{cred.company_id.toUpperCase()}</td>
-                        <td className="py-3 px-3 text-zinc-300">{cred.username}</td>
+                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{cred.username}</td>
                         <td className="py-3 px-3">
                           {editingCredId === cred.company_id ? (
                             <div className="flex items-center gap-2">
                               <input type="text" value={editCredPassword}
                                 onChange={e => setEditCredPassword(e.target.value)}
-                                className="px-2 py-1 bg-bg border border-border rounded text-white text-xs w-32 focus:outline-none focus:border-accent"
+                                className="px-2 py-1 bg-transparent border rounded text-white text-[11px] w-32 focus:outline-none focus:border-[#0a84ff]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                                 autoFocus
                               />
                               <button onClick={() => handleUpdatePassword(cred.company_id)} disabled={credSaving}
-                                className="text-green-400 text-xs hover:text-green-300">บันทึก</button>
+                                className="text-[#30d158] text-[11px] hover:text-[#30d158]/80">บันทึก</button>
                               <button onClick={() => { setEditingCredId(null); setEditCredPassword(''); }}
-                                className="text-zinc-500 text-xs hover:text-zinc-300">ยกเลิก</button>
+                                className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ยกเลิก</button>
                             </div>
                           ) : (
-                            <code className="text-xs text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded">{cred.password}</code>
+                            <code className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }}>
+                              <span className="px-2 py-0.5 rounded">{cred.password}</span>
+                            </code>
                           )}
                         </td>
                         <td className="py-3 px-3 text-center">
                           <button onClick={() => handleToggleActive(cred.company_id, cred.is_active)}
-                            className={`text-xs px-2 py-0.5 rounded-full cursor-pointer ${
-                              cred.is_active ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
-                            }`}>
+                            className="text-[11px] px-2 py-0.5 rounded-full cursor-pointer" style={{
+                              background: cred.is_active ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)',
+                              color: cred.is_active ? '#30d158' : '#ff453a'
+                            }}>
                             {cred.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                           </button>
                         </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => { setEditingCredId(cred.company_id); setEditCredPassword(cred.password); }}
-                              className="text-xs text-accent hover:text-accent/80">แก้ไขรหัส</button>
+                              className="text-[11px] text-[#0a84ff] hover:text-[#0a84ff]/80">แก้ไขรหัส</button>
                             <button onClick={() => handleDeleteCredential(cred.company_id)}
-                              className="text-xs text-red-400 hover:text-red-300">ลบ</button>
+                              className="text-[11px] text-[#ff453a] hover:text-[#ff453a]/80">ลบ</button>
                           </div>
                         </td>
                       </tr>
@@ -689,43 +704,46 @@ export default function AdminPage() {
 
         {/* ADMIN ACCOUNTS TAB */}
         {activeTab === 'admins' && (
-          <div className="bg-card border border-border rounded-xl p-5">
+          <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm text-muted border-l-2 border-accent pl-3">จัดการบัญชี Admin</h3>
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+                <h3 className="text-[13px] text-white font-medium">จัดการบัญชี Admin</h3>
+              </div>
               <button
                 onClick={() => setShowNewAdminForm(!showNewAdminForm)}
-                className="px-3 py-1.5 bg-accent text-white text-xs rounded-lg hover:bg-accent/80"
+                className="px-3 py-1.5 bg-[#0a84ff] text-white text-[11px] rounded-[10px] hover:bg-[#0a84ff]/80"
               >
                 + เพิ่ม Admin ใหม่
               </button>
             </div>
 
             {showNewAdminForm && (
-              <div className="bg-bg border border-border rounded-lg p-4 mb-4">
-                <h4 className="text-sm font-medium text-white mb-3">สร้างบัญชี Admin ใหม่</h4>
+              <div className="rounded-xl p-4 mb-4" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                <h4 className="text-[13px] font-medium text-white mb-3">สร้างบัญชี Admin ใหม่</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Username</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</label>
                     <input type="text" value={newAdminUsername} onChange={e => setNewAdminUsername(e.target.value)}
                       placeholder="ชื่อผู้ใช้"
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent" />
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
                   </div>
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">Password</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</label>
                     <input type="text" value={newAdminPassword} onChange={e => setNewAdminPassword(e.target.value)}
                       placeholder="รหัสผ่าน"
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent" />
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
                   </div>
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">ชื่อที่แสดง</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>ชื่อที่แสดง</label>
                     <input type="text" value={newAdminDisplayName} onChange={e => setNewAdminDisplayName(e.target.value)}
                       placeholder="เช่น จป.วิชาชีพ สมชาย"
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent" />
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
                   </div>
                   <div>
-                    <label className="text-xs text-zinc-400 mb-1 block">สิทธิ์</label>
+                    <label className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>สิทธิ์</label>
                     <select value={newAdminRole} onChange={e => setNewAdminRole(e.target.value)}
-                      className="w-full px-3 py-2 bg-card border border-border rounded-lg text-white text-sm focus:outline-none focus:border-accent">
+                      className="w-full px-3 py-2 bg-transparent border rounded-lg text-white text-[13px] focus:outline-none focus:border-[#0a84ff] mt-1 transition-colors" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                       <option value="admin">Admin</option>
                       <option value="super_admin">Super Admin</option>
                       <option value="viewer">Viewer (ดูอย่างเดียว)</option>
@@ -734,78 +752,80 @@ export default function AdminPage() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleCreateAdmin} disabled={adminSaving || !newAdminUsername || !newAdminPassword}
-                    className="px-4 py-2 bg-accent text-white text-sm rounded-lg hover:bg-accent/80 disabled:opacity-50">
+                    className="px-4 py-2 bg-[#0a84ff] text-white text-[13px] rounded-[10px] hover:bg-[#0a84ff]/80 disabled:opacity-50">
                     {adminSaving ? 'กำลังบันทึก...' : 'สร้างบัญชี Admin'}
                   </button>
                   <button onClick={() => setShowNewAdminForm(false)}
-                    className="px-4 py-2 bg-zinc-700 text-zinc-300 text-sm rounded-lg hover:bg-zinc-600">ยกเลิก</button>
+                    className="px-4 py-2 text-[13px] rounded-[10px]" style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>ยกเลิก</button>
                 </div>
               </div>
             )}
 
             {adminAccounts.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-muted text-sm mb-2">ยังไม่มีบัญชี Admin ในระบบ</p>
-                <p className="text-xs text-zinc-600">ระบบใช้ fallback password จาก environment variable (ADMIN_PASSWORD) อยู่</p>
-                <p className="text-xs text-zinc-600">เมื่อเพิ่มบัญชี Admin แรก ระบบจะเปลี่ยนไปใช้บัญชีจาก database แทน</p>
+                <p className="text-[13px] mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>ยังไม่มีบัญชี Admin ในระบบ</p>
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ระบบใช้ fallback password จาก environment variable (ADMIN_PASSWORD) อยู่</p>
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>เมื่อเพิ่มบัญชี Admin แรก ระบบจะเปลี่ยนไปใช้บัญชีจาก database แทน</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="apple-table w-full text-[11px]">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-3 px-3 text-muted font-semibold">Username</th>
-                      <th className="text-left py-3 px-3 text-muted font-semibold">ชื่อที่แสดง</th>
-                      <th className="text-left py-3 px-3 text-muted font-semibold">Password</th>
-                      <th className="text-center py-3 px-3 text-muted font-semibold">สิทธิ์</th>
-                      <th className="text-center py-3 px-3 text-muted font-semibold">สถานะ</th>
-                      <th className="text-center py-3 px-3 text-muted font-semibold">จัดการ</th>
+                    <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Username</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>ชื่อที่แสดง</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Password</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สิทธิ์</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สถานะ</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>จัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminAccounts.map(admin => (
-                      <tr key={admin.id} className="border-b border-zinc-800 hover:bg-zinc-800/40">
+                      <tr key={admin.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
                         <td className="py-3 px-3 font-medium text-white">{admin.username}</td>
-                        <td className="py-3 px-3 text-zinc-300">{admin.display_name}</td>
+                        <td className="py-3 px-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{admin.display_name}</td>
                         <td className="py-3 px-3">
                           {editingAdminId === admin.id ? (
                             <div className="flex items-center gap-2">
                               <input type="text" value={editAdminPassword}
                                 onChange={e => setEditAdminPassword(e.target.value)}
-                                className="px-2 py-1 bg-bg border border-border rounded text-white text-xs w-32 focus:outline-none focus:border-accent"
+                                className="px-2 py-1 bg-transparent border rounded text-white text-[11px] w-32 focus:outline-none focus:border-[#0a84ff]" style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                                 autoFocus />
                               <button onClick={() => handleUpdateAdminPassword(admin.id)}
-                                className="text-green-400 text-xs hover:text-green-300">บันทึก</button>
+                                className="text-[#30d158] text-[11px] hover:text-[#30d158]/80">บันทึก</button>
                               <button onClick={() => { setEditingAdminId(null); setEditAdminPassword(''); }}
-                                className="text-zinc-500 text-xs hover:text-zinc-300">ยกเลิก</button>
+                                className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>ยกเลิก</button>
                             </div>
                           ) : (
-                            <code className="text-xs text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded">{admin.password}</code>
+                            <code className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }}>
+                              <span className="px-2 py-0.5 rounded">{admin.password}</span>
+                            </code>
                           )}
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            admin.role === 'super_admin' ? 'bg-purple-900/50 text-purple-400' :
-                            admin.role === 'viewer' ? 'bg-zinc-800 text-zinc-400' :
-                            'bg-blue-900/50 text-blue-400'
-                          }`}>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
+                            background: admin.role === 'super_admin' ? 'rgba(191,90,242,0.2)' : admin.role === 'viewer' ? 'rgba(255,255,255,0.1)' : 'rgba(10,132,255,0.2)',
+                            color: admin.role === 'super_admin' ? '#bf5af2' : admin.role === 'viewer' ? 'rgba(255,255,255,0.4)' : '#0a84ff'
+                          }}>
                             {admin.role === 'super_admin' ? 'Super Admin' : admin.role === 'viewer' ? 'Viewer' : 'Admin'}
                           </span>
                         </td>
                         <td className="py-3 px-3 text-center">
                           <button onClick={() => handleToggleAdminActive(admin.id, admin.is_active)}
-                            className={`text-xs px-2 py-0.5 rounded-full cursor-pointer ${
-                              admin.is_active ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
-                            }`}>
+                            className="text-[11px] px-2 py-0.5 rounded-full cursor-pointer" style={{
+                              background: admin.is_active ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)',
+                              color: admin.is_active ? '#30d158' : '#ff453a'
+                            }}>
                             {admin.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                           </button>
                         </td>
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => { setEditingAdminId(admin.id); setEditAdminPassword(admin.password); }}
-                              className="text-xs text-accent hover:text-accent/80">แก้ไขรหัส</button>
+                              className="text-[11px] text-[#0a84ff] hover:text-[#0a84ff]/80">แก้ไขรหัส</button>
                             <button onClick={() => handleDeleteAdmin(admin.id, admin.display_name)}
-                              className="text-xs text-red-400 hover:text-red-300">ลบ</button>
+                              className="text-[11px] text-[#ff453a] hover:text-[#ff453a]/80">ลบ</button>
                           </div>
                         </td>
                       </tr>
@@ -819,28 +839,34 @@ export default function AdminPage() {
 
         {/* COMPANIES TAB */}
         {activeTab === 'companies' && (
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h3 className="text-sm text-muted mb-4 border-l-2 border-accent pl-3">รายชื่อบริษัท ({COMPANIES.length})</h3>
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-0.5 h-4 rounded-full bg-[#0a84ff]"></span>
+              <h3 className="text-[13px] text-white font-medium">รายชื่อบริษัท ({COMPANIES.length})</h3>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="apple-table w-full text-[11px]">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-3 text-muted font-semibold">บริษัท</th>
-                    <th className="text-left py-3 px-3 text-muted font-semibold">Google Sheet ID</th>
-                    <th className="text-left py-3 px-3 text-muted font-semibold">Safety Sheet</th>
-                    <th className="text-left py-3 px-3 text-muted font-semibold">Envi Sheet</th>
-                    <th className="text-center py-3 px-3 text-muted font-semibold">สถานะ</th>
+                  <tr style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>บริษัท</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Google Sheet ID</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Safety Sheet</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Envi Sheet</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>สถานะ</th>
                   </tr>
                 </thead>
                 <tbody>
                   {COMPANIES.map(c => (
-                    <tr key={c.id} className="border-b border-zinc-800 hover:bg-zinc-800/40">
+                    <tr key={c.id} style={{ borderColor: 'rgba(255,255,255,0.06)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
                       <td className="py-3 px-3 font-medium text-white">{c.name}</td>
-                      <td className="py-3 px-3 text-xs text-zinc-400">{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span className="text-zinc-600">-</span>}</td>
-                      <td className="py-3 px-3 text-xs text-zinc-400">{c.safetySheet || '-'}</td>
-                      <td className="py-3 px-3 text-xs text-zinc-400">{c.enviSheet || '-'}</td>
+                      <td className="py-3 px-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'rgba(255,255,255,0.2)' }}>-</span>}</td>
+                      <td className="py-3 px-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{c.safetySheet || '-'}</td>
+                      <td className="py-3 px-3 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{c.enviSheet || '-'}</td>
                       <td className="py-3 px-3 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${c.sheetId ? 'bg-green-900/50 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
+                          background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'rgba(255,255,255,0.1)',
+                          color: c.sheetId ? '#30d158' : 'rgba(255,255,255,0.3)'
+                        }}>
                           {c.sheetId ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
                         </span>
                       </td>

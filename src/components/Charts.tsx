@@ -28,8 +28,8 @@ export function RankingChart({ companies }: RankingChartProps) {
         labels,
         datasets: [{
           data,
-          backgroundColor: data.map((p: number) => p >= 25 ? '#4ade80' : '#fb923c'),
-          borderRadius: 4,
+          backgroundColor: data.map((p: number) => p >= 25 ? '#30d158' : '#ff9f0a'),
+          borderRadius: 6,
           barThickness: 18,
         }],
       },
@@ -48,12 +48,12 @@ export function RankingChart({ companies }: RankingChartProps) {
         scales: {
           x: {
             max: 50,
-            grid: { color: '#27272a' },
-            ticks: { color: '#71717a', callback: (v: number) => v + '%' },
+            grid: { color: 'rgba(255,255,255,0.06)' },
+            ticks: { color: 'rgba(255,255,255,0.4)', callback: (v: number) => v + '%' },
           },
           y: {
             grid: { display: false },
-            ticks: { color: '#fafafa', font: { size: 11 } },
+            ticks: { color: 'rgba(255,255,255,0.9)', font: { size: 11 } },
           },
         },
       },
@@ -65,13 +65,13 @@ export function RankingChart({ companies }: RankingChartProps) {
           const ctx = chart.ctx;
           ctx.save();
           ctx.setLineDash([5, 5]);
-          ctx.strokeStyle = '#ef4444';
+          ctx.strokeStyle = '#ff453a';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x, chart.chartArea.top);
           ctx.lineTo(x, chart.chartArea.bottom);
           ctx.stroke();
-          ctx.fillStyle = '#ef4444';
+          ctx.fillStyle = '#ff453a';
           ctx.font = '10px Inter, sans-serif';
           ctx.fillText('Target Q1: 25%', x + 5, chart.chartArea.top + 10);
           ctx.restore();
@@ -103,7 +103,7 @@ export function StatusPieChart({ done, notStarted, postponed, cancelled, notAppl
 
     const labels = ['เสร็จแล้ว', 'ยังไม่เริ่ม', 'เลื่อน', 'ยกเลิก', 'ไม่เข้าเงื่อนไข'];
     const data = [done, notStarted, postponed, cancelled, notApplicable];
-    const colors = ['#4ade80', '#fb923c', '#60a5fa', '#f87171', '#71717a'];
+    const colors = ['#30d158', '#ff9f0a', '#5ac8fa', '#ff453a', '#636366'];
 
     // Filter out zero values for cleaner chart
     const filtered = labels.reduce((acc: { l: string[]; d: number[]; c: string[] }, label, idx) => {
@@ -132,7 +132,7 @@ export function StatusPieChart({ done, notStarted, postponed, cancelled, notAppl
         plugins: {
           legend: {
             position: 'bottom',
-            labels: { color: '#a1a1aa', padding: 15, font: { size: 12 } },
+            labels: { color: 'rgba(255,255,255,0.4)', padding: 15, font: { size: 12 } },
           },
         },
       },
@@ -163,8 +163,8 @@ export function BudgetChart({ companies }: RankingChartProps) {
         labels,
         datasets: [{
           data,
-          backgroundColor: '#3b82f6',
-          borderRadius: 4,
+          backgroundColor: '#5ac8fa',
+          borderRadius: 6,
           barThickness: 18,
         }],
       },
@@ -175,15 +175,15 @@ export function BudgetChart({ companies }: RankingChartProps) {
         plugins: { legend: { display: false } },
         scales: {
           x: {
-            grid: { color: '#27272a' },
+            grid: { color: 'rgba(255,255,255,0.06)' },
             ticks: {
-              color: '#71717a',
+              color: 'rgba(255,255,255,0.4)',
               callback: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'K',
             },
           },
           y: {
             grid: { display: false },
-            ticks: { color: '#fafafa', font: { size: 11 } },
+            ticks: { color: 'rgba(255,255,255,0.9)', font: { size: 11 } },
           },
         },
       },
@@ -224,17 +224,17 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'Plan (แผน)',
             data: planned,
-            backgroundColor: 'rgba(99, 102, 241, 0.5)',
-            borderColor: '#6366f1',
+            backgroundColor: 'rgba(10, 132, 255, 0.5)',
+            borderColor: '#0a84ff',
             borderWidth: 1,
-            borderRadius: 4,
+            borderRadius: 6,
             stack: 'plan',
           },
           {
             label: 'เสร็จแล้ว',
             data: doneData,
-            backgroundColor: 'rgba(74, 222, 128, 0.8)',
-            borderColor: '#4ade80',
+            backgroundColor: 'rgba(48, 209, 88, 0.8)',
+            borderColor: '#30d158',
             borderWidth: 1,
             borderRadius: 0,
             stack: 'actual',
@@ -242,8 +242,8 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'ไม่เข้าเงื่อนไข',
             data: notApplicableData,
-            backgroundColor: 'rgba(113, 113, 122, 0.7)',
-            borderColor: '#71717a',
+            backgroundColor: 'rgba(99, 99, 102, 0.7)',
+            borderColor: '#636366',
             borderWidth: 1,
             borderRadius: 0,
             stack: 'actual',
@@ -256,7 +256,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: '#a1a1aa', padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
+            labels: { color: 'rgba(255,255,255,0.4)', padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
           },
           tooltip: {
             callbacks: {
@@ -271,16 +271,16 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         scales: {
           x: {
             stacked: true,
-            grid: { color: '#27272a' },
+            grid: { color: 'rgba(255,255,255,0.06)' },
             ticks: {
-              color: (ctx: any) => ctx.index <= currentMonth ? '#fafafa' : '#52525b',
+              color: (ctx: any) => ctx.index <= currentMonth ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
               font: { size: 11, weight: (ctx: any) => ctx.index === currentMonth ? 'bold' : 'normal' },
             },
           },
           y: {
             stacked: true,
-            grid: { color: '#27272a' },
-            ticks: { color: '#71717a' },
+            grid: { color: 'rgba(255,255,255,0.06)' },
+            ticks: { color: 'rgba(255,255,255,0.4)' },
             beginAtZero: true,
           },
         },
@@ -293,13 +293,13 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           const ctx = chart.ctx;
           ctx.save();
           ctx.setLineDash([4, 4]);
-          ctx.strokeStyle = '#f59e0b';
+          ctx.strokeStyle = '#ffd60a';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(x, chart.chartArea.top);
           ctx.lineTo(x, chart.chartArea.bottom);
           ctx.stroke();
-          ctx.fillStyle = '#f59e0b';
+          ctx.fillStyle = '#ffd60a';
           ctx.font = '10px Inter, sans-serif';
           ctx.fillText('เดือนปัจจุบัน', x + 5, chart.chartArea.top + 10);
           ctx.restore();
