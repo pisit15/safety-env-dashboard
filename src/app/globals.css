@@ -57,21 +57,27 @@ body {
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(30, 30, 35, 0.85) 0%, rgba(20, 20, 28, 0.65) 100%);
+  background: linear-gradient(145deg, rgba(22, 24, 40, 0.9) 0%, rgba(14, 16, 30, 0.75) 100%);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(10, 132, 255, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  background: linear-gradient(135deg, rgba(40, 40, 48, 0.9) 0%, rgba(28, 28, 36, 0.7) 100%);
-  transform: translateY(-1px);
+  border-color: rgba(10, 132, 255, 0.25);
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(10, 132, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, rgba(28, 32, 52, 0.95) 0%, rgba(18, 22, 40, 0.8) 100%);
+  transform: translateY(-2px);
 }
 
 /* ── Glow effects ── */
@@ -219,10 +225,10 @@ body {
 /* ── Mesh gradient hero ── */
 .mesh-gradient {
   background:
-    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(10, 132, 255, 0.18) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 85% 70%, rgba(90, 200, 250, 0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(48, 209, 88, 0.08) 0%, transparent 50%),
-    linear-gradient(180deg, #0a0a0f 0%, #000000 50%, #050510 100%);
+    radial-gradient(ellipse 100% 80% at 10% 0%, rgba(10, 132, 255, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 90% 80%, rgba(88, 86, 214, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(90, 200, 250, 0.06) 0%, transparent 60%),
+    linear-gradient(180deg, #08091d 0%, #0a0b1a 40%, #060714 100%);
 }
 
 /* ── Accent glow for active buttons ── */

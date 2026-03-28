@@ -20,10 +20,11 @@ export default function Sidebar() {
     <aside
       className={`${collapsed ? 'w-[68px]' : 'w-[260px]'} flex-shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] h-screen sticky top-0`}
       style={{
-        background: 'linear-gradient(180deg, rgba(28,28,30,0.85) 0%, rgba(18,18,18,0.95) 100%)',
+        background: 'linear-gradient(180deg, rgba(14,16,30,0.95) 0%, rgba(8,10,20,0.98) 100%)',
         backdropFilter: 'blur(40px) saturate(180%)',
         WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
+        borderRight: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '4px 0 32px rgba(0,0,0,0.3)',
       }}
     >
       {/* Header */}
@@ -76,7 +77,7 @@ export default function Sidebar() {
                       ? 'text-[#0a84ff] font-semibold'
                       : 'text-white/55 hover:text-white/85 hover:bg-white/5'
                   }`}
-                  style={isActive ? { background: 'rgba(10, 132, 255, 0.12)' } : {}}
+                  style={isActive ? { background: 'rgba(10, 132, 255, 0.15)', boxShadow: 'inset 0 0 20px rgba(10, 132, 255, 0.1)' } : {}}
                 >
                   <span className="text-[16px] flex-shrink-0">{p.icon}</span>
                   {!collapsed && <span className="truncate">{p.label}</span>}
@@ -100,7 +101,7 @@ export default function Sidebar() {
                   ? 'text-[#0a84ff] font-semibold'
                   : 'text-white/55 hover:text-white/85 hover:bg-white/5'
               }`}
-              style={pathname === '/admin' ? { background: 'rgba(10, 132, 255, 0.12)' } : {}}
+              style={pathname === '/admin' ? { background: 'rgba(10, 132, 255, 0.15)', boxShadow: 'inset 0 0 20px rgba(10, 132, 255, 0.1)' } : {}}
             >
               <span className="text-[16px]">⚙️</span>
               <span>Admin / ตั้งค่า</span>
