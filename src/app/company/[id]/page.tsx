@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
-import StatusBadge from '@/components/StatusBadge';
+
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 
@@ -359,29 +359,39 @@ export default function CompanyDrilldown() {
 
             {/* Activity Table */}
             <div className="bg-card border border-border rounded-xl p-5">
-              <h3 className="text-sm text-muted mb-4 border-l-2 border-accent pl-3">
-                รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                <h3 className="text-sm text-muted border-l-2 border-accent pl-3">
+                  รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
+                </h3>
+                {/* Legend in header */}
+                <div className="flex flex-wrap gap-3 text-[10px] text-muted">
+                  <span><span className="text-green-400">●</span> เสร็จแล้ว</span>
+                  <span><span className="text-red-400">○</span> เกินกำหนด</span>
+                  <span><span className="text-zinc-400">○</span> มีแผน</span>
+                  <span><span className="text-blue-400">◐</span> เลื่อน</span>
+                  <span><span className="text-red-400">✕</span> ยกเลิก</span>
+                  <span><span className="text-zinc-500">⊘</span> ไม่เข้าเงื่อนไข</span>
+                  <span><span className="inline-block w-2.5 h-2.5 ring-1 ring-amber-500/50 rounded-sm mr-0.5 align-middle"></span> แก้ไขจาก Dashboard</span>
+                </div>
+              </div>
               {filteredActivities.length > 0 ? (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-card">
                       <tr className="border-b border-border">
-                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs">ลำดับ</th>
-                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs min-w-[250px]">กิจกรรม</th>
-                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs">ผู้รับผิดชอบ</th>
+                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs bg-card">ลำดับ</th>
+                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs min-w-[250px] bg-card">กิจกรรม</th>
+                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs bg-card">ผู้รับผิดชอบ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
-                            className={`text-center py-3 px-1 font-semibold text-[10px] ${
+                            className={`text-center py-3 px-1 font-semibold text-[10px] bg-card ${
                               idx === currentMonthIdx ? 'text-amber-400 bg-amber-900/20' : 'text-muted'
                             }`}
                           >
                             {m}
                           </th>
                         ))}
-                        <th className="text-left py-3 px-2 text-muted font-semibold text-xs">เป้าหมาย</th>
-                        <th className="text-center py-3 px-2 text-muted font-semibold text-xs">สถานะ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -418,10 +428,6 @@ export default function CompanyDrilldown() {
                               </td>
                             );
                           })}
-                          <td className="py-2.5 px-2 text-xs text-zinc-400 max-w-[120px] truncate" title={act.target}>{act.target}</td>
-                          <td className="py-2.5 px-2 text-center">
-                            <StatusBadge status={act.status} />
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -434,20 +440,6 @@ export default function CompanyDrilldown() {
                   <p className="text-xs mt-1">ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น</p>
                 </div>
               )}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-4 p-3 bg-card border border-border rounded-lg">
-              <div className="flex flex-wrap gap-4 text-xs text-muted">
-                <span><span className="text-green-400">●</span> เสร็จแล้ว</span>
-                <span><span className="text-red-400">○</span> เกินกำหนด</span>
-                <span><span className="text-zinc-500">○</span> มีแผน (ยังไม่ถึงกำหนด)</span>
-                <span><span className="text-blue-400">◐</span> เลื่อน</span>
-                <span><span className="text-red-400">✕</span> ยกเลิก</span>
-                <span><span className="text-zinc-500">⊘</span> ไม่เข้าเงื่อนไข</span>
-                <span><span className="text-zinc-800">-</span> ไม่มีแผน</span>
-                <span className="ml-4"><span className="inline-block w-3 h-3 ring-1 ring-amber-500/50 rounded-sm mr-1 align-middle"></span> แก้ไขจาก Dashboard</span>
-              </div>
             </div>
           </>
         )}
