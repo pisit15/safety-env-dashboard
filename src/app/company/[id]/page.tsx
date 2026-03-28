@@ -113,11 +113,19 @@ export default function CompanyDrilldown() {
       const base = summary.monthlyProgress![idx];
       let planned = 0;
       let completed = 0;
+      let doneCount = 0;
+      let overdueCount = 0;
+      let postponedCount = 0;
+      let notApplicableCount = 0;
       activities.forEach(act => {
         const status = getEffectiveStatus(act, k);
-        if (status !== 'not_planned' && status !== 'not_applicable') {
+        if (status === 'not_applicable') {
+          notApplicableCount++;
+        } else if (status !== 'not_planned') {
           planned++;
-          if (status === 'done') completed++;
+          if (status === 'done') { completed++; doneCount++; }
+          else if (status === 'overdue') { overdueCount++; }
+          else if (status === 'postponed') { postponedCount++; }
         }
       });
       return {
@@ -125,6 +133,10 @@ export default function CompanyDrilldown() {
         planned,
         completed,
         pctComplete: planned > 0 ? Math.round((completed / planned) * 100) : 0,
+        doneCount,
+        overdueCount,
+        postponedCount,
+        notApplicableCount,
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps

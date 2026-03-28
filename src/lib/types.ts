@@ -34,6 +34,11 @@ export interface MonthlyProgress {
   planned: number;      // activities planned for this month
   completed: number;    // activities with actual mark this month
   pctComplete: number;  // completion % for this month
+  // Per-status breakdown for stacked bar chart
+  doneCount?: number;
+  overdueCount?: number;
+  postponedCount?: number;
+  notApplicableCount?: number;
 }
 
 export interface CompanySummary {

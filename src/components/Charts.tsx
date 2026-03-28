@@ -211,7 +211,12 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
     const currentMonth = new Date().getMonth();
     const labels = monthlyProgress.map(m => m.label);
     const planned = monthlyProgress.map(m => m.planned);
-    const completed = monthlyProgress.map(m => m.completed);
+
+    // Per-status data for stacked Actual bars
+    const doneData = monthlyProgress.map(m => m.doneCount ?? m.completed);
+    const overdueData = monthlyProgress.map(m => m.overdueCount ?? 0);
+    const postponedData = monthlyProgress.map(m => m.postponedCount ?? 0);
+    const notApplicableData = monthlyProgress.map(m => m.notApplicableCount ?? 0);
 
     chartRef.current = new Chart(canvasRef.current, {
       type: 'bar',
@@ -225,14 +230,43 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
             borderColor: '#6366f1',
             borderWidth: 1,
             borderRadius: 4,
+            stack: 'plan',
           },
           {
-            label: 'Actual (ดำเนินการ)',
-            data: completed,
-            backgroundColor: 'rgba(74, 222, 128, 0.7)',
+            label: 'เสร็จแล้ว',
+            data: doneData,
+            backgroundColor: 'rgba(74, 222, 128, 0.8)',
             borderColor: '#4ade80',
             borderWidth: 1,
-            borderRadius: 4,
+            borderRadius: 0,
+            stack: 'actual',
+          },
+          {
+            label: 'เกินกำหนด',
+            data: overdueData,
+            backgroundColor: 'rgba(248, 113, 113, 0.8)',
+            borderColor: '#f87171',
+            borderWidth: 1,
+            borderRadius: 0,
+            stack: 'actual',
+          },
+          {
+            label: 'เลื่อน',
+            data: postponedData,
+            backgroundColor: 'rgba(96, 165, 250, 0.8)',
+            borderColor: '#60a5fa',
+            borderWidth: 1,
+            borderRadius: 0,
+            stack: 'actual',
+          },
+          {
+            label: 'ไม่เข้าเงื่อนไข',
+            data: notApplicableData,
+            backgroundColor: 'rgba(113, 113, 122, 0.7)',
+            borderColor: '#71717a',
+            borderWidth: 1,
+            borderRadius: 0,
+            stack: 'actual',
           },
         ],
       },
@@ -242,7 +276,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: '#a1a1aa', padding: 15, font: { size: 11 } },
+            labels: { color: '#a1a1aa', padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
           },
           tooltip: {
             callbacks: {
@@ -256,6 +290,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         },
         scales: {
           x: {
+            stacked: true,
             grid: { color: '#27272a' },
             ticks: {
               color: (ctx: any) => ctx.index <= currentMonth ? '#fafafa' : '#52525b',
@@ -263,6 +298,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
             },
           },
           y: {
+            stacked: true,
             grid: { color: '#27272a' },
             ticks: { color: '#71717a' },
             beginAtZero: true,
