@@ -296,6 +296,57 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, statusFilter, sortMonth, overrides]);
 
+  // Recalculate KPI summary including overrides
+  const effectiveSummary = useMemo(() => {
+    if (!summary || activities.length === 0) return summary;
+    const currentMonthKey = MONTH_KEYS[new Date().getMonth()];
+    let done = 0, notStarted = 0, postponed = 0, cancelled = 0, notApplicable = 0;
+
+    activities.forEach(act => {
+      // Determine effective overall status by checking all months up to current
+      const plannedMonths = MONTH_KEYS.filter((k, idx) => {
+        const s = getEffectiveStatus(act, k);
+        return s !== 'not_planned';
+      });
+
+      if (plannedMonths.length === 0) {
+        notStarted++;
+        return;
+      }
+
+      // Check month-by-month effective statuses
+      const monthsUpToCurrent = MONTH_KEYS.filter((k, idx) => idx <= new Date().getMonth());
+      const plannedUpToCurrent = monthsUpToCurrent.filter(k => {
+        const s = getEffectiveStatus(act, k);
+        return s !== 'not_planned';
+      });
+
+      const doneUpToCurrent = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'done');
+      const cancelledMonths = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'cancelled');
+      const postponedMonths = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'postponed');
+      const naMonths = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'not_applicable' || getEffectiveStatus(act, MONTH_KEYS[0]) === 'not_applicable');
+
+      // Use original activity-level status for cancelled/na/postponed if detected from text
+      if (act.status === 'not_applicable') { notApplicable++; return; }
+      if (act.status === 'cancelled') { cancelled++; return; }
+      if (act.status === 'postponed') { postponed++; return; }
+
+      // Otherwise compute from effective month statuses
+      if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length) {
+        done++;
+      } else if (doneUpToCurrent.length > 0) {
+        done++;  // Partially done counts as done (same logic as detectStatus)
+      } else {
+        notStarted++;
+      }
+    });
+
+    const total = summary.total;
+    const pctDone = total > 0 ? Math.round((done / total) * 1000) / 10 : 0;
+    return { ...summary, done, notStarted, postponed, cancelled, notApplicable, pctDone };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides, summary]);
+
   // Count statuses
   const statusCounts = {
     all: activities.length,
@@ -642,15 +693,15 @@ export default function CompanyDrilldown() {
           </div>
         ) : (
           <>
-            {/* KPI Cards */}
+            {/* KPI Cards — use effectiveSummary which includes override data */}
             <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6 animate-fade-in-up">
-              <KPICard label="กิจกรรมทั้งหมด" value={summary?.total || 0} />
-              <KPICard label="เสร็จแล้ว" value={summary?.done || 0} color="var(--success)" progress={summary?.pctDone || 0} delta={`${summary?.pctDone || 0}%`} />
-              <KPICard label="ยังไม่เริ่ม" value={summary?.notStarted || 0} color="var(--warning)" />
-              <KPICard label="เลื่อน" value={summary?.postponed || 0} color="var(--info)" />
-              <KPICard label="ยกเลิก" value={summary?.cancelled || 0} color="var(--danger)" />
-              <KPICard label="ไม่เข้าเงื่อนไข" value={summary?.notApplicable || 0} color="var(--muted)" />
-              <KPICard label="งบประมาณ" value={summary?.budget ? summary.budget.toLocaleString() : '-'} color="var(--accent)" subtext="บาท" />
+              <KPICard label="กิจกรรมทั้งหมด" value={effectiveSummary?.total || 0} />
+              <KPICard label="เสร็จแล้ว" value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${effectiveSummary?.pctDone || 0}%`} />
+              <KPICard label="ยังไม่เริ่ม" value={effectiveSummary?.notStarted || 0} color="var(--warning)" />
+              <KPICard label="เลื่อน" value={effectiveSummary?.postponed || 0} color="var(--info)" />
+              <KPICard label="ยกเลิก" value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
+              <KPICard label="ไม่เข้าเงื่อนไข" value={effectiveSummary?.notApplicable || 0} color="var(--muted)" />
+              <KPICard label="งบประมาณ" value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext="บาท" />
             </div>
 
             {/* Monthly Progress */}
