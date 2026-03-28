@@ -772,8 +772,9 @@ export default function CompanyDrilldown() {
                             key={m}
                             className="text-center py-3 px-1 font-semibold text-[10px]"
                             style={{
-                              color: idx === currentMonthIdx ? 'var(--warning)' : 'var(--text-secondary)',
-                              background: idx === currentMonthIdx ? 'var(--warning)' : 'transparent'
+                              color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
+                              background: idx === currentMonthIdx ? 'var(--accent)' : 'transparent',
+                              borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0'
                             }}
                           >
                             {m}
@@ -824,9 +825,11 @@ export default function CompanyDrilldown() {
                                 key={k}
                                 className="text-center py-2.5 px-1 cursor-pointer transition-colors relative"
                                 style={{
-                                  background: isCurrent ? 'var(--warning)' : hasOverride ? 'var(--warning)' : 'transparent',
-                                  border: hasOverride ? '1px solid rgba(255,159,10,0.3)' : 'none',
-                                  borderRadius: hasOverride ? '4px' : '0px'
+                                  background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent',
+                                  borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none',
+                                  borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none',
+                                  border: hasOverride && !isCurrent ? '1px solid rgba(255,159,10,0.3)' : undefined,
+                                  borderRadius: hasOverride && !isCurrent ? '4px' : '0px'
                                 }}
                                 onClick={() => handleCellClick(act.no, k, act.activity)}
                               >
