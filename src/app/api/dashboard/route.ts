@@ -146,8 +146,9 @@ export async function GET(request: Request) {
           (c.sheetId && sheetName) ? fetchActivities(c, sheetName) : Promise.resolve([]),
         ]);
 
+        // Always recalculate with effective statuses (overrides + month-level data)
         const companyOverrides = overridesByCompany[c.id] || {};
-        if (Object.keys(companyOverrides).length > 0 && activities.length > 0) {
+        if (activities.length > 0) {
           return recalcSummaryWithOverrides(baseSummary, activities, companyOverrides);
         }
         return baseSummary;
