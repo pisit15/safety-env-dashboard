@@ -258,6 +258,9 @@ export default function CompanyDrilldown() {
         const status = getEffectiveStatus(act, k);
         if (status === 'not_applicable') {
           notApplicableCount++;
+          // ยกประโยชน์ให้ — นับ not_applicable เป็น planned + completed ด้วย
+          planned++;
+          completed++;
         } else if (status !== 'not_planned') {
           planned++;
           if (status === 'done') { completed++; doneCount++; }
@@ -313,9 +316,11 @@ export default function CompanyDrilldown() {
       }
 
       // Check if ALL planned months are not_applicable (activity-level or override)
+      // ยกประโยชน์ให้ — count not_applicable as done
       const naMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'not_applicable');
       if (act.status === 'not_applicable' || naMonthsAll.length === plannedMonths.length) {
         notApplicable++;
+        done++;  // นับรวมเป็นเสร็จแล้วด้วย
         return;
       }
 
@@ -354,6 +359,7 @@ export default function CompanyDrilldown() {
     });
 
     const total = summary.total;
+    // done already includes notApplicable (ยกประโยชน์ให้)
     const pctDone = total > 0 ? Math.round((done / total) * 1000) / 10 : 0;
     return { ...summary, done, notStarted, postponed, cancelled, notApplicable, pctDone };
   // eslint-disable-next-line react-hooks/exhaustive-deps
