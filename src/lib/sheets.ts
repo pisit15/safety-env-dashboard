@@ -15,6 +15,7 @@ export { MONTH_KEYS, MONTH_LABELS };
 interface CellData {
   value: string;
   hasBackground: boolean; // true if cell has non-white/non-default background color
+  bgColor: string; // extracted ARGB hex e.g. 'FF00B050' or '' if none
 }
 
 // ── Get Google Auth token from Service Account ──
@@ -34,46 +35,98 @@ async function getServiceAccountToken(): Promise<string> {
   return tokenResponse.token;
 }
 
-// ── Check if a fill color is non-white (has meaningful background) ──
-function hasNonWhiteFill(cell: ExcelJS.Cell): boolean {
+// ── Extract fill color info from a cell ──
+function extractFillInfo(cell: ExcelJS.Cell): { hasBackground: boolean; bgColor: string } {
   try {
     const fill = cell.fill as any;
-    if (!fill || fill.type !== 'pattern') return false;
-    if (fill.pattern === 'none') return false;
+    if (!fill || fill.type !== 'pattern') return { hasBackground: false, bgColor: '' };
+    if (fill.pattern === 'none') return { hasBackground: false, bgColor: '' };
 
     // Check fgColor (foreground of the pattern)
     const fg = fill.fgColor;
     if (fg) {
-      // Has a theme or indexed color — likely a real background
-      if (fg.theme !== undefined && fg.theme !== null) return true;
-      if (fg.indexed !== undefined && fg.indexed !== null && fg.indexed !== 64) return true;
       if (fg.argb) {
         const argb = String(fg.argb).toUpperCase();
-        // Check if it's white or near-white
-        if (argb === 'FFFFFFFF' || argb === '00FFFFFF' || argb === 'FFFFFF') return false;
-        return true;
+        if (argb === 'FFFFFFFF' || argb === '00FFFFFF' || argb === 'FFFFFF') {
+          return { hasBackground: false, bgColor: '' };
+        }
+        return { hasBackground: true, bgColor: argb };
+      }
+      if (fg.theme !== undefined && fg.theme !== null) {
+        // Theme colors: map common themes to approximate ARGB
+        // theme 0=white, 1=black, 2-3=gray, 4=blue, 5=orange, 6=gray-blue, 7=gold, 8=teal, 9=red
+        const themeMap: Record<number, string> = {
+          4: 'FF4472C4', 5: 'FFED7D31', 6: 'FFA5A5A5', 7: 'FFFFC000',
+          8: 'FF5B9BD5', 9: 'FF70AD47',
+        };
+        const tint = fg.tint || 0;
+        const approx = themeMap[fg.theme] || '';
+        return { hasBackground: true, bgColor: approx || `THEME${fg.theme}_${Math.round(tint * 100)}` };
+      }
+      if (fg.indexed !== undefined && fg.indexed !== null && fg.indexed !== 64) {
+        return { hasBackground: true, bgColor: `IDX${fg.indexed}` };
       }
     }
 
     // Check bgColor as fallback
     const bg = fill.bgColor;
     if (bg) {
-      if (bg.theme !== undefined && bg.theme !== null) return true;
-      if (bg.indexed !== undefined && bg.indexed !== null && bg.indexed !== 64 && bg.indexed !== 65) return true;
       if (bg.argb) {
         const argb = String(bg.argb).toUpperCase();
-        if (argb === 'FFFFFFFF' || argb === '00FFFFFF' || argb === 'FFFFFF') return false;
-        return true;
+        if (argb === 'FFFFFFFF' || argb === '00FFFFFF' || argb === 'FFFFFF') {
+          return { hasBackground: false, bgColor: '' };
+        }
+        return { hasBackground: true, bgColor: argb };
+      }
+      if (bg.theme !== undefined && bg.theme !== null) return { hasBackground: true, bgColor: '' };
+      if (bg.indexed !== undefined && bg.indexed !== null && bg.indexed !== 64 && bg.indexed !== 65) {
+        return { hasBackground: true, bgColor: `IDX${bg.indexed}` };
       }
     }
 
-    // If pattern is 'solid' with no color info, could still mean colored
-    if (fill.pattern === 'solid' && !fg && !bg) return false;
+    if (fill.pattern === 'solid' && !fg && !bg) return { hasBackground: false, bgColor: '' };
 
-    return false;
+    return { hasBackground: false, bgColor: '' };
   } catch {
-    return false;
+    return { hasBackground: false, bgColor: '' };
   }
+}
+
+// ── Detect status from cell background color ──
+// Color mapping (common Excel fill colors):
+//   Green shades → done (เสร็จแล้ว)
+//   Blue shades  → postponed (เลื่อน)
+//   Red shades   → cancelled (ยกเลิก)
+//   Gray shades  → not_applicable (ไม่เข้าเงื่อนไข)
+//   Yellow/Orange → overdue (เกินกำหนด) — optional
+function detectStatusFromColor(argb: string): MonthStatus | null {
+  if (!argb) return null;
+  const hex = argb.replace(/^FF/, ''); // strip alpha prefix
+
+  // Parse RGB components
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+
+  // Green: g is dominant → done
+  if (g > 120 && g > r * 1.2 && g > b * 1.2) return 'done';
+
+  // Blue: b is dominant → postponed
+  if (b > 120 && b > r * 1.2 && b > g * 1.0) return 'postponed';
+
+  // Red: r is dominant → cancelled
+  if (r > 150 && r > g * 1.5 && r > b * 1.5) return 'cancelled';
+
+  // Gray: all channels similar and mid-range → not_applicable
+  if (Math.abs(r - g) < 40 && Math.abs(g - b) < 40 && r > 100 && r < 220) return 'not_applicable';
+
+  // Yellow/Orange: r and g are high, b is low → treat as done (common "completed" color)
+  if (r > 180 && g > 150 && b < 100) return 'done';
+
+  // Has color but can't classify → treat as done (has an actual mark)
+  return 'done';
 }
 
 // ── Method 1: Download .xlsx via Drive API + parse with exceljs (reads colors!) ──
@@ -139,9 +192,11 @@ async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData
         }
       }
 
+      const fillInfo = extractFillInfo(cell);
       cells.push({
         value: value.trim(),
-        hasBackground: hasNonWhiteFill(cell),
+        hasBackground: fillInfo.hasBackground,
+        bgColor: fillInfo.bgColor,
       });
     }
     rows.push(cells);
@@ -206,7 +261,7 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<Ce
 
   const rows = parseCSV(csv);
   // CSV has no formatting data — hasBackground is always false
-  return rows.map(row => row.map(cell => ({ value: cell.trim(), hasBackground: false })));
+  return rows.map(row => row.map(cell => ({ value: cell.trim(), hasBackground: false, bgColor: '' })));
 }
 
 // ── Unified fetch: try xlsx download (Drive API) → CSV export ──
@@ -257,6 +312,7 @@ function computeMonthStatuses(
   planMonths: Record<string, string>,
   planMonthsHighlighted: Record<string, boolean>,
   actualMonths: Record<string, string>,
+  actualMonthColors: Record<string, string>,
   actualRowCells: string[],
 ): Record<string, MonthStatus> {
   const currentMonth = new Date().getMonth(); // 0-indexed
@@ -269,9 +325,16 @@ function computeMonthStatuses(
     const isPlanned = hasPlanText || hasPlanColor;
     const actualVal = (actualMonths[key] || '').trim();
     const hasActual = actualVal !== '';
+    const actualColor = actualMonthColors[key] || '';
 
-    if (!isPlanned) {
+    // 1. Check color-based status first (fill color in Actual row)
+    const colorStatus = detectStatusFromColor(actualColor);
+
+    if (!isPlanned && !hasActual && !actualColor) {
       monthStatuses[key] = 'not_planned';
+    } else if (colorStatus && actualColor) {
+      // Color fill detected → use color-mapped status
+      monthStatuses[key] = colorStatus;
     } else if (hasActual) {
       // Check actual cell text for special statuses
       const cellText = actualVal.toLowerCase();
@@ -284,9 +347,8 @@ function computeMonthStatuses(
       } else {
         monthStatuses[key] = 'done';
       }
-    } else if (idx < currentMonth) {
+    } else if (isPlanned && idx < currentMonth) {
       // Planned but no actual mark and month has passed
-      // Check if the whole activity was cancelled/postponed/n-a
       if (actualText.includes('ยกเลิก') || actualText.includes('cancel')) {
         monthStatuses[key] = 'cancelled';
       } else if (actualText.includes('เลื่อน') || actualText.includes('postpone')) {
@@ -296,8 +358,10 @@ function computeMonthStatuses(
       } else {
         monthStatuses[key] = 'overdue';
       }
-    } else {
+    } else if (isPlanned) {
       monthStatuses[key] = 'planned';
+    } else {
+      monthStatuses[key] = 'not_planned';
     }
   });
 
@@ -413,6 +477,7 @@ export async function fetchActivities(
 
       // Look for corresponding Actual row (next row)
       let actualMonths: Record<string, string> = {};
+      let actualMonthColors: Record<string, string> = {};
       let actualResponsible = responsible;
       let status: ActivityStatus = 'not_started';
       let actualRowCells: string[] = [];
@@ -422,9 +487,11 @@ export async function fetchActivities(
         const nextPlanActual = (nextRow?.[5]?.value || '').trim().toLowerCase();
 
         if (nextPlanActual.includes('actual')) {
-          // Read Actual row
+          // Read Actual row (text + color)
           MONTH_KEYS.forEach((key, idx) => {
-            actualMonths[key] = (nextRow[6 + idx]?.value || '').trim();
+            const cell = nextRow[6 + idx];
+            actualMonths[key] = (cell?.value || '').trim();
+            actualMonthColors[key] = cell?.bgColor || '';
           });
           actualResponsible = (nextRow[3]?.value || '').trim() || responsible;
 
@@ -441,8 +508,8 @@ export async function fetchActivities(
         i++;
       }
 
-      // Compute per-month statuses
-      const monthStatuses = computeMonthStatuses(planMonths, planMonthsHighlighted, actualMonths, actualRowCells);
+      // Compute per-month statuses (now includes color detection)
+      const monthStatuses = computeMonthStatuses(planMonths, planMonthsHighlighted, actualMonths, actualMonthColors, actualRowCells);
 
       // Determine if recurring (planned for 3+ months)
       const plannedMonthCount = MONTH_KEYS.filter(k => {
