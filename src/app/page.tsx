@@ -65,21 +65,23 @@ export default function HQOverview() {
           <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <button
               onClick={() => setPlanType('safety')}
-              className={`px-4 py-2 rounded-[10px] text-[13px] font-medium transition-all duration-200 ${
+              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 ${
                 planType === 'safety'
-                  ? 'bg-[#0a84ff] text-white shadow-lg'
+                  ? 'bg-[#0a84ff] text-white'
                   : 'text-white/50 hover:text-white/80'
               }`}
+              style={planType === 'safety' ? { boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
             >
               🛡️ Safety Plan
             </button>
             <button
               onClick={() => setPlanType('environment')}
-              className={`px-4 py-2 rounded-[10px] text-[13px] font-medium transition-all duration-200 ${
+              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 ${
                 planType === 'environment'
-                  ? 'bg-[#0a84ff] text-white shadow-lg'
+                  ? 'bg-[#0a84ff] text-white'
                   : 'text-white/50 hover:text-white/80'
               }`}
+              style={planType === 'environment' ? { boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
             >
               🌿 Envi Plan
             </button>

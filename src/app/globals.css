@@ -41,10 +41,12 @@ body {
 
 /* ── Glass morphism utilities ── */
 .glass {
-  background: var(--card);
+  background: linear-gradient(180deg, rgba(28, 28, 34, 0.9) 0%, rgba(18, 18, 24, 0.95) 100%);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
 .glass-subtle {
@@ -55,17 +57,21 @@ body {
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(28, 28, 30, 0.8) 0%, rgba(28, 28, 30, 0.5) 100%);
+  background: linear-gradient(135deg, rgba(30, 30, 35, 0.85) 0%, rgba(20, 20, 28, 0.65) 100%);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-card:hover {
-  border-color: var(--border-light);
-  background: linear-gradient(135deg, rgba(38, 38, 40, 0.85) 0%, rgba(38, 38, 40, 0.55) 100%);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(40, 40, 48, 0.9) 0%, rgba(28, 28, 36, 0.7) 100%);
+  transform: translateY(-1px);
 }
 
 /* ── Glow effects ── */
@@ -201,7 +207,7 @@ body {
 }
 
 .apple-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(10, 132, 255, 0.06);
 }
 
 .apple-table tbody td {
@@ -213,9 +219,26 @@ body {
 /* ── Mesh gradient hero ── */
 .mesh-gradient {
   background:
-    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(10, 132, 255, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(48, 209, 88, 0.05) 0%, transparent 50%),
-    var(--bg);
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(10, 132, 255, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 70%, rgba(90, 200, 250, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(48, 209, 88, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #0a0a0f 0%, #000000 50%, #050510 100%);
+}
+
+/* ── Accent glow for active buttons ── */
+.glow-btn-active {
+  box-shadow: 0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3);
+}
+
+/* ── Section header accent line ── */
+.section-header-line {
+  display: inline-block;
+  width: 3px;
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #0a84ff 0%, #5ac8fa 100%);
+  margin-right: 10px;
+  vertical-align: middle;
 }
 
 /* ── Input fields ── */
@@ -227,4 +250,23 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ── Card accent border on left for special cards ── */
+.card-accent-left {
+  border-left: 3px solid #0a84ff;
+}
+
+/* ── Apple-style loading spinner ── */
+.spinner-apple {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255,255,255,0.08);
+  border-top: 3px solid #0a84ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
