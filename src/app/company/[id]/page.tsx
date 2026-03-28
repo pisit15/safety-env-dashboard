@@ -306,7 +306,7 @@ export default function CompanyDrilldown() {
     let done = 0, notStarted = 0, postponed = 0, cancelled = 0, notApplicable = 0;
 
     activities.forEach(act => {
-      // Collect effective statuses for ALL months (not just up to current)
+      // Collect effective statuses for ALL months
       const allEffective = MONTH_KEYS.map(k => getEffectiveStatus(act, k));
       const plannedMonths = MONTH_KEYS.filter((k, idx) => allEffective[idx] !== 'not_planned');
 
@@ -315,12 +315,16 @@ export default function CompanyDrilldown() {
         return;
       }
 
-      // Check if ALL planned months are not_applicable (activity-level or override)
-      // ยกประโยชน์ให้ — count not_applicable as done
-      const naMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'not_applicable');
-      if (act.status === 'not_applicable' || naMonthsAll.length === plannedMonths.length) {
+      // นับ not_applicable จากระดับเดือน — ถ้ามีเดือนใดเดือนหนึ่งเป็น not_applicable ก็นับ
+      const naMonths = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'not_applicable');
+      const hasAnyNA = naMonths.length > 0 || act.status === 'not_applicable';
+      if (hasAnyNA) {
         notApplicable++;
-        done++;  // นับรวมเป็นเสร็จแล้วด้วย
+      }
+
+      // ถ้าทุกเดือนเป็น not_applicable → ยกประโยชน์ให้ นับเป็นเสร็จแล้ว
+      if (act.status === 'not_applicable' || naMonths.length === plannedMonths.length) {
+        done++;
         return;
       }
 
@@ -339,20 +343,20 @@ export default function CompanyDrilldown() {
       }
 
       // Check month-by-month effective statuses up to current month
+      // ยกประโยชน์ — ไม่นับเดือน not_applicable เป็นแผน (เสมือนทำเสร็จแล้ว)
       const currentMonthIdx = new Date().getMonth();
       const monthsUpToCurrent = MONTH_KEYS.filter((k, idx) => idx <= currentMonthIdx);
       const plannedUpToCurrent = monthsUpToCurrent.filter(k => {
         const s = getEffectiveStatus(act, k);
         return s !== 'not_planned' && s !== 'not_applicable';
       });
-
       const doneUpToCurrent = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'done');
 
       // Compute from effective month statuses
       if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length) {
         done++;
       } else if (doneUpToCurrent.length > 0) {
-        done++;  // Partially done counts as done
+        done++;
       } else {
         notStarted++;
       }
