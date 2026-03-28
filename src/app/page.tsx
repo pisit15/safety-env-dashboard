@@ -9,9 +9,20 @@ import { DashboardData } from '@/lib/types';
 import Link from 'next/link';
 
 export default function HQOverview() {
-  const [planType, setPlanType] = useState<'environment' | 'safety' | 'total'>('environment');
+  const [planType, setPlanType] = useState<'environment' | 'safety' | 'total'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('hq_planType');
+      if (saved === 'safety' || saved === 'environment' || saved === 'total') return saved;
+    }
+    return 'total';
+  });
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Persist planType to localStorage
+  useEffect(() => {
+    localStorage.setItem('hq_planType', planType);
+  }, [planType]);
 
   useEffect(() => {
     setLoading(true);

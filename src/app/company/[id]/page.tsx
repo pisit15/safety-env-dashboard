@@ -37,11 +37,22 @@ interface ResponsibleOverride {
 export default function CompanyDrilldown() {
   const params = useParams();
   const companyId = params.id as string;
-  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>('environment');
+  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('company_planType');
+      if (saved === 'safety' || saved === 'environment' || saved === 'total') return saved;
+    }
+    return 'total';
+  });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Persist planType to localStorage
+  useEffect(() => {
+    localStorage.setItem('company_planType', planType);
+  }, [planType]);
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
