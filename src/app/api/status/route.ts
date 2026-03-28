@@ -73,17 +73,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log
-    await getSupabase().from('audit_log').insert({
-      company_id: companyId,
-      plan_type: planType,
-      action: 'status_change',
-      activity_no: activityNo,
-      month,
-      old_value: oldData?.status || '(auto)',
-      new_value: status,
-      note: note || '',
-      performed_by: updatedBy || '',
-    }).then(() => {}).catch(() => {});
+    try {
+      await getSupabase().from('audit_log').insert({
+        company_id: companyId,
+        plan_type: planType,
+        action: 'status_change',
+        activity_no: activityNo,
+        month,
+        old_value: oldData?.status || '(auto)',
+        new_value: status,
+        note: note || '',
+        performed_by: updatedBy || '',
+      });
+    } catch { /* ignore audit log errors */ }
 
     return NextResponse.json({ success: true, data });
   } catch (err) {
