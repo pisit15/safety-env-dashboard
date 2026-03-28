@@ -64,6 +64,34 @@ export default function CompanyDrilldown() {
   const [editingResponsible, setEditingResponsible] = useState<{ actNo: string; actName: string; current: string } | null>(null);
   const [newResponsible, setNewResponsible] = useState('');
 
+  // Attachment state
+  interface Attachment {
+    id: string;
+    file_name: string;
+    file_type: string;
+    file_size: number;
+    drive_file_id: string;
+    drive_url: string;
+    uploaded_by: string;
+    created_at: string;
+  }
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  // Attachment count per cell (for indicator dots)
+  const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
+
+  // Deadline lock state
+  const [deadlineLocked, setDeadlineLocked] = useState(false);
+  const [hasApproval, setHasApproval] = useState(false);
+  const [checkingLock, setCheckingLock] = useState(false);
+
+  // Edit request state
+  const [showEditRequestForm, setShowEditRequestForm] = useState(false);
+  const [editRequestReason, setEditRequestReason] = useState('');
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+
   // Check if already logged in from sessionStorage
   useEffect(() => {
     const saved = sessionStorage.getItem(`auth_${companyId}`);
@@ -360,6 +388,11 @@ export default function CompanyDrilldown() {
     }
     setEditingCell({ actNo, month, actName });
     setShowStatusModal(true);
+    setShowEditRequestForm(false);
+    setEditRequestReason('');
+    // Fetch attachments and deadline lock in parallel
+    fetchAttachments(actNo, month);
+    checkDeadlineLock(actNo, month);
   };
 
   // Get effective responsible (override > sheet)
@@ -430,6 +463,101 @@ export default function CompanyDrilldown() {
   // Export handler
   const handleExport = () => {
     window.open(`/api/export?companyId=${companyId}&planType=${planType}`, '_blank');
+  };
+
+  // Fetch attachments for a cell
+  const fetchAttachments = async (actNo: string, month: string) => {
+    setLoadingAttachments(true);
+    try {
+      const res = await fetch(`/api/attachments?companyId=${companyId}&planType=${planType}&activityNo=${actNo}&month=${month}`);
+      const data = await res.json();
+      const atts = data.attachments || [];
+      setAttachments(atts);
+      // Update count for cell indicator
+      setAttachmentCounts(prev => ({
+        ...prev,
+        [`${actNo}:${month}`]: atts.length,
+      }));
+    } catch {
+      setAttachments([]);
+    }
+    setLoadingAttachments(false);
+  };
+
+  // Check deadline lock for a month
+  const checkDeadlineLock = async (actNo: string, month: string) => {
+    setCheckingLock(true);
+    try {
+      const res = await fetch(`/api/deadlines?month=${month}&companyId=${companyId}&planType=${planType}&activityNo=${actNo}`);
+      const data = await res.json();
+      setDeadlineLocked(data.isLocked || false);
+      setHasApproval(data.hasApproval || false);
+    } catch {
+      setDeadlineLocked(false);
+      setHasApproval(false);
+    }
+    setCheckingLock(false);
+  };
+
+  // Upload evidence file
+  const handleUploadFile = async (file: File) => {
+    if (!editingCell) return;
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', companyId);
+      formData.append('planType', planType);
+      formData.append('activityNo', editingCell.actNo);
+      formData.append('month', editingCell.month);
+      formData.append('uploadedBy', loginCompanyName);
+
+      const res = await fetch('/api/attachments', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Refresh attachments
+        fetchAttachments(editingCell.actNo, editingCell.month);
+      } else {
+        alert(data.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาดในการอัปโหลด');
+    }
+    setUploadingFile(false);
+  };
+
+  // Submit edit request for locked month
+  const handleSubmitEditRequest = async () => {
+    if (!editingCell || !editRequestReason.trim()) return;
+    setSubmittingRequest(true);
+    try {
+      const res = await fetch('/api/edit-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType,
+          activityNo: editingCell.actNo,
+          month: editingCell.month,
+          reason: editRequestReason.trim(),
+          requestedBy: loginCompanyName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('ส่งคำขอแก้ไขเรียบร้อย รอ Admin อนุมัติ');
+        setShowEditRequestForm(false);
+        setEditRequestReason('');
+      } else {
+        alert(data.error || 'ส่งคำขอไม่สำเร็จ');
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+    }
+    setSubmittingRequest(false);
   };
 
   return (
@@ -673,13 +801,18 @@ export default function CompanyDrilldown() {
                             };
                             const cfg = statusConfig[effectiveStatus];
 
+                            const attCount = attachmentCounts[`${act.no}:${k}`] || 0;
+
                             return (
                               <td
                                 key={k}
-                                className={`text-center py-2.5 px-1 cursor-pointer hover:bg-zinc-700/50 transition-colors ${isCurrent ? 'bg-amber-900/10' : ''} ${hasOverride ? 'ring-1 ring-amber-500/30' : ''}`}
+                                className={`text-center py-2.5 px-1 cursor-pointer hover:bg-zinc-700/50 transition-colors relative ${isCurrent ? 'bg-amber-900/10' : ''} ${hasOverride ? 'ring-1 ring-amber-500/30' : ''}`}
                                 onClick={() => handleCellClick(act.no, k, act.activity)}
                               >
                                 <span className={`${cfg.color} text-sm`} title={cfg.title}>{cfg.icon}</span>
+                                {attCount > 0 && (
+                                  <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-cyan-400 rounded-full" title={`${attCount} ไฟล์แนบ`}></span>
+                                )}
                               </td>
                             );
                           })}
@@ -734,58 +867,183 @@ export default function CompanyDrilldown() {
           </div>
         )}
 
-        {/* Status Update Modal */}
+        {/* Status Update Modal (with attachments, deadline lock, edit request) */}
         {showStatusModal && editingCell && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setShowStatusModal(false); setEditingCell(null); }}>
-            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-white mb-2">เปลี่ยนสถานะ</h3>
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 overflow-y-auto py-4" onClick={() => { setShowStatusModal(false); setEditingCell(null); }}>
+            <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-white mb-2">
+                {editingCell.actName}
+              </h3>
               <p className="text-sm text-zinc-400 mb-1">
                 กิจกรรม: <span className="text-white">{editingCell.actNo}</span>
-              </p>
-              <p className="text-sm text-zinc-400 mb-4">
+                {' | '}
                 เดือน: <span className="text-white">{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</span>
               </p>
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {STATUS_OPTIONS.map(opt => {
-                  const currentStatus = getEffectiveStatus(
-                    activities.find(a => a.no === editingCell.actNo)!,
-                    editingCell.month
-                  );
-                  const isActive = currentStatus === opt.value;
+              {/* Deadline Lock Notice */}
+              {checkingLock ? (
+                <div className="text-xs text-zinc-500 mb-3">กำลังตรวจสอบกำหนดเวลา...</div>
+              ) : deadlineLocked && !hasApproval ? (
+                <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-3 mb-3">
+                  <p className="text-red-400 text-sm font-medium">
+                    เลยกำหนดเวลาแก้ไขเดือนนี้แล้ว
+                  </p>
+                  <p className="text-red-400/70 text-xs mt-1">
+                    ต้องขออนุมัติจาก Admin เพื่อแก้ไขข้อมูล
+                  </p>
+                </div>
+              ) : deadlineLocked && hasApproval ? (
+                <div className="bg-green-900/30 border border-green-700/50 rounded-lg p-3 mb-3">
+                  <p className="text-green-400 text-sm font-medium">
+                    ได้รับอนุมัติให้แก้ไขแล้ว (ชั่วคราว)
+                  </p>
+                </div>
+              ) : null}
 
-                  return (
+              {/* Status Buttons - disable if locked without approval */}
+              {!(deadlineLocked && !hasApproval) && (
+                <>
+                  <p className="text-xs text-zinc-500 mb-2 mt-3">เปลี่ยนสถานะ:</p>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {STATUS_OPTIONS.map(opt => {
+                      const currentStatus = getEffectiveStatus(
+                        activities.find(a => a.no === editingCell.actNo)!,
+                        editingCell.month
+                      );
+                      const isActive = currentStatus === opt.value;
+
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleSaveStatus(opt.value)}
+                          disabled={savingStatus}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                            isActive
+                              ? 'bg-accent/20 border border-accent text-white'
+                              : 'bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                          } ${savingStatus ? 'opacity-50' : ''}`}
+                        >
+                          <span className={`${opt.color} text-lg`}>{opt.icon}</span>
+                          <span>{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Revert button */}
+                  {overrides[`${editingCell.actNo}:${editingCell.month}`] && (
                     <button
-                      key={opt.value}
-                      onClick={() => handleSaveStatus(opt.value)}
+                      onClick={handleRevertStatus}
                       disabled={savingStatus}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                        isActive
-                          ? 'bg-accent/20 border border-accent text-white'
-                          : 'bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-700'
-                      } ${savingStatus ? 'opacity-50' : ''}`}
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 text-zinc-400 rounded-lg text-xs hover:bg-zinc-700 mb-3"
                     >
-                      <span className={`${opt.color} text-lg`}>{opt.icon}</span>
-                      <span>{opt.label}</span>
+                      ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
                     </button>
-                  );
-                })}
-              </div>
-
-              {/* Revert button - only show if there's an override */}
-              {overrides[`${editingCell.actNo}:${editingCell.month}`] && (
-                <button
-                  onClick={handleRevertStatus}
-                  disabled={savingStatus}
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-600 text-zinc-400 rounded-lg text-xs hover:bg-zinc-700 mb-3"
-                >
-                  ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
-                </button>
+                  )}
+                </>
               )}
+
+              {/* Edit Request Form - show when locked and no approval */}
+              {deadlineLocked && !hasApproval && (
+                <div className="mb-4">
+                  {!showEditRequestForm ? (
+                    <button
+                      onClick={() => setShowEditRequestForm(true)}
+                      className="w-full px-3 py-2.5 bg-amber-700 text-white rounded-lg text-sm font-medium hover:bg-amber-600"
+                    >
+                      ขอแก้ไขข้อมูลย้อนหลัง
+                    </button>
+                  ) : (
+                    <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-3">
+                      <p className="text-sm text-white font-medium mb-2">ขอแก้ไขข้อมูลย้อนหลัง</p>
+                      <textarea
+                        value={editRequestReason}
+                        onChange={e => setEditRequestReason(e.target.value)}
+                        placeholder="เหตุผลที่ต้องการแก้ไข..."
+                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white text-sm mb-2 focus:outline-none focus:border-accent resize-none"
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setShowEditRequestForm(false); setEditRequestReason(''); }}
+                          className="flex-1 px-3 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm hover:bg-zinc-600"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          onClick={handleSubmitEditRequest}
+                          disabled={submittingRequest || !editRequestReason.trim()}
+                          className="flex-1 px-3 py-2 bg-amber-700 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+                        >
+                          {submittingRequest ? 'กำลังส่ง...' : 'ส่งคำขอ'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Attachments Section */}
+              <div className="border-t border-zinc-700 pt-3 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-zinc-500">หลักฐาน / ไฟล์แนบ</p>
+                  {!(deadlineLocked && !hasApproval) && (
+                    <label className={`px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 cursor-pointer ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
+                      <input
+                        type="file"
+                        accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
+                        className="hidden"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handleUploadFile(file);
+                          e.target.value = '';
+                        }}
+                        disabled={uploadingFile}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {loadingAttachments ? (
+                  <div className="text-xs text-zinc-500 py-2">กำลังโหลด...</div>
+                ) : attachments.length === 0 ? (
+                  <div className="text-xs text-zinc-600 py-2 text-center">ยังไม่มีไฟล์แนบ</div>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {attachments.map(att => (
+                      <div key={att.id} className="flex items-center justify-between bg-zinc-900 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm">
+                            {att.file_type?.includes('image') ? '🖼️' :
+                             att.file_type?.includes('pdf') ? '📄' :
+                             att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '📊' : '📎'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs text-white truncate">{att.file_name}</p>
+                            <p className="text-[10px] text-zinc-500">
+                              {att.uploaded_by} | {new Date(att.created_at).toLocaleDateString('th-TH')}
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={att.drive_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-accent hover:text-accent/80 flex-shrink-0 ml-2"
+                        >
+                          เปิด
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={() => { setShowStatusModal(false); setEditingCell(null); }}
-                className="w-full px-3 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm hover:bg-zinc-600"
+                className="w-full px-3 py-2 bg-zinc-700 text-zinc-300 rounded-lg text-sm hover:bg-zinc-600 mt-4"
               >
                 ปิด
               </button>

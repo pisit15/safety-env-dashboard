@@ -28,7 +28,7 @@ async function getServiceAccountToken(): Promise<string> {
   const parsed = JSON.parse(credentials);
   const auth = new google.auth.GoogleAuth({
     credentials: parsed,
-    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    scopes: ['https://www.googleapis.com/auth/drive'],
   });
   const client = await auth.getClient();
   const tokenResponse = await client.getAccessToken();

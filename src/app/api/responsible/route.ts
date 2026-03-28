@@ -42,6 +42,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Get old value for audit log
+    const { data: oldData } = await getSupabase()
+      .from('responsible_overrides')
+      .select('responsible')
+      .eq('company_id', companyId)
+      .eq('plan_type', planType)
+      .eq('activity_no', activityNo)
+      .single();
+
     const { data, error } = await getSupabase()
       .from('responsible_overrides')
       .upsert(
@@ -60,6 +69,17 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Audit log
+    await getSupabase().from('audit_log').insert({
+      company_id: companyId,
+      plan_type: planType,
+      action: 'responsible_change',
+      activity_no: activityNo,
+      old_value: oldData?.responsible || '(from sheet)',
+      new_value: responsible,
+      performed_by: updatedBy || '',
+    }).then(() => {}).catch(() => {});
 
     return NextResponse.json({ success: true, data });
   } catch (err) {
