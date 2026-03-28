@@ -137,6 +137,7 @@ async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
   const response = await fetch(url, {
     headers: { 'Authorization': `Bearer ${token}` },
+    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -247,7 +248,7 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<Ce
 
   const response = await fetch(url, {
     headers: { 'Accept': 'text/csv' },
-    next: { revalidate: 300 },
+    cache: 'no-store',
   });
 
   if (!response.ok) {
