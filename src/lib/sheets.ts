@@ -171,31 +171,6 @@ async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData
 
   console.log(`[sheets] Parsing sheet "${worksheet.name}" with ${worksheet.rowCount} rows`);
 
-  // Build a set of merge-slave cells (cells that are part of a merged range but not the top-left master)
-  const mergeSlaveCells = new Set<string>();
-  if ((worksheet as any).model?.merges) {
-    for (const mergeRange of (worksheet as any).model.merges) {
-      // mergeRange is like "E10:E13"
-      const range = worksheet.getCell(mergeRange.split(':')[0]);
-      const masterRow = range.row;
-      const masterCol = range.col;
-      // Parse the range to find all cells
-      try {
-        const [startRef, endRef] = mergeRange.split(':');
-        const startCell = worksheet.getCell(startRef);
-        const endCell = worksheet.getCell(endRef);
-        for (let r = startCell.row; r <= endCell.row; r++) {
-          for (let c = startCell.col; c <= endCell.col; c++) {
-            if (r !== masterRow || c !== masterCol) {
-              mergeSlaveCells.add(`${r}:${c}`);
-            }
-          }
-        }
-      } catch { /* ignore parse errors */ }
-    }
-  }
-  console.log(`[sheets] Found ${mergeSlaveCells.size} merge-slave cells`);
-
   const rows: CellData[][] = [];
   worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
     if (rowNumber > 500) return; // safety limit
@@ -219,7 +194,17 @@ async function fetchViaXlsx(fileId: string, sheetName: string): Promise<CellData
         }
       }
 
-      const isMergeSlave = mergeSlaveCells.has(`${rowNumber}:${col}`);
+      // Detect merge-slave: cell.isMerged is true AND cell.master is a different cell
+      let isMergeSlave = false;
+      try {
+        const master = (cell as any).master;
+        if (master && (master.row !== cell.row || master.col !== cell.col)) {
+          isMergeSlave = true;
+        } else if ((cell as any).isMerged && master && master.address !== cell.address) {
+          isMergeSlave = true;
+        }
+      } catch { /* ignore */ }
+
       const fillInfo = extractFillInfo(cell);
       cells.push({
         value: value.trim(),
