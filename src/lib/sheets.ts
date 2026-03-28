@@ -564,7 +564,7 @@ export async function fetchActivities(
   return activities;
 }
 
-// Calculate monthly progress from activities
+// Calculate monthly progress from activities — uses monthStatuses directly
 function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
   return MONTH_KEYS.map((key, idx) => {
     let planned = 0;
@@ -572,24 +572,18 @@ function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
     let notApplicableCount = 0;
 
     activities.forEach(a => {
-      const planVal = a.planMonths[key] || '';
-      const hasPlan = planVal !== '' && !planVal.includes('เมื่อ');
-      const monthStatus = a.monthStatuses?.[key];
+      const status = a.monthStatuses?.[key];
+      if (!status || status === 'not_planned') return;
 
-      if (monthStatus === 'not_applicable') {
-        // ยกประโยชน์ให้ — count as planned + completed
+      planned++;
+      if (status === 'not_applicable') {
         notApplicableCount++;
-        planned++;
-      } else if (hasPlan) {
-        planned++;
-        const actualVal = a.actualMonths[key] || '';
-        if (actualVal !== '' && a.status !== 'cancelled') {
-          doneCount++;
-        }
+      } else if (status === 'done') {
+        doneCount++;
       }
     });
 
-    const completed = doneCount + notApplicableCount;
+    const completed = doneCount + notApplicableCount; // ยกประโยชน์ให้
 
     return {
       month: key,
@@ -618,27 +612,42 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
 
   try {
     const activities = await fetchActivities(company, sheetName);
-    const total = activities.length || 0;
-    const baseDone = activities.filter(a => a.status === 'done').length;
-    const notStarted = activities.filter(a => a.status === 'not_started').length;
-    const postponed = activities.filter(a => a.status === 'postponed').length;
-    const cancelled = activities.filter(a => a.status === 'cancelled').length;
-    // Count activities with any month-level not_applicable OR activity-level not_applicable
-    const notApplicable = activities.filter(a => {
-      if (a.status === 'not_applicable') return true;
-      return MONTH_KEYS.some(k => a.monthStatuses?.[k] === 'not_applicable');
-    }).length;
-    // ยกประโยชน์ให้ — include not_applicable in done
-    const done = baseDone + activities.filter(a => a.status === 'not_applicable').length;
     const budget = activities.reduce((sum, a) => sum + a.budget, 0);
     const monthlyProgress = calculateMonthlyProgress(activities);
+
+    // KPI uses month-slot counting (same as chart)
+    let totalPlanned = 0, totalDone = 0, totalNotApplicable = 0, totalPostponed = 0, totalCancelled = 0;
+    MONTH_KEYS.forEach(key => {
+      activities.forEach(a => {
+        const monthStatus = a.monthStatuses?.[key];
+        if (!monthStatus || monthStatus === 'not_planned') return;
+        totalPlanned++;
+        if (monthStatus === 'not_applicable') {
+          totalNotApplicable++;
+          totalDone++; // ยกประโยชน์ให้
+        } else if (monthStatus === 'done') {
+          totalDone++;
+        } else if (monthStatus === 'postponed') {
+          totalPostponed++;
+        } else if (monthStatus === 'cancelled') {
+          totalCancelled++;
+        }
+      });
+    });
+    const totalNotStarted = Math.max(0, totalPlanned - totalDone - totalPostponed - totalCancelled);
 
     return {
       companyId: company.id,
       companyName: company.name,
       shortName: company.shortName,
-      total, done, notStarted, postponed, cancelled, notApplicable, budget,
-      pctDone: total > 0 ? Math.round((done / total) * 1000) / 10 : 0,
+      total: totalPlanned,
+      done: totalDone,
+      notStarted: totalNotStarted,
+      postponed: totalPostponed,
+      cancelled: totalCancelled,
+      notApplicable: totalNotApplicable,
+      budget,
+      pctDone: totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 1000) / 10 : 0,
       monthlyProgress,
     };
   } catch (error) {

@@ -61,7 +61,7 @@ export default function HQOverview() {
             planned,
             completed,
             pctComplete: planned > 0 ? Math.round((completed / planned) * 1000) / 10 : 0,
-            doneCount: (m.doneCount ?? m.completed) + (m2.doneCount ?? m2.completed),
+            doneCount: (m.doneCount ?? 0) + (m2.doneCount ?? 0),
             notApplicableCount: (m.notApplicableCount ?? 0) + (m2.notApplicableCount ?? 0),
           };
         });

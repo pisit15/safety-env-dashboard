@@ -15,6 +15,7 @@ function getSupabase() {
 export const dynamic = 'force-dynamic';
 
 // Apply Supabase overrides to recalculate summary with effective statuses
+// KPI uses month-slot counting (same as chart) — NOT unique activity counting
 function recalcSummaryWithOverrides(
   baseSummary: CompanySummary,
   activities: Activity[],
@@ -28,24 +29,42 @@ function recalcSummaryWithOverrides(
     return act.monthStatuses?.[monthKey] || 'not_planned';
   };
 
-  // Recalculate monthly progress
+  // Recalculate monthly progress — track ALL statuses per month
+  let totalDone = 0, totalNotStarted = 0, totalPostponed = 0, totalCancelled = 0, totalNotApplicable = 0, totalPlanned = 0;
+
   const monthlyProgress: MonthlyProgress[] = MONTH_KEYS.map((key, idx) => {
     let planned = 0;
     let doneCount = 0;
     let notApplicableCount = 0;
+    let postponedCount = 0;
+    let cancelledCount = 0;
 
     activities.forEach(act => {
       const status = getEffective(act, key);
+      if (status === 'not_planned') return;
+
+      planned++;
       if (status === 'not_applicable') {
         notApplicableCount++;
-        planned++;  // ยกประโยชน์ให้
-      } else if (status !== 'not_planned') {
-        planned++;
-        if (status === 'done') doneCount++;
+      } else if (status === 'done') {
+        doneCount++;
+      } else if (status === 'postponed') {
+        postponedCount++;
+      } else if (status === 'cancelled') {
+        cancelledCount++;
       }
+      // else: planned, overdue → counted in notStarted below
     });
 
-    const completed = doneCount + notApplicableCount;
+    const completed = doneCount + notApplicableCount; // ยกประโยชน์ให้
+
+    // Accumulate KPI totals from month-slots
+    totalPlanned += planned;
+    totalDone += doneCount + notApplicableCount; // ยกประโยชน์ให้
+    totalNotApplicable += notApplicableCount;
+    totalPostponed += postponedCount;
+    totalCancelled += cancelledCount;
+
     return {
       month: key,
       label: MONTH_LABELS[key],
@@ -57,52 +76,19 @@ function recalcSummaryWithOverrides(
     };
   });
 
-  // Recalculate KPI from effective statuses
-  let done = 0, notStarted = 0, postponed = 0, cancelled = 0, notApplicable = 0;
+  // KPI derived from month-slot totals (same counting as chart)
+  totalNotStarted = totalPlanned - totalDone - totalPostponed - totalCancelled;
+  if (totalNotStarted < 0) totalNotStarted = 0;
 
-  activities.forEach(act => {
-    const allEffective = MONTH_KEYS.map(k => getEffective(act, k));
-    const plannedMonths = MONTH_KEYS.filter((k, idx) => allEffective[idx] !== 'not_planned');
-
-    if (plannedMonths.length === 0) { notStarted++; return; }
-
-    // Check for not_applicable (any month or activity-level)
-    const naMonths = plannedMonths.filter(k => getEffective(act, k) === 'not_applicable');
-    const hasAnyNA = naMonths.length > 0 || act.status === 'not_applicable';
-    if (hasAnyNA) notApplicable++;
-
-    // Full activity is not_applicable → count as done
-    if (act.status === 'not_applicable' || naMonths.length === plannedMonths.length) {
-      done++;
-      return;
-    }
-
-    // Full activity cancelled/postponed
-    const cancelledAll = plannedMonths.filter(k => getEffective(act, k) === 'cancelled');
-    if (act.status === 'cancelled' || cancelledAll.length === plannedMonths.length) { cancelled++; return; }
-
-    const postponedAll = plannedMonths.filter(k => getEffective(act, k) === 'postponed');
-    if (act.status === 'postponed' || postponedAll.length === plannedMonths.length) { postponed++; return; }
-
-    // Check month-by-month up to current
-    const currentMonthIdx = new Date().getMonth();
-    const plannedUpToCurrent = MONTH_KEYS.filter((k, idx) =>
-      idx <= currentMonthIdx && getEffective(act, k) !== 'not_planned' && getEffective(act, k) !== 'not_applicable'
-    );
-    const doneUpToCurrent = plannedUpToCurrent.filter(k => getEffective(act, k) === 'done');
-
-    if (doneUpToCurrent.length > 0) {
-      done++;
-    } else {
-      notStarted++;
-    }
-  });
-
-  const total = baseSummary.total;
   return {
     ...baseSummary,
-    done, notStarted, postponed, cancelled, notApplicable,
-    pctDone: total > 0 ? Math.round((done / total) * 1000) / 10 : 0,
+    total: totalPlanned,
+    done: totalDone,
+    notStarted: totalNotStarted,
+    postponed: totalPostponed,
+    cancelled: totalCancelled,
+    notApplicable: totalNotApplicable,
+    pctDone: totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 1000) / 10 : 0,
     monthlyProgress,
   };
 }
@@ -130,7 +116,7 @@ export async function GET(request: Request) {
       .select('company_id, activity_no, month, status')
       .eq('plan_type', planType);
 
-    console.log(`[dashboard] planType=${planType}, overrides fetched: ${allOverrides?.length ?? 'NULL'}, error: ${overrideError?.message || 'none'}`);
+    if (overrideError) console.error(`[dashboard] override fetch error: ${overrideError.message}`);
 
     // Group overrides by company
     const overridesByCompany: Record<string, Record<string, string>> = {};
@@ -150,28 +136,9 @@ export async function GET(request: Request) {
 
         // Always recalculate with effective statuses (overrides + month-level data)
         const companyOverrides = overridesByCompany[c.id] || {};
-        const overrideCount = Object.keys(companyOverrides).length;
-
         if (activities.length > 0) {
-          const result = recalcSummaryWithOverrides(baseSummary, activities, companyOverrides);
-          console.log(`[dashboard] ${c.id} (${planType}): activities=${activities.length}, overrides=${overrideCount}, base(done=${baseSummary.done},NA=${baseSummary.notApplicable}), recalc(done=${result.done},NA=${result.notApplicable},notStarted=${result.notStarted})`);
-
-          // Debug: log activities with not_applicable
-          activities.forEach(act => {
-            const naMonths = MONTH_KEYS.filter(k => {
-              const key = `${act.no}:${k}`;
-              const override = companyOverrides[key];
-              const effective = override || act.monthStatuses?.[k] || 'not_planned';
-              return effective === 'not_applicable';
-            });
-            if (naMonths.length > 0 || act.status === 'not_applicable') {
-              console.log(`[dashboard]   -> ${act.no} "${act.activity?.substring(0, 30)}" status=${act.status}, naMonths=[${naMonths}], monthStatuses(jan)=${act.monthStatuses?.jan}, overrideNA=${naMonths.filter(k => companyOverrides[`${act.no}:${k}`] === 'not_applicable').length}`);
-            }
-          });
-
-          return result;
+          return recalcSummaryWithOverrides(baseSummary, activities, companyOverrides);
         }
-        console.log(`[dashboard] ${c.id} (${planType}): no activities, using baseSummary(done=${baseSummary.done},NA=${baseSummary.notApplicable})`);
         return baseSummary;
       })
     );
@@ -221,9 +188,6 @@ export async function GET(request: Request) {
     });
 
     const totalActs = all.reduce((s, c) => s + c.total, 0);
-    const totalDoneCalc = all.reduce((s, c) => s + c.done, 0);
-    const totalNACalc = all.reduce((s, c) => s + (c.notApplicable || 0), 0);
-    console.log(`[dashboard] FINAL (${planType}): totalActs=${totalActs}, totalDone=${totalDoneCalc}, totalNA=${totalNACalc}`);
     const data: DashboardData = {
       companies: all,
       totalActivities: totalActs,

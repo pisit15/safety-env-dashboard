@@ -323,72 +323,46 @@ export default function CompanyDrilldown() {
   }, [activities, statusFilter, sortMonth, overrides]);
 
   // Recalculate KPI summary including overrides
+  // KPI uses month-slot counting (same as chart) — NOT unique activity counting
   const effectiveSummary = useMemo(() => {
     if (!summary || activities.length === 0) return summary;
-    const currentMonthKey = MONTH_KEYS[new Date().getMonth()];
-    let done = 0, notStarted = 0, postponed = 0, cancelled = 0, notApplicable = 0;
 
-    activities.forEach(act => {
-      // Collect effective statuses for ALL months
-      const allEffective = MONTH_KEYS.map(k => getEffectiveStatus(act, k));
-      const plannedMonths = MONTH_KEYS.filter((k, idx) => allEffective[idx] !== 'not_planned');
+    let totalPlanned = 0, totalDone = 0, totalNotApplicable = 0, totalPostponed = 0, totalCancelled = 0;
 
-      if (plannedMonths.length === 0) {
-        notStarted++;
-        return;
-      }
+    // Sum month-slots across all months (same counting as chart)
+    MONTH_KEYS.forEach(k => {
+      activities.forEach(act => {
+        const status = getEffectiveStatus(act, k);
+        if (status === 'not_planned') return;
 
-      // นับ not_applicable จากระดับเดือน — ถ้ามีเดือนใดเดือนหนึ่งเป็น not_applicable ก็นับ
-      const naMonths = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'not_applicable');
-      const hasAnyNA = naMonths.length > 0 || act.status === 'not_applicable';
-      if (hasAnyNA) {
-        notApplicable++;
-      }
-
-      // ถ้าทุกเดือนเป็น not_applicable → ยกประโยชน์ให้ นับเป็นเสร็จแล้ว
-      if (act.status === 'not_applicable' || naMonths.length === plannedMonths.length) {
-        done++;
-        return;
-      }
-
-      // Check if ALL planned months are cancelled
-      const cancelledMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'cancelled');
-      if (act.status === 'cancelled' || cancelledMonthsAll.length === plannedMonths.length) {
-        cancelled++;
-        return;
-      }
-
-      // Check if ALL planned months are postponed
-      const postponedMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'postponed');
-      if (act.status === 'postponed' || postponedMonthsAll.length === plannedMonths.length) {
-        postponed++;
-        return;
-      }
-
-      // Check month-by-month effective statuses up to current month
-      // ยกประโยชน์ — ไม่นับเดือน not_applicable เป็นแผน (เสมือนทำเสร็จแล้ว)
-      const currentMonthIdx = new Date().getMonth();
-      const monthsUpToCurrent = MONTH_KEYS.filter((k, idx) => idx <= currentMonthIdx);
-      const plannedUpToCurrent = monthsUpToCurrent.filter(k => {
-        const s = getEffectiveStatus(act, k);
-        return s !== 'not_planned' && s !== 'not_applicable';
+        totalPlanned++;
+        if (status === 'not_applicable') {
+          totalNotApplicable++;
+          totalDone++; // ยกประโยชน์ให้
+        } else if (status === 'done') {
+          totalDone++;
+        } else if (status === 'postponed') {
+          totalPostponed++;
+        } else if (status === 'cancelled') {
+          totalCancelled++;
+        }
+        // else: planned, overdue → notStarted
       });
-      const doneUpToCurrent = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'done');
-
-      // Compute from effective month statuses
-      if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length) {
-        done++;
-      } else if (doneUpToCurrent.length > 0) {
-        done++;
-      } else {
-        notStarted++;
-      }
     });
 
-    const total = summary.total;
-    // done already includes notApplicable (ยกประโยชน์ให้)
-    const pctDone = total > 0 ? Math.round((done / total) * 1000) / 10 : 0;
-    return { ...summary, done, notStarted, postponed, cancelled, notApplicable, pctDone };
+    const totalNotStarted = Math.max(0, totalPlanned - totalDone - totalPostponed - totalCancelled);
+    const pctDone = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 1000) / 10 : 0;
+
+    return {
+      ...summary,
+      total: totalPlanned,
+      done: totalDone,
+      notStarted: totalNotStarted,
+      postponed: totalPostponed,
+      cancelled: totalCancelled,
+      notApplicable: totalNotApplicable,
+      pctDone,
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, summary]);
 
