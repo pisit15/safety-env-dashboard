@@ -303,39 +303,51 @@ export default function CompanyDrilldown() {
     let done = 0, notStarted = 0, postponed = 0, cancelled = 0, notApplicable = 0;
 
     activities.forEach(act => {
-      // Determine effective overall status by checking all months up to current
-      const plannedMonths = MONTH_KEYS.filter((k, idx) => {
-        const s = getEffectiveStatus(act, k);
-        return s !== 'not_planned';
-      });
+      // Collect effective statuses for ALL months (not just up to current)
+      const allEffective = MONTH_KEYS.map(k => getEffectiveStatus(act, k));
+      const plannedMonths = MONTH_KEYS.filter((k, idx) => allEffective[idx] !== 'not_planned');
 
       if (plannedMonths.length === 0) {
         notStarted++;
         return;
       }
 
-      // Check month-by-month effective statuses
-      const monthsUpToCurrent = MONTH_KEYS.filter((k, idx) => idx <= new Date().getMonth());
+      // Check if ALL planned months are not_applicable (activity-level or override)
+      const naMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'not_applicable');
+      if (act.status === 'not_applicable' || naMonthsAll.length === plannedMonths.length) {
+        notApplicable++;
+        return;
+      }
+
+      // Check if ALL planned months are cancelled
+      const cancelledMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'cancelled');
+      if (act.status === 'cancelled' || cancelledMonthsAll.length === plannedMonths.length) {
+        cancelled++;
+        return;
+      }
+
+      // Check if ALL planned months are postponed
+      const postponedMonthsAll = plannedMonths.filter(k => getEffectiveStatus(act, k) === 'postponed');
+      if (act.status === 'postponed' || postponedMonthsAll.length === plannedMonths.length) {
+        postponed++;
+        return;
+      }
+
+      // Check month-by-month effective statuses up to current month
+      const currentMonthIdx = new Date().getMonth();
+      const monthsUpToCurrent = MONTH_KEYS.filter((k, idx) => idx <= currentMonthIdx);
       const plannedUpToCurrent = monthsUpToCurrent.filter(k => {
         const s = getEffectiveStatus(act, k);
-        return s !== 'not_planned';
+        return s !== 'not_planned' && s !== 'not_applicable';
       });
 
       const doneUpToCurrent = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'done');
-      const cancelledMonths = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'cancelled');
-      const postponedMonths = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'postponed');
-      const naMonths = plannedUpToCurrent.filter(k => getEffectiveStatus(act, k) === 'not_applicable' || getEffectiveStatus(act, MONTH_KEYS[0]) === 'not_applicable');
 
-      // Use original activity-level status for cancelled/na/postponed if detected from text
-      if (act.status === 'not_applicable') { notApplicable++; return; }
-      if (act.status === 'cancelled') { cancelled++; return; }
-      if (act.status === 'postponed') { postponed++; return; }
-
-      // Otherwise compute from effective month statuses
+      // Compute from effective month statuses
       if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length) {
         done++;
       } else if (doneUpToCurrent.length > 0) {
-        done++;  // Partially done counts as done (same logic as detectStatus)
+        done++;  // Partially done counts as done
       } else {
         notStarted++;
       }
