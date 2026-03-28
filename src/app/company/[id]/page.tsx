@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -105,6 +105,30 @@ export default function CompanyDrilldown() {
     if (override) return override as MonthStatus;
     return act.monthStatuses?.[monthKey] || 'not_planned';
   };
+
+  // Recalculate monthly progress including overrides
+  const effectiveMonthlyProgress = useMemo(() => {
+    if (!summary?.monthlyProgress || activities.length === 0) return summary?.monthlyProgress || [];
+    return MONTH_KEYS.map((k, idx) => {
+      const base = summary.monthlyProgress![idx];
+      let planned = 0;
+      let completed = 0;
+      activities.forEach(act => {
+        const status = getEffectiveStatus(act, k);
+        if (status !== 'not_planned' && status !== 'not_applicable') {
+          planned++;
+          if (status === 'done') completed++;
+        }
+      });
+      return {
+        ...base,
+        planned,
+        completed,
+        pctComplete: planned > 0 ? Math.round((completed / planned) * 100) : 0,
+      };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides, summary?.monthlyProgress]);
 
   // Filter activities by status
   const filteredActivities = statusFilter === 'all'
@@ -290,16 +314,16 @@ export default function CompanyDrilldown() {
             </div>
 
             {/* Monthly Progress */}
-            {summary?.monthlyProgress && summary.monthlyProgress.length > 0 && (
+            {effectiveMonthlyProgress && effectiveMonthlyProgress.length > 0 && (
               <div className="bg-card border border-border rounded-xl p-5 mb-6">
                 <h3 className="text-sm text-muted mb-4 border-l-2 border-accent pl-3">
                   📅 ติดตามความก้าวหน้ารายเดือน
                 </h3>
                 <div style={{ height: 250 }}>
-                  <MonthlyProgressChart monthlyProgress={summary.monthlyProgress} />
+                  <MonthlyProgressChart monthlyProgress={effectiveMonthlyProgress} />
                 </div>
                 <div className="grid grid-cols-12 gap-1 mt-4">
-                  {summary.monthlyProgress.map((mp, idx) => {
+                  {effectiveMonthlyProgress.map((mp, idx) => {
                     const isPast = idx < currentMonthIdx;
                     const isCurrent = idx === currentMonthIdx;
                     return (
