@@ -214,8 +214,6 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
 
     // Per-status data for stacked Actual bars
     const doneData = monthlyProgress.map(m => m.doneCount ?? m.completed);
-    const overdueData = monthlyProgress.map(m => m.overdueCount ?? 0);
-    const postponedData = monthlyProgress.map(m => m.postponedCount ?? 0);
     const notApplicableData = monthlyProgress.map(m => m.notApplicableCount ?? 0);
 
     chartRef.current = new Chart(canvasRef.current, {
@@ -237,24 +235,6 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
             data: doneData,
             backgroundColor: 'rgba(74, 222, 128, 0.8)',
             borderColor: '#4ade80',
-            borderWidth: 1,
-            borderRadius: 0,
-            stack: 'actual',
-          },
-          {
-            label: 'เกินกำหนด',
-            data: overdueData,
-            backgroundColor: 'rgba(248, 113, 113, 0.8)',
-            borderColor: '#f87171',
-            borderWidth: 1,
-            borderRadius: 0,
-            stack: 'actual',
-          },
-          {
-            label: 'เลื่อน',
-            data: postponedData,
-            backgroundColor: 'rgba(96, 165, 250, 0.8)',
-            borderColor: '#60a5fa',
             borderWidth: 1,
             borderRadius: 0,
             stack: 'actual',
