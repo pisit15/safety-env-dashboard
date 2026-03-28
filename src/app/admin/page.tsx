@@ -52,6 +52,7 @@ export default function AdminPage() {
   const [adminLoginError, setAdminLoginError] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
   const [currentAdminName, setCurrentAdminName] = useState('');
+  const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'admins'>('audit');
@@ -94,12 +95,14 @@ export default function AdminPage() {
         if (parsed.loggedIn) {
           setIsAdminLoggedIn(true);
           setCurrentAdminName(parsed.name || 'Admin');
+          setCurrentAdminRole(parsed.role || 'admin');
         }
       } catch {
         // Legacy format: just 'true'
         if (saved === 'true') {
           setIsAdminLoggedIn(true);
           setCurrentAdminName('Admin');
+          setCurrentAdminRole('admin');
         }
       }
     }
@@ -118,7 +121,8 @@ export default function AdminPage() {
       if (data.success) {
         setIsAdminLoggedIn(true);
         setCurrentAdminName(data.adminName || 'Admin');
-        sessionStorage.setItem('admin_auth', JSON.stringify({ loggedIn: true, name: data.adminName || 'Admin' }));
+        setCurrentAdminRole(data.role || 'admin');
+        sessionStorage.setItem('admin_auth', JSON.stringify({ loggedIn: true, name: data.adminName || 'Admin', role: data.role || 'admin' }));
         setAdminUsername(''); setAdminPassword('');
       } else {
         setAdminLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
@@ -132,7 +136,19 @@ export default function AdminPage() {
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
     setCurrentAdminName('');
+    setCurrentAdminRole('viewer');
     sessionStorage.removeItem('admin_auth');
+  };
+
+  // Role-based permission helpers
+  const isSuperAdmin = currentAdminRole === 'super_admin';
+  const isAdmin = currentAdminRole === 'admin' || isSuperAdmin;
+  const isViewer = currentAdminRole === 'viewer';
+
+  const ROLE_LABELS: Record<string, string> = {
+    super_admin: 'Super Admin',
+    admin: 'Admin',
+    viewer: 'Viewer',
   };
 
   // Data fetchers
@@ -361,6 +377,11 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
           <div className="flex items-center gap-3">
             <span className="text-xs text-zinc-400">เข้าสู่ระบบเป็น: <span className="text-white font-medium">{currentAdminName}</span></span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+              isSuperAdmin ? 'bg-purple-900/50 text-purple-400' :
+              isViewer ? 'bg-zinc-800 text-zinc-400' :
+              'bg-blue-900/50 text-blue-400'
+            }`}>{ROLE_LABELS[currentAdminRole] || currentAdminRole}</span>
             <button
               onClick={handleAdminLogout}
               className="px-3 py-1.5 text-xs text-zinc-400 border border-zinc-700 rounded-lg hover:text-white hover:border-zinc-500"
@@ -370,16 +391,21 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — filtered by role */}
         <div className="flex gap-2 mb-6 border-b border-border pb-2 flex-wrap">
           {[
-            { key: 'audit', label: 'ประวัติการแก้ไข' },
-            { key: 'requests', label: 'คำขอแก้ไข' },
-            { key: 'deadlines', label: 'กำหนด Deadline' },
-            { key: 'credentials', label: 'จัดการบัญชี' },
-            { key: 'admins', label: 'จัดการ Admin' },
-            { key: 'companies', label: 'บริษัท' },
-          ].map(tab => (
+            { key: 'audit', label: 'ประวัติการแก้ไข', minRole: 'viewer' },
+            { key: 'requests', label: 'คำขอแก้ไข', minRole: 'viewer' },
+            { key: 'deadlines', label: 'กำหนด Deadline', minRole: 'admin' },
+            { key: 'credentials', label: 'จัดการบัญชี', minRole: 'super_admin' },
+            { key: 'admins', label: 'จัดการ Admin', minRole: 'super_admin' },
+            { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
+          ].filter(tab => {
+            if (tab.minRole === 'viewer') return true;
+            if (tab.minRole === 'admin') return isAdmin;
+            if (tab.minRole === 'super_admin') return isSuperAdmin;
+            return false;
+          }).map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as typeof activeTab)}
@@ -492,11 +518,14 @@ export default function AdminPage() {
                           {req.reviewed_at && ` | ตรวจสอบโดย ${req.reviewed_by} เมื่อ ${new Date(req.reviewed_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`}
                         </p>
                       </div>
-                      {req.status === 'pending' && (
+                      {req.status === 'pending' && isAdmin && (
                         <div className="flex gap-2 ml-4">
                           <button onClick={() => handleApproveReject(req.id, 'approved')} className="px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs rounded-lg">อนุมัติ</button>
                           <button onClick={() => handleApproveReject(req.id, 'rejected')} className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs rounded-lg">ปฏิเสธ</button>
                         </div>
+                      )}
+                      {req.status === 'pending' && isViewer && (
+                        <span className="text-[10px] text-zinc-500 ml-4">ดูอย่างเดียว</span>
                       )}
                     </div>
                   </div>
