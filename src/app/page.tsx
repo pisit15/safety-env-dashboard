@@ -49,13 +49,13 @@ export default function HQOverview() {
         <div className="flex items-center gap-2 text-[12px] mb-2">
           <span style={{ color: 'var(--muted)' }}>Home</span>
           <span style={{ color: 'var(--border)' }}>/</span>
-          <span className="text-white/70 font-medium">แผนงานประจำปี</span>
+          <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>แผนงานประจำปี</span>
         </div>
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8 animate-fade-in-up">
           <div>
-            <h1 className="text-[26px] font-bold text-white tracking-tight">
+            <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
               HQ Overview — แผนงาน{planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'} 2026
             </h1>
             <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
@@ -66,23 +66,19 @@ export default function HQOverview() {
           <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'var(--border)' }}>
             <button
               onClick={() => setPlanType('safety')}
-              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
-                planType === 'safety'
-                  ? 'text-white'
-                  : 'text-white/50 hover:text-white/80'
-              }`}
-              style={planType === 'safety' ? { background: 'var(--accent)', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
+              className="px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5"
+              style={planType === 'safety'
+                ? { background: 'var(--accent)', color: '#ffffff', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' }
+                : { color: 'var(--muted)' }}
             >
               <Shield size={14} /> Safety Plan
             </button>
             <button
               onClick={() => setPlanType('environment')}
-              className={`px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
-                planType === 'environment'
-                  ? 'text-white'
-                  : 'text-white/50 hover:text-white/80'
-              }`}
-              style={planType === 'environment' ? { background: 'var(--accent)', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' } : {}}
+              className="px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5"
+              style={planType === 'environment'
+                ? { background: 'var(--accent)', color: '#ffffff', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' }
+                : { color: 'var(--muted)' }}
             >
               <Leaf size={14} /> Envi Plan
             </button>
@@ -97,7 +93,7 @@ export default function HQOverview() {
             { label: 'ยังไม่เริ่ม', value: data.totalNotStarted, color: '#ff9f0a' },
             { label: 'เลื่อน', value: data.totalPostponed, color: '#5ac8fa' },
             { label: 'ยกเลิก', value: data.totalCancelled, color: '#ff453a' },
-            { label: 'ไม่เข้าเงื่อนไข', value: data.totalNotApplicable || 0, color: 'rgba(255,255,255,0.3)' },
+            { label: 'ไม่เข้าเงื่อนไข', value: data.totalNotApplicable || 0, color: '#8e8e93' },
             { label: 'งบประมาณรวม', value: data.totalBudget > 0 ? `${(data.totalBudget / 1000000).toFixed(2)}M` : '-', color: '#5ac8fa', subtext: 'บาท' },
           ].map((kpi, i) => (
             <div key={kpi.label} className={`animate-fade-in-up stagger-${i + 1}`} style={{ opacity: 0 }}>
@@ -126,24 +122,24 @@ export default function HQOverview() {
                   key={mp.month}
                   className="text-center p-2 rounded-xl text-[10px] transition-all duration-200"
                   style={{
-                    background: isCurrent ? 'rgba(255, 214, 10, 0.08)' :
-                      isPast ? 'var(--bg-tertiary)' : 'rgba(255,255,255,0.015)',
-                    border: isCurrent ? '1px solid rgba(255, 214, 10, 0.2)' : '1px solid transparent',
+                    background: isCurrent ? 'rgba(255, 149, 0, 0.1)' :
+                      isPast ? 'var(--bg-tertiary)' : 'var(--bg-tertiary)',
+                    border: isCurrent ? '1px solid rgba(255, 149, 0, 0.3)' : '1px solid var(--border)',
                   }}
                 >
                   <div className="font-semibold" style={{
-                    color: isCurrent ? '#ffd60a' : 'rgba(255,255,255,0.35)'
+                    color: isCurrent ? '#ff9500' : 'var(--muted)'
                   }}>
                     {mp.label}
                   </div>
                   <div className="text-lg font-bold" style={{
                     color: mp.pctComplete >= 100 ? '#34c759' :
-                      mp.pctComplete > 0 ? '#ffd60a' :
-                      isPast ? '#ff3b30' : 'rgba(255,255,255,0.12)'
+                      mp.pctComplete > 0 ? '#ff9500' :
+                      isPast ? '#ff3b30' : 'var(--muted)'
                   }}>
                     {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
                   </div>
-                  <div style={{ color: 'var(--border)' }}>
+                  <div style={{ color: 'var(--muted)' }}>
                     {mp.completed}/{mp.planned}
                   </div>
                 </div>
@@ -207,7 +203,7 @@ export default function HQOverview() {
                   .sort((a, b) => b.pctDone - a.pctDone)
                   .map((c) => (
                     <tr key={c.companyId}>
-                      <td className="font-semibold text-white">{c.companyName}</td>
+                      <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>{c.companyName}</td>
                       <td className="text-center">{c.total || '-'}</td>
                       <td className="text-center" style={{ color: '#34c759' }}>{c.done || '-'}</td>
                       <td className="text-center" style={{ color: '#ff9500' }}>{c.notStarted || '-'}</td>

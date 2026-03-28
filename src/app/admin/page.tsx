@@ -382,10 +382,10 @@ export default function AdminPage() {
             <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>เข้าสู่ระบบเป็น: <span style={{ color: 'var(--text-primary)', fontWeight: 'medium' }}>{currentAdminName}</span></span>
             <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
               background: isSuperAdmin ? 'rgba(191,90,242,0.2)' :
-                isViewer ? 'rgba(255,255,255,0.1)' :
+                isViewer ? 'var(--bg-tertiary)' :
                 'rgba(10,132,255,0.2)',
               color: isSuperAdmin ? '#bf5af2' :
-                isViewer ? 'rgba(255,255,255,0.4)' :
+                isViewer ? 'var(--muted)' :
                 '#0a84ff'
             }}>{ROLE_LABELS[currentAdminRole] || currentAdminRole}</span>
             <button
@@ -817,8 +817,8 @@ export default function AdminPage() {
                         </td>
                         <td className="py-3 px-3 text-center">
                           <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
-                            background: admin.role === 'super_admin' ? 'rgba(191,90,242,0.2)' : admin.role === 'viewer' ? 'rgba(255,255,255,0.1)' : 'rgba(10,132,255,0.2)',
-                            color: admin.role === 'super_admin' ? '#bf5af2' : admin.role === 'viewer' ? 'rgba(255,255,255,0.4)' : '#0a84ff'
+                            background: admin.role === 'super_admin' ? 'rgba(191,90,242,0.2)' : admin.role === 'viewer' ? 'var(--bg-tertiary)' : 'rgba(10,132,255,0.2)',
+                            color: admin.role === 'super_admin' ? '#bf5af2' : admin.role === 'viewer' ? 'var(--muted)' : '#0a84ff'
                           }}>
                             {admin.role === 'super_admin' ? 'Super Admin' : admin.role === 'viewer' ? 'Viewer' : 'Admin'}
                           </span>
@@ -876,8 +876,8 @@ export default function AdminPage() {
                       <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.enviSheet || '-'}</td>
                       <td className="py-3 px-3 text-center">
                         <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
-                          background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'rgba(255,255,255,0.1)',
-                          color: c.sheetId ? '#30d158' : 'rgba(255,255,255,0.3)'
+                          background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
+                          color: c.sheetId ? '#30d158' : 'var(--muted)'
                         }}>
                           {c.sheetId ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
                         </span>
