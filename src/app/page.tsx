@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Shield, Leaf, BarChart3 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Shield, Leaf, BarChart3, Calendar } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
@@ -18,11 +18,21 @@ export default function HQOverview() {
   });
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Time range: 'year' = full year, 'ytd' = up to current month, 'jan'...'dec' = specific month
+  const [timeRange, setTimeRange] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hq_timeRange') || 'year';
+    }
+    return 'year';
+  });
 
-  // Persist planType to localStorage
+  // Persist planType and timeRange to localStorage
   useEffect(() => {
     localStorage.setItem('hq_planType', planType);
   }, [planType]);
+  useEffect(() => {
+    localStorage.setItem('hq_timeRange', timeRange);
+  }, [timeRange]);
 
   useEffect(() => {
     setLoading(true);
@@ -101,6 +111,82 @@ export default function HQOverview() {
     }
   }, [planType]);
 
+  // ── Compute filtered KPI data based on timeRange ──
+  const MONTH_KEYS_ARR = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const currentMonthIdx = new Date().getMonth();
+
+  const filtered = useMemo(() => {
+    if (!data) return null;
+    const mp = data.monthlyProgress || [];
+    if (mp.length === 0) return data;
+
+    // Determine which month indices to include
+    let indices: number[];
+    if (timeRange === 'year') {
+      return data; // No filtering
+    } else if (timeRange === 'ytd') {
+      indices = Array.from({ length: currentMonthIdx + 1 }, (_, i) => i);
+    } else {
+      // Specific month key like 'jan', 'feb', etc.
+      const idx = MONTH_KEYS_ARR.indexOf(timeRange);
+      indices = idx >= 0 ? [idx] : [];
+    }
+
+    if (indices.length === 0) return data;
+
+    // Sum from monthlyProgress for selected months
+    let totalPlanned = 0, totalDone = 0, totalNA = 0, totalCompleted = 0;
+    indices.forEach(i => {
+      const m = mp[i];
+      if (!m) return;
+      totalPlanned += m.planned;
+      totalDone += (m.doneCount ?? m.completed);
+      totalNA += (m.notApplicableCount ?? 0);
+      totalCompleted += m.completed;
+    });
+    const totalNotStartedEtc = totalPlanned - totalCompleted;
+
+    // Recalc per-company from their monthlyProgress
+    const filteredCompanies = data.companies.map((c: any) => {
+      const cmp = c.monthlyProgress || [];
+      let cPlanned = 0, cDone = 0, cNA = 0, cCompleted = 0;
+      indices.forEach(i => {
+        const m = cmp[i];
+        if (!m) return;
+        cPlanned += m.planned;
+        cDone += (m.doneCount ?? m.completed);
+        cNA += (m.notApplicableCount ?? 0);
+        cCompleted += m.completed;
+      });
+      const cNotStarted = Math.max(0, cPlanned - cCompleted);
+      const pctDone = cPlanned > 0 ? Math.round(((cDone + cNA) / cPlanned) * 1000) / 10 : 0;
+      return {
+        ...c,
+        total: cPlanned,
+        done: cDone,
+        notApplicable: cNA,
+        notStarted: cNotStarted,
+        postponed: 0, // Not tracked per-month granularly
+        cancelled: 0,
+        pctDone,
+      };
+    });
+
+    const overallPct = totalPlanned > 0 ? Math.round(((totalDone + totalNA) / totalPlanned) * 1000) / 10 : 0;
+
+    return {
+      ...data,
+      companies: filteredCompanies,
+      totalActivities: totalPlanned,
+      totalDone,
+      totalNotApplicable: totalNA,
+      totalNotStarted: Math.max(0, totalPlanned - totalCompleted),
+      totalPostponed: 0,
+      totalCancelled: 0,
+      overallPct,
+    };
+  }, [data, timeRange, currentMonthIdx]);
+
   if (!data) {
     return (
       <div className="flex min-h-screen">
@@ -116,7 +202,7 @@ export default function HQOverview() {
   }
 
   const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const currentMonth = monthNames[new Date().getMonth()];
+  const currentMonth = monthNames[currentMonthIdx];
 
   return (
     <div className="flex min-h-screen">
@@ -171,15 +257,59 @@ export default function HQOverview() {
           </div>
         </div>
 
+        {/* Time Range Selector */}
+        <div className="flex items-center gap-2 mb-5 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+          <Calendar size={14} style={{ color: 'var(--muted)' }} />
+          <span className="text-[12px] font-medium" style={{ color: 'var(--muted)' }}>ช่วงเวลา:</span>
+          <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+            {[
+              { key: 'year', label: 'ทั้งปี' },
+              { key: 'ytd', label: `ถึง ${monthNames[currentMonthIdx]} (YTD)` },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setTimeRange(opt.key)}
+                className="px-3 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200"
+                style={timeRange === opt.key
+                  ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' }
+                  : { color: 'var(--muted)' }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <select
+            value={MONTH_KEYS_ARR.includes(timeRange) ? timeRange : ''}
+            onChange={(e) => e.target.value && setTimeRange(e.target.value)}
+            className="px-2 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200 cursor-pointer"
+            style={{
+              background: MONTH_KEYS_ARR.includes(timeRange) ? 'var(--accent)' : 'var(--bg-tertiary)',
+              color: MONTH_KEYS_ARR.includes(timeRange) ? '#fff' : 'var(--muted)',
+              border: '1px solid var(--border)',
+              outline: 'none',
+            }}
+          >
+            <option value="" disabled>เลือกเดือน...</option>
+            {monthNames.map((name, i) => (
+              <option key={MONTH_KEYS_ARR[i]} value={MONTH_KEYS_ARR[i]}>{name}</option>
+            ))}
+          </select>
+          {timeRange !== 'year' && (
+            <span className="text-[11px] px-2 py-1 rounded-md" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
+              {timeRange === 'ytd' ? `ม.ค. – ${monthNames[currentMonthIdx]}` : monthNames[MONTH_KEYS_ARR.indexOf(timeRange)]} เท่านั้น
+            </span>
+          )}
+        </div>
+
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mb-8" style={{ alignItems: 'stretch' }}>
           {[
-            { label: 'กิจกรรมทั้งหมด', value: data.totalActivities },
-            { label: 'เสร็จแล้ว', value: data.totalDone, color: '#30d158', delta: `▲ ${data.overallPct}%`, deltaColor: '#30d158', progress: data.overallPct },
-            { label: 'ยังไม่เริ่ม', value: data.totalNotStarted, color: '#ff9f0a' },
-            { label: 'เลื่อน', value: data.totalPostponed, color: '#5ac8fa' },
-            { label: 'ยกเลิก', value: data.totalCancelled, color: '#ff453a' },
-            { label: 'ไม่เข้าเงื่อนไข', value: data.totalNotApplicable || 0, color: '#8e8e93' },
+            { label: 'กิจกรรมทั้งหมด', value: filtered!.totalActivities },
+            { label: 'เสร็จแล้ว', value: filtered!.totalDone, color: '#30d158', delta: `▲ ${filtered!.overallPct}%`, deltaColor: '#30d158', progress: filtered!.overallPct },
+            { label: 'ยังไม่เริ่ม', value: filtered!.totalNotStarted, color: '#ff9f0a' },
+            { label: 'เลื่อน', value: filtered!.totalPostponed, color: '#5ac8fa' },
+            { label: 'ยกเลิก', value: filtered!.totalCancelled, color: '#ff453a' },
+            { label: 'ไม่เข้าเงื่อนไข', value: filtered!.totalNotApplicable || 0, color: '#8e8e93' },
             { label: 'งบประมาณรวม', value: data.totalBudget > 0 ? `${(data.totalBudget / 1000000).toFixed(2)}M` : '-', color: '#5ac8fa', subtext: 'บาท' },
           ].map((kpi, i) => (
             <div key={kpi.label} className={`animate-fade-in-up stagger-${i + 1}`} style={{ opacity: 0, display: 'flex' }}>
@@ -200,7 +330,6 @@ export default function HQOverview() {
           {/* Monthly summary row */}
           <div className="grid grid-cols-12 gap-1.5 mt-5">
             {(data.monthlyProgress || []).map((mp, idx) => {
-              const currentMonthIdx = new Date().getMonth();
               const isPast = idx < currentMonthIdx;
               const isCurrent = idx === currentMonthIdx;
               return (
@@ -242,7 +371,7 @@ export default function HQOverview() {
               Ranking % สำเร็จ รายบริษัท
             </h3>
             <div style={{ height: 420 }}>
-              <RankingChart companies={data.companies} />
+              <RankingChart companies={filtered!.companies} />
             </div>
           </div>
           <div className="lg:col-span-2 glass-card p-6">
@@ -252,11 +381,11 @@ export default function HQOverview() {
             </h3>
             <div style={{ height: 320 }}>
               <StatusPieChart
-                done={data.totalDone}
-                notStarted={data.totalNotStarted}
-                postponed={data.totalPostponed}
-                cancelled={data.totalCancelled}
-                notApplicable={data.totalNotApplicable || 0}
+                done={filtered!.totalDone}
+                notStarted={filtered!.totalNotStarted}
+                postponed={filtered!.totalPostponed}
+                cancelled={filtered!.totalCancelled}
+                notApplicable={filtered!.totalNotApplicable || 0}
               />
             </div>
           </div>
@@ -285,7 +414,7 @@ export default function HQOverview() {
                 </tr>
               </thead>
               <tbody>
-                {[...data.companies]
+                {[...filtered!.companies]
                   .sort((a, b) => b.pctDone - a.pctDone)
                   .map((c) => (
                     <tr key={c.companyId}>
