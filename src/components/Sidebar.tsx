@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES } from '@/lib/companies';
+// Companies list removed from sidebar — navigate via Home
 import {
   Shield,
   ClipboardList,
@@ -19,7 +19,7 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
-  Building2,
+
   LogOut,
   Home,
 } from 'lucide-react';
@@ -47,7 +47,7 @@ export default function Sidebar() {
 
   // Determine which companies the user has access to
   const loggedInCompanyIds = Object.keys(auth.companyAuth);
-  const activeCompanies = COMPANIES.filter(c => c.sheetId !== '');
+  // Company list removed from sidebar
 
   // Show info based on auth state
   const isAnyAuth = auth.isAdmin || loggedInCompanyIds.length > 0;
@@ -154,41 +154,7 @@ export default function Sidebar() {
           </>
         )}
 
-        {/* Company links — show only for Admin and non-logged-in users */}
-        {(auth.isAdmin || loggedInCompanyIds.length === 0) && (
-        <div className={`${auth.isAdmin ? 'mt-4 pt-3' : ''}`}>
-          {!collapsed && (
-            <>
-              {auth.isAdmin && <div className="mx-3 mb-3 h-px" style={{ background: 'var(--border)' }} />}
-              <p className="text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2"
-                style={{ color: 'var(--muted)' }}>
-                บริษัท
-              </p>
-            </>
-          )}
-          <div className="space-y-0.5">
-            {activeCompanies
-              .map((c) => {
-                const isActive = pathname === `/company/${c.id}`;
-                return (
-                  <Link key={c.id} href={`/company/${c.id}`}>
-                    <div
-                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
-                      style={{
-                        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                        fontWeight: isActive ? 600 : 400,
-                        background: isActive ? 'var(--accent-glow)' : 'transparent',
-                      }}
-                    >
-                      <Building2 size={16} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
-                      {!collapsed && <span className="truncate">{c.shortName}</span>}
-                    </div>
-                  </Link>
-                );
-              })}
-          </div>
-        </div>
-        )}
+        {/* Company list removed — navigate via Home page */}
 
         {/* Management section — Admin only */}
         {auth.isAdmin && (
