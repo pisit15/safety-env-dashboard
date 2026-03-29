@@ -113,8 +113,8 @@ export default function HomePage() {
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
         {/* Header */}
         <div className="mb-8 animate-fade-in-up">
-          <h1 className="text-[28px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            <Shield size={22} className="inline mr-2" style={{ color: 'var(--accent)' }} />
+          <h1 className="text-[28px] font-bold tracking-tight flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
+            <img src="/ea-logo.svg" alt="EA" className="w-8 h-8 rounded-lg inline-block" />
             Safety & Environment Dashboard
           </h1>
           <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
