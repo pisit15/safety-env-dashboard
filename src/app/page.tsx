@@ -277,7 +277,7 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {COMPANIES.map((company) => {
-              const isActive = company.sheetId !== '';
+              const isActive = true; // All companies are active (training data imported)
               return (
                 <Link key={company.id} href={isActive ? `/company/${company.id}` : '#'}>
                   <div
