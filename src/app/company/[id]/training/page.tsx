@@ -289,6 +289,36 @@ export default function CompanyTraining() {
   const totalBudget = plans.reduce((s, p) => s + (p.budget || 0), 0);
   const totalActual = plans.reduce((s, p) => s + (p.training_sessions?.[0]?.actual_cost || 0), 0);
 
+  // Monthly chart data: planned vs completed per month
+  const monthlyData = Array.from({ length: 12 }, (_, i) => {
+    const month = i + 1;
+    const planned = plans.filter(p => p.planned_month === month).length;
+    const completed = plans.filter(p => {
+      if (p.planned_month !== month) return false;
+      const s = p.training_sessions?.[0];
+      return s?.status === 'completed';
+    }).length;
+    const scheduled = plans.filter(p => {
+      if (p.planned_month !== month) return false;
+      const s = p.training_sessions?.[0];
+      return s?.status === 'scheduled';
+    }).length;
+    return { month, label: MONTH_LABELS[i], planned, completed, scheduled };
+  });
+
+  // Cumulative completion %
+  let cumPlanned = 0;
+  let cumCompleted = 0;
+  const monthlyChartData = monthlyData.map(d => {
+    cumPlanned += d.planned;
+    cumCompleted += d.completed;
+    const pct = cumPlanned > 0 ? Math.round((cumCompleted / cumPlanned) * 100) : 0;
+    return { ...d, cumPct: pct };
+  });
+
+  const overallPct = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+  const maxPlanned = Math.max(...monthlyData.map(d => d.planned), 1);
+
   // 30-day warning
   const today = new Date();
   const warningPlans = plans.filter(p => {
@@ -345,7 +375,7 @@ export default function CompanyTraining() {
             <option value="postponed">เลื่อน</option>
           </select>
 
-          {isLoggedIn && (
+          {auth.isAdmin && (
             <button onClick={() => setShowImportModal(true)}
               style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Upload size={14} /> นำเข้าแผนอบรม (Excel)
@@ -378,6 +408,97 @@ export default function CompanyTraining() {
           <StatCard icon="💳" label="ค่าใช้จ่ายจริง" value={`${(totalActual / 1000).toFixed(0)}K`} color={totalActual > totalBudget ? 'var(--danger)' : 'var(--success)'} />
         </div>
 
+        {/* Monthly Chart */}
+        {plans.length > 0 && (
+          <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  สถานะการอบรมรายเดือน
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                  เปรียบเทียบแผน vs จัดอบรมจริง ประจำปี {selectedYear}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: overallPct >= 80 ? 'var(--success)' : overallPct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>
+                  {overallPct}%
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ความสำเร็จรวม</div>
+              </div>
+            </div>
+
+            {/* Bar Chart */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 160, marginBottom: 8 }}>
+              {monthlyChartData.map((d, i) => {
+                const currentMonth = new Date().getMonth() + 1;
+                const isPast = d.month <= currentMonth;
+                const barHeight = maxPlanned > 0 ? (d.planned / maxPlanned) * 130 : 0;
+                const completedHeight = d.planned > 0 ? (d.completed / d.planned) * barHeight : 0;
+                const scheduledHeight = d.planned > 0 ? (d.scheduled / d.planned) * barHeight : 0;
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                    {/* Count label */}
+                    {d.planned > 0 && (
+                      <div style={{ fontSize: 10, fontWeight: 600, color: d.completed === d.planned && d.planned > 0 ? 'var(--success)' : 'var(--text-secondary)' }}>
+                        {d.completed}/{d.planned}
+                      </div>
+                    )}
+                    {/* Stacked bar */}
+                    <div style={{ width: '100%', height: barHeight || 2, borderRadius: 4, position: 'relative', overflow: 'hidden', background: isPast ? '#fee2e2' : 'var(--bg-secondary)' }}>
+                      {/* Scheduled (blue) */}
+                      {scheduledHeight > 0 && (
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: scheduledHeight, background: '#93c5fd', borderRadius: '0 0 4px 4px' }} />
+                      )}
+                      {/* Completed (green) */}
+                      {completedHeight > 0 && (
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: '#4ade80', borderRadius: '0 0 4px 4px' }} />
+                      )}
+                    </div>
+                    {/* Month label */}
+                    <div style={{ fontSize: 10, color: d.month === currentMonth ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: d.month === currentMonth ? 700 : 400 }}>
+                      {d.label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> อบรมแล้ว
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', display: 'inline-block' }} /> กำหนดวันแล้ว
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fee2e2', display: 'inline-block' }} /> เลยกำหนด
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--bg-secondary)', display: 'inline-block' }} /> ยังไม่ถึง
+              </span>
+            </div>
+
+            {/* Cumulative % line */}
+            <div style={{ marginTop: 12, padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>% ความสำเร็จสะสม</div>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 40 }}>
+                {monthlyChartData.map((d, i) => {
+                  const h = (d.cumPct / 100) * 36;
+                  const color = d.cumPct >= 80 ? '#4ade80' : d.cumPct >= 50 ? '#fbbf24' : '#f87171';
+                  return (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {d.cumPct > 0 && <div style={{ fontSize: 9, fontWeight: 600, color, marginBottom: 2 }}>{d.cumPct}%</div>}
+                      <div style={{ width: '80%', height: Math.max(h, 2), borderRadius: 2, background: d.planned === 0 && d.completed === 0 ? 'var(--bg-secondary)' : color }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
@@ -385,7 +506,7 @@ export default function CompanyTraining() {
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
             <FileSpreadsheet size={40} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
             <div>ยังไม่มีแผนอบรม</div>
-            {isLoggedIn && <div style={{ fontSize: 13, marginTop: 8 }}>กดปุ่ม &quot;นำเข้าแผนอบรม&quot; เพื่อ import จาก Excel</div>}
+            {auth.isAdmin && <div style={{ fontSize: 13, marginTop: 8 }}>กดปุ่ม &quot;นำเข้าแผนอบรม&quot; เพื่อ import จาก Excel</div>}
           </div>
         ) : (
           <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
