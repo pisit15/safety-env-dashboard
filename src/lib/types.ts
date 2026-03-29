@@ -52,6 +52,8 @@ export interface CompanySummary {
   cancelled: number;
   notApplicable: number;
   budget: number;
+  safetyBudget?: number;
+  enviBudget?: number;
   pctDone: number;
   monthlyProgress?: MonthlyProgress[];
 }

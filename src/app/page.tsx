@@ -32,9 +32,14 @@ export default function HQOverview() {
         fetch('/api/dashboard?plan=safety').then(r => r.json()),
         fetch('/api/dashboard?plan=environment').then(r => r.json()),
       ]).then(([s, e]: [DashboardData, DashboardData]) => {
-        // Merge companies — combine same company's data
+        // Merge companies — combine same company's data, keep safety/envi budgets separate
         const companyMap = new Map<string, any>();
-        [...s.companies, ...e.companies].forEach(c => {
+        // First pass: safety companies
+        s.companies.forEach(c => {
+          companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, safetyBudget: c.budget, enviBudget: 0 });
+        });
+        // Second pass: envi companies — merge into existing or create new
+        e.companies.forEach(c => {
           const existing = companyMap.get(c.companyId);
           if (existing) {
             existing.total += c.total;
@@ -44,9 +49,10 @@ export default function HQOverview() {
             existing.cancelled += c.cancelled;
             existing.notApplicable += (c.notApplicable || 0);
             existing.budget += c.budget;
-            existing.pctDone = existing.total > 0 ? Math.round((existing.done / existing.total) * 1000) / 10 : 0;
+            existing.enviBudget = c.budget;
+            existing.pctDone = existing.total > 0 ? Math.round(((existing.done + existing.notApplicable) / existing.total) * 1000) / 10 : 0;
           } else {
-            companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0 });
+            companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, safetyBudget: 0, enviBudget: c.budget });
           }
         });
         const mergedCompanies = Array.from(companyMap.values());
@@ -334,6 +340,7 @@ export default function HQOverview() {
           <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
             <span className="w-0.5 h-4 rounded-full" style={{ background: '#ffd60a' }}></span>
             งบประมาณรายบริษัท (บาท)
+            <span className="ml-2 text-[11px] font-normal" style={{ color: 'var(--text-tertiary)' }}>* ไม่รวมงบประมาณอบรม</span>
           </h3>
           <div style={{ height: 400 }}>
             <BudgetChart companies={data.companies} />

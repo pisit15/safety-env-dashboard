@@ -297,80 +297,95 @@ export function BudgetChart({ companies }: RankingChartProps) {
 
     const sorted = [...companies].sort((a, b) => a.budget - b.budget);
     const labels = sorted.map(c => c.shortName);
-    const data = sorted.map(c => c.budget);
+    const hasStacked = sorted.some(c => (c as any).safetyBudget != null || (c as any).enviBudget != null);
+
+    // Build datasets: stacked if safety/envi data available, single otherwise
+    const datasets = hasStacked ? [
+      {
+        label: 'Safety',
+        data: sorted.map(c => (c as any).safetyBudget || 0),
+        backgroundColor: 'rgba(255, 149, 0, 0.8)',
+        borderColor: statusColors.orange,
+        borderWidth: 1,
+        borderRadius: 0,
+        barThickness: 18,
+        stack: 'budget',
+      },
+      {
+        label: 'Environment',
+        data: sorted.map(c => (c as any).enviBudget || 0),
+        backgroundColor: 'rgba(52, 199, 89, 0.8)',
+        borderColor: statusColors.green,
+        borderWidth: 1,
+        borderRadius: 0,
+        barThickness: 18,
+        stack: 'budget',
+      },
+    ] : [{
+      label: 'งบประมาณ',
+      data: sorted.map(c => c.budget),
+      backgroundColor: statusColors.infoBright,
+      borderRadius: 6,
+      barThickness: 18,
+    }];
 
     if (chartRef.current) chartRef.current.destroy();
 
-    chartRef.current = new Chart(canvasRef.current, {
+    const buildChart = (themeColors: ReturnType<typeof getThemeColors>) => new Chart(canvasRef.current!, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          data,
-          backgroundColor: statusColors.infoBright,
-          borderRadius: 6,
-          barThickness: 18,
-        }],
-      },
+      data: { labels, datasets },
       options: {
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: hasStacked ? {
+            position: 'top',
+            labels: { color: themeColors.legend, padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'rect' },
+          } : { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx: any) => {
+                const v = ctx.raw;
+                const formatted = v >= 1000000 ? (v / 1000000).toFixed(2) + 'M' : v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v.toLocaleString();
+                return `${ctx.dataset.label}: ${formatted} บาท`;
+              },
+              afterBody: hasStacked ? (ctx: any) => {
+                const idx = ctx[0].dataIndex;
+                const c = sorted[idx];
+                const total = c.budget;
+                const formatted = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : total >= 1000 ? (total / 1000).toFixed(0) + 'K' : total.toLocaleString();
+                return `\nรวม: ${formatted} บาท`;
+              } : undefined,
+            },
+          },
+        },
         scales: {
           x: {
-            grid: { color: colors.grid },
+            stacked: hasStacked,
+            grid: { color: themeColors.grid },
             ticks: {
-              color: colors.tick,
+              color: themeColors.tick,
               callback: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'K',
             },
           },
           y: {
+            stacked: hasStacked,
             grid: { display: false },
-            ticks: { color: colors.label, font: { size: 11 } },
+            ticks: { color: themeColors.label, font: { size: 11 } },
           },
         },
       },
     });
 
+    chartRef.current = buildChart(colors);
+
     // Watch for theme changes
     const observer = new MutationObserver(() => {
       if (chartRef.current) chartRef.current.destroy();
-      const newIsDark = getTheme();
-      const newColors = getThemeColors(newIsDark);
-
+      const newColors = getThemeColors(getTheme());
       if (canvasRef.current) {
-        chartRef.current = new Chart(canvasRef.current, {
-          type: 'bar',
-          data: {
-            labels,
-            datasets: [{
-              data,
-              backgroundColor: statusColors.infoBright,
-              borderRadius: 6,
-              barThickness: 18,
-            }],
-          },
-          options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-              x: {
-                grid: { color: newColors.grid },
-                ticks: {
-                  color: newColors.tick,
-                  callback: (v: number) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'K',
-                },
-              },
-              y: {
-                grid: { display: false },
-                ticks: { color: newColors.label, font: { size: 11 } },
-              },
-            },
-          },
-        });
+        chartRef.current = buildChart(newColors);
       }
     });
 
