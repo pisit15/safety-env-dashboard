@@ -382,7 +382,7 @@ export default function AdminPage() {
     fetchAdminAccounts();
   };
 
-  const activeCompanies = COMPANIES.filter(c => c.sheetId !== '');
+  const activeCompanies = COMPANIES;
   const existingCredCompanyIds = credentials.map(c => c.company_id);
   const availableCompaniesForCred = COMPANIES.filter(c => !existingCredCompanyIds.includes(c.id));
 
@@ -818,7 +818,7 @@ export default function AdminPage() {
                 <select value={userFilterCompany} onChange={e => setUserFilterCompany(e.target.value)}
                   className="text-[11px] px-2 py-1.5 rounded-lg" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                   <option value="all">ทุกบริษัท</option>
-                  {COMPANIES.filter(c => c.sheetId).map(c => (
+                  {COMPANIES.map(c => (
                     <option key={c.id} value={c.id}>{c.shortName}</option>
                   ))}
                 </select>
@@ -836,7 +836,7 @@ export default function AdminPage() {
                   <select value={newUserCompanyId} onChange={e => setNewUserCompanyId(e.target.value)}
                     className="text-[11px] px-2 py-2 rounded-lg" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
                     <option value="">เลือกบริษัท...</option>
-                    {COMPANIES.filter(c => c.sheetId).map(c => (
+                    {COMPANIES.map(c => (
                       <option key={c.id} value={c.id}>{c.shortName}</option>
                     ))}
                   </select>
