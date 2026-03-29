@@ -93,6 +93,72 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH - Save note only (without changing status)
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { companyId, planType, activityNo, month, note, updatedBy } = body;
+
+    if (!companyId || !planType || !activityNo || !month) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Check if override exists
+    const { data: existing } = await getSupabase()
+      .from('status_overrides')
+      .select('status')
+      .eq('company_id', companyId)
+      .eq('plan_type', planType)
+      .eq('activity_no', activityNo)
+      .eq('month', month)
+      .single();
+
+    if (existing) {
+      // Update note on existing override
+      const { error } = await getSupabase()
+        .from('status_overrides')
+        .update({ note: note || '', updated_by: updatedBy || '', updated_at: new Date().toISOString() })
+        .eq('company_id', companyId)
+        .eq('plan_type', planType)
+        .eq('activity_no', activityNo)
+        .eq('month', month);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    } else {
+      // Create new override with status 'noted' (note-only, no status change)
+      const { error } = await getSupabase()
+        .from('status_overrides')
+        .insert({
+          company_id: companyId,
+          plan_type: planType,
+          activity_no: activityNo,
+          month,
+          status: '__noted__',
+          note: note || '',
+          updated_by: updatedBy || '',
+          updated_at: new Date().toISOString(),
+        });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Audit log
+    try {
+      await getSupabase().from('audit_log').insert({
+        company_id: companyId,
+        plan_type: planType,
+        action: 'note_update',
+        activity_no: activityNo,
+        month,
+        new_value: (note || '').substring(0, 200),
+        performed_by: updatedBy || '',
+      });
+    } catch { /* ignore */ }
+
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
 // DELETE - Remove a status override (revert to auto-detected)
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);

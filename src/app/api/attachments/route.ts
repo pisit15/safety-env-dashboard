@@ -42,9 +42,55 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ attachments: data || [] });
 }
 
-// POST - Upload file to Supabase Storage and save metadata
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+// POST - Upload file to Supabase Storage and save metadata, or add external link
 export async function POST(request: NextRequest) {
   try {
+    const contentType = request.headers.get('content-type') || '';
+
+    // Handle JSON body = external link
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      const { companyId, planType, activityNo, month, uploadedBy, linkUrl, linkTitle } = body;
+
+      if (!companyId || !planType || !activityNo || !month || !linkUrl) {
+        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      }
+
+      const { data, error } = await getSupabase()
+        .from('activity_attachments')
+        .insert({
+          company_id: companyId,
+          plan_type: planType,
+          activity_no: activityNo,
+          month,
+          file_name: linkTitle || linkUrl,
+          file_url: linkUrl,
+          drive_file_id: '',
+          file_type: 'link',
+          file_size: 0,
+          uploaded_by: uploadedBy || '',
+        })
+        .select()
+        .single();
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+      await getSupabase().from('audit_log').insert({
+        company_id: companyId,
+        plan_type: planType,
+        action: 'link_added',
+        activity_no: activityNo,
+        month,
+        new_value: linkUrl,
+        performed_by: uploadedBy || '',
+      });
+
+      return NextResponse.json({ success: true, attachment: data });
+    }
+
+    // Handle FormData = file upload
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const companyId = formData.get('companyId') as string;
@@ -55,6 +101,13 @@ export async function POST(request: NextRequest) {
 
     if (!file || !companyId || !planType || !activityNo || !month) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Check file size limit (20MB)
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({
+        error: `ไฟล์มีขนาด ${(file.size / 1024 / 1024).toFixed(1)} MB เกินขีดจำกัด 20 MB กรุณาลดขนาดไฟล์หรือใช้ลิงก์ภายนอกแทน`,
+      }, { status: 413 });
     }
 
     // Upload to Supabase Storage

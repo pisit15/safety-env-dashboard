@@ -6,10 +6,13 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
+import dynamic from 'next/dynamic';
+
+const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false });
 import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -118,6 +121,11 @@ export default function CompanyDrilldown() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
+  const [externalLink, setExternalLink] = useState('');
+  const [externalLinkTitle, setExternalLinkTitle] = useState('');
+  const [addingLink, setAddingLink] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
 
   // Attachment count per cell (for indicator dots)
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
@@ -237,11 +245,11 @@ export default function CompanyDrilldown() {
         const nMap: Record<string, string> = {};
         // Prefix with S:/E: to match _planTag in Total mode
         (s.overrides || []).forEach((o: StatusOverride) => {
-          map[`S:${o.activity_no}:${o.month}`] = o.status;
+          if (o.status !== '__noted__') map[`S:${o.activity_no}:${o.month}`] = o.status;
           if (o.note) nMap[`S:${o.activity_no}:${o.month}`] = o.note;
         });
         (e.overrides || []).forEach((o: StatusOverride) => {
-          map[`E:${o.activity_no}:${o.month}`] = o.status;
+          if (o.status !== '__noted__') map[`E:${o.activity_no}:${o.month}`] = o.status;
           if (o.note) nMap[`E:${o.activity_no}:${o.month}`] = o.note;
         });
         setOverrides(map);
@@ -254,7 +262,7 @@ export default function CompanyDrilldown() {
           const map: Record<string, string> = {};
           const nMap: Record<string, string> = {};
           (data.overrides || []).forEach((o: StatusOverride) => {
-            map[`${o.activity_no}:${o.month}`] = o.status;
+            if (o.status !== '__noted__') map[`${o.activity_no}:${o.month}`] = o.status;
             if (o.note) nMap[`${o.activity_no}:${o.month}`] = o.note;
           });
           setOverrides(map);
@@ -640,9 +648,44 @@ export default function CompanyDrilldown() {
     setCheckingLock(false);
   };
 
-  // Upload evidence file
+  // Save note independently (without changing status)
+  const handleSaveNote = async () => {
+    if (!editingCell) return;
+    const actualPlanType = planType === 'total'
+      ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+      : planType;
+    const actualActNo = editingCell.actNo.replace(/^[SE]:/, '');
+    setSavingNote(true);
+    try {
+      await fetch('/api/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType: actualPlanType,
+          activityNo: actualActNo,
+          month: editingCell.month,
+          note: statusNote,
+          updatedBy: loginDisplayName || loginCompanyName,
+        }),
+      });
+      const key = `${editingCell.actNo}:${editingCell.month}`;
+      setNoteOverrides(prev => ({ ...prev, [key]: statusNote }));
+    } catch {
+      alert('บันทึกหมายเหตุไม่สำเร็จ');
+    }
+    setSavingNote(false);
+  };
+
+  // Upload evidence file (with 20MB limit)
+  const MAX_FILE_SIZE_MB = 20;
   const handleUploadFile = async (file: File) => {
     if (!editingCell) return;
+    // Client-side file size check
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      alert(`ไฟล์มีขนาด ${(file.size / 1024 / 1024).toFixed(1)} MB เกินขีดจำกัด ${MAX_FILE_SIZE_MB} MB\nกรุณาลดขนาดไฟล์หรือใช้ลิงก์ภายนอกแทน`);
+      return;
+    }
     setUploadingFile(true);
     try {
       const formData = new FormData();
@@ -659,7 +702,6 @@ export default function CompanyDrilldown() {
       });
       const data = await res.json();
       if (data.success) {
-        // Refresh attachments
         fetchAttachments(editingCell.actNo, editingCell.month);
       } else {
         alert(data.error || 'อัปโหลดไม่สำเร็จ');
@@ -668,6 +710,66 @@ export default function CompanyDrilldown() {
       alert('เกิดข้อผิดพลาดในการอัปโหลด');
     }
     setUploadingFile(false);
+  };
+
+  // Delete attachment
+  const handleDeleteAttachment = async (attId: string) => {
+    if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
+    setDeletingAttId(attId);
+    try {
+      const res = await fetch(`/api/attachments?id=${attId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setAttachments(prev => prev.filter(a => a.id !== attId));
+        // Update count
+        if (editingCell) {
+          const key = `${editingCell.actNo}:${editingCell.month}`;
+          setAttachmentCounts(prev => ({ ...prev, [key]: Math.max(0, (prev[key] || 1) - 1) }));
+        }
+      } else {
+        alert(data.error || 'ลบไม่สำเร็จ');
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาดในการลบ');
+    }
+    setDeletingAttId(null);
+  };
+
+  // Add external link as attachment
+  const handleAddExternalLink = async () => {
+    if (!editingCell || !externalLink.trim()) return;
+    // Basic URL validation
+    if (!externalLink.startsWith('http://') && !externalLink.startsWith('https://')) {
+      alert('กรุณาใส่ URL ที่เริ่มต้นด้วย http:// หรือ https://');
+      return;
+    }
+    setAddingLink(true);
+    try {
+      const res = await fetch('/api/attachments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType,
+          activityNo: editingCell.actNo,
+          month: editingCell.month,
+          uploadedBy: loginDisplayName || loginCompanyName,
+          linkUrl: externalLink.trim(),
+          linkTitle: externalLinkTitle.trim() || externalLink.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchAttachments(editingCell.actNo, editingCell.month);
+        setExternalLink('');
+        setExternalLinkTitle('');
+      } else {
+        alert(data.error || 'เพิ่มลิงก์ไม่สำเร็จ');
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+    }
+    setAddingLink(false);
   };
 
   // Submit edit request for locked month
@@ -1265,7 +1367,7 @@ export default function CompanyDrilldown() {
 
         {/* Status Update Modal (with attachments, deadline lock, edit request) */}
         {showStatusModal && editingCell && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-4" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); }}>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-4" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}>
             <div className="glass-card rounded-2xl p-6 w-full max-w-lg mx-4" style={{ backdropFilter: 'blur(40px)' }} onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
                 {editingCell.actName}
@@ -1395,29 +1497,36 @@ export default function CompanyDrilldown() {
               {/* Note / Detail Section */}
               {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
                 <div className="mb-3">
-                  <p className="text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>รายละเอียด / หมายเหตุ:</p>
-                  <textarea
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>รายละเอียด / หมายเหตุ:</p>
+                    <button
+                      onClick={handleSaveNote}
+                      disabled={savingNote}
+                      className="px-2.5 py-1 rounded text-[11px] font-medium transition-opacity hover:opacity-80"
+                      style={{ background: 'var(--accent)', color: '#fff', opacity: savingNote ? 0.5 : 1 }}
+                    >
+                      {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
+                    </button>
+                  </div>
+                  <RichTextEditor
                     value={statusNote}
-                    onChange={e => setStatusNote(e.target.value)}
+                    onChange={setStatusNote}
                     placeholder="พิมพ์รายละเอียดเพิ่มเติม เช่น สิ่งที่ทำ ผลลัพธ์ หรือเหตุผล..."
-                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-none"
-                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    rows={3}
                   />
                 </div>
               )}
               {/* Show existing note if locked */}
               {deadlineLocked && !hasApproval && !auth.isAdmin && statusNote && (
-                <div className="mb-3 rounded-lg p-2.5" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                <div className="mb-3">
                   <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>รายละเอียด:</p>
-                  <p className="text-sm" style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{statusNote}</p>
+                  <RichTextEditor value={statusNote} onChange={() => {}} readOnly />
                 </div>
               )}
 
               {/* Attachments Section */}
               <div style={{ borderTop: '1px solid var(--border)' }} className="pt-3 mt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ <span style={{ color: 'var(--text-muted)' }}>(สูงสุด 20 MB/ไฟล์)</span></p>
                   {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
                     <label className={`px-3 py-1.5 btn-primary rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
                       {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
@@ -1446,34 +1555,85 @@ export default function CompanyDrilldown() {
                       <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'var(--bg-secondary)' }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm">
-                            {att.file_type?.includes('image') ? '🖼️' :
+                            {att.file_type === 'link' ? '🔗' :
+                             att.file_type?.includes('image') ? '🖼️' :
                              att.file_type?.includes('pdf') ? '📄' :
-                             att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '<BarChart3 size={14} className="inline mr-1" />' : '📎'}
+                             att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '📊' : '📎'}
                           </span>
                           <div className="min-w-0">
                             <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{att.file_name}</p>
                             <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
                               {att.uploaded_by} | {new Date(att.created_at).toLocaleDateString('th-TH')}
+                              {att.file_size > 0 && ` | ${(att.file_size / 1024 / 1024).toFixed(1)} MB`}
                             </p>
                           </div>
                         </div>
-                        <a
-                          href={att.file_url || att.drive_url || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs flex-shrink-0 ml-2 transition-opacity hover:opacity-80"
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          เปิด
-                        </a>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                          <a
+                            href={att.file_url || att.drive_url || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs transition-opacity hover:opacity-80"
+                            style={{ color: 'var(--accent)' }}
+                          >
+                            เปิด
+                          </a>
+                          {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                            <button
+                              onClick={() => handleDeleteAttachment(att.id)}
+                              disabled={deletingAttId === att.id}
+                              className="p-1 rounded transition-opacity hover:opacity-70"
+                              style={{ color: 'var(--danger)', opacity: deletingAttId === att.id ? 0.3 : 1 }}
+                              title="ลบไฟล์"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* External Link Section */}
+                {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                  <div className="mt-2.5 rounded-lg p-2.5" style={{ background: 'var(--bg-secondary)', border: '1px dashed var(--border)' }}>
+                    <p className="text-[11px] mb-1.5 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                      <ExternalLink size={11} /> เพิ่มลิงก์ภายนอก (Google Drive, OneDrive ฯลฯ)
+                    </p>
+                    <input
+                      type="text"
+                      value={externalLinkTitle}
+                      onChange={e => setExternalLinkTitle(e.target.value)}
+                      placeholder="ชื่อลิงก์ (ไม่จำเป็น)"
+                      className="w-full px-2.5 py-1.5 rounded text-xs mb-1.5 focus:outline-none"
+                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    />
+                    <div className="flex gap-1.5">
+                      <input
+                        type="url"
+                        value={externalLink}
+                        onChange={e => setExternalLink(e.target.value)}
+                        placeholder="https://drive.google.com/..."
+                        className="flex-1 px-2.5 py-1.5 rounded text-xs focus:outline-none"
+                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAddExternalLink(); }}
+                      />
+                      <button
+                        onClick={handleAddExternalLink}
+                        disabled={addingLink || !externalLink.trim()}
+                        className="px-3 py-1.5 rounded text-xs font-medium transition-opacity"
+                        style={{ background: 'var(--accent)', color: '#fff', opacity: addingLink || !externalLink.trim() ? 0.5 : 1 }}
+                      >
+                        {addingLink ? '...' : '+ เพิ่ม'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
 
               <button
-                onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); }}
+                onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}
                 className="w-full px-3 py-2 rounded-lg text-sm transition-colors mt-4"
                 style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
               >
