@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
+import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 
 const MONTH_LABELS: Record<string, string> = {
@@ -45,6 +47,8 @@ interface AdminAccount {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
+  const auth = useAuth();
   // Admin auth state
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
@@ -143,6 +147,9 @@ export default function AdminPage() {
         setCurrentAdminRole(data.role || 'admin');
         sessionStorage.setItem('admin_auth', JSON.stringify({ loggedIn: true, name: data.adminName || 'Admin', role: data.role || 'admin' }));
         setAdminUsername(''); setAdminPassword('');
+        // Redirect to homepage (HQ Overview)
+        router.push('/');
+        return;
       } else {
         setAdminLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
       }
