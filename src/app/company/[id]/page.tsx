@@ -6,9 +6,10 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
+import { useAuth } from '@/components/AuthContext';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -37,6 +38,7 @@ interface ResponsibleOverride {
 export default function CompanyDrilldown() {
   const params = useParams();
   const companyId = params.id as string;
+  const auth = useAuth();
   const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('company_planType');
@@ -106,16 +108,28 @@ export default function CompanyDrilldown() {
   const [editRequestReason, setEditRequestReason] = useState('');
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
-  // Check if already logged in from sessionStorage
+  // Check if already logged in from sessionStorage or AuthContext
   useEffect(() => {
-    const saved = sessionStorage.getItem(`auth_${companyId}`);
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    const ca = auth.getCompanyAuth(companyId);
+    if (ca.isLoggedIn) {
       setIsLoggedIn(true);
-      setLoginCompanyName(parsed.companyName);
-      setLoginDisplayName(parsed.displayName || parsed.companyName);
+      setLoginCompanyName(ca.companyName);
+      setLoginDisplayName(ca.displayName);
+    } else if (auth.isAdmin) {
+      // Admin can view any company
+      setIsLoggedIn(true);
+      setLoginCompanyName(auth.adminName);
+      setLoginDisplayName(auth.adminName);
+    } else {
+      const saved = sessionStorage.getItem(`auth_${companyId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setIsLoggedIn(true);
+        setLoginCompanyName(parsed.companyName);
+        setLoginDisplayName(parsed.displayName || parsed.companyName);
+      }
     }
-  }, [companyId]);
+  }, [companyId, auth]);
 
   // Fetch activities
   useEffect(() => {
@@ -385,22 +399,16 @@ export default function CompanyDrilldown() {
   const handleLogin = async () => {
     setLoginError('');
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, username: loginUsername, password: loginPassword }),
-      });
-      const data = await res.json();
-      if (data.success) {
+      const result = await auth.companyLogin(companyId, loginUsername, loginPassword);
+      if (result.success) {
         setIsLoggedIn(true);
-        setLoginCompanyName(data.companyName);
-        setLoginDisplayName(data.displayName || data.companyName);
-        sessionStorage.setItem(`auth_${companyId}`, JSON.stringify(data));
+        setLoginCompanyName(result.data.companyName);
+        setLoginDisplayName(result.data.displayName || result.data.companyName);
         setShowLoginModal(false);
         setLoginUsername('');
         setLoginPassword('');
       } else {
-        setLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
+        setLoginError(result.error || 'รหัสผ่านไม่ถูกต้อง');
       }
     } catch {
       setLoginError('เกิดข้อผิดพลาด');
@@ -643,6 +651,53 @@ export default function CompanyDrilldown() {
     }
     setSubmittingRequest(false);
   };
+
+  // ── View Gate: require login to see company data ──
+  if (!isLoggedIn && !auth.isAdmin) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 p-8 flex items-center justify-center">
+          <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center" style={{ backdropFilter: 'blur(40px)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--info) 100%)' }}>
+              <Key size={24} color="white" />
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ</h2>
+            <p className="text-[13px] mb-5" style={{ color: 'var(--muted)' }}>
+              กรอกข้อมูลของ <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{companyName}</span> เพื่อดูข้อมูล
+            </p>
+            <input
+              type="text"
+              value={loginUsername}
+              onChange={e => setLoginUsername(e.target.value)}
+              placeholder="Username"
+              className="w-full px-3 py-2.5 rounded-lg text-sm mb-2 focus:outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              autoFocus
+            />
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={e => setLoginPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              placeholder="รหัสผ่าน"
+              className="w-full px-3 py-2.5 rounded-lg text-sm mb-3 focus:outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            />
+            {loginError && <p style={{ color: 'var(--danger)' }} className="text-xs mb-3">{loginError}</p>}
+            <button
+              onClick={handleLogin}
+              disabled={!loginPassword}
+              className="btn-primary w-full py-2.5 rounded-lg text-sm font-medium"
+            >
+              เข้าสู่ระบบ
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">

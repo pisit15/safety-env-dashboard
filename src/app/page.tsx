@@ -1,14 +1,35 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Shield, Leaf, BarChart3, Calendar } from 'lucide-react';
+import { Shield, Leaf, BarChart3, Calendar, Key, LogOut } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
+import { useAuth } from '@/components/AuthContext';
 import Link from 'next/link';
 
 export default function HQOverview() {
+  const auth = useAuth();
+
+  // Admin login form state
+  const [adminUser, setAdminUser] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+
+  const handleAdminLogin = async () => {
+    setAdminError('');
+    setAdminLoading(true);
+    const result = await auth.adminLogin(adminUser, adminPass);
+    if (!result.success) {
+      setAdminError(result.error || 'รหัสผ่านไม่ถูกต้อง');
+    } else {
+      setAdminUser('');
+      setAdminPass('');
+    }
+    setAdminLoading(false);
+  };
   const [planType, setPlanType] = useState<'environment' | 'safety' | 'total'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('hq_planType');
@@ -187,6 +208,51 @@ export default function HQOverview() {
     };
   }, [data, timeRange, currentMonthIdx]);
 
+  // ── Admin Login Gate ──
+  if (!auth.isAdmin) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 p-8 flex items-center justify-center">
+          <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center" style={{ backdropFilter: 'blur(40px)' }}>
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' }}>
+              <Key size={24} color="white" />
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ Admin</h2>
+            <p className="text-[13px] mb-5" style={{ color: 'var(--muted)' }}>หน้า HQ Overview สำหรับ Admin เท่านั้น</p>
+            <input
+              type="text"
+              value={adminUser}
+              onChange={e => setAdminUser(e.target.value)}
+              placeholder="Username"
+              className="w-full px-3 py-2.5 rounded-lg text-sm mb-2 focus:outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              autoFocus
+            />
+            <input
+              type="password"
+              value={adminPass}
+              onChange={e => setAdminPass(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+              placeholder="Password"
+              className="w-full px-3 py-2.5 rounded-lg text-sm mb-3 focus:outline-none"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            />
+            {adminError && <p style={{ color: 'var(--danger)' }} className="text-xs mb-3">{adminError}</p>}
+            <button
+              onClick={handleAdminLogin}
+              disabled={adminLoading || !adminPass}
+              className="btn-primary w-full py-2.5 rounded-lg text-sm font-medium"
+            >
+              {adminLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!data) {
     return (
       <div className="flex min-h-screen">
@@ -224,6 +290,12 @@ export default function HQOverview() {
             <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
               ภาพรวมกลุ่ม — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} 2026
               {loading && <span className="ml-2 animate-pulse" style={{ color: 'var(--accent)' }}>กำลังอัปเดต...</span>}
+              <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px]" style={{ background: 'rgba(48,209,88,0.15)', color: '#30d158' }}>
+                ✓ {auth.adminName}
+              </span>
+              <button onClick={auth.adminLogout} className="ml-1 inline-flex items-center gap-1 text-[11px] transition-colors" style={{ color: 'var(--muted)' }} title="ออกจากระบบ">
+                <LogOut size={11} /> ออก
+              </button>
             </p>
           </div>
           <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'var(--border)' }}>
