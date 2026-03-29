@@ -44,13 +44,7 @@ export default function CompanyDrilldown() {
   const params = useParams();
   const companyId = params.id as string;
   const auth = useAuth();
-  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('company_planType');
-      if (saved === 'safety' || saved === 'environment' || saved === 'total') return saved;
-    }
-    return 'total';
-  });
+  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>('total');
   const [timeRange, setTimeRange] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('company_timeRange') || 'year';
