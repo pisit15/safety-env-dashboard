@@ -125,7 +125,7 @@ export default function HomePage() {
         {/* Header */}
         <div className="mb-8 animate-fade-in-up">
           <h1 className="text-[28px] font-bold tracking-tight flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
-            <img src="/ea-logo.svg" alt="EA" className="w-8 h-8 rounded-lg inline-block" />
+            <img src="/ea-logo.png" alt="EA" className="w-8 h-8 rounded-lg inline-block" />
             Safety & Environment Dashboard
           </h1>
           <div className="flex items-center gap-3 mt-1.5">

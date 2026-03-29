@@ -67,7 +67,7 @@ export default function Sidebar() {
       <div className="p-5 pb-4">
         {!collapsed ? (
           <div className="flex items-center gap-3">
-            <img src="/ea-logo.svg" alt="EA" className="w-9 h-9 rounded-lg" />
+            <img src="/ea-logo.png" alt="EA" className="w-9 h-9 rounded-lg" />
             <div>
               <h1 className="text-[15px] font-semibold tracking-tight leading-tight" style={{ color: 'var(--text-primary)' }}>Safety & Env</h1>
               <p className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>Dashboard</p>
@@ -75,7 +75,7 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="flex justify-center">
-            <img src="/ea-logo.svg" alt="EA" className="w-9 h-9 rounded-lg" />
+            <img src="/ea-logo.png" alt="EA" className="w-9 h-9 rounded-lg" />
           </div>
         )}
         <button
