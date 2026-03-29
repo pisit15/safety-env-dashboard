@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { google } from 'googleapis';
 
 function getSupabase() {
   return createClient(
@@ -162,7 +163,6 @@ const MONTH_NAMES: Record<string, string> = {
 async function getServiceAccountAuth() {
   const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!credentials) throw new Error('No service account credentials');
-  const { google } = await import('googleapis');
   const parsed = JSON.parse(credentials);
   return new google.auth.GoogleAuth({
     credentials: parsed,
@@ -171,7 +171,6 @@ async function getServiceAccountAuth() {
 }
 
 async function findOrCreateFolder(auth: any, parentId: string, folderName: string): Promise<string> {
-  const { google } = await import('googleapis');
   const drive = google.drive({ version: 'v3', auth });
 
   // Search for existing folder
@@ -206,7 +205,6 @@ async function uploadToGoogleDrive(
 ): Promise<{ success: boolean; fileId?: string; webViewLink?: string; error?: string }> {
   try {
     const auth = await getServiceAccountAuth();
-    const { google } = await import('googleapis');
     const drive = google.drive({ version: 'v3', auth });
 
     // Create folder structure: Evidence / CompanyId / PlanType / Month
@@ -216,7 +214,7 @@ async function uploadToGoogleDrive(
 
     // Upload file
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { Readable } = await import('stream');
+    const { Readable } = require('stream');
     const stream = new Readable();
     stream.push(buffer);
     stream.push(null);

@@ -29,6 +29,7 @@ interface StatusOverride {
   activity_no: string;
   month: string;
   status: string;
+  note?: string;
 }
 
 interface ResponsibleOverride {
@@ -89,6 +90,8 @@ export default function CompanyDrilldown() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [editingCell, setEditingCell] = useState<{ actNo: string; month: string; actName: string } | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [noteOverrides, setNoteOverrides] = useState<Record<string, string>>({});
+  const [statusNote, setStatusNote] = useState('');
 
   // Sort state
   const [sortMonth, setSortMonth] = useState<string>('none');
@@ -230,24 +233,31 @@ export default function CompanyDrilldown() {
         fetch(`/api/status?companyId=${companyId}&planType=environment`).then(r => r.json()),
       ]).then(([s, e]) => {
         const map: Record<string, string> = {};
+        const nMap: Record<string, string> = {};
         // Prefix with S:/E: to match _planTag in Total mode
         (s.overrides || []).forEach((o: StatusOverride) => {
           map[`S:${o.activity_no}:${o.month}`] = o.status;
+          if (o.note) nMap[`S:${o.activity_no}:${o.month}`] = o.note;
         });
         (e.overrides || []).forEach((o: StatusOverride) => {
           map[`E:${o.activity_no}:${o.month}`] = o.status;
+          if (o.note) nMap[`E:${o.activity_no}:${o.month}`] = o.note;
         });
         setOverrides(map);
+        setNoteOverrides(nMap);
       }).catch(() => {});
     } else {
       fetch(`/api/status?companyId=${companyId}&planType=${planType}`)
         .then(res => res.json())
         .then(data => {
           const map: Record<string, string> = {};
+          const nMap: Record<string, string> = {};
           (data.overrides || []).forEach((o: StatusOverride) => {
             map[`${o.activity_no}:${o.month}`] = o.status;
+            if (o.note) nMap[`${o.activity_no}:${o.month}`] = o.note;
           });
           setOverrides(map);
+          setNoteOverrides(nMap);
         })
         .catch(() => {});
     }
@@ -448,6 +458,11 @@ export default function CompanyDrilldown() {
   // Save status override
   const handleSaveStatus = async (newStatus: MonthStatus) => {
     if (!editingCell) return;
+    // Determine actual planType for total mode
+    const actualPlanType = planType === 'total'
+      ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+      : planType;
+    const actualActNo = editingCell.actNo.replace(/^[SE]:/, '');
     setSavingStatus(true);
     try {
       await fetch('/api/status', {
@@ -455,20 +470,21 @@ export default function CompanyDrilldown() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
-          planType,
-          activityNo: editingCell.actNo,
+          planType: actualPlanType,
+          activityNo: actualActNo,
           month: editingCell.month,
           status: newStatus,
+          note: statusNote,
           updatedBy: loginDisplayName || loginCompanyName,
         }),
       });
       // Update local state
-      setOverrides(prev => ({
-        ...prev,
-        [`${editingCell.actNo}:${editingCell.month}`]: newStatus,
-      }));
+      const key = `${editingCell.actNo}:${editingCell.month}`;
+      setOverrides(prev => ({ ...prev, [key]: newStatus }));
+      setNoteOverrides(prev => ({ ...prev, [key]: statusNote }));
       setShowStatusModal(false);
       setEditingCell(null);
+      setStatusNote('');
     } catch {
       alert('บันทึกไม่สำเร็จ');
     }
@@ -506,6 +522,8 @@ export default function CompanyDrilldown() {
     setShowStatusModal(true);
     setShowEditRequestForm(false);
     setEditRequestReason('');
+    // Load existing note for this cell
+    setStatusNote(noteOverrides[`${actNo}:${month}`] || '');
     // Fetch attachments and deadline lock in parallel
     fetchAttachments(actNo, month);
     checkDeadlineLock(actNo, month);
@@ -1055,6 +1073,7 @@ export default function CompanyDrilldown() {
                             const cfg = statusConfig[effectiveStatus];
 
                             const attCount = attachmentCounts[`${act.no}:${k}`] || 0;
+                            const hasNote = !!noteOverrides[`${act.no}:${k}`];
 
                             return (
                               <td
@@ -1072,6 +1091,9 @@ export default function CompanyDrilldown() {
                                 <span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>
                                 {attCount > 0 && (
                                   <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} title={`${attCount} ไฟล์แนบ`}></span>
+                                )}
+                                {hasNote && (
+                                  <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: '#ff9500' }} title="มีหมายเหตุ"></span>
                                 )}
                               </td>
                             );
@@ -1242,7 +1264,7 @@ export default function CompanyDrilldown() {
 
         {/* Status Update Modal (with attachments, deadline lock, edit request) */}
         {showStatusModal && editingCell && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-4" onClick={() => { setShowStatusModal(false); setEditingCell(null); }}>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-4" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); }}>
             <div className="glass-card rounded-2xl p-6 w-full max-w-lg mx-4" style={{ backdropFilter: 'blur(40px)' }} onClick={e => e.stopPropagation()}>
               <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
                 {editingCell.actName}
@@ -1369,6 +1391,28 @@ export default function CompanyDrilldown() {
                 </div>
               )}
 
+              {/* Note / Detail Section */}
+              {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                <div className="mb-3">
+                  <p className="text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>รายละเอียด / หมายเหตุ:</p>
+                  <textarea
+                    value={statusNote}
+                    onChange={e => setStatusNote(e.target.value)}
+                    placeholder="พิมพ์รายละเอียดเพิ่มเติม เช่น สิ่งที่ทำ ผลลัพธ์ หรือเหตุผล..."
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-none"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    rows={3}
+                  />
+                </div>
+              )}
+              {/* Show existing note if locked */}
+              {deadlineLocked && !hasApproval && !auth.isAdmin && statusNote && (
+                <div className="mb-3 rounded-lg p-2.5" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>รายละเอียด:</p>
+                  <p className="text-sm" style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{statusNote}</p>
+                </div>
+              )}
+
               {/* Attachments Section */}
               <div style={{ borderTop: '1px solid var(--border)' }} className="pt-3 mt-2">
                 <div className="flex items-center justify-between mb-2">
@@ -1428,7 +1472,7 @@ export default function CompanyDrilldown() {
               </div>
 
               <button
-                onClick={() => { setShowStatusModal(false); setEditingCell(null); }}
+                onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); }}
                 className="w-full px-3 py-2 rounded-lg text-sm transition-colors mt-4"
                 style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
               >
