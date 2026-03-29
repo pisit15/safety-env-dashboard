@@ -10,6 +10,7 @@ import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSi
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
+import { AVAILABLE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -52,18 +53,28 @@ export default function CompanyDrilldown() {
     }
     return 'year';
   });
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dashboard_year');
+      if (saved) return parseInt(saved, 10);
+    }
+    return DEFAULT_YEAR;
+  });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Persist planType and timeRange to localStorage
+  // Persist planType, timeRange, and year to localStorage
   useEffect(() => {
     localStorage.setItem('company_planType', planType);
   }, [planType]);
   useEffect(() => {
     localStorage.setItem('company_timeRange', timeRange);
   }, [timeRange]);
+  useEffect(() => {
+    localStorage.setItem('dashboard_year', String(selectedYear));
+  }, [selectedYear]);
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -146,8 +157,8 @@ export default function CompanyDrilldown() {
     if (planType === 'total') {
       // Fetch both safety and environment, merge summaries
       Promise.all([
-        fetch(`/api/company?id=${companyId}&plan=safety`).then(r => r.json()),
-        fetch(`/api/company?id=${companyId}&plan=environment`).then(r => r.json()),
+        fetch(`/api/company?id=${companyId}&plan=safety&year=${selectedYear}`).then(r => r.json()),
+        fetch(`/api/company?id=${companyId}&plan=environment&year=${selectedYear}`).then(r => r.json()),
       ]).then(([safetyData, enviData]) => {
         const s1 = safetyData.summary;
         const s2 = enviData.summary;
@@ -195,7 +206,7 @@ export default function CompanyDrilldown() {
         setLoading(false);
       });
     } else {
-      fetch(`/api/company?id=${companyId}&plan=${planType}`)
+      fetch(`/api/company?id=${companyId}&plan=${planType}&year=${selectedYear}`)
         .then(res => res.json())
         .then(data => {
           setActivities(data.activities || []);
@@ -208,7 +219,7 @@ export default function CompanyDrilldown() {
           setLoading(false);
         });
     }
-  }, [companyId, planType]);
+  }, [companyId, planType, selectedYear]);
 
   // Fetch status overrides from Supabase
   const fetchOverrides = useCallback(() => {
@@ -240,7 +251,7 @@ export default function CompanyDrilldown() {
         })
         .catch(() => {});
     }
-  }, [companyId, planType]);
+  }, [companyId, planType, selectedYear]);
 
   useEffect(() => {
     fetchOverrides();
@@ -275,7 +286,7 @@ export default function CompanyDrilldown() {
         })
         .catch(() => {});
     }
-  }, [companyId, planType]);
+  }, [companyId, planType, selectedYear]);
 
   useEffect(() => {
     fetchResponsibleOverrides();
@@ -573,7 +584,7 @@ export default function CompanyDrilldown() {
 
   // Export handler
   const handleExport = () => {
-    window.open(`/api/export?companyId=${companyId}&planType=${planType}`, '_blank');
+    window.open(`/api/export?companyId=${companyId}&planType=${planType}&year=${selectedYear}`, '_blank');
   };
 
   // Fetch attachments for a cell
@@ -734,7 +745,7 @@ export default function CompanyDrilldown() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            <Search size={16} className="inline mr-1" /> {companyName} — {planType === 'total' ? 'ภาพรวมแผนงาน' : `แผนงาน${planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'}`} 2026
+            <Search size={16} className="inline mr-1" /> {companyName} — {planType === 'total' ? 'ภาพรวมแผนงาน' : `แผนงาน${planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'}`} {selectedYear}
           </h1>
           <div className="flex gap-2 items-center flex-wrap">
             {/* Auth indicator */}
@@ -786,6 +797,21 @@ export default function CompanyDrilldown() {
               >
                 <Leaf size={14} className="inline mr-1" /> Environment
               </button>
+            </div>
+            {/* Year selector */}
+            <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
+              {AVAILABLE_YEARS.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={selectedYear === y
+                    ? { background: '#ff9500', color: '#ffffff' }
+                    : { color: 'var(--muted)' }}
+                >
+                  {y}
+                </button>
+              ))}
             </div>
           </div>
         </div>

@@ -1,7 +1,12 @@
 import { CompanyConfig } from './types';
 
+// Available years for the dashboard
+export const AVAILABLE_YEARS = [2026, 2027];
+export const DEFAULT_YEAR = 2026;
+
 // Company configurations — edit this to add/remove companies
 // Each company has a Google Spreadsheet with Safety Plan and Environment Plan sheets
+// Use the `years` map to configure different Sheet files per year
 export const COMPANIES: CompanyConfig[] = [
   {
     id: 'aab',
@@ -10,6 +15,14 @@ export const COMPANIES: CompanyConfig[] = [
     sheetId: '1sWQSLTCQZ96PYiFIsZ3zHjjfCnYGN8fL',
     safetySheet: 'AAB Safety Plan rev1',
     enviSheet: 'AAB Envi Plan rev1',
+    years: {
+      2026: {
+        sheetId: '1sWQSLTCQZ96PYiFIsZ3zHjjfCnYGN8fL',
+        safetySheet: 'AAB Safety Plan rev1',
+        enviSheet: 'AAB Envi Plan rev1',
+      },
+      // 2027: { sheetId: 'NEW_SHEET_ID', safetySheet: 'AAB Safety Plan 2027', enviSheet: 'AAB Envi Plan 2027' },
+    },
   },
   {
     id: 'ea-kabin',
@@ -18,6 +31,13 @@ export const COMPANIES: CompanyConfig[] = [
     sheetId: '15lcITbJ_IL8MHm_W4J-2msjLqPUiKYK5',
     safetySheet: 'EA Kabin SafetyPlan Rev1',
     enviSheet: 'EA Kabin Envi Plan Rev1',
+    years: {
+      2026: {
+        sheetId: '15lcITbJ_IL8MHm_W4J-2msjLqPUiKYK5',
+        safetySheet: 'EA Kabin SafetyPlan Rev1',
+        enviSheet: 'EA Kabin Envi Plan Rev1',
+      },
+    },
   },
   {
     id: 'ebi',
@@ -26,6 +46,13 @@ export const COMPANIES: CompanyConfig[] = [
     sheetId: '1JImW7-vLFtQ3R2zKzzLMHrPHx_h4f5vw',
     safetySheet: 'EBI SafetyPlan',
     enviSheet: 'EBI Envi Plan',
+    years: {
+      2026: {
+        sheetId: '1JImW7-vLFtQ3R2zKzzLMHrPHx_h4f5vw',
+        safetySheet: 'EBI SafetyPlan',
+        enviSheet: 'EBI Envi Plan',
+      },
+    },
   },
   // Placeholder companies (add real Sheet IDs when ready)
   { id: 'ea-hq', name: 'EA HQ', shortName: 'EA HQ', sheetId: '', safetySheet: '', enviSheet: '' },
@@ -44,6 +71,58 @@ export function getCompanyById(id: string): CompanyConfig | undefined {
   return COMPANIES.find(c => c.id === id);
 }
 
+/**
+ * Get a company config resolved for a specific year.
+ * Returns a CompanyConfig with sheetId/safetySheet/enviSheet set to the year's values.
+ * Falls back to the default (flat) values if the year is not configured.
+ */
+export function getCompanyForYear(id: string, year: number): CompanyConfig | undefined {
+  const company = COMPANIES.find(c => c.id === id);
+  if (!company) return undefined;
+
+  const yearConfig = company.years?.[year];
+  if (yearConfig) {
+    return {
+      ...company,
+      sheetId: yearConfig.sheetId,
+      safetySheet: yearConfig.safetySheet,
+      enviSheet: yearConfig.enviSheet,
+    };
+  }
+
+  // Fallback: if year not configured, return base config (only works for default year)
+  return company;
+}
+
+/**
+ * Get active companies for a specific year.
+ * A company is "active" for a year if it has a sheetId configured for that year.
+ */
+export function getActiveCompaniesForYear(year: number): CompanyConfig[] {
+  return COMPANIES.map(c => {
+    const yearConfig = c.years?.[year];
+    if (yearConfig && yearConfig.sheetId) {
+      return { ...c, sheetId: yearConfig.sheetId, safetySheet: yearConfig.safetySheet, enviSheet: yearConfig.enviSheet };
+    }
+    // For default year, use flat config
+    if (year === DEFAULT_YEAR && c.sheetId) return c;
+    return null;
+  }).filter((c): c is CompanyConfig => c !== null);
+}
+
 export function getActiveCompanies(): CompanyConfig[] {
   return COMPANIES.filter(c => c.sheetId !== '');
+}
+
+/**
+ * Check which years a company has data for
+ */
+export function getCompanyAvailableYears(id: string): number[] {
+  const company = COMPANIES.find(c => c.id === id);
+  if (!company) return [];
+  if (!company.years) return company.sheetId ? [DEFAULT_YEAR] : [];
+  return AVAILABLE_YEARS.filter(y => {
+    const yc = company.years?.[y];
+    return yc && yc.sheetId;
+  });
 }

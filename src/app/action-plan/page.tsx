@@ -7,6 +7,7 @@ import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
+import { AVAILABLE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 import Link from 'next/link';
 
 export default function HQOverview() {
@@ -37,6 +38,13 @@ export default function HQOverview() {
     }
     return 'total';
   });
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dashboard_year');
+      if (saved) return parseInt(saved, 10);
+    }
+    return DEFAULT_YEAR;
+  });
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   // Time range: 'year' = full year, 'ytd' = up to current month, 'jan'...'dec' = specific month
@@ -47,21 +55,24 @@ export default function HQOverview() {
     return 'year';
   });
 
-  // Persist planType and timeRange to localStorage
+  // Persist planType, timeRange, and selectedYear to localStorage
   useEffect(() => {
     localStorage.setItem('hq_planType', planType);
   }, [planType]);
   useEffect(() => {
     localStorage.setItem('hq_timeRange', timeRange);
   }, [timeRange]);
+  useEffect(() => {
+    localStorage.setItem('dashboard_year', String(selectedYear));
+  }, [selectedYear]);
 
   useEffect(() => {
     setLoading(true);
     if (planType === 'total') {
       // Fetch both safety and environment, merge
       Promise.all([
-        fetch('/api/dashboard?plan=safety').then(r => r.json()),
-        fetch('/api/dashboard?plan=environment').then(r => r.json()),
+        fetch(`/api/dashboard?plan=safety&year=${selectedYear}`).then(r => r.json()),
+        fetch(`/api/dashboard?plan=environment&year=${selectedYear}`).then(r => r.json()),
       ]).then(([s, e]: [DashboardData, DashboardData]) => {
         // Merge companies — combine same company's data, keep safety/envi budgets separate
         const companyMap = new Map<string, any>();
@@ -122,7 +133,7 @@ export default function HQOverview() {
         setLoading(false);
       }).catch(() => setLoading(false));
     } else {
-      fetch(`/api/dashboard?plan=${planType}`)
+      fetch(`/api/dashboard?plan=${planType}&year=${selectedYear}`)
         .then(res => res.json())
         .then((d: DashboardData) => {
           setData(d);
@@ -130,7 +141,7 @@ export default function HQOverview() {
         })
         .catch(() => setLoading(false));
     }
-  }, [planType]);
+  }, [planType, selectedYear]);
 
   // ── Compute filtered KPI data based on timeRange ──
   const MONTH_KEYS_ARR = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -285,10 +296,10 @@ export default function HQOverview() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8 animate-fade-in-up">
           <div>
             <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              HQ Overview — {planType === 'total' ? 'แผนงานรวม' : planType === 'safety' ? 'แผนงานความปลอดภัย' : 'แผนงานสิ่งแวดล้อม'} 2026
+              HQ Overview — {planType === 'total' ? 'แผนงานรวม' : planType === 'safety' ? 'แผนงานความปลอดภัย' : 'แผนงานสิ่งแวดล้อม'} {selectedYear}
             </h1>
             <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
-              ภาพรวมกลุ่ม — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} 2026
+              ภาพรวมกลุ่ม — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} {selectedYear}
               {loading && <span className="ml-2 animate-pulse" style={{ color: 'var(--accent)' }}>กำลังอัปเดต...</span>}
               <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px]" style={{ background: 'rgba(48,209,88,0.15)', color: '#30d158' }}>
                 ✓ {auth.adminName}
@@ -298,6 +309,22 @@ export default function HQOverview() {
               </button>
             </p>
           </div>
+          <div className="flex items-center gap-3">
+            {/* Year Selector */}
+            <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+              {AVAILABLE_YEARS.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className="px-3 py-2 rounded-md text-[12px] font-semibold transition-all duration-200"
+                  style={selectedYear === y
+                    ? { background: '#ff9500', color: '#fff', boxShadow: '0 2px 8px rgba(255,149,0,0.3)' }
+                    : { color: 'var(--muted)' }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
           <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'var(--border)' }}>
             <button
               onClick={() => setPlanType('total')}
@@ -326,6 +353,7 @@ export default function HQOverview() {
             >
               <Leaf size={14} /> Envi Plan
             </button>
+          </div>
           </div>
         </div>
 

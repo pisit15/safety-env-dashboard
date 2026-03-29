@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCompanyById } from '@/lib/companies';
+import { getCompanyForYear, DEFAULT_YEAR } from '@/lib/companies';
 import { fetchActivities, getCompanySummary } from '@/lib/sheets';
 
 export const dynamic = 'force-dynamic';
@@ -8,8 +8,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const companyId = searchParams.get('id') || '';
   const planType = (searchParams.get('plan') || 'environment') as 'safety' | 'environment';
+  const year = parseInt(searchParams.get('year') || String(DEFAULT_YEAR), 10);
 
-  const company = getCompanyById(companyId);
+  const company = getCompanyForYear(companyId, year);
   if (!company || !company.sheetId) {
     return NextResponse.json(
       { activities: [], summary: null, error: 'Company not configured' },

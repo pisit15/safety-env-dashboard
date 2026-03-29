@@ -1,12 +1,19 @@
 // ===== Types for Safety Dashboard =====
 
+export interface YearSheetConfig {
+  sheetId: string;         // Google Spreadsheet ID for this year
+  safetySheet: string;     // Sheet name for Safety Plan
+  enviSheet: string;       // Sheet name for Environment Plan
+}
+
 export interface CompanyConfig {
   id: string;
   name: string;
   shortName: string;
-  sheetId: string;         // Google Spreadsheet ID
-  safetySheet: string;     // Sheet name for Safety Plan
-  enviSheet: string;       // Sheet name for Environment Plan
+  sheetId: string;         // Default Google Spreadsheet ID (current year)
+  safetySheet: string;     // Default Sheet name for Safety Plan
+  enviSheet: string;       // Default Sheet name for Environment Plan
+  years?: Record<number, YearSheetConfig>; // Per-year sheet configs (e.g. { 2026: {...}, 2027: {...} })
 }
 
 export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled' | 'not_applicable';

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES } from '@/lib/companies';
+import { COMPANIES, AVAILABLE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 import {
   ClipboardList,
   GraduationCap,
@@ -88,11 +88,22 @@ interface QuickStat {
 export default function HomePage() {
   const auth = useAuth();
   const [stats, setStats] = useState<QuickStat | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dashboard_year');
+      if (saved) return parseInt(saved, 10);
+    }
+    return DEFAULT_YEAR;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_year', String(selectedYear));
+  }, [selectedYear]);
 
   // Fetch quick stats from action-plan dashboard
   useEffect(() => {
     if (!auth.isAdmin) return;
-    fetch('/api/dashboard?plan=total')
+    fetch(`/api/dashboard?plan=total&year=${selectedYear}`)
       .then(r => r.json())
       .then(data => {
         if (data && data.companies) {
@@ -105,7 +116,7 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
-  }, [auth.isAdmin]);
+  }, [auth.isAdmin, selectedYear]);
 
   return (
     <div className="flex min-h-screen">
@@ -117,9 +128,25 @@ export default function HomePage() {
             <img src="/ea-logo.svg" alt="EA" className="w-8 h-8 rounded-lg inline-block" />
             Safety & Environment Dashboard
           </h1>
-          <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
-            ศูนย์รวมระบบบริหารจัดการความปลอดภัยและสิ่งแวดล้อม — EA Group 2026
-          </p>
+          <div className="flex items-center gap-3 mt-1.5">
+            <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
+              ศูนย์รวมระบบบริหารจัดการความปลอดภัยและสิ่งแวดล้อม — EA Group
+            </p>
+            <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+              {AVAILABLE_YEARS.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className="px-3 py-1 rounded-md text-[12px] font-semibold transition-all duration-200"
+                  style={selectedYear === y
+                    ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' }
+                    : { color: 'var(--muted)' }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Admin Section: Quick Stats + Project Cards */}

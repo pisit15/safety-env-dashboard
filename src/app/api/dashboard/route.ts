@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { COMPANIES, getActiveCompanies } from '@/lib/companies';
+import { COMPANIES, getActiveCompanies, getActiveCompaniesForYear, DEFAULT_YEAR } from '@/lib/companies';
 import { getCompanySummary, fetchActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
 import { getDemoDashboard } from '@/lib/demo-data';
 import { DashboardData, CompanySummary, MonthlyProgress, Activity, MonthStatus } from '@/lib/types';
@@ -103,13 +103,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const planType = (searchParams.get('plan') || 'environment') as 'safety' | 'environment';
   const useDemo = searchParams.get('demo') === 'true';
+  const year = parseInt(searchParams.get('year') || String(DEFAULT_YEAR), 10);
 
   if (useDemo) {
     return NextResponse.json(getDemoDashboard());
   }
 
   try {
-    const activeCompanies = getActiveCompanies();
+    const activeCompanies = getActiveCompaniesForYear(year);
 
     if (activeCompanies.length === 0) {
       return NextResponse.json(getDemoDashboard());
