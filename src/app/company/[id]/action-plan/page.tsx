@@ -10,7 +10,7 @@ import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSi
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
-import { AVAILABLE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -800,18 +800,25 @@ export default function CompanyDrilldown() {
             </div>
             {/* Year selector */}
             <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
-              {AVAILABLE_YEARS.map(y => (
-                <button
-                  key={y}
-                  onClick={() => setSelectedYear(y)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={selectedYear === y
-                    ? { background: '#ff9500', color: '#ffffff' }
-                    : { color: 'var(--muted)' }}
-                >
-                  {y}
-                </button>
-              ))}
+              {AVAILABLE_YEARS.map(y => {
+                const isActive = ACTIVE_YEARS.includes(y);
+                return (
+                  <button
+                    key={y}
+                    onClick={() => isActive && setSelectedYear(y)}
+                    disabled={!isActive}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={selectedYear === y
+                      ? { background: '#ff9500', color: '#ffffff' }
+                      : !isActive
+                        ? { color: 'var(--border)', cursor: 'not-allowed', opacity: 0.5 }
+                        : { color: 'var(--muted)' }}
+                    title={!isActive ? `ข้อมูลปี ${y} ยังไม่พร้อม` : ''}
+                  >
+                    {y}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

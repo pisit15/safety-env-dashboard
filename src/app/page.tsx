@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES, AVAILABLE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { COMPANIES, AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 import {
   ClipboardList,
   GraduationCap,
@@ -133,18 +133,25 @@ export default function HomePage() {
               ศูนย์รวมระบบบริหารจัดการความปลอดภัยและสิ่งแวดล้อม — EA Group
             </p>
             <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-              {AVAILABLE_YEARS.map(y => (
-                <button
-                  key={y}
-                  onClick={() => setSelectedYear(y)}
-                  className="px-3 py-1 rounded-md text-[12px] font-semibold transition-all duration-200"
-                  style={selectedYear === y
-                    ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' }
-                    : { color: 'var(--muted)' }}
-                >
-                  {y}
-                </button>
-              ))}
+              {AVAILABLE_YEARS.map(y => {
+                const isActive = ACTIVE_YEARS.includes(y);
+                return (
+                  <button
+                    key={y}
+                    onClick={() => isActive && setSelectedYear(y)}
+                    disabled={!isActive}
+                    className="px-3 py-1 rounded-md text-[12px] font-semibold transition-all duration-200"
+                    style={selectedYear === y
+                      ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' }
+                      : !isActive
+                        ? { color: 'var(--border)', cursor: 'not-allowed', opacity: 0.5 }
+                        : { color: 'var(--muted)' }}
+                    title={!isActive ? `ข้อมูลปี ${y} ยังไม่พร้อม` : ''}
+                  >
+                    {y}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
-import { AVAILABLE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 import Link from 'next/link';
 
 export default function HQOverview() {
@@ -312,18 +312,25 @@ export default function HQOverview() {
           <div className="flex items-center gap-3">
             {/* Year Selector */}
             <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-              {AVAILABLE_YEARS.map(y => (
+              {AVAILABLE_YEARS.map(y => {
+                const isActive = ACTIVE_YEARS.includes(y);
+                return (
                 <button
                   key={y}
-                  onClick={() => setSelectedYear(y)}
+                  onClick={() => isActive && setSelectedYear(y)}
+                  disabled={!isActive}
                   className="px-3 py-2 rounded-md text-[12px] font-semibold transition-all duration-200"
                   style={selectedYear === y
                     ? { background: '#ff9500', color: '#fff', boxShadow: '0 2px 8px rgba(255,149,0,0.3)' }
-                    : { color: 'var(--muted)' }}
+                    : !isActive
+                      ? { color: 'var(--border)', cursor: 'not-allowed', opacity: 0.5 }
+                      : { color: 'var(--muted)' }}
+                  title={!isActive ? `ข้อมูลปี ${y} ยังไม่พร้อม` : ''}
                 >
                   {y}
                 </button>
-              ))}
+                );
+              })}
             </div>
           <div className="flex gap-1.5 p-1 rounded-xl" style={{ background: 'var(--border)' }}>
             <button
