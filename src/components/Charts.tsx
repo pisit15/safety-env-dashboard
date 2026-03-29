@@ -331,6 +331,16 @@ export function BudgetChart({ companies }: RankingChartProps) {
 
     if (chartRef.current) chartRef.current.destroy();
 
+    // Format budget value for display
+    const fmtBudget = (v: number) => {
+      if (v >= 1000000) return (v / 1000000).toFixed(2) + 'M';
+      if (v >= 1000) return (v / 1000).toFixed(0) + 'K';
+      return v.toLocaleString();
+    };
+
+    // Totals per bar for the label plugin
+    const totals = sorted.map(c => c.budget);
+
     const buildChart = (themeColors: ReturnType<typeof getThemeColors>) => new Chart(canvasRef.current!, {
       type: 'bar',
       data: { labels, datasets },
@@ -338,6 +348,7 @@ export function BudgetChart({ companies }: RankingChartProps) {
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
+        layout: { padding: { right: 60 } },
         plugins: {
           legend: hasStacked ? {
             position: 'top',
@@ -347,15 +358,12 @@ export function BudgetChart({ companies }: RankingChartProps) {
             callbacks: {
               label: (ctx: any) => {
                 const v = ctx.raw;
-                const formatted = v >= 1000000 ? (v / 1000000).toFixed(2) + 'M' : v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v.toLocaleString();
-                return `${ctx.dataset.label}: ${formatted} บาท`;
+                return `${ctx.dataset.label}: ${fmtBudget(v)} บาท`;
               },
               afterBody: hasStacked ? (ctx: any) => {
                 const idx = ctx[0].dataIndex;
                 const c = sorted[idx];
-                const total = c.budget;
-                const formatted = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : total >= 1000 ? (total / 1000).toFixed(0) + 'K' : total.toLocaleString();
-                return `\nรวม: ${formatted} บาท`;
+                return `\nรวม: ${fmtBudget(c.budget)} บาท`;
               } : undefined,
             },
           },
@@ -376,6 +384,25 @@ export function BudgetChart({ companies }: RankingChartProps) {
           },
         },
       },
+      plugins: [{
+        id: 'totalLabels',
+        afterDraw(chart: any) {
+          const ctx = chart.ctx;
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          ctx.save();
+          ctx.font = '11px Inter, sans-serif';
+          ctx.fillStyle = themeColors.label;
+          ctx.textBaseline = 'middle';
+          totals.forEach((total: number, idx: number) => {
+            if (total <= 0) return;
+            const x = xScale.getPixelForValue(total);
+            const y = yScale.getPixelForValue(idx);
+            ctx.fillText(fmtBudget(total) + ' ฿', x + 6, y);
+          });
+          ctx.restore();
+        },
+      }],
     });
 
     chartRef.current = buildChart(colors);
