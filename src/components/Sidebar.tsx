@@ -47,7 +47,10 @@ export default function Sidebar() {
 
   // Determine which companies the user has access to
   const loggedInCompanyIds = Object.keys(auth.companyAuth);
-  // Company list removed from sidebar
+
+  // Detect if we're on a company page
+  const companyMatch = pathname.match(/^\/company\/([^/]+)/);
+  const currentCompanyId = companyMatch ? companyMatch[1] : null;
 
   // Show info based on auth state
   const isAnyAuth = auth.isAdmin || loggedInCompanyIds.length > 0;
@@ -92,27 +95,25 @@ export default function Sidebar() {
 
       {/* Projects navigation */}
       <div className="flex-1 overflow-y-auto px-3 pt-4">
-        {/* Home link — Admin only */}
-        {auth.isAdmin && (
-          <div className="mb-2">
-            <Link href="/">
-              <div
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
-                style={{
-                  color: pathname === '/' ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontWeight: pathname === '/' ? 600 : 400,
-                  background: pathname === '/' ? 'var(--accent-glow)' : 'transparent',
-                }}
-              >
-                <Home size={18} strokeWidth={pathname === '/' ? 2.2 : 1.8} className="flex-shrink-0" />
-                {!collapsed && <span>Home</span>}
-              </div>
-            </Link>
-          </div>
-        )}
+        {/* Home link — always visible */}
+        <div className="mb-2">
+          <Link href={currentCompanyId ? `/company/${currentCompanyId}` : '/'}>
+            <div
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
+              style={{
+                color: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 'var(--accent)' : 'var(--text-secondary)',
+                fontWeight: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 600 : 400,
+                background: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 'var(--accent-glow)' : 'transparent',
+              }}
+            >
+              <Home size={18} strokeWidth={(pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 2.2 : 1.8} className="flex-shrink-0" />
+              {!collapsed && <span>{currentCompanyId && !auth.isAdmin ? 'เลือกโครงการ' : 'Home'}</span>}
+            </div>
+          </Link>
+        </div>
 
-        {/* Project menus — visible to all logged-in users */}
-        {(auth.isAdmin || loggedInCompanyIds.length > 0) && (
+        {/* Project menus — visible when on a company page or logged in */}
+        {(auth.isAdmin || loggedInCompanyIds.length > 0 || currentCompanyId) && (
           <>
             <p className={`text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2 ${collapsed ? 'hidden' : ''}`}
               style={{ color: 'var(--muted)' }}>
@@ -120,13 +121,14 @@ export default function Sidebar() {
             </p>
             <div className="space-y-0.5">
               {PROJECTS.map((p) => {
-                // Admin links to HQ pages, Company user links to their company page
+                // Determine the link target
+                const companyForLinks = auth.isAdmin ? null : (currentCompanyId || loggedInCompanyIds[0]);
                 const href = auth.isAdmin
                   ? p.hqHref
-                  : `/company/${loggedInCompanyIds[0]}${p.companyPath}`;
+                  : companyForLinks ? `/company/${companyForLinks}${p.companyPath}` : '#';
                 const isActive = auth.isAdmin
                   ? (pathname === p.hqHref || pathname.startsWith(p.hqHref + '/'))
-                  : pathname === `/company/${loggedInCompanyIds[0]}${p.companyPath}`;
+                  : companyForLinks ? pathname === `/company/${companyForLinks}${p.companyPath}` : false;
                 const Icon = p.icon;
                 return (
                   <Link key={p.id} href={href}>

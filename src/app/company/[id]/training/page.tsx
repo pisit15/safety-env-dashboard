@@ -106,6 +106,25 @@ export default function CompanyTraining() {
 
   // Auth
   const isLoggedIn = auth.isAdmin || !!auth.companyAuth[companyId];
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
+
+  const handleLogin = async () => {
+    setLoggingIn(true);
+    setLoginError('');
+    const result = await auth.companyLogin(companyId, loginUser, loginPass);
+    setLoggingIn(false);
+    if (result.success) {
+      setShowLoginDialog(false);
+      setLoginUser('');
+      setLoginPass('');
+    } else {
+      setLoginError(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+    }
+  };
 
   const fetchPlans = useCallback(async () => {
     setLoading(true);
@@ -555,9 +574,9 @@ export default function CompanyTraining() {
                   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
                   return (
                     <tr key={plan.id}
-                      onClick={() => isLoggedIn && openPlanModal(plan)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: isLoggedIn ? 'pointer' : 'default', background: i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)' }}
-                      onMouseEnter={e => { if (isLoggedIn) (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'; }}
+                      onClick={() => isLoggedIn ? openPlanModal(plan) : setShowLoginDialog(true)}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)'; }}
                     >
                       <td style={tdStyle}>{plan.course_no || i + 1}</td>
@@ -893,6 +912,70 @@ export default function CompanyTraining() {
                   ปิด
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Login Dialog */}
+        {showLoginDialog && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+            onClick={() => setShowLoginDialog(false)}>
+            <div style={{ background: 'var(--card-solid)', borderRadius: 16, padding: 32, width: 380, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🔐</div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>เข้าสู่ระบบ</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>กรุณา Login เพื่ออัปเดตข้อมูลอบรม — {company?.name || companyId.toUpperCase()}</p>
+              </div>
+
+              {loginError && (
+                <div style={{ background: '#fef2f2', color: '#dc2626', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+                  {loginError}
+                </div>
+              )}
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Username</label>
+                <input
+                  type="text"
+                  value={loginUser}
+                  onChange={e => setLoginUser(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  placeholder="ชื่อผู้ใช้"
+                  style={inputStyle}
+                  autoFocus
+                />
+              </div>
+              <div style={{ marginBottom: 24 }}>
+                <label style={labelStyle}>Password</label>
+                <input
+                  type="password"
+                  value={loginPass}
+                  onChange={e => setLoginPass(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  placeholder="รหัสผ่าน"
+                  style={inputStyle}
+                />
+              </div>
+
+              <button
+                onClick={handleLogin}
+                disabled={loggingIn || !loginUser || !loginPass}
+                style={{
+                  width: '100%', padding: '10px 16px', borderRadius: 10, border: 'none',
+                  background: loggingIn ? 'var(--muted)' : 'var(--accent)', color: '#fff',
+                  fontSize: 14, fontWeight: 600, cursor: loggingIn ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loggingIn ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+              </button>
+
+              <button
+                onClick={() => setShowLoginDialog(false)}
+                style={{ width: '100%', padding: '8px', marginTop: 8, border: 'none', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer' }}
+              >
+                ปิด
+              </button>
             </div>
           </div>
         )}
