@@ -97,6 +97,12 @@ export default function CompanyTraining() {
   const [showAddAttendee, setShowAddAttendee] = useState(false);
   const [newAttendee, setNewAttendee] = useState({ emp_code: '', first_name: '', last_name: '', gender: '', position: '', department: '' });
 
+  // Employee suggestion state (reuse previously added attendees)
+  const [companyEmployees, setCompanyEmployees] = useState<{ emp_code: string; first_name: string; last_name: string; gender: string; position: string; department: string }[]>([]);
+  const [empSearch, setEmpSearch] = useState('');
+  const [showEmpSuggestions, setShowEmpSuggestions] = useState(false);
+  const [employeesLoaded, setEmployeesLoaded] = useState(false);
+
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importSheets, setImportSheets] = useState<string[]>([]);
@@ -146,6 +152,16 @@ export default function CompanyTraining() {
       if (Array.isArray(data)) setAttendees(data);
     } catch { setAttendees([]); }
     setLoadingAttendees(false);
+  };
+
+  const fetchCompanyEmployees = async () => {
+    if (employeesLoaded) return;
+    try {
+      const res = await fetch(`/api/training/employees?companyId=${companyId}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setCompanyEmployees(data);
+      setEmployeesLoaded(true);
+    } catch { /* ignore */ }
   };
 
   const openPlanModal = (plan: TrainingPlan) => {
@@ -214,9 +230,24 @@ export default function CompanyTraining() {
       if (res.ok) {
         await fetchAttendees(session.id);
         setNewAttendee({ emp_code: '', first_name: '', last_name: '', gender: '', position: '', department: '' });
+        setEmpSearch('');
         setShowAddAttendee(false);
+        setEmployeesLoaded(false); // refresh employee list on next open
       }
     } catch (e) { console.error(e); }
+  };
+
+  const selectEmployee = (emp: typeof companyEmployees[0]) => {
+    setNewAttendee({
+      emp_code: emp.emp_code || '',
+      first_name: emp.first_name || '',
+      last_name: emp.last_name || '',
+      gender: emp.gender || '',
+      position: emp.position || '',
+      department: emp.department || '',
+    });
+    setEmpSearch('');
+    setShowEmpSuggestions(false);
   };
 
   const handleDeleteAttendee = async (id: string) => {
@@ -747,6 +778,78 @@ export default function CompanyTraining() {
                   {/* Add attendee form */}
                   {showAddAttendee && (
                     <div style={{ background: 'var(--bg)', borderRadius: 6, padding: 12, marginBottom: 12, border: '1px dashed var(--border)' }}>
+                      {/* Employee search/suggestion */}
+                      <div style={{ position: 'relative', marginBottom: 8 }}>
+                        <input
+                          placeholder="🔍 ค้นหาพนักงาน (ชื่อ, นามสกุล, รหัส) หรือพิมพ์ใหม่..."
+                          value={empSearch}
+                          onChange={e => {
+                            setEmpSearch(e.target.value);
+                            setShowEmpSuggestions(true);
+                            if (!employeesLoaded) fetchCompanyEmployees();
+                          }}
+                          onFocus={() => {
+                            setShowEmpSuggestions(true);
+                            if (!employeesLoaded) fetchCompanyEmployees();
+                          }}
+                          style={{ ...inputStyle, width: '100%', fontSize: 13 }}
+                        />
+                        {showEmpSuggestions && companyEmployees.length > 0 && (
+                          <div style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                            background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 6,
+                            maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                          }}>
+                            {companyEmployees
+                              .filter(emp => {
+                                if (!empSearch.trim()) return true;
+                                const q = empSearch.toLowerCase();
+                                return (
+                                  (emp.first_name || '').toLowerCase().includes(q) ||
+                                  (emp.last_name || '').toLowerCase().includes(q) ||
+                                  (emp.emp_code || '').toLowerCase().includes(q) ||
+                                  (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q)
+                                );
+                              })
+                              .slice(0, 20)
+                              .map((emp, idx) => (
+                                <div key={idx}
+                                  onClick={() => selectEmployee(emp)}
+                                  style={{
+                                    padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border)',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                  }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                  <span style={{ fontWeight: 600 }}>{emp.first_name} {emp.last_name}</span>
+                                  <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+                                    {emp.emp_code ? `รหัส: ${emp.emp_code}` : ''}{emp.department ? ` • ${emp.department}` : ''}{emp.position ? ` • ${emp.position}` : ''}
+                                  </span>
+                                </div>
+                              ))
+                            }
+                            {companyEmployees.filter(emp => {
+                              if (!empSearch.trim()) return true;
+                              const q = empSearch.toLowerCase();
+                              return (emp.first_name || '').toLowerCase().includes(q) || (emp.last_name || '').toLowerCase().includes(q) || (emp.emp_code || '').toLowerCase().includes(q) || (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q);
+                            }).length === 0 && (
+                              <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
+                                ไม่พบ — กรุณากรอกข้อมูลด้านล่าง
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Click outside to close suggestions */}
+                      {showEmpSuggestions && <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowEmpSuggestions(false)} />}
+
+                      {newAttendee.first_name && (
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 4, padding: '6px 10px', marginBottom: 8, fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+                          ✓ เลือก: {newAttendee.first_name} {newAttendee.last_name} {newAttendee.emp_code ? `(${newAttendee.emp_code})` : ''}
+                        </div>
+                      )}
+
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
                         <input placeholder="รหัสพนักงาน" value={newAttendee.emp_code} onChange={e => setNewAttendee({ ...newAttendee, emp_code: e.target.value })} style={inputStyle} />
                         <input placeholder="ชื่อ *" value={newAttendee.first_name} onChange={e => setNewAttendee({ ...newAttendee, first_name: e.target.value })} style={inputStyle} />
