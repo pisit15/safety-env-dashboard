@@ -300,16 +300,25 @@ export default function CompanyTraining() {
   const totalActual = plans.reduce((s, p) => s + (p.training_sessions?.[0]?.actual_cost || 0), 0);
 
   // Monthly chart data: planned vs completed per month
+  // When postponed from month X → Y, the plan moves to month Y
+  const getEffectiveMonth = (p: TrainingPlan) => {
+    const s = p.training_sessions?.[0];
+    if (s?.status === 'postponed' && s.postponed_to_month) return s.postponed_to_month;
+    // If completed/scheduled but was postponed, use postponed_to_month
+    if (s?.postponed_to_month && s?.original_planned_month) return s.postponed_to_month;
+    return p.planned_month;
+  };
+
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
-    const planned = plans.filter(p => p.planned_month === month).length;
+    const planned = plans.filter(p => getEffectiveMonth(p) === month).length;
     const completed = plans.filter(p => {
-      if (p.planned_month !== month) return false;
+      if (getEffectiveMonth(p) !== month) return false;
       const s = p.training_sessions?.[0];
       return s?.status === 'completed';
     }).length;
     const scheduled = plans.filter(p => {
-      if (p.planned_month !== month) return false;
+      if (getEffectiveMonth(p) !== month) return false;
       const s = p.training_sessions?.[0];
       return s?.status === 'scheduled';
     }).length;
@@ -335,8 +344,9 @@ export default function CompanyTraining() {
     const session = p.training_sessions?.[0];
     if (!session || session.status === 'completed' || session.status === 'cancelled') return false;
     // Check if planned month is approaching and no date set
-    if (!session.scheduled_date_start && p.planned_month > 0) {
-      const plannedDate = new Date(selectedYear, p.planned_month - 1, 1);
+    const effectiveMonth = getEffectiveMonth(p);
+    if (!session.scheduled_date_start && effectiveMonth > 0) {
+      const plannedDate = new Date(selectedYear, effectiveMonth - 1, 1);
       const diffDays = (plannedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
       return diffDays <= 45 && diffDays > -30;
     }
@@ -554,9 +564,9 @@ export default function CompanyTraining() {
                         <div>{plan.course_name}</div>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                           {plan.category && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{plan.category}</span>}
-                          {session?.original_planned_month && session?.status === 'postponed' && (
-                            <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>
-                              เลื่อนจาก {MONTH_LABELS[session.original_planned_month - 1]} → {session.postponed_to_month ? MONTH_LABELS[session.postponed_to_month - 1] : '?'}
+                          {session?.original_planned_month && session?.postponed_to_month && (
+                            <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: session?.status === 'completed' ? '#d1fae5' : '#fef3c7', color: session?.status === 'completed' ? '#065f46' : '#92400e', fontWeight: 600 }}>
+                              เลื่อนจาก {MONTH_LABELS[session.original_planned_month - 1]} → {MONTH_LABELS[session.postponed_to_month - 1]}
                             </span>
                           )}
                         </div>
