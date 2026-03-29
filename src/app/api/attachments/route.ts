@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { google } from 'googleapis';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function getSupabase() {
   return createClient(
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ attachments: data || [] });
 }
 
-// POST - Upload file to Google Drive and save metadata
+// POST - Upload file to Supabase Storage and save metadata
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -55,11 +57,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Upload to Google Drive
-    const driveResult = await uploadToGoogleDrive(file, companyId, planType, activityNo, month);
+    // Upload to Supabase Storage
+    const uploadResult = await uploadToSupabaseStorage(file, companyId, planType, activityNo, month);
 
-    if (!driveResult.success) {
-      return NextResponse.json({ error: driveResult.error }, { status: 500 });
+    if (!uploadResult.success) {
+      return NextResponse.json({ error: uploadResult.error }, { status: 500 });
     }
 
     // Determine file type
@@ -79,8 +81,8 @@ export async function POST(request: NextRequest) {
         activity_no: activityNo,
         month,
         file_name: file.name,
-        file_url: driveResult.webViewLink,
-        drive_file_id: driveResult.fileId,
+        file_url: uploadResult.publicUrl,
+        drive_file_id: uploadResult.storagePath,
         file_type: fileType,
         file_size: file.size,
         uploaded_by: uploadedBy || '',
@@ -119,12 +121,17 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   }
 
-  // Get attachment info first (for audit log)
+  // Get attachment info first (for audit log and storage cleanup)
   const { data: att } = await getSupabase()
     .from('activity_attachments')
     .select('*')
     .eq('id', id)
     .single();
+
+  // Delete from Supabase Storage if path exists
+  if (att?.drive_file_id) {
+    await getSupabase().storage.from('evidence').remove([att.drive_file_id]);
+  }
 
   const { error } = await getSupabase()
     .from('activity_attachments')
@@ -151,94 +158,58 @@ export async function DELETE(request: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
-// ── Google Drive Upload Helper ──
-const EVIDENCE_FOLDER_ID = '1__YfDYMy-y06Oeh6GUzwFpex6Yc6-24q';
-
+// ── Supabase Storage Upload Helper ──
 const MONTH_NAMES: Record<string, string> = {
-  jan: '01-ม.ค.', feb: '02-ก.พ.', mar: '03-มี.ค.', apr: '04-เม.ย.',
-  may: '05-พ.ค.', jun: '06-มิ.ย.', jul: '07-ก.ค.', aug: '08-ส.ค.',
-  sep: '09-ก.ย.', oct: '10-ต.ค.', nov: '11-พ.ย.', dec: '12-ธ.ค.',
+  jan: '01-jan', feb: '02-feb', mar: '03-mar', apr: '04-apr',
+  may: '05-may', jun: '06-jun', jul: '07-jul', aug: '08-aug',
+  sep: '09-sep', oct: '10-oct', nov: '11-nov', dec: '12-dec',
 };
 
-async function getServiceAccountAuth() {
-  const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!credentials) throw new Error('No service account credentials');
-  const parsed = JSON.parse(credentials);
-  return new google.auth.GoogleAuth({
-    credentials: parsed,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-}
-
-async function findOrCreateFolder(auth: any, parentId: string, folderName: string): Promise<string> {
-  const drive = google.drive({ version: 'v3', auth });
-
-  // Search for existing folder
-  const res = await drive.files.list({
-    q: `'${parentId}' in parents AND name='${folderName}' AND mimeType='application/vnd.google-apps.folder' AND trashed=false`,
-    fields: 'files(id,name)',
-  });
-
-  if (res.data.files && res.data.files.length > 0) {
-    return res.data.files[0].id!;
-  }
-
-  // Create new folder
-  const folder = await drive.files.create({
-    requestBody: {
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    },
-    fields: 'id',
-  });
-
-  return folder.data.id!;
-}
-
-async function uploadToGoogleDrive(
+async function uploadToSupabaseStorage(
   file: File,
   companyId: string,
   planType: string,
   activityNo: string,
   month: string
-): Promise<{ success: boolean; fileId?: string; webViewLink?: string; error?: string }> {
+): Promise<{ success: boolean; storagePath?: string; publicUrl?: string; error?: string }> {
   try {
-    const auth = await getServiceAccountAuth();
-    const drive = google.drive({ version: 'v3', auth });
+    const supabase = getSupabase();
+    const bucket = 'evidence';
 
-    // Create folder structure: Evidence / CompanyId / PlanType / Month
-    const companyFolder = await findOrCreateFolder(auth, EVIDENCE_FOLDER_ID, companyId.toUpperCase());
-    const planFolder = await findOrCreateFolder(auth, companyFolder, planType === 'safety' ? 'Safety' : 'Environment');
-    const monthFolder = await findOrCreateFolder(auth, planFolder, MONTH_NAMES[month] || month);
+    // Build path: companyId/planType/month/activityNo_filename
+    const monthDir = MONTH_NAMES[month] || month;
+    const safeName = file.name.replace(/[^a-zA-Z0-9._\-\u0E00-\u0E7F]/g, '_');
+    const timestamp = Date.now();
+    const storagePath = `${companyId.toUpperCase()}/${planType}/${monthDir}/${activityNo}_${timestamp}_${safeName}`;
 
-    // Upload file
+    // Read file as buffer
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { Readable } = require('stream');
-    const stream = new Readable();
-    stream.push(buffer);
-    stream.push(null);
 
-    const fileName = `${activityNo}_${file.name}`;
-    const uploadRes = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [monthFolder],
-      },
-      media: {
-        mimeType: file.type || 'application/octet-stream',
-        body: stream,
-      },
-      fields: 'id,webViewLink',
-    });
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(storagePath, buffer, {
+        contentType: file.type || 'application/octet-stream',
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('Supabase storage upload error:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(storagePath);
 
     return {
       success: true,
-      fileId: uploadRes.data.id!,
-      webViewLink: uploadRes.data.webViewLink || `https://drive.google.com/file/d/${uploadRes.data.id}/view`,
+      storagePath,
+      publicUrl: urlData.publicUrl,
     };
   } catch (err: any) {
-    console.error('Google Drive upload error:', err);
+    console.error('Upload error:', err);
     return { success: false, error: err.message || 'Upload failed' };
   }
 }

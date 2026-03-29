@@ -110,7 +110,8 @@ export default function CompanyDrilldown() {
     file_type: string;
     file_size: number;
     drive_file_id: string;
-    drive_url: string;
+    drive_url?: string;
+    file_url?: string;
     uploaded_by: string;
     created_at: string;
   }
@@ -1457,7 +1458,7 @@ export default function CompanyDrilldown() {
                           </div>
                         </div>
                         <a
-                          href={att.drive_url}
+                          href={att.file_url || att.drive_url || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs flex-shrink-0 ml-2 transition-opacity hover:opacity-80"
