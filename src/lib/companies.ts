@@ -68,6 +68,10 @@ export const COMPANIES: CompanyConfig[] = [
   { id: 'hnm', name: 'HNM', shortName: 'HNM', sheetId: '', safetySheet: '', enviSheet: '' },
   { id: 'amt', name: 'AMT', shortName: 'AMT', sheetId: '', safetySheet: '', enviSheet: '' },
   { id: 'mmc', name: 'MMC', shortName: 'MMC', sheetId: '', safetySheet: '', enviSheet: '' },
+  { id: 'wmp', name: 'WMP', shortName: 'WMP', sheetId: '', safetySheet: '', enviSheet: '' },
+  { id: 'mmr', name: 'MMR', shortName: 'MMR', sheetId: '', safetySheet: '', enviSheet: '' },
+  { id: 'gtr', name: 'GTR', shortName: 'GTR', sheetId: '', safetySheet: '', enviSheet: '' },
+  { id: 'swm', name: 'SWM', shortName: 'SWM', sheetId: '', safetySheet: '', enviSheet: '' },
 ];
 
 export function getCompanyById(id: string): CompanyConfig | undefined {
