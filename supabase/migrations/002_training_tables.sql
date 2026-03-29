@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS training_plans (
   category text,
   course_name text NOT NULL,
   in_house_external text DEFAULT 'External',
-  planned_month integer CHECK (planned_month >= 1 AND planned_month <= 12),
+  planned_month integer DEFAULT 0 CHECK (planned_month >= 0 AND planned_month <= 12),
   hours_per_course numeric DEFAULT 0,
   planned_participants integer DEFAULT 0,
   total_planned_hours numeric DEFAULT 0,
