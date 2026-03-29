@@ -53,6 +53,7 @@ interface TrainingSession {
   updated_by: string;
   postponed_to_month: number | null;
   original_planned_month: number | null;
+  training_attendees?: { count: number }[];
 }
 
 interface Attendee {
@@ -576,9 +577,21 @@ export default function CompanyTraining() {
                           {plan.in_house_external?.toLowerCase().includes('in') ? 'In-House' : 'External'}
                         </span>
                       </td>
-                      <td style={tdStyle}>{plan.planned_month ? MONTH_LABELS[plan.planned_month - 1] : '-'}</td>
+                      <td style={tdStyle}>
+                        {(() => {
+                          const effMonth = session?.postponed_to_month || plan.planned_month;
+                          return effMonth ? MONTH_LABELS[effMonth - 1] : '-';
+                        })()}
+                      </td>
                       <td style={tdStyle}>{plan.hours_per_course || '-'}</td>
-                      <td style={tdStyle}>{plan.planned_participants || '-'}</td>
+                      <td style={tdStyle}>
+                        {(() => {
+                          const attCount = session?.training_attendees?.[0]?.count || 0;
+                          return attCount > 0
+                            ? attCount
+                            : <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{plan.planned_participants || '-'}</span>;
+                        })()}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{plan.budget ? plan.budget.toLocaleString() : '-'}</td>
                       <td style={tdStyle}>
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: cfg.bg, color: cfg.color, fontWeight: 600, whiteSpace: 'nowrap' }}>

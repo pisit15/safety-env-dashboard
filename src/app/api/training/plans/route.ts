@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   let query = getSupabase()
     .from('training_plans')
-    .select('*, training_sessions(*)')
+    .select('*, training_sessions(*, training_attendees(count))')
     .eq('company_id', companyId)
     .eq('year', parseInt(year))
     .order('planned_month', { ascending: true })
