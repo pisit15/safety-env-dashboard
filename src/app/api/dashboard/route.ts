@@ -60,7 +60,7 @@ function recalcSummaryWithOverrides(
 
     // Accumulate KPI totals from month-slots
     totalPlanned += planned;
-    totalDone += doneCount + notApplicableCount; // ยกประโยชน์ให้
+    totalDone += doneCount; // เฉพาะที่ทำเสร็จจริง (ไม่รวม N/A)
     totalNotApplicable += notApplicableCount;
     totalPostponed += postponedCount;
     totalCancelled += cancelledCount;
@@ -77,8 +77,14 @@ function recalcSummaryWithOverrides(
   });
 
   // KPI derived from month-slot totals (same counting as chart)
-  totalNotStarted = totalPlanned - totalDone - totalPostponed - totalCancelled;
+  // done = เสร็จจริง (ไม่รวม N/A), notApplicable = แยกต่างหาก
+  // % = (done + N/A) / total → ยกประโยชน์ให้
+  totalNotStarted = totalPlanned - totalDone - totalNotApplicable - totalPostponed - totalCancelled;
   if (totalNotStarted < 0) totalNotStarted = 0;
+
+  const pctDone = totalPlanned > 0
+    ? Math.round(((totalDone + totalNotApplicable) / totalPlanned) * 1000) / 10
+    : 0;
 
   return {
     ...baseSummary,
@@ -88,7 +94,7 @@ function recalcSummaryWithOverrides(
     postponed: totalPostponed,
     cancelled: totalCancelled,
     notApplicable: totalNotApplicable,
-    pctDone: totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 1000) / 10 : 0,
+    pctDone,
     monthlyProgress,
   };
 }
@@ -188,17 +194,20 @@ export async function GET(request: Request) {
     });
 
     const totalActs = all.reduce((s, c) => s + c.total, 0);
+    const totalDoneAll = all.reduce((s, c) => s + c.done, 0);
+    const totalNAAll = all.reduce((s, c) => s + (c.notApplicable || 0), 0);
     const data: DashboardData = {
       companies: all,
       totalActivities: totalActs,
-      totalDone: all.reduce((s, c) => s + c.done, 0),
+      totalDone: totalDoneAll,
       totalNotStarted: all.reduce((s, c) => s + c.notStarted, 0),
       totalPostponed: all.reduce((s, c) => s + c.postponed, 0),
       totalCancelled: all.reduce((s, c) => s + c.cancelled, 0),
-      totalNotApplicable: all.reduce((s, c) => s + (c.notApplicable || 0), 0),
+      totalNotApplicable: totalNAAll,
       totalBudget: all.reduce((s, c) => s + c.budget, 0),
+      // % = (done + N/A) / total → ยกประโยชน์ให้
       overallPct: totalActs > 0
-        ? Math.round((all.reduce((s, c) => s + c.done, 0) / totalActs) * 1000) / 10
+        ? Math.round(((totalDoneAll + totalNAAll) / totalActs) * 1000) / 10
         : 0,
       monthlyProgress,
     };

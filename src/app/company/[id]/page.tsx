@@ -337,8 +337,7 @@ export default function CompanyDrilldown() {
 
         totalPlanned++;
         if (status === 'not_applicable') {
-          totalNotApplicable++;
-          totalDone++; // ยกประโยชน์ให้
+          totalNotApplicable++; // แยกต่างหาก ไม่รวมใน done
         } else if (status === 'done') {
           totalDone++;
         } else if (status === 'postponed') {
@@ -350,8 +349,11 @@ export default function CompanyDrilldown() {
       });
     });
 
-    const totalNotStarted = Math.max(0, totalPlanned - totalDone - totalPostponed - totalCancelled);
-    const pctDone = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 1000) / 10 : 0;
+    // done = เสร็จจริง, N/A = แยก, % = (done + N/A) / total → ยกประโยชน์ให้
+    const totalNotStarted = Math.max(0, totalPlanned - totalDone - totalNotApplicable - totalPostponed - totalCancelled);
+    const pctDone = totalPlanned > 0
+      ? Math.round(((totalDone + totalNotApplicable) / totalPlanned) * 1000) / 10
+      : 0;
 
     return {
       ...summary,

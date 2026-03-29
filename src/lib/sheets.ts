@@ -623,8 +623,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
         if (!monthStatus || monthStatus === 'not_planned') return;
         totalPlanned++;
         if (monthStatus === 'not_applicable') {
-          totalNotApplicable++;
-          totalDone++; // ยกประโยชน์ให้
+          totalNotApplicable++; // แยกต่างหาก ไม่รวมใน done
         } else if (monthStatus === 'done') {
           totalDone++;
         } else if (monthStatus === 'postponed') {
@@ -634,7 +633,8 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
         }
       });
     });
-    const totalNotStarted = Math.max(0, totalPlanned - totalDone - totalPostponed - totalCancelled);
+    // done = เสร็จจริง, N/A = แยก, % = (done + N/A) / total → ยกประโยชน์ให้
+    const totalNotStarted = Math.max(0, totalPlanned - totalDone - totalNotApplicable - totalPostponed - totalCancelled);
 
     return {
       companyId: company.id,
@@ -647,7 +647,7 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       cancelled: totalCancelled,
       notApplicable: totalNotApplicable,
       budget,
-      pctDone: totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 1000) / 10 : 0,
+      pctDone: totalPlanned > 0 ? Math.round(((totalDone + totalNotApplicable) / totalPlanned) * 1000) / 10 : 0,
       monthlyProgress,
     };
   } catch (error) {

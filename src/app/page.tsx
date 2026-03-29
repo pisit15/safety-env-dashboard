@@ -68,6 +68,7 @@ export default function HQOverview() {
 
         const totalActs = mergedCompanies.reduce((sum: number, c: any) => sum + c.total, 0);
         const totalDone = mergedCompanies.reduce((sum: number, c: any) => sum + c.done, 0);
+        const totalNA = mergedCompanies.reduce((sum: number, c: any) => sum + (c.notApplicable || 0), 0);
         setData({
           companies: mergedCompanies,
           totalActivities: totalActs,
@@ -75,9 +76,10 @@ export default function HQOverview() {
           totalNotStarted: mergedCompanies.reduce((sum: number, c: any) => sum + c.notStarted, 0),
           totalPostponed: mergedCompanies.reduce((sum: number, c: any) => sum + c.postponed, 0),
           totalCancelled: mergedCompanies.reduce((sum: number, c: any) => sum + c.cancelled, 0),
-          totalNotApplicable: mergedCompanies.reduce((sum: number, c: any) => sum + c.notApplicable, 0),
+          totalNotApplicable: totalNA,
           totalBudget: mergedCompanies.reduce((sum: number, c: any) => sum + c.budget, 0),
-          overallPct: totalActs > 0 ? Math.round((totalDone / totalActs) * 1000) / 10 : 0,
+          // % = (done + N/A) / total → ยกประโยชน์ให้
+          overallPct: totalActs > 0 ? Math.round(((totalDone + totalNA) / totalActs) * 1000) / 10 : 0,
           monthlyProgress,
         });
         setLoading(false);
