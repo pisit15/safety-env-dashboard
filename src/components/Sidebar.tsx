@@ -21,10 +21,11 @@ import {
   ChevronRight,
   Building2,
   LogOut,
+  Home,
 } from 'lucide-react';
 
 const PROJECTS = [
-  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/', companyPath: '' },
+  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '' },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training' },
   { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents' },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol' },
@@ -97,6 +98,25 @@ export default function Sidebar() {
 
       {/* Projects navigation */}
       <div className="flex-1 overflow-y-auto px-3 pt-4">
+        {/* Home link — Admin only */}
+        {auth.isAdmin && (
+          <div className="mb-2">
+            <Link href="/">
+              <div
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
+                style={{
+                  color: pathname === '/' ? 'var(--accent)' : 'var(--text-secondary)',
+                  fontWeight: pathname === '/' ? 600 : 400,
+                  background: pathname === '/' ? 'var(--accent-glow)' : 'transparent',
+                }}
+              >
+                <Home size={18} strokeWidth={pathname === '/' ? 2.2 : 1.8} className="flex-shrink-0" />
+                {!collapsed && <span>Home</span>}
+              </div>
+            </Link>
+          </div>
+        )}
+
         {/* Project menus — visible to all logged-in users */}
         {(auth.isAdmin || loggedInCompanyIds.length > 0) && (
           <>
@@ -111,7 +131,7 @@ export default function Sidebar() {
                   ? p.hqHref
                   : `/company/${loggedInCompanyIds[0]}${p.companyPath}`;
                 const isActive = auth.isAdmin
-                  ? (pathname === p.hqHref || (p.hqHref !== '/' && pathname.startsWith(p.hqHref)))
+                  ? (pathname === p.hqHref || pathname.startsWith(p.hqHref + '/'))
                   : pathname === `/company/${loggedInCompanyIds[0]}${p.companyPath}`;
                 const Icon = p.icon;
                 return (

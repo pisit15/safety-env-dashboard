@@ -709,7 +709,7 @@ export default function CompanyDrilldown() {
         <div className="flex items-center gap-2 text-xs mb-1">
           <Link href="/" style={{ color: 'var(--muted)' }} className="hover:opacity-70">Home</Link>
           <span style={{ color: 'var(--muted)' }}>/</span>
-          <Link href="/" style={{ color: 'var(--muted)' }} className="hover:opacity-70">แผนงานประจำปี</Link>
+          <Link href="/action-plan" style={{ color: 'var(--muted)' }} className="hover:opacity-70">แผนงานประจำปี</Link>
           <span style={{ color: 'var(--muted)' }}>/</span>
           <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{companyName}</span>
         </div>
