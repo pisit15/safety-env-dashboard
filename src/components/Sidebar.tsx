@@ -135,13 +135,12 @@ export default function Sidebar() {
               {auth.isAdmin && <div className="mx-3 mb-3 h-px" style={{ background: 'var(--border)' }} />}
               <p className="text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2"
                 style={{ color: 'var(--muted)' }}>
-                {auth.isAdmin ? 'บริษัท' : 'บริษัทของฉัน'}
+                บริษัท
               </p>
             </>
           )}
           <div className="space-y-0.5">
             {activeCompanies
-              .filter(c => auth.isAdmin || loggedInCompanyIds.includes(c.id))
               .map((c) => {
                 const isActive = pathname === `/company/${c.id}`;
                 return (
