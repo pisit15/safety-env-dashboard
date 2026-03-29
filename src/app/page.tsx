@@ -107,28 +107,6 @@ export default function HomePage() {
       .catch(() => {});
   }, [auth.isAdmin]);
 
-  // Admin login gate
-  if (!auth.isAdmin) {
-    return (
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 p-8 flex items-center justify-center">
-          <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center" style={{ backdropFilter: 'blur(40px)' }}>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--info) 100%)' }}>
-              <Key size={24} color="white" />
-            </div>
-            <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ Admin</h2>
-            <p className="text-[13px] mb-5" style={{ color: 'var(--muted)' }}>
-              หน้า Home สำหรับ Admin เท่านั้น
-            </p>
-            <AdminLoginForm />
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -143,6 +121,20 @@ export default function HomePage() {
             ศูนย์รวมระบบบริหารจัดการความปลอดภัยและสิ่งแวดล้อม — EA Group 2026
           </p>
         </div>
+
+        {/* Admin Section: Quick Stats + Project Cards */}
+        {!auth.isAdmin && (
+          <div className="glass-card rounded-xl p-5 mb-8 animate-fade-in-up flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(255,149,0,0.1)' }}>
+              <Key size={20} style={{ color: '#ff9500' }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ Admin เพื่อดูภาพรวมโครงการทั้งหมด</p>
+              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เลือกบริษัทด้านล่างเพื่อเข้าสู่หน้าจัดการ</p>
+            </div>
+          </div>
+        )}
 
         {/* Quick Stats */}
         {stats && (
@@ -186,7 +178,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Project Cards */}
+        {/* Project Cards — Admin only */}
+        {auth.isAdmin && (<>
         <div className="mb-4">
           <h2 className="text-[15px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             โครงการทั้งหมด
@@ -233,8 +226,9 @@ export default function HomePage() {
             );
           })}
         </div>
+        </>)}
 
-        {/* Company List */}
+        {/* Company List — visible to ALL users */}
         <div className="mt-10 mb-4 animate-fade-in-up">
           <h2 className="text-[15px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             <Building2 size={16} className="inline mr-1.5" style={{ color: 'var(--accent)' }} />
