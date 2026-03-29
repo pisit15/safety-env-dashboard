@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, Clock, AlertCircle, DollarSign } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
@@ -793,131 +793,7 @@ export default function CompanyDrilldown() {
               <KPICard label="งบประมาณ" value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext="บาท" />
             </div>
 
-            {/* Budget breakdown + Responsible + Deadline — 3 columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 animate-fade-in-up">
-              {/* Budget Breakdown */}
-              <div className="glass-card rounded-xl p-5">
-                <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
-                  <DollarSign size={14} /> งบประมาณ
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[12px]" style={{ color: 'var(--muted)' }}>รวมทั้งหมด</span>
-                    <span className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                      {(effectiveSummary?.budget || 0).toLocaleString()} ฿
-                    </span>
-                  </div>
-                  {planType === 'total' && effectiveSummary?.safetyBudget !== undefined && (
-                    <>
-                      <div className="h-px" style={{ background: 'var(--border)' }} />
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(255,149,0,0.8)' }}></span>
-                          <span style={{ color: 'var(--text-secondary)' }}>Safety</span>
-                        </span>
-                        <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {(effectiveSummary.safetyBudget || 0).toLocaleString()} ฿
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(52,199,89,0.8)' }}></span>
-                          <span style={{ color: 'var(--text-secondary)' }}>Environment</span>
-                        </span>
-                        <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {(effectiveSummary.enviBudget || 0).toLocaleString()} ฿
-                        </span>
-                      </div>
-                      {/* Stacked bar */}
-                      <div className="flex h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
-                        {effectiveSummary.budget > 0 && (
-                          <>
-                            <div style={{ width: `${((effectiveSummary.safetyBudget || 0) / effectiveSummary.budget) * 100}%`, background: 'rgba(255,149,0,0.8)' }} />
-                            <div style={{ width: `${((effectiveSummary.enviBudget || 0) / effectiveSummary.budget) * 100}%`, background: 'rgba(52,199,89,0.8)' }} />
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Responsible Summary */}
-              <div className="glass-card rounded-xl p-5">
-                <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--info)' }}>
-                  <Users size={14} /> ผู้รับผิดชอบกิจกรรม
-                </h3>
-                <div className="space-y-2 max-h-[160px] overflow-y-auto">
-                  {(() => {
-                    const respMap: Record<string, number> = {};
-                    activities.forEach(act => {
-                      const name = getEffectiveResponsible(act as Activity & { _planTag?: string }).trim() || 'ไม่ระบุ';
-                      respMap[name] = (respMap[name] || 0) + 1;
-                    });
-                    const sorted = Object.entries(respMap).sort((a, b) => b[1] - a[1]);
-                    if (sorted.length === 0) return <p className="text-[12px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูล</p>;
-                    return sorted.map(([name, count]) => (
-                      <div key={name} className="flex items-center justify-between">
-                        <span className="text-[12px] truncate flex-1 mr-2" style={{ color: 'var(--text-secondary)' }}>{name}</span>
-                        <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
-                          {count} กิจกรรม
-                        </span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
-
-              {/* Upcoming Deadline / Overdue Activities */}
-              <div className="glass-card rounded-xl p-5">
-                <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--warning)' }}>
-                  <Clock size={14} /> กิจกรรมเดือนนี้
-                </h3>
-                <div className="space-y-2 max-h-[160px] overflow-y-auto">
-                  {(() => {
-                    const currentMonthKey = MONTH_KEYS[new Date().getMonth()];
-                    const thisMonthActs = activities.filter(act => {
-                      const status = getEffectiveStatus(act, currentMonthKey);
-                      return status !== 'not_planned';
-                    });
-                    if (thisMonthActs.length === 0) return <p className="text-[12px]" style={{ color: 'var(--muted)' }}>ไม่มีกิจกรรมเดือนนี้</p>;
-
-                    const overdueActs = thisMonthActs.filter(act => {
-                      const s = getEffectiveStatus(act, currentMonthKey);
-                      return s === 'planned' || s === 'overdue';
-                    });
-                    const doneActs = thisMonthActs.filter(act => {
-                      const s = getEffectiveStatus(act, currentMonthKey);
-                      return s === 'done' || s === 'not_applicable';
-                    });
-
-                    return (
-                      <>
-                        {overdueActs.length > 0 && (
-                          <div className="flex items-center gap-2 mb-1">
-                            <AlertCircle size={13} style={{ color: 'var(--warning)' }} />
-                            <span className="text-[12px] font-semibold" style={{ color: 'var(--warning)' }}>
-                              ยังไม่เสร็จ {overdueActs.length} กิจกรรม
-                            </span>
-                          </div>
-                        )}
-                        {overdueActs.slice(0, 5).map(act => (
-                          <div key={`${(act as any)._planTag || ''}${act.no}`} className="text-[11px] pl-5 py-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
-                            <span className="font-medium" style={{ color: 'var(--warning)' }}>○</span> {act.no}. {act.activity}
-                          </div>
-                        ))}
-                        {overdueActs.length > 5 && (
-                          <p className="text-[11px] pl-5" style={{ color: 'var(--muted)' }}>+{overdueActs.length - 5} กิจกรรม</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[12px]" style={{ color: 'var(--success)' }}>✓ เสร็จแล้ว {doneActs.length} / {thisMonthActs.length}</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
+            {/* Budget + Responsible moved to bottom — Total mode only */}
 
             {/* Monthly Progress */}
             {effectiveMonthlyProgress && effectiveMonthlyProgress.length > 0 && (
@@ -1121,6 +997,84 @@ export default function CompanyDrilldown() {
             </div>
             </>}
           </>
+        )}
+
+        {/* Budget + Responsible Summary — Total mode only, at bottom */}
+        {planType === 'total' && effectiveSummary && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 animate-fade-in-up">
+            {/* Budget Breakdown */}
+            <div className="glass-card rounded-xl p-5">
+              <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
+                <DollarSign size={14} /> งบประมาณ
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px]" style={{ color: 'var(--muted)' }}>รวมทั้งหมด</span>
+                  <span className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {(effectiveSummary.budget || 0).toLocaleString()} ฿
+                  </span>
+                </div>
+                {effectiveSummary.safetyBudget !== undefined && (
+                  <>
+                    <div className="h-px" style={{ background: 'var(--border)' }} />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(255,149,0,0.8)' }}></span>
+                        <span style={{ color: 'var(--text-secondary)' }}>Safety</span>
+                      </span>
+                      <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {(effectiveSummary.safetyBudget || 0).toLocaleString()} ฿
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(52,199,89,0.8)' }}></span>
+                        <span style={{ color: 'var(--text-secondary)' }}>Environment</span>
+                      </span>
+                      <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {(effectiveSummary.enviBudget || 0).toLocaleString()} ฿
+                      </span>
+                    </div>
+                    {/* Stacked bar */}
+                    <div className="flex h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+                      {effectiveSummary.budget > 0 && (
+                        <>
+                          <div style={{ width: `${((effectiveSummary.safetyBudget || 0) / effectiveSummary.budget) * 100}%`, background: 'rgba(255,149,0,0.8)' }} />
+                          <div style={{ width: `${((effectiveSummary.enviBudget || 0) / effectiveSummary.budget) * 100}%`, background: 'rgba(52,199,89,0.8)' }} />
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Responsible Summary */}
+            <div className="glass-card rounded-xl p-5">
+              <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--info)' }}>
+                <Users size={14} /> ผู้รับผิดชอบกิจกรรม
+              </h3>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {(() => {
+                  const respMap: Record<string, number> = {};
+                  activities.forEach(act => {
+                    const name = getEffectiveResponsible(act as Activity & { _planTag?: string }).trim() || 'ไม่ระบุ';
+                    respMap[name] = (respMap[name] || 0) + 1;
+                  });
+                  const sorted = Object.entries(respMap).sort((a, b) => b[1] - a[1]);
+                  if (sorted.length === 0) return <p className="text-[12px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูล</p>;
+                  return sorted.map(([name, count]) => (
+                    <div key={name} className="flex items-center justify-between">
+                      <span className="text-[12px] truncate flex-1 mr-2" style={{ color: 'var(--text-secondary)' }}>{name}</span>
+                      <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
+                        {count} กิจกรรม
+                      </span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Login Modal */}

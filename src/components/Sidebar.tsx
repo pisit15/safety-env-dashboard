@@ -154,7 +154,8 @@ export default function Sidebar() {
           </>
         )}
 
-        {/* Company links */}
+        {/* Company links — show only for Admin and non-logged-in users */}
+        {(auth.isAdmin || loggedInCompanyIds.length === 0) && (
         <div className={`${auth.isAdmin ? 'mt-4 pt-3' : ''}`}>
           {!collapsed && (
             <>
@@ -187,6 +188,7 @@ export default function Sidebar() {
               })}
           </div>
         </div>
+        )}
 
         {/* Management section — Admin only */}
         {auth.isAdmin && (
