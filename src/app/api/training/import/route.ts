@@ -136,22 +136,10 @@ function getCellNumber(cell: ExcelJS.Cell | undefined): number {
 function parseTrainingSheet(ws: ExcelJS.Worksheet): ParsedCourse[] {
   const courses: ParsedCourse[] = [];
 
-  // Find the header row - look for "No." or "ลำดับ" in column B
+  // === Strategy: Find header row by scanning for "No." column ===
   let headerRow = 0;
   let noCol = 0;
-  let categoryCol = 0;
-  let inHouseCol = 0;
-  let courseNameCol = 0;
-  let necessityCol = 0;
-  let hoursCol = 0;
-  let participantsCol = 0;
-  let totalHoursCol = 0;
-  let targetGroupCol = 0;
-  let totalCostCol = 0;
-  let remarksCol = 0;
-  let monthStartCol = 0; // Column where Jan starts (has sub-columns)
 
-  // Scan first 10 rows to find header
   for (let r = 1; r <= 10; r++) {
     const row = ws.getRow(r);
     for (let c = 1; c <= 50; c++) {
@@ -165,16 +153,15 @@ function parseTrainingSheet(ws: ExcelJS.Worksheet): ParsedCourse[] {
     if (headerRow > 0) break;
   }
 
+  // Fallback: look for "ชื่อหลักสูตร"
   if (headerRow === 0) {
-    // Try alternative: look for "ชื่อหลักสูตร"
     for (let r = 1; r <= 10; r++) {
       const row = ws.getRow(r);
       for (let c = 1; c <= 50; c++) {
         const val = getCellValue(row.getCell(c)).trim();
         if (val.includes('ชื่อหลักสูตร')) {
           headerRow = r;
-          courseNameCol = c;
-          noCol = c - 3; // Usually 3 cols before
+          noCol = c - 3;
           break;
         }
       }
@@ -184,29 +171,45 @@ function parseTrainingSheet(ws: ExcelJS.Worksheet): ParsedCourse[] {
 
   if (headerRow === 0) return courses;
 
-  // Map columns from header row
+  // === Map columns from header row ===
+  let categoryCol = 0, inHouseCol = 0, courseNameCol = 0, necessityCol = 0;
+  let hoursCol = 0, participantsCol = 0, totalHoursCol = 0;
+  let targetGroupCol = 0, totalCostCol = 0, remarksCol = 0;
+
   const hRow = ws.getRow(headerRow);
   for (let c = 1; c <= 50; c++) {
-    const val = getCellValue(hRow.getCell(c)).trim().toLowerCase();
+    const raw = getCellValue(hRow.getCell(c)).trim();
+    const val = raw.toLowerCase();
     if (val.includes('หมวด') || val.includes('category')) categoryCol = c;
     if (val.includes('in-house') || val.includes('external')) inHouseCol = c;
-    if (val.includes('ชื่อหลักสูตร') || val.includes('course')) courseNameCol = c;
+    if (val.includes('ชื่อหลักสูตร') || val === 'course name') courseNameCol = c;
     if (val.includes('ความจำเป็น') || val.includes('necessity')) necessityCol = c;
-    if ((val.includes('ชั่วโมง') || val.includes('hour')) && !val.includes('รวม') && hoursCol === 0) hoursCol = c;
-    if ((val.includes('คน') || val.includes('person')) && participantsCol === 0) participantsCol = c;
-    if (val.includes('รวม') && val.includes('ชั่วโมง')) totalHoursCol = c;
+    if ((val.includes('จำนวน') && val.includes('ชั่วโมง')) || (val.includes('hour') && !val.includes('รวม'))) {
+      if (hoursCol === 0) hoursCol = c;
+    }
+    if ((val.includes('จำนวน') && val.includes('คน')) || val.includes('person')) {
+      if (participantsCol === 0) participantsCol = c;
+    }
+    if ((val.includes('รวม') && val.includes('ชั่วโมง')) || val === 'total hours') totalHoursCol = c;
     if (val.includes('กลุ่มเป้าหมาย') || val.includes('target')) targetGroupCol = c;
-    if (val.includes('ค่าใช้จ่าย') || val.includes('cost') || val.includes('รวมค่า')) totalCostCol = c;
+    if (val.includes('รวมค่าใช้จ่าย') || val === 'total cost') totalCostCol = c;
     if (val.includes('หมายเหตุ') || val.includes('remark')) remarksCol = c;
+    // Also detect budget header that spans month columns
+    if (val.includes('งบประมาณ') || val.includes('budget')) {
+      // The first month column is often this column or nearby
+    }
   }
 
-  // Find month columns: look for Jan/Feb/Mar etc. in header or sub-header
-  const monthRow = headerRow + 1; // Often months are one row below
-  for (let r = headerRow; r <= headerRow + 2; r++) {
+  // === Find month start column ===
+  // Look for "Jan" / "ม.ค." in rows headerRow to headerRow+4
+  let monthStartCol = 0;
+  let monthSpacing = 3; // Default: 3 sub-columns per month (1*ค่าบริการ, 2*ค่าอุปกรณ์, 3*ค่าอื่นๆ)
+
+  for (let r = headerRow; r <= Math.min(headerRow + 4, ws.rowCount); r++) {
     const row = ws.getRow(r);
     for (let c = 1; c <= 50; c++) {
       const val = getCellValue(row.getCell(c)).trim().toLowerCase();
-      if ((val === 'jan' || val === 'ม.ค.' || val === 'ม.ค') && monthStartCol === 0) {
+      if ((val === 'jan' || val === 'ม.ค.' || val === 'ม.ค' || val === 'january') && monthStartCol === 0) {
         monthStartCol = c;
         break;
       }
@@ -214,26 +217,38 @@ function parseTrainingSheet(ws: ExcelJS.Worksheet): ParsedCourse[] {
     if (monthStartCol > 0) break;
   }
 
-  // Determine column spacing for months (usually 3 sub-columns per month)
-  let monthSpacing = 3;
+  // Detect month spacing by finding "Feb"
   if (monthStartCol > 0) {
-    // Check if next month is 2 or 3 columns away
-    for (let spacing = 1; spacing <= 4; spacing++) {
+    for (let spacing = 1; spacing <= 5; spacing++) {
       const checkCol = monthStartCol + spacing;
-      for (let r = headerRow; r <= headerRow + 2; r++) {
+      for (let r = headerRow; r <= Math.min(headerRow + 4, ws.rowCount); r++) {
         const val = getCellValue(ws.getRow(r).getCell(checkCol)).trim().toLowerCase();
-        if (val === 'feb' || val === 'ก.พ.' || val === 'ก.พ') {
+        if (val === 'feb' || val === 'ก.พ.' || val === 'ก.พ' || val === 'february') {
           monthSpacing = spacing;
           break;
         }
       }
-      if (monthSpacing !== 3) break;
+      if (monthSpacing !== 3 || spacing === 3) break;
     }
   }
 
-  // Parse data rows
+  // === Find the first actual data row ===
+  // Data rows have a numeric value in the No. column (skip month/sub-header rows)
+  let dataStartRow = headerRow + 1;
+  for (let r = headerRow + 1; r <= Math.min(headerRow + 10, ws.rowCount); r++) {
+    const noVal = getCellValue(ws.getRow(r).getCell(noCol)).trim();
+    const num = parseFloat(noVal);
+    if (!isNaN(num) && num >= 1) {
+      dataStartRow = r;
+      break;
+    }
+  }
+
+  // === Parse data rows ===
   let courseNo = 0;
-  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+  let lastCategory = '';
+
+  for (let r = dataStartRow; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     const noVal = getCellValue(row.getCell(noCol)).trim();
     const courseName = getCellValue(row.getCell(courseNameCol)).trim()
@@ -242,38 +257,47 @@ function parseTrainingSheet(ws: ExcelJS.Worksheet): ParsedCourse[] {
     if (!courseName || courseName.length < 3) continue;
 
     // Skip summary/total rows
-    if (courseName.includes('รวม') || courseName.includes('Total') || courseName.includes('total')) continue;
+    if (courseName.includes('รวมทั้งหมด') || courseName.includes('Total') ||
+        (courseName.includes('รวม') && courseName.length < 10)) continue;
 
     courseNo++;
     const numNo = parseInt(noVal) || courseNo;
-    const category = getCellValue(row.getCell(categoryCol)).trim();
-    const inHouse = getCellValue(row.getCell(inHouseCol)).trim();
+
+    // Category may be merged cells - carry forward from last row
+    const rawCategory = categoryCol > 0 ? getCellValue(row.getCell(categoryCol)).trim() : '';
+    if (rawCategory) lastCategory = rawCategory;
+    const category = rawCategory || lastCategory;
+
+    const inHouse = inHouseCol > 0 ? getCellValue(row.getCell(inHouseCol)).trim() : '';
     const necessity = necessityCol > 0 ? getCellValue(row.getCell(necessityCol)).trim() : '';
-    const hours = getCellNumber(row.getCell(hoursCol));
-    const participants = getCellNumber(row.getCell(participantsCol));
+    const hours = hoursCol > 0 ? getCellNumber(row.getCell(hoursCol)) : 0;
+    const participants = participantsCol > 0 ? getCellNumber(row.getCell(participantsCol)) : 0;
     const totalHours = totalHoursCol > 0 ? getCellNumber(row.getCell(totalHoursCol)) : hours * participants;
     const targetGroup = targetGroupCol > 0 ? getCellValue(row.getCell(targetGroupCol)).trim() : '';
     const totalCost = totalCostCol > 0 ? getCellNumber(row.getCell(totalCostCol)) : 0;
     const remarks = remarksCol > 0 ? getCellValue(row.getCell(remarksCol)).trim() : '';
 
-    // Determine planned month from month columns
+    // === Determine planned month(s) from month columns ===
+    // Each month has `monthSpacing` sub-columns (e.g. 3: ค่าบริการ/ค่าอุปกรณ์/ค่าอื่นๆ)
+    // Find the FIRST month that has any numeric budget value > 0
     let plannedMonth = 0;
+    const monthBudgets: number[] = []; // Budget per month for reference
+
     if (monthStartCol > 0) {
       for (let m = 0; m < 12; m++) {
         const mCol = monthStartCol + (m * monthSpacing);
-        // Check the month column and its sub-columns for any value
+        let monthTotal = 0;
         for (let sub = 0; sub < monthSpacing; sub++) {
           const cellVal = getCellNumber(row.getCell(mCol + sub));
-          if (cellVal > 0) {
-            plannedMonth = m + 1;
-            break;
-          }
+          if (cellVal > 0) monthTotal += cellVal;
         }
-        if (plannedMonth > 0) break;
+        monthBudgets.push(monthTotal);
+        if (monthTotal > 0 && plannedMonth === 0) {
+          plannedMonth = m + 1; // First month with budget = planned month
+        }
       }
     }
 
-    // If no month found from columns, default to 0 (unscheduled)
     courses.push({
       course_no: numNo,
       category,
