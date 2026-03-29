@@ -100,9 +100,8 @@ export default function HomePage() {
     localStorage.setItem('dashboard_year', String(selectedYear));
   }, [selectedYear]);
 
-  // Fetch quick stats from action-plan dashboard
+  // Fetch quick stats from action-plan dashboard (for all users)
   useEffect(() => {
-    if (!auth.isAdmin) return;
     fetch(`/api/dashboard?plan=total&year=${selectedYear}`)
       .then(r => r.json())
       .then(data => {
@@ -116,7 +115,7 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
-  }, [auth.isAdmin, selectedYear]);
+  }, [selectedYear]);
 
   return (
     <div className="flex min-h-screen">
@@ -218,14 +217,13 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Project Cards — Admin only */}
-        {auth.isAdmin && (<>
+        {/* Project Cards — visible to all users */}
         <div className="mb-4">
           <h2 className="text-[15px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             โครงการทั้งหมด
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in-up">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 animate-fade-in-up">
           {PROJECTS.map((project) => {
             const Icon = project.icon;
             const isActive = project.status === 'active';
@@ -266,7 +264,6 @@ export default function HomePage() {
             );
           })}
         </div>
-        </>)}
 
         {/* Company List — visible to ALL users */}
         <div className="mt-10 mb-4 animate-fade-in-up">

@@ -147,8 +147,8 @@ export default function AdminPage() {
         setCurrentAdminRole(data.role || 'admin');
         sessionStorage.setItem('admin_auth', JSON.stringify({ loggedIn: true, name: data.adminName || 'Admin', role: data.role || 'admin' }));
         setAdminUsername(''); setAdminPassword('');
-        // Redirect to homepage (HQ Overview)
-        router.push('/');
+        // Full page redirect so AuthContext re-reads sessionStorage
+        window.location.href = '/';
         return;
       } else {
         setAdminLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
