@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { useAuth } from '@/components/AuthContext';
-// Companies list removed from sidebar — navigate via Home
+import { COMPANIES } from '@/lib/companies';
 import {
   Shield,
   ClipboardList,
@@ -24,13 +24,14 @@ import {
   Home,
 } from 'lucide-react';
 
+// ready: true = all companies, 'hasSheet' = only with Google Sheet, false = not yet
 const PROJECTS = [
-  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan' },
-  { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training' },
-  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents' },
-  { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol' },
-  { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk' },
-  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/nearmiss', companyPath: '/nearmiss' },
+  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' as const },
+  { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training', ready: true as const },
+  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: false as const },
+  { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
+  { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
+  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/nearmiss', companyPath: '/nearmiss', ready: false as const },
 ];
 
 export default function Sidebar() {
@@ -123,27 +124,46 @@ export default function Sidebar() {
               {PROJECTS.map((p) => {
                 // Determine the link target
                 const companyForLinks = auth.isAdmin ? null : (currentCompanyId || loggedInCompanyIds[0]);
-                const href = auth.isAdmin
-                  ? p.hqHref
-                  : companyForLinks ? `/company/${companyForLinks}${p.companyPath}` : '#';
+                const currentCompany = companyForLinks ? COMPANIES.find(c => c.id === companyForLinks) : null;
+
+                // Resolve ready state for this company
+                const isReady = auth.isAdmin
+                  ? true // Admin always sees all HQ links
+                  : p.ready === 'hasSheet' ? !!(currentCompany?.sheetId) : p.ready;
+
+                const href = isReady
+                  ? (auth.isAdmin ? p.hqHref : companyForLinks ? `/company/${companyForLinks}${p.companyPath}` : '#')
+                  : '#';
                 const isActive = auth.isAdmin
                   ? (pathname === p.hqHref || pathname.startsWith(p.hqHref + '/'))
                   : companyForLinks ? pathname === `/company/${companyForLinks}${p.companyPath}` : false;
                 const Icon = p.icon;
-                return (
-                  <Link key={p.id} href={href}>
-                    <div
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
-                      style={{
-                        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                        fontWeight: isActive ? 600 : 400,
-                        background: isActive ? 'var(--accent-glow)' : 'transparent',
-                      }}
-                    >
-                      <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
-                      {!collapsed && <span className="truncate">{p.label}</span>}
-                    </div>
-                  </Link>
+
+                const content = (
+                  <div
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
+                    style={{
+                      color: !isReady ? 'var(--muted)' : isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      fontWeight: isActive ? 600 : 400,
+                      background: isActive ? 'var(--accent-glow)' : 'transparent',
+                      cursor: isReady ? 'pointer' : 'default',
+                      opacity: isReady ? 1 : 0.5,
+                    }}
+                  >
+                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
+                    {!collapsed && (
+                      <span className="truncate">{p.label}</span>
+                    )}
+                    {!collapsed && !isReady && (
+                      <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 'auto' }}>เร็วๆ นี้</span>
+                    )}
+                  </div>
+                );
+
+                return isReady ? (
+                  <Link key={p.id} href={href}>{content}</Link>
+                ) : (
+                  <div key={p.id}>{content}</div>
                 );
               })}
             </div>
