@@ -57,7 +57,9 @@ export default function CompanyDrilldown() {
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginCompanyName, setLoginCompanyName] = useState('');
+  const [loginDisplayName, setLoginDisplayName] = useState('');
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
@@ -111,6 +113,7 @@ export default function CompanyDrilldown() {
       const parsed = JSON.parse(saved);
       setIsLoggedIn(true);
       setLoginCompanyName(parsed.companyName);
+      setLoginDisplayName(parsed.displayName || parsed.companyName);
     }
   }, [companyId]);
 
@@ -385,14 +388,16 @@ export default function CompanyDrilldown() {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, password: loginPassword }),
+        body: JSON.stringify({ companyId, username: loginUsername, password: loginPassword }),
       });
       const data = await res.json();
       if (data.success) {
         setIsLoggedIn(true);
         setLoginCompanyName(data.companyName);
+        setLoginDisplayName(data.displayName || data.companyName);
         sessionStorage.setItem(`auth_${companyId}`, JSON.stringify(data));
         setShowLoginModal(false);
+        setLoginUsername('');
         setLoginPassword('');
       } else {
         setLoginError(data.error || 'รหัสผ่านไม่ถูกต้อง');
@@ -416,7 +421,7 @@ export default function CompanyDrilldown() {
           activityNo: editingCell.actNo,
           month: editingCell.month,
           status: newStatus,
-          updatedBy: loginCompanyName,
+          updatedBy: loginDisplayName || loginCompanyName,
         }),
       });
       // Update local state
@@ -503,7 +508,7 @@ export default function CompanyDrilldown() {
           planType,
           activityNo: editingResponsible.actNo,
           responsible: newResponsible.trim(),
-          updatedBy: loginCompanyName,
+          updatedBy: loginDisplayName || loginCompanyName,
         }),
       });
       setResponsibleOverrides(prev => ({
@@ -589,7 +594,7 @@ export default function CompanyDrilldown() {
       formData.append('planType', planType);
       formData.append('activityNo', editingCell.actNo);
       formData.append('month', editingCell.month);
-      formData.append('uploadedBy', loginCompanyName);
+      formData.append('uploadedBy', loginDisplayName || loginCompanyName);
 
       const res = await fetch('/api/attachments', {
         method: 'POST',
@@ -622,7 +627,7 @@ export default function CompanyDrilldown() {
           activityNo: editingCell.actNo,
           month: editingCell.month,
           reason: editRequestReason.trim(),
-          requestedBy: loginCompanyName,
+          requestedBy: loginDisplayName || loginCompanyName,
         }),
       });
       const data = await res.json();
@@ -661,7 +666,7 @@ export default function CompanyDrilldown() {
             {/* Auth indicator */}
             {isLoggedIn ? (
               <span className="glass-card px-3 py-1.5 text-xs font-medium" style={{ color: 'var(--success)' }}>
-                ✓ {loginCompanyName}
+                ✓ {loginDisplayName || loginCompanyName}
               </span>
             ) : (
               <button
@@ -942,6 +947,15 @@ export default function CompanyDrilldown() {
               <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}><Key size={14} className="inline mr-1" /> เข้าสู่ระบบ</h3>
               <p className="text-[13px] mb-4" style={{ color: 'var(--text-secondary)' }}>กรอกรหัสผ่านของ <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{companyName}</span> เพื่อแก้ไขสถานะ</p>
               <input
+                type="text"
+                value={loginUsername}
+                onChange={e => setLoginUsername(e.target.value)}
+                placeholder="Username"
+                className="w-full px-3 py-2 rounded-lg text-sm mb-2 focus:outline-none"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                autoFocus
+              />
+              <input
                 type="password"
                 value={loginPassword}
                 onChange={e => setLoginPassword(e.target.value)}
@@ -949,7 +963,6 @@ export default function CompanyDrilldown() {
                 placeholder="รหัสผ่าน"
                 className="w-full px-3 py-2 rounded-lg text-sm mb-3 focus:outline-none"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                autoFocus
               />
               {loginError && <p style={{ color: 'var(--danger)' }} className="text-xs mb-3">{loginError}</p>}
               <div className="flex gap-2">

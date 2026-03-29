@@ -55,7 +55,7 @@ export default function AdminPage() {
   const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'admins'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -84,6 +84,23 @@ export default function AdminPage() {
   const [newAdminRole, setNewAdminRole] = useState('admin');
   const [adminSaving, setAdminSaving] = useState(false);
   const [editingAdminId, setEditingAdminId] = useState<number | null>(null);
+
+  // Company users state
+  interface CompanyUser {
+    id: number; company_id: string; username: string; password: string;
+    display_name: string; is_active: boolean; created_at: string; updated_at: string;
+  }
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([]);
+  const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [newUserCompanyId, setNewUserCompanyId] = useState('');
+  const [newUserUsername, setNewUserUsername] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserDisplayName, setNewUserDisplayName] = useState('');
+  const [userSaving, setUserSaving] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [editUserDisplayName, setEditUserDisplayName] = useState('');
+  const [userFilterCompany, setUserFilterCompany] = useState('all');
   const [editAdminPassword, setEditAdminPassword] = useState('');
 
   // Check admin session on mount
@@ -181,6 +198,13 @@ export default function AdminPage() {
       .catch(() => {});
   }, []);
 
+  const fetchCompanyUsers = useCallback(() => {
+    fetch('/api/company-users')
+      .then(r => r.json())
+      .then(d => setCompanyUsers(d.users || []))
+      .catch(() => {});
+  }, []);
+
   const fetchAdminAccounts = useCallback(() => {
     fetch('/api/admin-auth')
       .then(r => r.json())
@@ -194,8 +218,9 @@ export default function AdminPage() {
     if (activeTab === 'requests') fetchRequests();
     if (activeTab === 'deadlines') fetchDeadlines();
     if (activeTab === 'credentials') fetchCredentials();
+    if (activeTab === 'users') fetchCompanyUsers();
     if (activeTab === 'admins') fetchAdminAccounts();
-  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchAdminAccounts]);
+  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts]);
 
   const handleApproveReject = async (id: number, status: 'approved' | 'rejected') => {
     await fetch('/api/edit-requests', {
@@ -404,6 +429,7 @@ export default function AdminPage() {
             { key: 'requests', label: 'คำขอแก้ไข', minRole: 'viewer' },
             { key: 'deadlines', label: 'กำหนด Deadline', minRole: 'admin' },
             { key: 'credentials', label: 'จัดการบัญชี', minRole: 'super_admin' },
+            { key: 'users', label: 'ผู้ใช้บริษัท', minRole: 'super_admin' },
             { key: 'admins', label: 'จัดการ Admin', minRole: 'super_admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
           ].filter(tab => {
@@ -708,6 +734,170 @@ export default function AdminPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* COMPANY USERS TAB */}
+        {activeTab === 'users' && (
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>จัดการผู้ใช้บริษัท (Multi-User)</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <select value={userFilterCompany} onChange={e => setUserFilterCompany(e.target.value)}
+                  className="text-[11px] px-2 py-1.5 rounded-lg" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                  <option value="all">ทุกบริษัท</option>
+                  {COMPANIES.filter(c => c.sheetId).map(c => (
+                    <option key={c.id} value={c.id}>{c.shortName}</option>
+                  ))}
+                </select>
+                <button onClick={() => setShowNewUserForm(!showNewUserForm)}
+                  className="btn-primary text-[11px] px-3 py-1.5 rounded-lg font-medium">
+                  + เพิ่มผู้ใช้
+                </button>
+              </div>
+            </div>
+
+            {/* New user form */}
+            {showNewUserForm && (
+              <div className="rounded-xl p-4 mb-4" style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                  <select value={newUserCompanyId} onChange={e => setNewUserCompanyId(e.target.value)}
+                    className="text-[11px] px-2 py-2 rounded-lg" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                    <option value="">เลือกบริษัท...</option>
+                    {COMPANIES.filter(c => c.sheetId).map(c => (
+                      <option key={c.id} value={c.id}>{c.shortName}</option>
+                    ))}
+                  </select>
+                  <input type="text" value={newUserUsername} onChange={e => setNewUserUsername(e.target.value)}
+                    placeholder="Username" className="text-[11px] px-2 py-2 rounded-lg" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <input type="text" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)}
+                    placeholder="Password" className="text-[11px] px-2 py-2 rounded-lg" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <input type="text" value={newUserDisplayName} onChange={e => setNewUserDisplayName(e.target.value)}
+                    placeholder="ชื่อแสดง (Display Name)" className="text-[11px] px-2 py-2 rounded-lg" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                  <button disabled={userSaving || !newUserCompanyId || !newUserUsername || !newUserPassword}
+                    onClick={async () => {
+                      setUserSaving(true);
+                      const res = await fetch('/api/company-users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ companyId: newUserCompanyId, username: newUserUsername, password: newUserPassword, displayName: newUserDisplayName || newUserUsername }),
+                      });
+                      const d = await res.json();
+                      if (d.success) {
+                        setShowNewUserForm(false);
+                        setNewUserCompanyId(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserDisplayName('');
+                        fetchCompanyUsers();
+                      } else {
+                        alert(d.error || 'เกิดข้อผิดพลาด');
+                      }
+                      setUserSaving(false);
+                    }}
+                    className="btn-primary text-[11px] px-3 py-2 rounded-lg font-medium">
+                    {userSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Users table */}
+            {companyUsers.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีผู้ใช้ — กรุณา run SQL migration สร้างตาราง company_users ก่อน</p>
+                <p className="text-[11px] mt-2" style={{ color: 'var(--muted)' }}>หรือกด &quot;+ เพิ่มผู้ใช้&quot; เพื่อสร้าง</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="apple-table">
+                  <thead>
+                    <tr>
+                      <th className="py-2 px-3 text-left text-[11px]">บริษัท</th>
+                      <th className="py-2 px-3 text-left text-[11px]">Username</th>
+                      <th className="py-2 px-3 text-left text-[11px]">ชื่อแสดง</th>
+                      <th className="py-2 px-3 text-left text-[11px]">Password</th>
+                      <th className="py-2 px-3 text-center text-[11px]">สถานะ</th>
+                      <th className="py-2 px-3 text-center text-[11px]">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {companyUsers
+                      .filter(u => userFilterCompany === 'all' || u.company_id === userFilterCompany)
+                      .map(u => (
+                      <tr key={u.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-3 px-3 font-medium text-[12px]" style={{ color: 'var(--text-primary)' }}>{u.company_id.toUpperCase()}</td>
+                        <td className="py-3 px-3 text-[12px]" style={{ color: 'var(--text-secondary)' }}>{u.username}</td>
+                        <td className="py-3 px-3 text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                          {editingUserId === u.id ? (
+                            <input type="text" value={editUserDisplayName} onChange={e => setEditUserDisplayName(e.target.value)}
+                              className="px-2 py-1 bg-transparent border rounded text-[11px] w-28" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }} />
+                          ) : u.display_name}
+                        </td>
+                        <td className="py-3 px-3 text-[12px]">
+                          {editingUserId === u.id ? (
+                            <input type="text" value={editUserPassword} onChange={e => setEditUserPassword(e.target.value)}
+                              className="px-2 py-1 bg-transparent border rounded text-[11px] w-28" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }} />
+                          ) : (
+                            <code className="text-[11px] px-2 py-0.5 rounded" style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}>{u.password}</code>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <button onClick={async () => {
+                            await fetch('/api/company-users', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: u.id, isActive: !u.is_active }),
+                            });
+                            fetchCompanyUsers();
+                          }}
+                            className="text-[11px] px-2 py-0.5 rounded-full cursor-pointer" style={{
+                              background: u.is_active ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)',
+                              color: u.is_active ? '#30d158' : '#ff453a'
+                            }}>
+                            {u.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                          </button>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {editingUserId === u.id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={async () => {
+                                await fetch('/api/company-users', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ id: u.id, password: editUserPassword, displayName: editUserDisplayName }),
+                                });
+                                setEditingUserId(null);
+                                fetchCompanyUsers();
+                              }} className="text-[11px]" style={{ color: 'var(--success)' }}>บันทึก</button>
+                              <button onClick={() => setEditingUserId(null)} className="text-[11px]" style={{ color: 'var(--muted)' }}>ยกเลิก</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => { setEditingUserId(u.id); setEditUserPassword(u.password); setEditUserDisplayName(u.display_name); }}
+                                className="text-[11px]" style={{ color: 'var(--accent)' }}>แก้ไข</button>
+                              <button onClick={async () => {
+                                if (!confirm(`ลบผู้ใช้ "${u.display_name}" (${u.username}) จริงหรือ?`)) return;
+                                await fetch(`/api/company-users?id=${u.id}`, { method: 'DELETE' });
+                                fetchCompanyUsers();
+                              }} className="text-[11px]" style={{ color: 'var(--danger)' }}>ลบ</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="mt-4 flex gap-4 text-[11px]" style={{ color: 'var(--muted)' }}>
+              <span>รวม {companyUsers.filter(u => userFilterCompany === 'all' || u.company_id === userFilterCompany).length} ผู้ใช้</span>
+              {userFilterCompany === 'all' && (
+                <span>({Array.from(new Set(companyUsers.map(u => u.company_id))).length} บริษัท)</span>
+              )}
+            </div>
           </div>
         )}
 
