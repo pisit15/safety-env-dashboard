@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
@@ -46,15 +46,24 @@ export default function CompanyDrilldown() {
     }
     return 'total';
   });
+  const [timeRange, setTimeRange] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('company_timeRange') || 'year';
+    }
+    return 'year';
+  });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Persist planType to localStorage
+  // Persist planType and timeRange to localStorage
   useEffect(() => {
     localStorage.setItem('company_planType', planType);
   }, [planType]);
+  useEffect(() => {
+    localStorage.setItem('company_timeRange', timeRange);
+  }, [timeRange]);
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -341,15 +350,23 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, statusFilter, sortMonth, overrides]);
 
-  // Recalculate KPI summary including overrides
+  // Determine which months to include based on timeRange
+  const activeMonthKeys = useMemo(() => {
+    if (timeRange === 'year') return MONTH_KEYS;
+    if (timeRange === 'ytd') return MONTH_KEYS.slice(0, currentMonthIdx + 1);
+    const idx = MONTH_KEYS.indexOf(timeRange);
+    return idx >= 0 ? [MONTH_KEYS[idx]] : MONTH_KEYS;
+  }, [timeRange, currentMonthIdx]);
+
+  // Recalculate KPI summary including overrides, filtered by timeRange
   // KPI uses month-slot counting (same as chart) — NOT unique activity counting
   const effectiveSummary = useMemo(() => {
     if (!summary || activities.length === 0) return summary;
 
     let totalPlanned = 0, totalDone = 0, totalNotApplicable = 0, totalPostponed = 0, totalCancelled = 0;
 
-    // Sum month-slots across all months (same counting as chart)
-    MONTH_KEYS.forEach(k => {
+    // Sum month-slots across selected months
+    activeMonthKeys.forEach(k => {
       activities.forEach(act => {
         const status = getEffectiveStatus(act, k);
         if (status === 'not_planned') return;
@@ -385,7 +402,7 @@ export default function CompanyDrilldown() {
       pctDone,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, overrides, summary]);
+  }, [activities, overrides, summary, activeMonthKeys]);
 
   // Count statuses
   const statusCounts = {
@@ -773,6 +790,50 @@ export default function CompanyDrilldown() {
           </div>
         </div>
 
+        {/* Time Range Selector */}
+        <div className="flex items-center gap-2 mb-5 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+          <Calendar size={14} style={{ color: 'var(--muted)' }} />
+          <span className="text-[12px] font-medium" style={{ color: 'var(--muted)' }}>ช่วงเวลา:</span>
+          <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+            {[
+              { key: 'year', label: 'ทั้งปี' },
+              { key: 'ytd', label: `ถึง ${MONTH_LABELS[currentMonthIdx]} (YTD)` },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setTimeRange(opt.key)}
+                className="px-3 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200"
+                style={timeRange === opt.key
+                  ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' }
+                  : { color: 'var(--muted)' }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <select
+            value={MONTH_KEYS.includes(timeRange) ? timeRange : ''}
+            onChange={(e) => e.target.value && setTimeRange(e.target.value)}
+            className="px-2 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200 cursor-pointer"
+            style={{
+              background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-tertiary)',
+              color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--muted)',
+              border: '1px solid var(--border)',
+              outline: 'none',
+            }}
+          >
+            <option value="" disabled>เลือกเดือน...</option>
+            {MONTH_LABELS.map((name, i) => (
+              <option key={MONTH_KEYS[i]} value={MONTH_KEYS[i]}>{name}</option>
+            ))}
+          </select>
+          {timeRange !== 'year' && (
+            <span className="text-[11px] px-2 py-1 rounded-md" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
+              {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
+            </span>
+          )}
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
@@ -1054,23 +1115,48 @@ export default function CompanyDrilldown() {
               <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--info)' }}>
                 <Users size={14} /> ผู้รับผิดชอบกิจกรรม
               </h3>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              <div className="space-y-2 max-h-[250px] overflow-y-auto">
                 {(() => {
-                  const respMap: Record<string, number> = {};
+                  const respMap: Record<string, { total: number; doneNA: number }> = {};
                   activities.forEach(act => {
                     const name = getEffectiveResponsible(act as Activity & { _planTag?: string }).trim() || 'ไม่ระบุ';
-                    respMap[name] = (respMap[name] || 0) + 1;
+                    if (!respMap[name]) respMap[name] = { total: 0, doneNA: 0 };
+                    // Count month-slots for this person within active time range
+                    activeMonthKeys.forEach(k => {
+                      const status = getEffectiveStatus(act, k);
+                      if (status === 'not_planned') return;
+                      respMap[name].total++;
+                      if (status === 'done' || status === 'not_applicable') {
+                        respMap[name].doneNA++;
+                      }
+                    });
                   });
-                  const sorted = Object.entries(respMap).sort((a, b) => b[1] - a[1]);
+                  const sorted = Object.entries(respMap).sort((a, b) => b[1].total - a[1].total);
                   if (sorted.length === 0) return <p className="text-[12px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูล</p>;
-                  return sorted.map(([name, count]) => (
-                    <div key={name} className="flex items-center justify-between">
-                      <span className="text-[12px] truncate flex-1 mr-2" style={{ color: 'var(--text-secondary)' }}>{name}</span>
-                      <span className="text-[12px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--accent-glow)', color: 'var(--accent)' }}>
-                        {count} กิจกรรม
-                      </span>
-                    </div>
-                  ));
+                  return sorted.map(([name, { total, doneNA }]) => {
+                    const pct = total > 0 ? Math.round((doneNA / total) * 100) : 0;
+                    return (
+                      <div key={name}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[12px] truncate flex-1 mr-2" style={{ color: 'var(--text-secondary)' }}>{name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px]" style={{ color: 'var(--success)' }}>
+                              {doneNA}/{total}
+                            </span>
+                            <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{
+                              background: pct >= 80 ? 'rgba(48,209,88,0.15)' : pct >= 50 ? 'rgba(255,149,0,0.15)' : 'rgba(255,67,54,0.1)',
+                              color: pct >= 80 ? 'var(--success)' : pct >= 50 ? '#ff9500' : 'var(--danger)',
+                            }}>
+                              {pct}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+                          <div style={{ width: `${pct}%`, background: pct >= 80 ? 'var(--success)' : pct >= 50 ? '#ff9500' : 'var(--danger)', transition: 'width 0.3s' }} />
+                        </div>
+                      </div>
+                    );
+                  });
                 })()}
               </div>
             </div>
