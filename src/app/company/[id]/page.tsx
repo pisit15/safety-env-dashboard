@@ -16,8 +16,9 @@ import {
   Building2,
 } from 'lucide-react';
 
+// ready can be: true (all companies), false (no company), or 'hasSheet' (only companies with Google Sheet)
 const PROJECTS = [
-  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, path: '/action-plan', ready: true },
+  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, path: '/action-plan', ready: 'hasSheet' as const },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, path: '/training', ready: true },
   { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, path: '/incidents', ready: false },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, path: '/safety-patrol', ready: false },
@@ -63,24 +64,26 @@ export default function CompanyDashboard() {
           {PROJECTS.map(p => {
             const Icon = p.icon;
             const href = `/company/${id}${p.path}`;
+            // Resolve ready state: 'hasSheet' means only ready if company has Google Sheet
+            const isReady = p.ready === 'hasSheet' ? !!(company?.sheetId) : p.ready;
             return (
-              <Link key={p.id} href={p.ready ? href : '#'}>
+              <Link key={p.id} href={isReady ? href : '#'}>
                 <div
-                  className={`glass-card rounded-xl p-5 transition-all duration-200 ${p.ready ? 'hover:scale-[1.02] cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+                  className={`glass-card rounded-xl p-5 transition-all duration-200 ${isReady ? 'hover:scale-[1.02] cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                   style={{ border: '1px solid var(--border)' }}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ background: p.ready ? 'var(--accent-glow)' : 'var(--bg-secondary)' }}>
-                      <Icon size={20} style={{ color: p.ready ? 'var(--accent)' : 'var(--muted)' }} />
+                      style={{ background: isReady ? 'var(--accent-glow)' : 'var(--bg-secondary)' }}>
+                      <Icon size={20} style={{ color: isReady ? 'var(--accent)' : 'var(--muted)' }} />
                     </div>
-                    {p.ready && <ArrowRight size={16} style={{ color: 'var(--accent)' }} />}
+                    {isReady && <ArrowRight size={16} style={{ color: 'var(--accent)' }} />}
                   </div>
                   <h3 className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                     {p.label}
                   </h3>
                   <p className="text-[12px]" style={{ color: 'var(--muted)' }}>
-                    {p.ready ? 'ใช้งานได้' : 'เร็วๆ นี้'}
+                    {isReady ? 'ใช้งานได้' : 'เร็วๆ นี้'}
                   </p>
                 </div>
               </Link>
