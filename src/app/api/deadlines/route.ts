@@ -18,6 +18,21 @@ export async function GET(request: NextRequest) {
   const planType = searchParams.get('planType');
   const activityNo = searchParams.get('activityNo');
 
+  // Check global deadline_enabled setting
+  let deadlineEnabled = true;
+  try {
+    const { data: settingsData } = await getSupabase()
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'deadline_enabled')
+      .single();
+    if (settingsData && settingsData.value === 'false') {
+      deadlineEnabled = false;
+    }
+  } catch {
+    // If table doesn't exist or error, default to enabled
+  }
+
   // Fetch all deadlines
   const { data: deadlines } = await getSupabase()
     .from('edit_deadlines')
@@ -26,7 +41,8 @@ export async function GET(request: NextRequest) {
 
   // If checking a specific month, determine if it's locked
   if (month && companyId) {
-    const isLocked = isMonthLocked(month, deadlines || []);
+    // If deadline system is globally disabled, nothing is locked
+    const isLocked = deadlineEnabled ? isMonthLocked(month, deadlines || []) : false;
 
     // If locked, check for approved edit request
     let hasApproval = false;
@@ -47,10 +63,11 @@ export async function GET(request: NextRequest) {
       deadlines: deadlines || [],
       isLocked,
       hasApproval,
+      deadlineEnabled,
     });
   }
 
-  return NextResponse.json({ deadlines: deadlines || [] });
+  return NextResponse.json({ deadlines: deadlines || [], deadlineEnabled });
 }
 
 // PUT - Update deadline (admin only)

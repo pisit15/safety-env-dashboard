@@ -64,6 +64,8 @@ export default function AdminPage() {
   const [auditFilter, setAuditFilter] = useState('all');
   const [requestFilter, setRequestFilter] = useState('pending');
   const [loading, setLoading] = useState(false);
+  const [deadlineEnabled, setDeadlineEnabled] = useState(true);
+  const [deadlineToggleLoading, setDeadlineToggleLoading] = useState(false);
 
   // New credential form
   const [showNewCredForm, setShowNewCredForm] = useState(false);
@@ -187,7 +189,19 @@ export default function AdminPage() {
   const fetchDeadlines = useCallback(() => {
     fetch('/api/deadlines')
       .then(r => r.json())
-      .then(d => setDeadlines(d.deadlines || []))
+      .then(d => {
+        setDeadlines(d.deadlines || []);
+        if (d.deadlineEnabled !== undefined) setDeadlineEnabled(d.deadlineEnabled);
+      })
+      .catch(() => {});
+    // Also fetch settings for the toggle
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => {
+        if (d.settings?.deadline_enabled !== undefined) {
+          setDeadlineEnabled(d.settings.deadline_enabled);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -238,6 +252,22 @@ export default function AdminPage() {
       body: JSON.stringify({ month, deadlineDay: day }),
     });
     fetchDeadlines();
+  };
+
+  const handleDeadlineToggle = async () => {
+    setDeadlineToggleLoading(true);
+    const newValue = !deadlineEnabled;
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'deadline_enabled', value: newValue }),
+      });
+      setDeadlineEnabled(newValue);
+    } catch {
+      // revert on error
+    }
+    setDeadlineToggleLoading(false);
   };
 
   // Credential CRUD
@@ -575,6 +605,39 @@ export default function AdminPage() {
         {/* DEADLINES TAB */}
         {activeTab === 'deadlines' && (
           <div className="glass-card p-5 animate-fade-in-up">
+            {/* Global Toggle */}
+            <div className="flex items-center justify-between mb-5 p-4 rounded-xl" style={{ background: deadlineEnabled ? 'rgba(48,209,88,0.08)' : 'rgba(255,69,58,0.08)', border: `1px solid ${deadlineEnabled ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)'}` }}>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    ระบบ Deadline
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-medium" style={{
+                    background: deadlineEnabled ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
+                    color: deadlineEnabled ? '#30d158' : '#ff453a'
+                  }}>
+                    {deadlineEnabled ? 'เปิดใช้งาน' : 'ปิดอยู่'}
+                  </span>
+                </div>
+                <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+                  {deadlineEnabled
+                    ? 'ระบบ deadline ทำงานอยู่ — บริษัทไม่สามารถแก้ไขข้อมูลหลังเส้นตายได้'
+                    : 'ระบบ deadline ปิดอยู่ — บริษัททุกแห่งสามารถแก้ไขข้อมูลย้อนหลังได้ทุกเดือน'}
+                </p>
+              </div>
+              <button
+                onClick={handleDeadlineToggle}
+                disabled={deadlineToggleLoading}
+                className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none"
+                style={{ background: deadlineEnabled ? '#30d158' : '#636366' }}
+              >
+                <span
+                  className="inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-300"
+                  style={{ transform: deadlineEnabled ? 'translateX(24px)' : 'translateX(4px)' }}
+                />
+              </button>
+            </div>
+
             <div className="flex items-center gap-2 mb-4">
               <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
               <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>กำหนดเส้นตายการแก้ไขรายเดือน</h3>
@@ -582,7 +645,7 @@ export default function AdminPage() {
             <p className="text-[11px] mb-4" style={{ color: 'var(--muted)' }}>
               กำหนดว่าแต่ละเดือนสามารถ update สถานะได้ภายในวันที่เท่าไรของเดือนถัดไป
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" style={{ opacity: deadlineEnabled ? 1 : 0.4, pointerEvents: deadlineEnabled ? 'auto' : 'none' }}>
               {deadlines.map(d => (
                 <div key={d.month} className="rounded-xl p-3" style={{ border: 'var(--border) 1px solid', background: 'var(--bg-secondary)' }}>
                   <div className="text-[13px] font-medium mb-2" style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[d.month]}</div>
