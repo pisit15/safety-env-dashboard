@@ -1367,16 +1367,21 @@ export default function CompanyDrilldown() {
 
         {/* Status Update Modal (with attachments, deadline lock, edit request) */}
         {showStatusModal && editingCell && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto py-4" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}>
-            <div className="glass-card rounded-2xl p-6 w-full max-w-lg mx-4" style={{ backdropFilter: 'blur(40px)' }} onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-                {editingCell.actName}
-              </h3>
-              <p className="text-[13px] mb-1" style={{ color: 'var(--text-secondary)' }}>
-                กิจกรรม: <span style={{ color: 'var(--text-primary)' }}>{editingCell.actNo}</span>
-                {' | '}
-                เดือน: <span style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</span>
-              </p>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}>
+            <div className="glass-card rounded-2xl w-full max-w-lg mx-auto flex flex-col" style={{ backdropFilter: 'blur(40px)', maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
+              {/* Fixed Header */}
+              <div className="px-5 pt-5 pb-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+                <h3 className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
+                  {editingCell.actName}
+                </h3>
+                <p className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  กิจกรรม: <span style={{ color: 'var(--text-primary)' }}>{editingCell.actNo}</span>
+                  {' | '}
+                  เดือน: <span style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</span>
+                </p>
+              </div>
+              {/* Scrollable Body */}
+              <div className="px-5 py-3 overflow-y-auto flex-1">
 
               {/* Deadline Lock Notice */}
               {checkingLock ? (
@@ -1407,8 +1412,8 @@ export default function CompanyDrilldown() {
               {/* Status Buttons - disable if locked without approval (admin bypasses) */}
               {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
                 <>
-                  <p className="text-xs mb-2 mt-3" style={{ color: 'var(--text-secondary)' }}>เปลี่ยนสถานะ:</p>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
+                  <p className="text-[11px] mb-1.5" style={{ color: 'var(--text-secondary)' }}>เปลี่ยนสถานะ:</p>
+                  <div className="grid grid-cols-3 gap-1.5 mb-3">
                     {STATUS_OPTIONS.map(opt => {
                       const currentStatus = getEffectiveStatus(
                         activities.find(a => a.no === editingCell.actNo)!,
@@ -1421,7 +1426,7 @@ export default function CompanyDrilldown() {
                           key={opt.value}
                           onClick={() => handleSaveStatus(opt.value)}
                           disabled={savingStatus}
-                          className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors"
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-colors"
                           style={{
                             background: isActive ? 'var(--bg-hover)' : 'var(--border)',
                             border: isActive ? '2px solid var(--accent)' : '1px solid var(--border)',
@@ -1429,8 +1434,8 @@ export default function CompanyDrilldown() {
                             opacity: savingStatus ? 0.5 : 1
                           }}
                         >
-                          <span style={{ color: opt.color }} className="text-lg">{opt.icon}</span>
-                          <span>{opt.label}</span>
+                          <span style={{ color: opt.color }} className="text-sm">{opt.icon}</span>
+                          <span className="truncate">{opt.label}</span>
                         </button>
                       );
                     })}
@@ -1441,7 +1446,7 @@ export default function CompanyDrilldown() {
                     <button
                       onClick={handleRevertStatus}
                       disabled={savingStatus}
-                      className="w-full px-3 py-2 rounded-lg text-xs transition-colors mb-3"
+                      className="w-full px-2 py-1.5 rounded-lg text-[11px] transition-colors mb-2"
                       style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                     >
                       ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
@@ -1632,13 +1637,17 @@ export default function CompanyDrilldown() {
                 )}
               </div>
 
-              <button
-                onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}
-                className="w-full px-3 py-2 rounded-lg text-sm transition-colors mt-4"
-                style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-              >
-                ปิด
-              </button>
+              </div>
+              {/* Fixed Footer */}
+              <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+                <button
+                  onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}
+                  className="w-full px-3 py-2 rounded-lg text-sm transition-colors"
+                  style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                >
+                  ปิด
+                </button>
+              </div>
             </div>
           </div>
         )}
