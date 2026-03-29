@@ -9,6 +9,7 @@ function getSupabase() {
 }
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // GET - Fetch app settings
 export async function GET() {

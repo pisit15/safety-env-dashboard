@@ -22,11 +22,8 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (checkErr) {
-    // Table doesn't exist — return Supabase URL + SQL
-    const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     return NextResponse.json({
       error: 'Table app_settings does not exist. Run the SQL in Supabase SQL Editor.',
-      supabaseUrl: projectUrl,
       sql: `CREATE TABLE app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT 'true',
