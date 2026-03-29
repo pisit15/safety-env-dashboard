@@ -178,7 +178,7 @@ async function uploadToSupabaseStorage(
 
     // Build path: companyId/planType/month/activityNo_filename
     const monthDir = MONTH_NAMES[month] || month;
-    const safeName = file.name.replace(/[^a-zA-Z0-9._\-\u0E00-\u0E7F]/g, '_');
+    const safeName = file.name.replace(/[^a-zA-Z0-9._\-]/g, '_');
     const timestamp = Date.now();
     const storagePath = `${companyId.toUpperCase()}/${planType}/${monthDir}/${activityNo}_${timestamp}_${safeName}`;
 
