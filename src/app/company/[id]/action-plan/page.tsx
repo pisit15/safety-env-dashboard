@@ -1502,22 +1502,20 @@ export default function CompanyDrilldown() {
               {/* Note / Detail Section */}
               {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
                 <div className="mb-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>รายละเอียด / หมายเหตุ:</p>
-                    <button
-                      onClick={handleSaveNote}
-                      disabled={savingNote}
-                      className="px-2.5 py-1 rounded text-[11px] font-medium transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--accent)', color: '#fff', opacity: savingNote ? 0.5 : 1 }}
-                    >
-                      {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
-                    </button>
-                  </div>
+                  <p className="text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>รายละเอียด / หมายเหตุ:</p>
                   <RichTextEditor
                     value={statusNote}
                     onChange={setStatusNote}
                     placeholder="พิมพ์รายละเอียดเพิ่มเติม เช่น สิ่งที่ทำ ผลลัพธ์ หรือเหตุผล..."
                   />
+                  <button
+                    onClick={handleSaveNote}
+                    disabled={savingNote}
+                    className="mt-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                    style={{ background: 'var(--accent)', color: '#fff', opacity: savingNote ? 0.5 : 1 }}
+                  >
+                    {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
+                  </button>
                 </div>
               )}
               {/* Show existing note if locked */}
@@ -1530,25 +1528,7 @@ export default function CompanyDrilldown() {
 
               {/* Attachments Section */}
               <div style={{ borderTop: '1px solid var(--border)' }} className="pt-3 mt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ <span style={{ color: 'var(--text-muted)' }}>(สูงสุด 20 MB/ไฟล์)</span></p>
-                  {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
-                    <label className={`px-3 py-1.5 btn-primary rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
-                      {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
-                      <input
-                        type="file"
-                        accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
-                        className="hidden"
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) handleUploadFile(file);
-                          e.target.value = '';
-                        }}
-                        disabled={uploadingFile}
-                      />
-                    </label>
-                  )}
-                </div>
+                <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ <span style={{ color: 'var(--text-muted)' }}>(สูงสุด 20 MB/ไฟล์)</span></p>
 
                 {loadingAttachments ? (
                   <div className="text-xs py-2" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
@@ -1598,6 +1578,24 @@ export default function CompanyDrilldown() {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* Upload Button */}
+                {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                  <label className={`inline-flex items-center mt-2 px-3 py-1.5 btn-primary rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
+                    <input
+                      type="file"
+                      accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadFile(file);
+                        e.target.value = '';
+                      }}
+                      disabled={uploadingFile}
+                    />
+                  </label>
                 )}
 
                 {/* External Link Section */}
