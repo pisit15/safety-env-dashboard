@@ -24,12 +24,12 @@ import {
 } from 'lucide-react';
 
 const PROJECTS = [
-  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, href: '/' },
-  { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, href: '/training' },
-  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, href: '/incidents' },
-  { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, href: '/safety-patrol' },
-  { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, href: '/risk' },
-  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, href: '/nearmiss' },
+  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/', companyPath: '' },
+  { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training' },
+  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents' },
+  { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol' },
+  { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk' },
+  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/nearmiss', companyPath: '/nearmiss' },
 ];
 
 export default function Sidebar() {
@@ -97,19 +97,25 @@ export default function Sidebar() {
 
       {/* Projects navigation */}
       <div className="flex-1 overflow-y-auto px-3 pt-4">
-        {/* HQ-level menus — only for Admin */}
-        {auth.isAdmin && (
+        {/* Project menus — visible to all logged-in users */}
+        {(auth.isAdmin || loggedInCompanyIds.length > 0) && (
           <>
             <p className={`text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2 ${collapsed ? 'hidden' : ''}`}
               style={{ color: 'var(--muted)' }}>
-              Projects
+              {auth.isAdmin ? 'HQ Overview' : 'เมนู'}
             </p>
             <div className="space-y-0.5">
               {PROJECTS.map((p) => {
-                const isActive = pathname === p.href || (p.href !== '/' && pathname.startsWith(p.href));
+                // Admin links to HQ pages, Company user links to their company page
+                const href = auth.isAdmin
+                  ? p.hqHref
+                  : `/company/${loggedInCompanyIds[0]}${p.companyPath}`;
+                const isActive = auth.isAdmin
+                  ? (pathname === p.hqHref || (p.hqHref !== '/' && pathname.startsWith(p.hqHref)))
+                  : pathname === `/company/${loggedInCompanyIds[0]}${p.companyPath}`;
                 const Icon = p.icon;
                 return (
-                  <Link key={p.id} href={p.href}>
+                  <Link key={p.id} href={href}>
                     <div
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
                       style={{
