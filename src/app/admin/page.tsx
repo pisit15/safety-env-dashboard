@@ -428,7 +428,6 @@ export default function AdminPage() {
             { key: 'audit', label: 'ประวัติการแก้ไข', minRole: 'viewer' },
             { key: 'requests', label: 'คำขอแก้ไข', minRole: 'viewer' },
             { key: 'deadlines', label: 'กำหนด Deadline', minRole: 'admin' },
-            { key: 'credentials', label: 'จัดการบัญชี', minRole: 'super_admin' },
             { key: 'users', label: 'ผู้ใช้บริษัท', minRole: 'super_admin' },
             { key: 'admins', label: 'จัดการ Admin', minRole: 'super_admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
