@@ -150,8 +150,8 @@ export default function Sidebar() {
 
         {/* Company list removed — navigate via Home page */}
 
-        {/* Management section — Admin only */}
-        {auth.isAdmin && (
+        {/* Management section — Admin or not logged in */}
+        {(auth.isAdmin || !isAnyAuth) && (
           <div className={`mt-5 pt-4 ${collapsed ? 'hidden' : ''}`}>
             <div className="mx-3 mb-3 h-px" style={{ background: 'var(--border)' }} />
             <p className="text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2"

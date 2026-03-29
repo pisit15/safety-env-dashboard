@@ -158,16 +158,22 @@ export default function HomePage() {
 
         {/* Admin Section: Quick Stats + Project Cards */}
         {!auth.isAdmin && (
-          <div className="glass-card rounded-xl p-5 mb-8 animate-fade-in-up flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(255,149,0,0.1)' }}>
-              <Key size={20} style={{ color: '#ff9500' }} />
+          <Link href="/admin">
+            <div className="glass-card rounded-xl p-5 mb-8 animate-fade-in-up flex items-center gap-4 cursor-pointer transition-all duration-200 hover:shadow-md"
+              style={{ border: '1px solid rgba(255,149,0,0.3)' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,149,0,0.1)' }}>
+                <Key size={20} style={{ color: '#ff9500' }} />
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ Admin เพื่อดูภาพรวมโครงการทั้งหมด</p>
+                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>คลิกเพื่อเข้าสู่หน้า Admin Login</p>
+              </div>
+              <div className="flex-shrink-0">
+                <ArrowRight size={18} style={{ color: '#ff9500' }} />
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ Admin เพื่อดูภาพรวมโครงการทั้งหมด</p>
-              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เลือกบริษัทด้านล่างเพื่อเข้าสู่หน้าจัดการ</p>
-            </div>
-          </div>
+          </Link>
         )}
 
         {/* Quick Stats */}
