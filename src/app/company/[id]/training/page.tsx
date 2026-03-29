@@ -51,6 +51,8 @@ interface TrainingSession {
   note: string;
   hr_submitted: boolean;
   updated_by: string;
+  postponed_to_month: number | null;
+  original_planned_month: number | null;
 }
 
 interface Attendee {
@@ -85,6 +87,7 @@ export default function CompanyTraining() {
   const [modalDateEnd, setModalDateEnd] = useState('');
   const [modalActualCost, setModalActualCost] = useState(0);
   const [modalNote, setModalNote] = useState('');
+  const [modalPostponedMonth, setModalPostponedMonth] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Attendee state
@@ -133,6 +136,7 @@ export default function CompanyTraining() {
     setModalDateEnd(session?.scheduled_date_end || '');
     setModalActualCost(session?.actual_cost || 0);
     setModalNote(session?.note || '');
+    setModalPostponedMonth(session?.postponed_to_month || null);
     setShowModal(true);
     if (session?.id) fetchAttendees(session.id);
     else setAttendees([]);
@@ -140,6 +144,10 @@ export default function CompanyTraining() {
 
   const handleSaveSession = async () => {
     if (!selectedPlan) return;
+    if (modalStatus === 'postponed' && !modalPostponedMonth) {
+      alert('กรุณาเลือกเดือนที่จะเลื่อนไป');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/training/sessions', {
@@ -156,6 +164,8 @@ export default function CompanyTraining() {
           total_man_hours: 0,
           note: modalNote,
           updated_by: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
+          postponed_to_month: modalStatus === 'postponed' ? modalPostponedMonth : null,
+          original_planned_month: modalStatus === 'postponed' ? (selectedPlan.training_sessions?.[0]?.original_planned_month || selectedPlan.planned_month) : null,
         }),
       });
       if (res.ok) {
@@ -542,7 +552,14 @@ export default function CompanyTraining() {
                       <td style={tdStyle}>{plan.course_no || i + 1}</td>
                       <td style={{ ...tdStyle, textAlign: 'left', fontWeight: 500 }}>
                         <div>{plan.course_name}</div>
-                        {plan.category && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{plan.category}</div>}
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                          {plan.category && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{plan.category}</span>}
+                          {session?.original_planned_month && session?.status === 'postponed' && (
+                            <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>
+                              เลื่อนจาก {MONTH_LABELS[session.original_planned_month - 1]} → {session.postponed_to_month ? MONTH_LABELS[session.postponed_to_month - 1] : '?'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={tdStyle}>
                         <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: plan.in_house_external?.toLowerCase().includes('in') ? '#dbeafe' : '#f3e8ff', color: plan.in_house_external?.toLowerCase().includes('in') ? '#1d4ed8' : '#7c3aed' }}>
@@ -600,6 +617,28 @@ export default function CompanyTraining() {
                     </button>
                   ))}
                 </div>
+
+                {/* Postponed month selector */}
+                {modalStatus === 'postponed' && (
+                  <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                    <label style={{ ...labelStyle, color: '#92400e' }}>เลื่อนไปเดือนไหน? *</label>
+                    <select
+                      value={modalPostponedMonth || ''}
+                      onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
+                      style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}
+                    >
+                      <option value="">-- เลือกเดือนใหม่ --</option>
+                      {MONTH_LABELS.map((label, i) => (
+                        <option key={i} value={i + 1}>{label} {selectedYear}</option>
+                      ))}
+                    </select>
+                    {selectedPlan && (
+                      <div style={{ fontSize: 11, color: '#92400e', marginTop: 6 }}>
+                        เดิมกำหนดเดือน: {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนด'}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Dates */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>

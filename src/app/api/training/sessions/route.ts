@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan_id, company_id, status, scheduled_date_start, scheduled_date_end,
             actual_cost, actual_participants, hours_per_course, total_man_hours,
-            note, hr_submitted, updated_by } = body;
+            note, hr_submitted, updated_by, postponed_to_month, original_planned_month } = body;
 
     if (!plan_id || !company_id) {
       return NextResponse.json({ error: 'Missing plan_id or company_id' }, { status: 400 });
@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
       hr_submitted: hr_submitted || false,
       updated_by,
       updated_at: new Date().toISOString(),
+      ...(postponed_to_month !== undefined && { postponed_to_month }),
+      ...(original_planned_month !== undefined && { original_planned_month }),
     };
 
     let data;
