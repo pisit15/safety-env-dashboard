@@ -100,8 +100,9 @@ export default function HomePage() {
     localStorage.setItem('dashboard_year', String(selectedYear));
   }, [selectedYear]);
 
-  // Fetch quick stats from action-plan dashboard (for all users)
+  // Fetch quick stats from action-plan dashboard (admin only)
   useEffect(() => {
+    if (!auth.isAdmin) return;
     fetch(`/api/dashboard?plan=total&year=${selectedYear}`)
       .then(r => r.json())
       .then(data => {
@@ -115,7 +116,7 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
-  }, [selectedYear]);
+  }, [auth.isAdmin, selectedYear]);
 
   return (
     <div className="flex min-h-screen">
@@ -175,95 +176,98 @@ export default function HomePage() {
           </Link>
         )}
 
-        {/* Quick Stats */}
-        {stats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fade-in-up">
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,122,255,0.1)' }}>
-                <Building2 size={20} style={{ color: '#007aff' }} />
+        {/* Admin: Quick Stats + Project Cards — show only after admin login */}
+        {auth.isAdmin && (<>
+          {/* Quick Stats */}
+          {stats && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fade-in-up">
+              <div className="glass-card rounded-xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,122,255,0.1)' }}>
+                  <Building2 size={20} style={{ color: '#007aff' }} />
+                </div>
+                <div>
+                  <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.companies}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--muted)' }}>บริษัท</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.companies}</p>
-                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>บริษัท</p>
+              <div className="glass-card rounded-xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(88,86,214,0.1)' }}>
+                  <ClipboardList size={20} style={{ color: '#5856d6' }} />
+                </div>
+                <div>
+                  <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.totalActivities.toLocaleString()}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--muted)' }}>กิจกรรมทั้งหมด</p>
+                </div>
+              </div>
+              <div className="glass-card rounded-xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,199,89,0.1)' }}>
+                  <CheckCircle2 size={20} style={{ color: '#34c759' }} />
+                </div>
+                <div>
+                  <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.totalDone.toLocaleString()}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เสร็จแล้ว</p>
+                </div>
+              </div>
+              <div className="glass-card rounded-xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,149,0,0.1)' }}>
+                  <TrendingUp size={20} style={{ color: '#ff9500' }} />
+                </div>
+                <div>
+                  <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.overallPct}%</p>
+                  <p className="text-[11px]" style={{ color: 'var(--muted)' }}>ความสำเร็จรวม</p>
+                </div>
               </div>
             </div>
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(88,86,214,0.1)' }}>
-                <ClipboardList size={20} style={{ color: '#5856d6' }} />
-              </div>
-              <div>
-                <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.totalActivities.toLocaleString()}</p>
-                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>กิจกรรมทั้งหมด</p>
-              </div>
-            </div>
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(52,199,89,0.1)' }}>
-                <CheckCircle2 size={20} style={{ color: '#34c759' }} />
-              </div>
-              <div>
-                <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.totalDone.toLocaleString()}</p>
-                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เสร็จแล้ว</p>
-              </div>
-            </div>
-            <div className="glass-card rounded-xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,149,0,0.1)' }}>
-                <TrendingUp size={20} style={{ color: '#ff9500' }} />
-              </div>
-              <div>
-                <p className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{stats.overallPct}%</p>
-                <p className="text-[11px]" style={{ color: 'var(--muted)' }}>ความสำเร็จรวม</p>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Project Cards — visible to all users */}
-        <div className="mb-4">
-          <h2 className="text-[15px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-            โครงการทั้งหมด
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 animate-fade-in-up">
-          {PROJECTS.map((project) => {
-            const Icon = project.icon;
-            const isActive = project.status === 'active';
-            return (
-              <Link key={project.id} href={isActive ? project.href : '#'}>
-                <div
-                  className={`glass-card rounded-xl p-5 transition-all duration-200 ${isActive ? 'hover:shadow-md cursor-pointer' : 'opacity-60 cursor-default'}`}
-                  style={{ borderLeft: `3px solid ${project.color}` }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ background: `${project.color}15` }}>
-                      <Icon size={20} style={{ color: project.color }} />
+          {/* Project Cards */}
+          <div className="mb-4">
+            <h2 className="text-[15px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+              โครงการทั้งหมด
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 animate-fade-in-up">
+            {PROJECTS.map((project) => {
+              const Icon = project.icon;
+              const isActive = project.status === 'active';
+              return (
+                <Link key={project.id} href={isActive ? project.href : '#'}>
+                  <div
+                    className={`glass-card rounded-xl p-5 transition-all duration-200 ${isActive ? 'hover:shadow-md cursor-pointer' : 'opacity-60 cursor-default'}`}
+                    style={{ borderLeft: `3px solid ${project.color}` }}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{ background: `${project.color}15` }}>
+                        <Icon size={20} style={{ color: project.color }} />
+                      </div>
+                      {isActive ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,199,89,0.15)', color: '#34c759' }}>
+                          ใช้งานได้
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: 'var(--bg-secondary)', color: 'var(--muted)' }}>
+                          <Clock size={10} /> เร็วๆ นี้
+                        </span>
+                      )}
                     </div>
-                    {isActive ? (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,199,89,0.15)', color: '#34c759' }}>
-                        ใช้งานได้
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: 'var(--bg-secondary)', color: 'var(--muted)' }}>
-                        <Clock size={10} /> เร็วๆ นี้
-                      </span>
+                    <h3 className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                      {project.label}
+                    </h3>
+                    <p className="text-[12px] mb-3" style={{ color: 'var(--muted)' }}>
+                      {project.description}
+                    </p>
+                    {isActive && (
+                      <div className="flex items-center gap-1 text-[12px] font-medium" style={{ color: project.color }}>
+                        เข้าดูภาพรวม <ArrowRight size={14} />
+                      </div>
                     )}
                   </div>
-                  <h3 className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                    {project.label}
-                  </h3>
-                  <p className="text-[12px] mb-3" style={{ color: 'var(--muted)' }}>
-                    {project.description}
-                  </p>
-                  {isActive && (
-                    <div className="flex items-center gap-1 text-[12px] font-medium" style={{ color: project.color }}>
-                      เข้าดูภาพรวม <ArrowRight size={14} />
-                    </div>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>)}
 
         {/* Company List — visible to ALL users */}
         <div className="mt-10 mb-4 animate-fade-in-up">
