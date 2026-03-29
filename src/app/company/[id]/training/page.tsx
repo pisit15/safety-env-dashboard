@@ -316,7 +316,7 @@ export default function CompanyTraining() {
       <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
             📋 แผนอบรมประจำปี — {company?.name || companyId.toUpperCase()}
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0', fontSize: 14 }}>
@@ -329,14 +329,14 @@ export default function CompanyTraining() {
           <select
             value={selectedYear}
             onChange={e => setSelectedYear(Number(e.target.value))}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14 }}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}
           >
             {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
           {/* Status filter */}
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14 }}>
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
             <option value="all">ทั้งหมด</option>
             <option value="planned">ตามแผน</option>
             <option value="scheduled">กำหนดวันแล้ว</option>
@@ -347,7 +347,7 @@ export default function CompanyTraining() {
 
           {isLoggedIn && (
             <button onClick={() => setShowImportModal(true)}
-              style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+              style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Upload size={14} /> นำเข้าแผนอบรม (Excel)
             </button>
           )}
@@ -391,7 +391,7 @@ export default function CompanyTraining() {
           <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border)' }}>
+                <tr style={{ background: 'var(--card-solid)', borderBottom: '2px solid var(--border)' }}>
                   <th style={thStyle}>#</th>
                   <th style={{ ...thStyle, minWidth: 250, textAlign: 'left' }}>ชื่อหลักสูตร</th>
                   <th style={thStyle}>ประเภท</th>
@@ -414,9 +414,9 @@ export default function CompanyTraining() {
                   return (
                     <tr key={plan.id}
                       onClick={() => isLoggedIn && openPlanModal(plan)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: isLoggedIn ? 'pointer' : 'default', background: i % 2 === 0 ? 'var(--bg)' : 'var(--bg-card)' }}
-                      onMouseEnter={e => { if (isLoggedIn) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'var(--bg)' : 'var(--bg-card)'; }}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: isLoggedIn ? 'pointer' : 'default', background: i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)' }}
+                      onMouseEnter={e => { if (isLoggedIn) (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)'; }}
                     >
                       <td style={tdStyle}>{plan.course_no || i + 1}</td>
                       <td style={{ ...tdStyle, textAlign: 'left', fontWeight: 500 }}>
@@ -453,14 +453,14 @@ export default function CompanyTraining() {
         {showModal && selectedPlan && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 40, overflowY: 'auto' }}
             onClick={() => setShowModal(false)}>
-            <div style={{ background: 'var(--bg-card)', borderRadius: 12, width: '95%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+            <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
               onClick={e => e.stopPropagation()}>
               {/* Modal Header */}
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-secondary)', borderRadius: '16px 16px 0 0' }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                   {selectedPlan.course_name}
                 </h2>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.5 }}>
                   {selectedPlan.category} • {selectedPlan.in_house_external} • {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนดเดือน'} {selectedYear}
                   • {selectedPlan.hours_per_course} ชม. • งบ {selectedPlan.budget?.toLocaleString()} ฿
                 </div>
@@ -520,22 +520,22 @@ export default function CompanyTraining() {
 
                 {/* Save button */}
                 <button onClick={handleSaveSession} disabled={saving}
-                  style={{ width: '100%', padding: '10px', borderRadius: 6, border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 20, opacity: saving ? 0.6 : 1 }}>
+                  style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 20, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
                   {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
                 </button>
 
                 {/* Attendees Section */}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                       👥 รายชื่อผู้เข้าอบรม ({attendees.length} คน)
                     </h3>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button onClick={() => setShowAddAttendee(!showAddAttendee)}
-                        style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Plus size={12} /> เพิ่ม
                       </button>
-                      <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Upload size={12} /> Upload Excel
                         <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleUploadAttendeeExcel(e.target.files[0])} />
                       </label>
@@ -618,7 +618,7 @@ export default function CompanyTraining() {
               {/* Modal Footer */}
               <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0, textAlign: 'right' }}>
                 <button onClick={() => setShowModal(false)}
-                  style={{ padding: '8px 24px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 }}>
+                  style={{ padding: '8px 24px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>
                   ปิด
                 </button>
               </div>
@@ -630,7 +630,7 @@ export default function CompanyTraining() {
         {showImportModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 60 }}
             onClick={() => setShowImportModal(false)}>
-            <div style={{ background: 'var(--bg-card)', borderRadius: 12, width: '95%', maxWidth: 600, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            <div style={{ background: 'var(--card-solid)', borderRadius: 12, width: '95%', maxWidth: 600, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
               onClick={e => e.stopPropagation()}>
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>📥 นำเข้าแผนอบรมจาก Excel</h2>
@@ -644,7 +644,7 @@ export default function CompanyTraining() {
 
                 {importFile && importSheets.length === 0 && (
                   <button onClick={handleImportStep1} disabled={importing}
-                    style={{ padding: '6px 16px', borderRadius: 4, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
+                    style={{ padding: '6px 16px', borderRadius: 4, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
                     {importing ? 'กำลังอ่านไฟล์...' : 'อ่านไฟล์'}
                   </button>
                 )}
@@ -706,7 +706,7 @@ export default function CompanyTraining() {
               </div>
               <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', textAlign: 'right' }}>
                 <button onClick={() => setShowImportModal(false)}
-                  style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
+                  style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer' }}>
                   ปิด
                 </button>
               </div>
@@ -721,8 +721,8 @@ export default function CompanyTraining() {
 // Helpers
 const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' };
 const tdStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'center', whiteSpace: 'nowrap' };
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13 };
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 };
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 13 };
 
 function formatDate(d: string): string {
   if (!d) return '-';
@@ -732,9 +732,9 @@ function formatDate(d: string): string {
 
 function StatCard({ icon, label, value, color }: { icon: string; label: string; value: string | number; color?: string }) {
   return (
-    <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: '12px 16px', border: '1px solid var(--border)' }}>
+    <div style={{ background: 'var(--card-solid)', borderRadius: 8, padding: '12px 16px', border: '1px solid var(--border)' }}>
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{icon} {label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text)' }}>{value}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)' }}>{value}</div>
     </div>
   );
 }
