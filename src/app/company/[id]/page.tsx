@@ -1183,13 +1183,19 @@ export default function CompanyDrilldown() {
               {/* Deadline Lock Notice */}
               {checkingLock ? (
                 <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>กำลังตรวจสอบกำหนดเวลา...</div>
-              ) : deadlineLocked && !hasApproval ? (
+              ) : deadlineLocked && !hasApproval && !auth.isAdmin ? (
                 <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,67,54,0.1)', border: '1px solid rgba(255,67,54,0.3)' }}>
                   <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
                     เลยกำหนดเวลาแก้ไขเดือนนี้แล้ว
                   </p>
                   <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>
                     ต้องขออนุมัติจาก Admin เพื่อแก้ไขข้อมูล
+                  </p>
+                </div>
+              ) : deadlineLocked && auth.isAdmin ? (
+                <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)' }}>
+                  <p className="text-sm font-medium" style={{ color: '#ff9500' }}>
+                    เลยกำหนดเวลาแล้ว — แก้ไขได้ (Admin)
                   </p>
                 </div>
               ) : deadlineLocked && hasApproval ? (
@@ -1200,8 +1206,8 @@ export default function CompanyDrilldown() {
                 </div>
               ) : null}
 
-              {/* Status Buttons - disable if locked without approval */}
-              {!(deadlineLocked && !hasApproval) && (
+              {/* Status Buttons - disable if locked without approval (admin bypasses) */}
+              {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
                 <>
                   <p className="text-xs mb-2 mt-3" style={{ color: 'var(--text-secondary)' }}>เปลี่ยนสถานะ:</p>
                   <div className="grid grid-cols-2 gap-2 mb-4">
@@ -1246,8 +1252,8 @@ export default function CompanyDrilldown() {
                 </>
               )}
 
-              {/* Edit Request Form - show when locked and no approval */}
-              {deadlineLocked && !hasApproval && (
+              {/* Edit Request Form - show when locked and no approval (admin bypasses) */}
+              {deadlineLocked && !hasApproval && !auth.isAdmin && (
                 <div className="mb-4">
                   {!showEditRequestForm ? (
                     <button
@@ -1294,7 +1300,7 @@ export default function CompanyDrilldown() {
               <div style={{ borderTop: '1px solid var(--border)' }} className="pt-3 mt-2">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ</p>
-                  {!(deadlineLocked && !hasApproval) && (
+                  {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
                     <label className={`px-3 py-1.5 btn-primary rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
                       {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
                       <input
