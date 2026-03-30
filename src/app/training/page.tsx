@@ -363,6 +363,12 @@ export default function HQTrainingOverview() {
     setSearching(false);
   };
 
+  // Check if user can access a specific company page
+  const canAccessCompany = (companyId: string) => {
+    if (auth.isAdmin) return true;
+    return !!auth.companyAuth[companyId];
+  };
+
   // DSD Status labels
   const DSD_STATUS_OPTIONS: { value: string; label: string; color: string; bg: string }[] = [
     { value: 'none', label: 'ไม่ระบุ', color: '#6b7280', bg: '#f3f4f6' },
@@ -854,9 +860,13 @@ export default function HQTrainingOverview() {
                           return (
                             <tr key={s.companyId} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
                               <td style={{ ...td, textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: i % 2 === 0 ? 'var(--card-solid)' : 'var(--bg-secondary)', zIndex: 1 }}>
-                                <Link href={`/company/${s.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-                                  {s.companyName}
-                                </Link>
+                                {canAccessCompany(s.companyId) ? (
+                                  <Link href={`/company/${s.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                                    {s.companyName}
+                                  </Link>
+                                ) : (
+                                  <span style={{ color: 'var(--text-primary)' }}>{s.companyName}</span>
+                                )}
                               </td>
                               <td style={td}>{s.totalCourses}</td>
                               <td style={{ ...td, color: 'var(--success)', fontWeight: 600 }}>{pct}%</td>
@@ -970,9 +980,13 @@ export default function HQTrainingOverview() {
                                 >
                                   <td style={td}>{idx + 1}</td>
                                   <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>
-                                    <Link href={`/company/${item.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-                                      {item.company}
-                                    </Link>
+                                    {canAccessCompany(item.companyId) ? (
+                                      <Link href={`/company/${item.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                                        {item.company}
+                                      </Link>
+                                    ) : (
+                                      <span style={{ color: 'var(--text-primary)' }}>{item.company}</span>
+                                    )}
                                   </td>
                                   <td style={{ ...td, textAlign: 'left' }}
                                     onClick={() => openCourseDetail(item)}
@@ -1436,12 +1450,14 @@ export default function HQTrainingOverview() {
                 </div>
 
                 {/* Link to company training page */}
-                <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-                  <Link href={`/company/${detailCourse.companyId}/training`}
-                    style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
-                    ไปหน้าอบรมของ {detailCourse.company} →
-                  </Link>
-                </div>
+                {canAccessCompany(detailCourse.companyId) && (
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                    <Link href={`/company/${detailCourse.companyId}/training`}
+                      style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                      ไปหน้าอบรมของ {detailCourse.company} →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
