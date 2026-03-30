@@ -21,6 +21,7 @@ interface PlanRaw {
   budget: number;
   in_house_external: string;
   dsd_eligible: boolean;
+  is_active?: boolean;
   training_sessions: {
     id: string;
     status: string;
@@ -138,7 +139,7 @@ export default function HQTrainingOverview() {
   const companySummaries = useMemo(() => {
     const today = new Date();
     return allCompanyData.map(cd => {
-      const plans = filterByTimeRange(cd.plans);
+      const plans = filterByTimeRange(cd.plans).filter(p => p.is_active !== false);
       let completed = 0, scheduled = 0, pending = 0, cancelled = 0, warnings = 0;
       let totalBudget = 0, totalActual = 0, totalParticipants = 0, totalManHours = 0;
 
@@ -193,6 +194,7 @@ export default function HQTrainingOverview() {
       const coursesInMonth: { company: string; course: string; status: string; date: string | null; budget: number; actual: number }[] = [];
       for (const cd of allCompanyData) {
         for (const p of cd.plans) {
+          if (p.is_active === false) continue;
           const em = getEffectiveMonth(p);
           if (em !== i + 1) continue;
           const s = p.training_sessions?.[0];
@@ -270,6 +272,7 @@ export default function HQTrainingOverview() {
 
     for (const cd of allCompanyData) {
       for (const p of cd.plans) {
+        if (p.is_active === false) continue;
         const s = p.training_sessions?.[0];
         const status = s?.status || 'planned';
         if (status === 'cancelled') continue;
