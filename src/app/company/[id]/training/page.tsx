@@ -1539,21 +1539,8 @@ export default function CompanyTraining() {
                             </div>
                           </div>
 
-                          {/* HR section - separate subsection */}
-                          <div style={{ background: '#fef3c7', borderRadius: 8, padding: 12, marginBottom: 16, border: '1px solid #f59e0b' }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: '#92400e' }}>📌 ส่วนของ HR</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
-                                <input type="checkbox" checked={modalDsdReportSubmitted} onChange={e => setModalDsdReportSubmitted(e.target.checked)} />
-                                ยื่น รง.1 แล้ว
-                              </label>
-                              <div>
-                                <label style={labelStyle}>จำนวนคนที่กรมพัฒน์ฯ อนุมัติ</label>
-                                <input type="number" value={modalDsdHeadcount} onChange={e => setModalDsdHeadcount(Number(e.target.value))}
-                                  placeholder="0" style={{ ...inputStyle, width: 120 }} />
-                              </div>
-                            </div>
-                          </div>
+
+
                         </>
                       )}
 
