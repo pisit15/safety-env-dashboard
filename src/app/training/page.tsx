@@ -1234,6 +1234,100 @@ export default function HQTrainingOverview() {
           </div>
         )}
 
+        {/* Company Budget & Man-Hours Charts — side by side */}
+        {historyTab === 'overview' && !loading && companySummaries.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            {/* Left: Budget by Company */}
+            <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                💰 งบประมาณ vs ค่าใช้จ่ายจริง แยกบริษัท
+              </h3>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
+                เปรียบเทียบงบประมาณตามแผนกับค่าใช้จ่ายจริง
+              </p>
+              <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                {(() => {
+                  const sorted = [...companySummaries].filter(s => s.totalBudget > 0).sort((a, b) => b.totalBudget - a.totalBudget);
+                  const maxVal = Math.max(...sorted.map(s => Math.max(s.totalBudget, s.totalActual)), 1);
+                  return sorted.map((s, i) => (
+                    <div key={s.companyId} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{s.companyName}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                          {(s.totalBudget / 1000).toFixed(0)}K / <span style={{ color: s.totalActual > s.totalBudget ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{(s.totalActual / 1000).toFixed(0)}K</span>
+                        </span>
+                      </div>
+                      <div style={{ position: 'relative', height: 16, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(s.totalBudget / maxVal) * 100}%`, background: '#93c5fd', borderRadius: 4, opacity: 0.5 }} />
+                        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(s.totalActual / maxVal) * 100}%`, background: s.totalActual > s.totalBudget ? '#f87171' : '#4ade80', borderRadius: 4 }} />
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 10, color: 'var(--text-secondary)', marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', opacity: 0.5, display: 'inline-block' }} /> งบประมาณ
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> ใช้จริง
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f87171', display: 'inline-block' }} /> เกินงบ
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Man-Hours by Company */}
+            <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                ⏱️ ชั่วโมงฝึกอบรมจริง แยกบริษัท
+              </h3>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
+                จำนวน Man-Hours รวมจากการอบรมที่จัดแล้ว
+              </p>
+              <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                {(() => {
+                  const sorted = [...companySummaries].filter(s => s.totalManHours > 0 || s.completed > 0).sort((a, b) => b.totalManHours - a.totalManHours);
+                  const maxVal = Math.max(...sorted.map(s => s.totalManHours), 1);
+                  if (sorted.length === 0) return (
+                    <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-secondary)', fontSize: 12 }}>
+                      ยังไม่มีข้อมูลชั่วโมงอบรม
+                    </div>
+                  );
+                  return sorted.map((s) => (
+                    <div key={s.companyId} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{s.companyName}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                          <span style={{ fontWeight: 700, color: '#7c3aed' }}>{s.totalManHours.toLocaleString()}</span> ชม.
+                          <span style={{ marginLeft: 6, color: 'var(--text-secondary)' }}>({s.totalParticipants} คน)</span>
+                        </span>
+                      </div>
+                      <div style={{ position: 'relative', height: 16, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, height: '100%',
+                          width: `${(s.totalManHours / maxVal) * 100}%`,
+                          background: 'linear-gradient(90deg, #a78bfa, #7c3aed)',
+                          borderRadius: 4,
+                        }} />
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  รวม: <b style={{ color: '#7c3aed' }}>{totals.manHours.toLocaleString()}</b> ชม.
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  ผู้เข้าอบรม: <b style={{ color: '#7c3aed' }}>{totals.participants.toLocaleString()}</b> คน
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Course Detail Modal */}
         {detailCourse && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 40, overflowY: 'auto' }}
