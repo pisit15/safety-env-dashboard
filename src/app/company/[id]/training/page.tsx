@@ -11,7 +11,7 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  planned: { label: 'ตามแผน', color: '#6b7280', bg: '#f3f4f6', icon: '○' },
+  planned: { label: 'ยังไม่กำหนดวัน', color: '#6b7280', bg: '#f3f4f6', icon: '○' },
   scheduled: { label: 'กำหนดวันแล้ว', color: '#3b82f6', bg: '#dbeafe', icon: '◉' },
   completed: { label: 'อบรมแล้ว', color: '#16a34a', bg: '#dcfce7', icon: '●' },
   cancelled: { label: 'ยกเลิก', color: '#dc2626', bg: '#fee2e2', icon: '✕' },
@@ -857,7 +857,7 @@ export default function CompanyTraining() {
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                   style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
                   <option value="all">ทั้งหมด</option>
-                  <option value="planned">ตามแผน</option>
+                  <option value="planned">ยังไม่กำหนดวัน</option>
                   <option value="scheduled">กำหนดวันแล้ว</option>
                   <option value="completed">อบรมแล้ว</option>
                   <option value="cancelled">ยกเลิก</option>
@@ -1293,17 +1293,49 @@ export default function CompanyTraining() {
                     </div>
                   )}
 
-                  {/* Dates */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                    <div>
-                      <label style={labelStyle}>วันเริ่มอบรม</label>
-                      <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
+                  {/* Dates — only show when status is not 'planned' */}
+                  {modalStatus !== 'planned' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                      <div>
+                        <label style={labelStyle}>วันเริ่มอบรม</label>
+                        <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วันสิ้นสุด</label>
+                        <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
+                      </div>
                     </div>
-                    <div>
-                      <label style={labelStyle}>วันสิ้นสุด</label>
-                      <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
-                    </div>
-                  </div>
+                  )}
+
+                  {/* Instructor & Location & Method — show when scheduled or completed */}
+                  {(modalStatus === 'scheduled' || modalStatus === 'completed') && (
+                    <>
+                      <label style={labelStyle}>ชื่อวิทยากร</label>
+                      <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)}
+                        placeholder="ระบุชื่อวิทยากร"
+                        style={{ ...inputStyle, marginBottom: 12 }} />
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                        <div>
+                          <label style={labelStyle}>สถานที่อบรม</label>
+                          <input value={modalLocation} onChange={e => setModalLocation(e.target.value)}
+                            placeholder="ระบุสถานที่" style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>วิธีการสอน</label>
+                          <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
+                            <option value="">-- เลือก --</option>
+                            <option value="lecture">บรรยาย</option>
+                            <option value="group_activity">กิจกรรมกลุ่ม</option>
+                            <option value="workshop">ฝึกปฏิบัติ</option>
+                            <option value="elearning">E-Learning</option>
+                            <option value="onsite">On-site Training</option>
+                            <option value="mixed">ผสมผสาน</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* Note */}
                   <label style={labelStyle}>หมายเหตุ</label>
@@ -1353,42 +1385,11 @@ export default function CompanyTraining() {
                       </label>
                     </div>
 
-                    {!modalDsdNotSubmitting && (
-                      <>
-                        {/* Instructor */}
-                        <label style={labelStyle}>ชื่อวิทยากร</label>
-                        <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)}
-                          placeholder="ระบุชื่อวิทยากร (ต้องตรงกับที่ยื่น)"
-                          style={{ ...inputStyle, marginBottom: 12 }} />
-
-                        {/* Location & Method */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                          <div>
-                            <label style={labelStyle}>สถานที่อบรม</label>
-                            <input value={modalLocation} onChange={e => setModalLocation(e.target.value)}
-                              placeholder="ต้องตรงกับที่แจ้ง" style={inputStyle} />
-                          </div>
-                          <div>
-                            <label style={labelStyle}>วิธีการสอน</label>
-                            <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
-                              <option value="">-- เลือก --</option>
-                              <option value="lecture">บรรยาย</option>
-                              <option value="group_activity">กิจกรรมกลุ่ม</option>
-                              <option value="workshop">ฝึกปฏิบัติ</option>
-                              <option value="elearning">E-Learning</option>
-                              <option value="onsite">On-site Training</option>
-                              <option value="mixed">ผสมผสาน</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Hour warning */}
-                        {selectedPlan.hours_per_course > 0 && selectedPlan.hours_per_course < 6 && (
-                          <div style={{ background: '#fef2f2', borderRadius: 6, padding: '6px 10px', marginBottom: 12, fontSize: 11, color: '#991b1b', border: '1px solid #fecaca' }}>
-                            ⚠️ หลักสูตรนี้มี {selectedPlan.hours_per_course} ชม. — กรมพัฒน์ฯ กำหนดไม่ต่ำกว่า 6 ชม.
-                          </div>
-                        )}
-                      </>
+                    {/* Hour warning */}
+                    {!modalDsdNotSubmitting && selectedPlan.hours_per_course > 0 && selectedPlan.hours_per_course < 6 && (
+                      <div style={{ background: '#fef2f2', borderRadius: 6, padding: '6px 10px', marginBottom: 12, fontSize: 11, color: '#991b1b', border: '1px solid #fecaca' }}>
+                        ⚠️ หลักสูตรนี้มี {selectedPlan.hours_per_course} ชม. — กรมพัฒน์ฯ กำหนดไม่ต่ำกว่า 6 ชม.
+                      </div>
                     )}
                   </div>
                 )}

@@ -425,7 +425,7 @@ export default function HQTrainingOverview() {
   const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
     completed: { label: 'อบรมแล้ว', color: '#16a34a', bg: '#dcfce7' },
     scheduled: { label: 'กำหนดวันแล้ว', color: '#3b82f6', bg: '#dbeafe' },
-    planned: { label: 'ตามแผน', color: '#6b7280', bg: '#f3f4f6' },
+    planned: { label: 'ยังไม่กำหนดวัน', color: '#6b7280', bg: '#f3f4f6' },
     cancelled: { label: 'ยกเลิก', color: '#dc2626', bg: '#fee2e2' },
     postponed: { label: 'เลื่อน', color: '#f59e0b', bg: '#fef3c7' },
   };
@@ -969,7 +969,7 @@ export default function HQTrainingOverview() {
                   <span style={{ fontSize: 20 }}>{detailCourse.status === 'completed' ? '✅' : detailCourse.status === 'scheduled' ? '📅' : '⏳'}</span>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: detailCourse.status === 'completed' ? '#16a34a' : detailCourse.status === 'scheduled' ? '#2563eb' : '#6b7280' }}>
-                      {detailCourse.status === 'completed' ? 'อบรมแล้ว' : detailCourse.status === 'scheduled' ? 'กำหนดวันแล้ว' : 'ตามแผน'}
+                      {detailCourse.status === 'completed' ? 'อบรมแล้ว' : detailCourse.status === 'scheduled' ? 'กำหนดวันแล้ว' : 'ยังไม่กำหนดวัน'}
                     </div>
                   </div>
                 </div>
