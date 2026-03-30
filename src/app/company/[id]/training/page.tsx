@@ -688,13 +688,44 @@ export default function CompanyTraining() {
           </p>
         </div>
 
-        {/* View Mode Toggle + Year selector */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-          {/* View mode toggle */}
+        {/* Year selector + View Mode Toggle (right-aligned) */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}
+            >
+              {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+
+            {viewMode === 'update' && (
+              <>
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
+                  <option value="all">ทั้งหมด</option>
+                  <option value="planned">ตามแผน</option>
+                  <option value="scheduled">กำหนดวันแล้ว</option>
+                  <option value="completed">อบรมแล้ว</option>
+                  <option value="cancelled">ยกเลิก</option>
+                  <option value="postponed">เลื่อน</option>
+                </select>
+
+                {auth.isAdmin && (
+                  <button onClick={() => setShowImportModal(true)}
+                    style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Upload size={14} /> นำเข้าแผนอบรม (Excel)
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* View mode toggle — right side */}
           <div style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
             {[
-              { key: 'overview' as const, label: '📊 ภาพรวม', icon: Eye },
-              { key: 'update' as const, label: '📝 อัปเดตข้อมูล', icon: Edit2 },
+              { key: 'overview' as const, label: '📊 ภาพรวม' },
+              { key: 'update' as const, label: '📝 อัปเดตข้อมูล' },
             ].map(opt => (
               <button
                 key={opt.key}
@@ -711,36 +742,6 @@ export default function CompanyTraining() {
               </button>
             ))}
           </div>
-
-          <select
-            value={selectedYear}
-            onChange={e => setSelectedYear(Number(e.target.value))}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}
-          >
-            {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-
-          {viewMode === 'update' && (
-            <>
-              {/* Status filter — only in update mode */}
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
-                <option value="all">ทั้งหมด</option>
-                <option value="planned">ตามแผน</option>
-                <option value="scheduled">กำหนดวันแล้ว</option>
-                <option value="completed">อบรมแล้ว</option>
-                <option value="cancelled">ยกเลิก</option>
-                <option value="postponed">เลื่อน</option>
-              </select>
-
-              {auth.isAdmin && (
-                <button onClick={() => setShowImportModal(true)}
-                  style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Upload size={14} /> นำเข้าแผนอบรม (Excel)
-                </button>
-              )}
-            </>
-          )}
         </div>
 
         {/* Time Range Selector — only in overview mode */}
