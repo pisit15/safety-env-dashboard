@@ -637,49 +637,6 @@ export default function HQTrainingOverview() {
                   })()}
                 </div>
 
-                {/* Budget Overview Chart */}
-                <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                    💰 งบประมาณ vs ค่าใช้จ่ายจริง รายเดือน
-                  </h3>
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-                    เปรียบเทียบงบประมาณที่วางแผนกับค่าใช้จ่ายจริงในแต่ละเดือน
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, marginBottom: 8 }}>
-                    {globalMonthly.map((d, i) => {
-                      const maxBudget = Math.max(...globalMonthly.map(m => Math.max(m.budget, m.actual)), 1);
-                      const budgetH = (d.budget / maxBudget) * 120;
-                      const actualH = (d.actual / maxBudget) * 120;
-                      return (
-                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                          <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', width: '100%', justifyContent: 'center', height: 120 }}>
-                            <div style={{ width: '40%', height: budgetH || 1, background: '#93c5fd', borderRadius: '3px 3px 0 0' }} title={`งบ: ${d.budget.toLocaleString()}`} />
-                            <div style={{ width: '40%', height: actualH || 1, background: d.actual > d.budget ? '#f87171' : '#4ade80', borderRadius: '3px 3px 0 0' }} title={`จริง: ${d.actual.toLocaleString()}`} />
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{d.label}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', display: 'inline-block' }} /> งบประมาณ
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> ค่าใช้จ่ายจริง
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f87171', display: 'inline-block' }} /> เกินงบ
-                    </span>
-                  </div>
-                  {/* Budget summary row */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, padding: '10px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>งบรวม: <b style={{ color: '#3b82f6' }}>{totals.budget.toLocaleString()} ฿</b></span>
-                    <span style={{ color: 'var(--text-secondary)' }}>ใช้จริง: <b style={{ color: totals.actual > totals.budget ? '#dc2626' : '#16a34a' }}>{totals.actual.toLocaleString()} ฿</b></span>
-                    <span style={{ color: 'var(--text-secondary)' }}>คงเหลือ: <b style={{ color: totals.budget - totals.actual >= 0 ? '#16a34a' : '#dc2626' }}>{(totals.budget - totals.actual).toLocaleString()} ฿</b></span>
-                  </div>
-                </div>
-
                 {/* Company % Completion per Month — Matrix Table */}
                 <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
                   <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
@@ -926,6 +883,50 @@ export default function HQTrainingOverview() {
               </button>
             </div>
             {renderSearchResults()}
+          </div>
+        )}
+
+        {/* Budget Overview Chart — moved to bottom */}
+        {historyTab === 'overview' && !loading && (
+          <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+              💰 งบประมาณ vs ค่าใช้จ่ายจริง รายเดือน
+            </h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+              เปรียบเทียบงบประมาณที่วางแผนกับค่าใช้จ่ายจริงในแต่ละเดือน
+            </p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, marginBottom: 8 }}>
+              {globalMonthly.map((d, i) => {
+                const maxBudget = Math.max(...globalMonthly.map(m => Math.max(m.budget, m.actual)), 1);
+                const budgetH = (d.budget / maxBudget) * 120;
+                const actualH = (d.actual / maxBudget) * 120;
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', width: '100%', justifyContent: 'center', height: 120 }}>
+                      <div style={{ width: '40%', height: budgetH || 1, background: '#93c5fd', borderRadius: '3px 3px 0 0' }} title={`งบ: ${d.budget.toLocaleString()}`} />
+                      <div style={{ width: '40%', height: actualH || 1, background: d.actual > d.budget ? '#f87171' : '#4ade80', borderRadius: '3px 3px 0 0' }} title={`จริง: ${d.actual.toLocaleString()}`} />
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{d.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', display: 'inline-block' }} /> งบประมาณ
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> ค่าใช้จ่ายจริง
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f87171', display: 'inline-block' }} /> เกินงบ
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, padding: '10px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-secondary)' }}>งบรวม: <b style={{ color: '#3b82f6' }}>{totals.budget.toLocaleString()} ฿</b></span>
+              <span style={{ color: 'var(--text-secondary)' }}>ใช้จริง: <b style={{ color: totals.actual > totals.budget ? '#dc2626' : '#16a34a' }}>{totals.actual.toLocaleString()} ฿</b></span>
+              <span style={{ color: 'var(--text-secondary)' }}>คงเหลือ: <b style={{ color: totals.budget - totals.actual >= 0 ? '#16a34a' : '#dc2626' }}>{(totals.budget - totals.actual).toLocaleString()} ฿</b></span>
+            </div>
           </div>
         )}
 
