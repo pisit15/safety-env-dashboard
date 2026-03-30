@@ -38,7 +38,7 @@ const PROJECTS = [
     icon: GraduationCap,
     href: '/training',
     color: '#5856d6',
-    status: 'coming' as const,
+    status: 'active' as const,
   },
   {
     id: 'incidents',
