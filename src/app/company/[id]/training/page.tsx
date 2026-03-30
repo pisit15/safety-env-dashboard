@@ -227,6 +227,10 @@ export default function CompanyTraining() {
     } catch { /* ignore */ }
   };
 
+  // Load employees when add attendee panel opens
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (showAddAttendee && !employeesLoaded) fetchCompanyEmployees(); }, [showAddAttendee]);
+
   const openPlanModal = (plan: TrainingPlan) => {
     setSelectedPlan(plan);
     const session = plan.training_sessions?.[0];
@@ -397,6 +401,85 @@ export default function CompanyTraining() {
         alert(data.error || 'เกิดข้อผิดพลาด');
       }
     } catch { alert('เกิดข้อผิดพลาด'); }
+  };
+
+  // Import employee master list from Excel
+  const handleImportEmployeeList = async (file: File) => {
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const wb = new ExcelJS.Workbook();
+      const data = await file.arrayBuffer();
+      await wb.xlsx.load(data);
+      const ws = wb.worksheets[0];
+      if (!ws) { alert('ไม่พบ sheet ใน Excel'); return; }
+
+      // Read headers from row 1
+      const headers: string[] = [];
+      ws.getRow(1).eachCell((cell, colNumber) => { headers[colNumber] = String(cell.value || '').trim(); });
+
+      // Read data rows
+      const rows: Record<string, unknown>[] = [];
+      ws.eachRow((row, rowNumber) => {
+        if (rowNumber <= 1) return;
+        const obj: Record<string, unknown> = {};
+        row.eachCell((cell, colNumber) => {
+          if (headers[colNumber]) obj[headers[colNumber]] = cell.value || '';
+        });
+        rows.push(obj);
+      });
+
+      if (rows.length === 0) { alert('ไม่พบข้อมูลใน Excel'); return; }
+
+      // Map common Thai/English headers
+      const headerMap: Record<string, string> = {
+        'รหัสพนักงาน': 'emp_code', 'รหัส': 'emp_code', 'emp_code': 'emp_code', 'employee_code': 'emp_code', 'code': 'emp_code',
+        'ชื่อ': 'first_name', 'first_name': 'first_name', 'firstname': 'first_name', 'name': 'first_name',
+        'นามสกุล': 'last_name', 'last_name': 'last_name', 'lastname': 'last_name', 'surname': 'last_name',
+        'เพศ': 'gender', 'gender': 'gender',
+        'ตำแหน่ง': 'position', 'position': 'position', 'title': 'position',
+        'แผนก': 'department', 'department': 'department', 'dept': 'department',
+        'หน่วยงาน': 'location', 'location': 'location', 'site': 'location',
+        'ระดับ': 'employee_level', 'level': 'employee_level', 'employee_level': 'employee_level',
+      };
+
+      const employees = rows.map(row => {
+        const mapped: Record<string, string> = {};
+        for (const [key, val] of Object.entries(row)) {
+          const normalKey = key.trim().toLowerCase();
+          for (const [pattern, field] of Object.entries(headerMap)) {
+            if (normalKey === pattern.toLowerCase() || normalKey.includes(pattern.toLowerCase())) {
+              mapped[field] = String(val || '').trim();
+              break;
+            }
+          }
+        }
+        return mapped;
+      }).filter(e => e.first_name || e.emp_code);
+
+      if (employees.length === 0) { alert('ไม่พบข้อมูลพนักงาน (ต้องมีคอลัมน์ ชื่อ หรือ รหัสพนักงาน)'); return; }
+
+      const res = await fetch('/api/training/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, employees }),
+      });
+      const result = await res.json();
+
+      if (result.success) {
+        alert(`นำเข้ารายชื่อพนักงานสำเร็จ ${result.count} คน`);
+        setEmployeesLoaded(false);
+        setCompanyEmployees([]);
+        fetchCompanyEmployees();
+      } else if (result.sql) {
+        alert('กรุณาสร้างตาราง company_employees ก่อน — ดู Console สำหรับ SQL');
+        console.log('SQL to create table:', result.sql);
+      } else {
+        alert(result.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel');
+    }
   };
 
   // Import training plan from Excel
@@ -1412,7 +1495,7 @@ export default function CompanyTraining() {
                           <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                             👥 รายชื่อผู้เข้าอบรม ({attendees.length} คน)
                           </h4>
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button onClick={() => setShowAddAttendee(!showAddAttendee)}
                               style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                               <Plus size={12} /> เพิ่ม
@@ -1426,9 +1509,6 @@ export default function CompanyTraining() {
 
                         {/* Add attendee form */}
                         {showAddAttendee && (() => {
-                          // Load employees on first open
-                          if (!employeesLoaded) fetchCompanyEmployees();
-
                           // Get unique departments and positions for filters
                           const departments = Array.from(new Set(companyEmployees.map(e => e.department).filter(Boolean))).sort();
                           const positions = Array.from(new Set(
@@ -1480,7 +1560,18 @@ export default function CompanyTraining() {
                             </div>
 
                             {/* Employee list with checkboxes */}
-                            {companyEmployees.length === 0 ? (
+                            {companyEmployees.length === 0 && employeesLoaded ? (
+                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>
+                                <div style={{ marginBottom: 8 }}>ยังไม่มีรายชื่อพนักงาน</div>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--bg)', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                                  <Upload size={12} /> นำเข้ารายชื่อพนักงาน (Excel)
+                                  <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
+                                </label>
+                                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
+                                  Excel ต้องมีคอลัมน์: รหัสพนักงาน, ชื่อ, นามสกุล, ตำแหน่ง, แผนก
+                                </div>
+                              </div>
+                            ) : companyEmployees.length === 0 && !employeesLoaded ? (
                               <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลดรายชื่อพนักงาน...</div>
                             ) : filteredEmps.length === 0 ? (
                               <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่พบพนักงานตามเงื่อนไข</div>
@@ -1540,10 +1631,16 @@ export default function CompanyTraining() {
                             )}
 
                             {/* Bulk action bar */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                แสดง {filteredEmps.length} คน • เลือก <b style={{ color: 'var(--accent)' }}>{bulkSelected.size}</b> คน
-                              </span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                  แสดง {filteredEmps.length} คน • เลือก <b style={{ color: 'var(--accent)' }}>{bulkSelected.size}</b> คน
+                                </span>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 4, border: '1px dashed var(--border)', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer' }}>
+                                  <Upload size={10} /> นำเข้ารายชื่อ
+                                  <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
+                                </label>
+                              </div>
                               <button onClick={handleBulkAddAttendees} disabled={bulkSelected.size === 0 || bulkAdding}
                                 style={{
                                   padding: '6px 20px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: bulkSelected.size === 0 ? 'not-allowed' : 'pointer',
