@@ -143,7 +143,8 @@ export default function HQTrainingOverview() {
 
         totalBudget += p.budget || 0;
         totalActual += s?.actual_cost || 0;
-        totalParticipants += s?.actual_participants || 0;
+        const sessPax = s?.actual_participants || s?.training_attendees?.[0]?.count || 0;
+        totalParticipants += sessPax;
         totalManHours += s?.total_man_hours || 0;
 
         const em = getEffectiveMonth(p);
@@ -290,7 +291,7 @@ export default function HQTrainingOverview() {
           inHouseExternal: p.in_house_external || '',
           category: p.category || '',
           actualCost: s?.actual_cost || 0,
-          actualParticipants: s?.actual_participants || 0,
+          actualParticipants: s?.actual_participants || s?.training_attendees?.[0]?.count || 0,
           totalManHours: s?.total_man_hours || 0,
           actualHours: s?.actual_hours || s?.hours_per_course || 0,
           instructorName: s?.instructor_name || '',
