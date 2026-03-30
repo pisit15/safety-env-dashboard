@@ -33,6 +33,7 @@ interface StatusOverride {
   month: string;
   status: string;
   note?: string;
+  postponed_to_month?: string;
 }
 
 interface ResponsibleOverride {
@@ -88,7 +89,10 @@ export default function CompanyDrilldown() {
   const [editingCell, setEditingCell] = useState<{ actNo: string; month: string; actName: string } | null>(null);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [noteOverrides, setNoteOverrides] = useState<Record<string, string>>({});
+  const [postponedOverrides, setPostponedOverrides] = useState<Record<string, string>>({});
   const [statusNote, setStatusNote] = useState('');
+  const [pendingPostpone, setPendingPostpone] = useState(false);
+  const [postponeMonth, setPostponeMonth] = useState('');
 
   // Sort state
   const [sortMonth, setSortMonth] = useState<string>('none');
@@ -237,17 +241,21 @@ export default function CompanyDrilldown() {
       ]).then(([s, e]) => {
         const map: Record<string, string> = {};
         const nMap: Record<string, string> = {};
+        const pMap: Record<string, string> = {};
         // Prefix with S:/E: to match _planTag in Total mode
         (s.overrides || []).forEach((o: StatusOverride) => {
           if (o.status !== '__noted__') map[`S:${o.activity_no}:${o.month}`] = o.status;
           if (o.note) nMap[`S:${o.activity_no}:${o.month}`] = o.note;
+          if (o.postponed_to_month) pMap[`S:${o.activity_no}:${o.month}`] = o.postponed_to_month;
         });
         (e.overrides || []).forEach((o: StatusOverride) => {
           if (o.status !== '__noted__') map[`E:${o.activity_no}:${o.month}`] = o.status;
           if (o.note) nMap[`E:${o.activity_no}:${o.month}`] = o.note;
+          if (o.postponed_to_month) pMap[`E:${o.activity_no}:${o.month}`] = o.postponed_to_month;
         });
         setOverrides(map);
         setNoteOverrides(nMap);
+        setPostponedOverrides(pMap);
       }).catch(() => {});
     } else {
       fetch(`/api/status?companyId=${companyId}&planType=${planType}`)
@@ -255,12 +263,15 @@ export default function CompanyDrilldown() {
         .then(data => {
           const map: Record<string, string> = {};
           const nMap: Record<string, string> = {};
+          const pMap: Record<string, string> = {};
           (data.overrides || []).forEach((o: StatusOverride) => {
             if (o.status !== '__noted__') map[`${o.activity_no}:${o.month}`] = o.status;
             if (o.note) nMap[`${o.activity_no}:${o.month}`] = o.note;
+            if (o.postponed_to_month) pMap[`${o.activity_no}:${o.month}`] = o.postponed_to_month;
           });
           setOverrides(map);
           setNoteOverrides(nMap);
+          setPostponedOverrides(pMap);
         })
         .catch(() => {});
     }
@@ -330,17 +341,57 @@ export default function CompanyDrilldown() {
       let postponedCount = 0;
       let notApplicableCount = 0;
       activities.forEach(act => {
+        const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
         const status = getEffectiveStatus(act, k);
+
+        // Check if this activity was postponed FROM this month to another month
+        const overrideKey = `${prefix}${act.no}:${k}`;
+        const postponedTo = postponedOverrides[overrideKey];
+        if (status === 'postponed' && postponedTo && postponedTo !== k) {
+          // This activity moved away from this month — don't count it as planned here
+          // It will be counted in the target month instead
+          postponedCount++;
+          return;
+        }
+
+        // Check if any other month has a postponed activity that moves TO this month
+        // We need to count those as planned in this month
+        const isTargetOfPostpone = MONTH_KEYS.some(fromMonth => {
+          if (fromMonth === k) return false;
+          const fromKey = `${prefix}${act.no}:${fromMonth}`;
+          return postponedOverrides[fromKey] === k &&
+            (overrides[fromKey] === 'postponed' || overrides[fromKey] === 'done');
+        });
+
+        if (isTargetOfPostpone) {
+          planned++;
+          // Check the status at the target — if done at target month, count as completed
+          const fromEntry = MONTH_KEYS.find(fromMonth => {
+            const fromKey = `${prefix}${act.no}:${fromMonth}`;
+            return postponedOverrides[fromKey] === k &&
+              (overrides[fromKey] === 'postponed' || overrides[fromKey] === 'done');
+          });
+          if (fromEntry) {
+            const fromKey = `${prefix}${act.no}:${fromEntry}`;
+            if (overrides[fromKey] === 'done') {
+              completed++;
+              doneCount++;
+            }
+          }
+        }
+
         if (status === 'not_applicable') {
           notApplicableCount++;
-          // ยกประโยชน์ให้ — นับ not_applicable เป็น planned + completed ด้วย
           planned++;
           completed++;
         } else if (status !== 'not_planned') {
-          planned++;
-          if (status === 'done') { completed++; doneCount++; }
-          else if (status === 'overdue') { overdueCount++; }
-          else if (status === 'postponed') { postponedCount++; }
+          // Normal status — but skip if this is a postponed activity already handled
+          if (!(status === 'postponed' && postponedTo)) {
+            planned++;
+            if (status === 'done') { completed++; doneCount++; }
+            else if (status === 'overdue') { overdueCount++; }
+            else if (status === 'postponed') { postponedCount++; }
+          }
         }
       });
       return {
@@ -355,7 +406,7 @@ export default function CompanyDrilldown() {
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, overrides, summary?.monthlyProgress]);
+  }, [activities, overrides, postponedOverrides, summary?.monthlyProgress]);
 
   // Filter activities by status and month
   const filteredActivities = useMemo(() => {
@@ -392,12 +443,22 @@ export default function CompanyDrilldown() {
     // Sum month-slots across selected months
     activeMonthKeys.forEach(k => {
       activities.forEach(act => {
+        const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
         const status = getEffectiveStatus(act, k);
+        const overrideKey = `${prefix}${act.no}:${k}`;
+        const postponedTo = postponedOverrides[overrideKey];
+
+        // Skip postponed activities that moved to another month
+        if (status === 'postponed' && postponedTo && postponedTo !== k) {
+          totalPostponed++;
+          return;
+        }
+
         if (status === 'not_planned') return;
 
         totalPlanned++;
         if (status === 'not_applicable') {
-          totalNotApplicable++; // แยกต่างหาก ไม่รวมใน done
+          totalNotApplicable++;
         } else if (status === 'done') {
           totalDone++;
         } else if (status === 'postponed') {
@@ -405,7 +466,6 @@ export default function CompanyDrilldown() {
         } else if (status === 'cancelled') {
           totalCancelled++;
         }
-        // else: planned, overdue → notStarted
       });
     });
 
@@ -426,7 +486,7 @@ export default function CompanyDrilldown() {
       pctDone,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, overrides, summary, activeMonthKeys]);
+  }, [activities, overrides, postponedOverrides, summary, activeMonthKeys]);
 
   // Count statuses
   const statusCounts = {
@@ -461,6 +521,17 @@ export default function CompanyDrilldown() {
   // Save status override
   const handleSaveStatus = async (newStatus: MonthStatus) => {
     if (!editingCell) return;
+
+    // If "เลื่อน" is selected but month picker not shown yet, show it
+    if (newStatus === 'postponed' && !pendingPostpone) {
+      setPendingPostpone(true);
+      // Default to next month from editing cell's month
+      const cellMonthIdx = MONTH_KEYS.indexOf(editingCell.month);
+      const defaultMonth = cellMonthIdx < 11 ? MONTH_KEYS[cellMonthIdx + 1] : MONTH_KEYS[cellMonthIdx];
+      setPostponeMonth(defaultMonth);
+      return;
+    }
+
     // Determine actual planType for total mode
     const actualPlanType = planType === 'total'
       ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
@@ -468,26 +539,47 @@ export default function CompanyDrilldown() {
     const actualActNo = editingCell.actNo.replace(/^[SE]:/, '');
     setSavingStatus(true);
     try {
+      const payload: Record<string, unknown> = {
+        companyId,
+        planType: actualPlanType,
+        activityNo: actualActNo,
+        month: editingCell.month,
+        status: newStatus,
+        note: statusNote,
+        updatedBy: loginDisplayName || loginCompanyName,
+      };
+
+      // Include postponedToMonth when postponing
+      if (newStatus === 'postponed' && postponeMonth) {
+        payload.postponedToMonth = postponeMonth;
+      }
+
       await fetch('/api/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId,
-          planType: actualPlanType,
-          activityNo: actualActNo,
-          month: editingCell.month,
-          status: newStatus,
-          note: statusNote,
-          updatedBy: loginDisplayName || loginCompanyName,
-        }),
+        body: JSON.stringify(payload),
       });
       // Update local state
       const key = `${editingCell.actNo}:${editingCell.month}`;
       setOverrides(prev => ({ ...prev, [key]: newStatus }));
       setNoteOverrides(prev => ({ ...prev, [key]: statusNote }));
+
+      // Update postponed overrides
+      if (newStatus === 'postponed' && postponeMonth) {
+        setPostponedOverrides(prev => ({ ...prev, [key]: postponeMonth }));
+      } else if (newStatus !== 'done') {
+        setPostponedOverrides(prev => {
+          const copy = { ...prev };
+          delete copy[key];
+          return copy;
+        });
+      }
+
       setShowStatusModal(false);
       setEditingCell(null);
       setStatusNote('');
+      setPendingPostpone(false);
+      setPostponeMonth('');
     } catch {
       alert('บันทึกไม่สำเร็จ');
     }
@@ -525,6 +617,8 @@ export default function CompanyDrilldown() {
     setShowStatusModal(true);
     setShowEditRequestForm(false);
     setEditRequestReason('');
+    setPendingPostpone(false);
+    setPostponeMonth('');
     // Load existing note for this cell
     setStatusNote(noteOverrides[`${actNo}:${month}`] || '');
     // Fetch attachments and deadline lock in parallel
@@ -1137,7 +1231,34 @@ export default function CompanyDrilldown() {
                       {filteredActivities.map((act, i) => (
                         <tr key={i} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>{act.activity}</td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
+                            {act.activity}
+                            {/* Show postponed badge if any month has postponed_to_month */}
+                            {(() => {
+                              const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+                              // Find any postponed month for this activity
+                              const postponedEntry = MONTH_KEYS.find(mk => {
+                                const key = `${prefix}${act.no}:${mk}`;
+                                return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done');
+                              });
+                              if (postponedEntry) {
+                                const key = `${prefix}${act.no}:${postponedEntry}`;
+                                const targetMonth = postponedOverrides[key];
+                                const fromLabel = MONTH_LABELS[MONTH_KEYS.indexOf(postponedEntry)];
+                                const toLabel = MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)];
+                                return (
+                                  <span
+                                    className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                    style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}
+                                    title={`เลื่อนจาก ${fromLabel} → ${toLabel}`}
+                                  >
+                                    เลื่อน → {toLabel}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </td>
                           <td
                             className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
                             style={{
@@ -1361,7 +1482,7 @@ export default function CompanyDrilldown() {
 
         {/* Status Update Modal (with attachments, deadline lock, edit request) */}
         {showStatusModal && editingCell && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); }}>
             <div className="glass-card rounded-2xl w-full max-w-lg mx-auto flex flex-col" style={{ backdropFilter: 'blur(40px)', maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
               {/* Fixed Header */}
               <div className="px-5 pt-5 pb-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -1434,6 +1555,58 @@ export default function CompanyDrilldown() {
                       );
                     })}
                   </div>
+
+                  {/* Postpone Month Picker */}
+                  {pendingPostpone && (
+                    <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(0,122,255,0.08)', border: '1px solid rgba(0,122,255,0.3)' }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: 'var(--info)' }}>เลือกเดือนที่จะเลื่อนไป:</p>
+                      <div className="grid grid-cols-4 gap-1.5 mb-2">
+                        {MONTH_KEYS.map((mk, idx) => {
+                          const now = new Date();
+                          const currentMonth = now.getMonth(); // 0-based
+                          const isPast = idx < currentMonth; // Can't postpone to past months
+                          const isOriginal = mk === editingCell.month; // Can't postpone to same month
+                          const disabled = isPast || isOriginal;
+                          const isSelected = postponeMonth === mk;
+
+                          return (
+                            <button
+                              key={mk}
+                              onClick={() => !disabled && setPostponeMonth(mk)}
+                              disabled={disabled}
+                              className="px-2 py-1.5 rounded text-xs transition-colors"
+                              style={{
+                                background: isSelected ? 'var(--accent)' : disabled ? 'var(--bg-secondary)' : 'var(--border)',
+                                color: isSelected ? '#fff' : disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
+                                opacity: disabled ? 0.4 : 1,
+                                cursor: disabled ? 'not-allowed' : 'pointer',
+                                border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                              }}
+                            >
+                              {MONTH_LABELS[idx]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setPendingPostpone(false); setPostponeMonth(''); }}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs transition-colors"
+                          style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          onClick={() => handleSaveStatus('postponed' as MonthStatus)}
+                          disabled={!postponeMonth || savingStatus}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity"
+                          style={{ background: 'var(--info)', color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}
+                        >
+                          {savingStatus ? 'กำลังบันทึก...' : `เลื่อนไป ${postponeMonth ? MONTH_LABELS[MONTH_KEYS.indexOf(postponeMonth)] : '...'}`}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Revert button */}
                   {overrides[`${editingCell.actNo}:${editingCell.month}`] && (
@@ -1633,7 +1806,7 @@ export default function CompanyDrilldown() {
               {/* Fixed Footer */}
               <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
                 <button
-                  onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); }}
+                  onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); }}
                   className="w-full px-3 py-2 rounded-lg text-sm transition-colors"
                   style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                 >

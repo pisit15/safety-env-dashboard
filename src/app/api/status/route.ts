@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyId, planType, activityNo, month, status, note, updatedBy } = body;
+    const { companyId, planType, activityNo, month, status, note, updatedBy, postponedToMonth } = body;
 
     if (!companyId || !planType || !activityNo || !month || !status) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -51,19 +51,30 @@ export async function POST(request: NextRequest) {
       .eq('month', month)
       .single();
 
+    const upsertData: Record<string, unknown> = {
+      company_id: companyId,
+      plan_type: planType,
+      activity_no: activityNo,
+      month,
+      status,
+      note: note || '',
+      updated_by: updatedBy || '',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Save postponed_to_month when status is 'postponed'
+    if (status === 'postponed' && postponedToMonth) {
+      upsertData.postponed_to_month = postponedToMonth;
+    } else if (status !== 'postponed' && status !== 'done') {
+      // Clear postponed_to_month if not postponed and not done (done preserves it)
+      upsertData.postponed_to_month = null;
+    }
+    // When status is 'done', we keep existing postponed_to_month (don't overwrite)
+
     const { data, error } = await getSupabase()
       .from('status_overrides')
       .upsert(
-        {
-          company_id: companyId,
-          plan_type: planType,
-          activity_no: activityNo,
-          month,
-          status,
-          note: note || '',
-          updated_by: updatedBy || '',
-          updated_at: new Date().toISOString(),
-        },
+        upsertData,
         { onConflict: 'company_id,plan_type,activity_no,month' }
       )
       .select();
@@ -81,7 +92,7 @@ export async function POST(request: NextRequest) {
         activity_no: activityNo,
         month,
         old_value: oldData?.status || '(auto)',
-        new_value: status,
+        new_value: status + (postponedToMonth ? ` → ${postponedToMonth}` : ''),
         note: note || '',
         performed_by: updatedBy || '',
       });
