@@ -1190,17 +1190,8 @@ export default function CompanyTraining() {
                           )}
                           {isHidden && (
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                              ซ่อนอยู่
+                              นำออกจากแผน
                             </span>
-                          )}
-                          {isLoggedIn && (
-                            <button
-                              title={isHidden ? 'แสดงในแผน' : 'ซ่อนจากแผน'}
-                              onClick={e => { e.stopPropagation(); handleTogglePlanActive(plan.id, plan.is_active !== false); }}
-                              style={{ border: 'none', background: 'none', cursor: togglingPlanId === plan.id ? 'wait' : 'pointer', padding: '1px 3px', color: isHidden ? '#f59e0b' : 'var(--text-secondary)', opacity: togglingPlanId === plan.id ? 0.4 : 0.7, flexShrink: 0, display: 'flex', alignItems: 'center' }}
-                            >
-                              {isHidden ? <Eye size={13} /> : <EyeOff size={13} />}
-                            </button>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>

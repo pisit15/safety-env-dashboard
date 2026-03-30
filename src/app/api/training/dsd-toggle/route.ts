@@ -8,14 +8,22 @@ function getSupabase() {
   );
 }
 
-// PATCH - Toggle DSD eligible for all plans with a specific course name
+// PATCH - Toggle DSD eligible or is_active for all plans with a specific course name
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { course_name, dsd_eligible } = body;
+    const { course_name, dsd_eligible, is_active } = body;
 
-    if (!course_name || dsd_eligible === undefined) {
-      return NextResponse.json({ error: 'Missing course_name or dsd_eligible' }, { status: 400 });
+    if (!course_name) {
+      return NextResponse.json({ error: 'Missing course_name' }, { status: 400 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (dsd_eligible !== undefined) updateData.dsd_eligible = dsd_eligible;
+    if (is_active !== undefined) updateData.is_active = is_active;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
     const supabase = getSupabase();
@@ -23,7 +31,7 @@ export async function PATCH(request: NextRequest) {
     // Update all training_plans with the matching course_name
     const { data, error } = await supabase
       .from('training_plans')
-      .update({ dsd_eligible })
+      .update(updateData)
       .eq('course_name', course_name)
       .select();
 
@@ -35,7 +43,7 @@ export async function PATCH(request: NextRequest) {
       success: true,
       updated_count: data?.length || 0,
       course_name,
-      dsd_eligible,
+      ...updateData,
     });
 
   } catch (error: unknown) {

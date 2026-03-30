@@ -14,13 +14,13 @@ export async function GET() {
     const supabase = getSupabase();
 
     // Fetch all rows (override default 1000-row limit)
-    let allData: { course_name: string; dsd_eligible: boolean | null; company_id: string }[] = [];
+    let allData: { course_name: string; dsd_eligible: boolean | null; company_id: string; is_active: boolean | null }[] = [];
     let from = 0;
     const pageSize = 1000;
     while (true) {
       const { data, error } = await supabase
         .from('training_plans')
-        .select('course_name, dsd_eligible, company_id')
+        .select('course_name, dsd_eligible, company_id, is_active')
         .range(from, from + pageSize - 1);
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -31,17 +31,20 @@ export async function GET() {
       from += pageSize;
     }
 
-    // Group by course_name — a course is eligible ONLY if ALL its plans are eligible
-    const courseMap = new Map<string, { allEligible: boolean; companies: Set<string> }>();
+    // Group by course_name
+    const courseMap = new Map<string, { allEligible: boolean; allActive: boolean; companies: Set<string> }>();
     for (const row of allData) {
-      const eligible = row.dsd_eligible !== false; // null or true = eligible
+      const eligible = row.dsd_eligible !== false;
+      const active = row.is_active !== false;
       const existing = courseMap.get(row.course_name);
       if (existing) {
         existing.companies.add(row.company_id);
         if (!eligible) existing.allEligible = false;
+        if (!active) existing.allActive = false;
       } else {
         courseMap.set(row.course_name, {
           allEligible: eligible,
+          allActive: active,
           companies: new Set([row.company_id]),
         });
       }
@@ -51,6 +54,7 @@ export async function GET() {
       .map(([course_name, info]) => ({
         course_name,
         dsd_eligible: info.allEligible,
+        is_active: info.allActive,
         company_count: info.companies.size,
       }))
       .sort((a, b) => a.course_name.localeCompare(b.course_name, 'th'));

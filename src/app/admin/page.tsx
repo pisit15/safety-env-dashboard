@@ -110,10 +110,11 @@ export default function AdminPage() {
   const [editAdminPassword, setEditAdminPassword] = useState('');
 
   // DSD course management state
-  interface DsdCourse { course_name: string; dsd_eligible: boolean; company_count: number; }
+  interface DsdCourse { course_name: string; dsd_eligible: boolean; is_active: boolean; company_count: number; }
   const [dsdCourses, setDsdCourses] = useState<DsdCourse[]>([]);
   const [dsdLoading, setDsdLoading] = useState(false);
   const [dsdToggling, setDsdToggling] = useState<string | null>(null);
+  const [dsdActiveToggling, setDsdActiveToggling] = useState<string | null>(null);
   const [dsdSearch, setDsdSearch] = useState('');
 
   // Check admin session on mount
@@ -268,6 +269,25 @@ export default function AdminPage() {
       }
     } catch { alert('เกิดข้อผิดพลาด'); }
     setDsdToggling(null);
+  };
+
+  const handleActiveToggle = async (courseName: string, newValue: boolean) => {
+    setDsdActiveToggling(courseName);
+    try {
+      const res = await fetch('/api/training/dsd-toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_name: courseName, is_active: newValue }),
+      });
+      if (res.ok) {
+        setDsdCourses(prev => prev.map(c =>
+          c.course_name === courseName ? { ...c, is_active: newValue } : c
+        ));
+      } else {
+        alert('บันทึกไม่สำเร็จ');
+      }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+    setDsdActiveToggling(null);
   };
 
   useEffect(() => {
@@ -1156,7 +1176,7 @@ export default function AdminPage() {
               <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>จัดการหลักสูตรที่ส่งกรมพัฒนาฝีมือแรงงานได้</h3>
             </div>
             <p className="text-[11px] mb-4" style={{ color: 'var(--text-secondary)' }}>
-              เปิด/ปิด badge &quot;ส่งกรมพัฒน์ได้&quot; ต่อรายชื่อหลักสูตร — มีผลกับทุกบริษัทที่มีหลักสูตรชื่อเดียวกัน
+              จัดการหลักสูตร — เปิด/ปิด badge &quot;ส่งกรมพัฒน์ได้&quot; หรือ นำออก/นำเข้าแผนอบรมประจำปี ของทุกบริษัทพร้อมกัน
             </p>
 
             {/* Search */}
@@ -1179,6 +1199,7 @@ export default function AdminPage() {
                       <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>#</th>
                       <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 300 }}>ชื่อหลักสูตร</th>
                       <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>จำนวนบริษัท</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>อยู่ในแผน</th>
                       <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>ส่งกรมพัฒน์ได้</th>
                       <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>จัดการ</th>
                     </tr>
@@ -1187,13 +1208,29 @@ export default function AdminPage() {
                     {dsdCourses
                       .filter(c => !dsdSearch || c.course_name.toLowerCase().includes(dsdSearch.toLowerCase()))
                       .map((course, i) => (
-                      <tr key={course.course_name} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                      <tr key={course.course_name} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px', opacity: course.is_active === false ? 0.5 : 1, background: course.is_active === false ? '#fefce8' : undefined }} className="hover:bg-white/5">
                         <td className="py-3 px-3" style={{ color: 'var(--text-secondary)' }}>{i + 1}</td>
                         <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                           {course.course_name}
+                          {course.is_active === false && (
+                            <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: '#fef3c7', color: '#92400e' }}>
+                              นำออกจากแผนแล้ว
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-3 text-center" style={{ color: 'var(--text-secondary)' }}>
                           {course.company_count} บริษัท
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {course.is_active !== false ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#dcfce7', color: '#16a34a' }}>
+                              อยู่ในแผน
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#fef3c7', color: '#92400e' }}>
+                              นำออกแล้ว
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-3 text-center">
                           {course.dsd_eligible ? (
@@ -1207,26 +1244,42 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <button
-                            onClick={() => handleDsdToggle(course.course_name, !course.dsd_eligible)}
-                            disabled={dsdToggling === course.course_name}
-                            className="text-[11px] px-3 py-1 rounded-lg font-medium transition-colors"
-                            style={{
-                              background: course.dsd_eligible ? '#fee2e2' : '#dcfce7',
-                              color: course.dsd_eligible ? '#dc2626' : '#16a34a',
-                              border: 'none',
-                              cursor: dsdToggling === course.course_name ? 'wait' : 'pointer',
-                              opacity: dsdToggling === course.course_name ? 0.5 : 1,
-                            }}
-                          >
-                            {dsdToggling === course.course_name ? '...' : course.dsd_eligible ? 'ปิด' : 'เปิด'}
-                          </button>
+                          <div className="flex gap-1.5 justify-center">
+                            <button
+                              onClick={() => handleActiveToggle(course.course_name, !course.is_active)}
+                              disabled={dsdActiveToggling === course.course_name}
+                              className="text-[11px] px-3 py-1 rounded-lg font-medium transition-colors"
+                              style={{
+                                background: course.is_active !== false ? '#fef3c7' : '#dcfce7',
+                                color: course.is_active !== false ? '#92400e' : '#16a34a',
+                                border: 'none',
+                                cursor: dsdActiveToggling === course.course_name ? 'wait' : 'pointer',
+                                opacity: dsdActiveToggling === course.course_name ? 0.5 : 1,
+                              }}
+                            >
+                              {dsdActiveToggling === course.course_name ? '...' : course.is_active !== false ? 'นำออก' : 'นำเข้า'}
+                            </button>
+                            <button
+                              onClick={() => handleDsdToggle(course.course_name, !course.dsd_eligible)}
+                              disabled={dsdToggling === course.course_name}
+                              className="text-[11px] px-3 py-1 rounded-lg font-medium transition-colors"
+                              style={{
+                                background: course.dsd_eligible ? '#fee2e2' : '#dcfce7',
+                                color: course.dsd_eligible ? '#dc2626' : '#16a34a',
+                                border: 'none',
+                                cursor: dsdToggling === course.course_name ? 'wait' : 'pointer',
+                                opacity: dsdToggling === course.course_name ? 0.5 : 1,
+                              }}
+                            >
+                              {dsdToggling === course.course_name ? '...' : course.dsd_eligible ? 'ปิด' : 'เปิด'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                     {dsdCourses.filter(c => !dsdSearch || c.course_name.toLowerCase().includes(dsdSearch.toLowerCase())).length === 0 && (
                       <tr>
-                        <td colSpan={5} className="text-center py-8 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                        <td colSpan={6} className="text-center py-8 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
                           {dsdSearch ? 'ไม่พบหลักสูตรที่ค้นหา' : 'ยังไม่มีหลักสูตร'}
                         </td>
                       </tr>
