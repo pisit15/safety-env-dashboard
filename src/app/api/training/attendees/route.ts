@@ -155,3 +155,45 @@ export async function DELETE(request: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+
+// PATCH - Update attendee
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, emp_code, first_name, last_name, position, department } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing attendee id' }, { status: 400 });
+    }
+
+    const supabase = getSupabase();
+
+    const updateData: Record<string, string> = {};
+    if (emp_code !== undefined) updateData.emp_code = emp_code;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
+    if (position !== undefined) updateData.position = position;
+    if (department !== undefined) updateData.department = department;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('training_attendees')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
-import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown } from 'lucide-react';
+import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, Edit2, Save, Bell, Eye, X } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
@@ -140,6 +140,25 @@ export default function CompanyTraining() {
   const [importPreview, setImportPreview] = useState<Record<string, unknown>[] | null>(null);
   const [importing, setImporting] = useState(false);
 
+  // Feature 1: DSD toggle per course
+  const [showDsdToggleModal, setShowDsdToggleModal] = useState(false);
+  const [dsdToggleCourseName, setDsdToggleCourseName] = useState("");
+  const [dsdToggleValue, setDsdToggleValue] = useState(false);
+
+  // Feature 2: File upload state
+  const [photoFiles, setPhotoFiles] = useState<{ id: string; urls: string[] }>({ id: "", urls: [] });
+  const [signinFiles, setSigninFiles] = useState<{ id: string; urls: string[] }>({ id: "", urls: [] });
+  const [uploading, setUploading] = useState(false);
+
+  // Feature 3: Attendee edit state
+  const [editingAttendeeId, setEditingAttendeeId] = useState<string | null>(null);
+  const [editingAttendee, setEditingAttendee] = useState<Record<string, string>>({});
+
+  // Feature 4: Change log and HR notification
+  const [unreviewedChanges, setUnreviewedChanges] = useState<Record<string, unknown>[]>([]);
+  const [showChangeLog, setShowChangeLog] = useState(false);
+  const [loadingChanges, setLoadingChanges] = useState(false);
+
   // Auth
   const isLoggedIn = auth.isAdmin || !!auth.companyAuth[companyId];
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -173,6 +192,7 @@ export default function CompanyTraining() {
   }, [companyId, selectedYear]);
 
   useEffect(() => { fetchPlans(); }, [fetchPlans]);
+  useEffect(() => { if (auth.isAdmin) fetchUnreviewedChanges(); }, [companyId]);
 
   const fetchAttendees = async (sessionId: string) => {
     setLoadingAttendees(true);
@@ -397,6 +417,139 @@ export default function CompanyTraining() {
   };
 
   // Stats
+
+  // Feature 1: DSD toggle handler
+  const handleDsdToggle = async () => {
+    if (!selectedPlan || !dsdToggleCourseName) return;
+    try {
+      const res = await fetch('/api/training/dsd-toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_name: dsdToggleCourseName, dsd_eligible: dsdToggleValue }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`อัปเดตสถานะ DSD สำเร็จ (${data.updated_count} หลักสูตร)`);
+        await fetchPlans();
+        setShowDsdToggleModal(false);
+      } else {
+        alert(data.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('เกิดข้อผิดพลาด');
+    }
+  };
+
+  // Feature 2: File upload handler
+  const handleFileUpload = async (file: File, fileType: 'photos' | 'signin') => {
+    const session = selectedPlan?.training_sessions?.[0];
+    if (!session || !selectedPlan) {
+      alert('กรุณาบันทึกสถานะก่อน');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', companyId);
+      formData.append('sessionId', session.id);
+      formData.append('fileType', fileType);
+
+      const res = await fetch('/api/training/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        if (fileType === 'photos') {
+          setPhotoFiles({ id: session.id, urls: [...(photoFiles.urls || []), data.url] });
+        } else {
+          setSigninFiles({ id: session.id, urls: [...(signinFiles.urls || []), data.url] });
+        }
+        alert('อัปโหลดไฟล์สำเร็จ');
+      } else {
+        alert(data.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('เกิดข้อผิดพลาด');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Feature 3: Attendee edit handlers
+  const startEditAttendee = (attendee: Attendee) => {
+    setEditingAttendeeId(attendee.id);
+    setEditingAttendee({
+      emp_code: attendee.emp_code,
+      first_name: attendee.first_name,
+      last_name: attendee.last_name,
+      position: attendee.position,
+      department: attendee.department,
+    });
+  };
+
+  const handleSaveAttendee = async () => {
+    if (!editingAttendeeId) return;
+    try {
+      const res = await fetch('/api/training/attendees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingAttendeeId, ...editingAttendee }),
+      });
+      const data = await res.json();
+      if (data.id) {
+        setAttendees(attendees.map(a => a.id === editingAttendeeId ? data : a));
+        setEditingAttendeeId(null);
+        alert('บันทึกข้อมูลสำเร็จ');
+      } else {
+        alert('เกิดข้อผิดพลาด');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('เกิดข้อผิดพลาด');
+    }
+  };
+
+  // Feature 4: Change log handlers
+  const fetchUnreviewedChanges = async () => {
+    setLoadingChanges(true);
+    try {
+      const res = await fetch(`/api/training/changelog?companyId=${companyId}&isAdmin=${auth.isAdmin}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setUnreviewedChanges(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingChanges(false);
+    }
+  };
+
+  const handleMarkChangesAsReviewed = async (changeIds: string[]) => {
+    try {
+      const res = await fetch('/api/training/changelog', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          changeIds,
+          hrReviewedBy: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchUnreviewedChanges();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const totalCourses = plans.length;
   const completedCourses = plans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
   const scheduledCourses = plans.filter(p => p.training_sessions?.[0]?.status === 'scheduled').length;
@@ -471,15 +624,37 @@ export default function CompanyTraining() {
       <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            📋 แผนอบรมประจำปี — {company?.name || companyId.toUpperCase()}
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0', fontSize: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+              📋 แผนอบรมประจำปี — {company?.name || companyId.toUpperCase()}
+            </h1>
+            {auth.isAdmin && unreviewedChanges.length > 0 && (
+              <button
+                onClick={() => { fetchUnreviewedChanges(); setShowChangeLog(!showChangeLog); }}
+                style={{
+                  position: "relative", padding: "6px 12px", borderRadius: 6, border: "none",
+                  background: "#dc2626", color: "#fff", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <Bell size={14} /> แจ้งเตือน ({unreviewedChanges.length})
+                <span style={{
+                  position: "absolute", top: -6, right: -6, width: 20, height: 20,
+                  background: "#dc2626", borderRadius: "50%", border: "2px solid var(--card-solid)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 700, color: "#fff",
+                }}>
+                  {unreviewedChanges.length}
+                </span>
+              </button>
+            )}
+          </div>
+          <p style={{ color: "var(--text-secondary)", margin: "4px 0 0", fontSize: 14 }}>
             Training Plan {selectedYear} • จัดการแผนอบรม อัปเดตสถานะ และบันทึกผู้เข้าอบรม
           </p>
         </div>
 
-        {/* Year selector + Import button */}
+        {/* Year selector */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
           <select
             value={selectedYear}
@@ -940,31 +1115,88 @@ export default function CompanyTraining() {
                           <input type="number" value={modalActualHours} onChange={e => setModalActualHours(Number(e.target.value))} style={inputStyle} />
                         </div>
                       </div>
-
                       {/* DSD post-training documents checklist */}
                       {selectedPlan.dsd_eligible !== false && (
-                        <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, marginBottom: 16, border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>📋 เอกสารส่งกรมพัฒน์ฯ (รง.1)</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
-                              <input type="checkbox" checked={modalPhotosSubmitted} onChange={e => setModalPhotosSubmitted(e.target.checked)} />
-                              ส่งภาพถ่ายระหว่างอบรม (ภาพหมู่ + กิจกรรม)
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
-                              <input type="checkbox" checked={modalSigninSubmitted} onChange={e => setModalSigninSubmitted(e.target.checked)} />
-                              ส่งใบเซ็นชื่อลงทะเบียน
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
-                              <input type="checkbox" checked={modalDsdReportSubmitted} onChange={e => setModalDsdReportSubmitted(e.target.checked)} />
-                              ยื่น รง.1 แล้ว
-                            </label>
+                        <>
+                          {/* Main document section with toggle */}
+                          <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, marginBottom: 16, border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📋 เอกสารส่งกรมพัฒนาฝีมือแรงงาน (รง.1)</div>
+                              {auth.isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    setShowDsdToggleModal(true);
+                                    setDsdToggleCourseName(selectedPlan.course_name);
+                                    setDsdToggleValue(!selectedPlan.dsd_eligible);
+                                  }}
+                                  style={{
+                                    padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)',
+                                    background: 'var(--bg-secondary)', color: 'var(--accent)', fontSize: 10,
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                  }}
+                                >
+                                  <Eye size={10} /> {selectedPlan?.dsd_eligible ? 'เปิด' : 'ปิด'}
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <input type="checkbox" checked={modalPhotosSubmitted} onChange={e => setModalPhotosSubmitted(e.target.checked)} style={{ marginTop: 3 }} />
+                                <div style={{ flex: 1 }}>
+                                  <label style={{ fontSize: 12, cursor: 'pointer' }}>ส่งภาพถ่ายระหว่างอบรม (ภาพหมู่ + กิจกรรม)</label>
+                                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, cursor: 'pointer' }}>
+                                    <Upload size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                    <input type="file" accept="image/*" multiple onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'photos')} style={{ cursor: 'pointer' }} disabled={uploading} />
+                                  </label>
+                                  {photoFiles.id === selectedPlan.training_sessions?.[0]?.id && photoFiles.urls.length > 0 && (
+                                    <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                      {photoFiles.urls.map((url, i) => (
+                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'underline' }}>
+                                          ไฟล์ {i + 1}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <input type="checkbox" checked={modalSigninSubmitted} onChange={e => setModalSigninSubmitted(e.target.checked)} style={{ marginTop: 3 }} />
+                                <div style={{ flex: 1 }}>
+                                  <label style={{ fontSize: 12, cursor: 'pointer' }}>ส่งใบเซ็นชื่อลงทะเบียน</label>
+                                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, cursor: 'pointer' }}>
+                                    <Upload size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                    <input type="file" accept=".pdf,.jpg,.png" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'signin')} style={{ cursor: 'pointer' }} disabled={uploading} />
+                                  </label>
+                                  {signinFiles.id === selectedPlan.training_sessions?.[0]?.id && signinFiles.urls.length > 0 && (
+                                    <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                      {signinFiles.urls.map((url, i) => (
+                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'underline' }}>
+                                          ไฟล์ {i + 1}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div style={{ marginTop: 8 }}>
-                            <label style={labelStyle}>จำนวนคนที่กรมพัฒน์ฯ อนุมัติ</label>
-                            <input type="number" value={modalDsdHeadcount} onChange={e => setModalDsdHeadcount(Number(e.target.value))}
-                              placeholder="0" style={{ ...inputStyle, width: 120 }} />
+
+                          {/* HR section - separate subsection */}
+                          <div style={{ background: '#fef3c7', borderRadius: 8, padding: 12, marginBottom: 16, border: '1px solid #f59e0b' }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: '#92400e' }}>📌 ส่วนของ HR</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={modalDsdReportSubmitted} onChange={e => setModalDsdReportSubmitted(e.target.checked)} />
+                                ยื่น รง.1 แล้ว
+                              </label>
+                              <div>
+                                <label style={labelStyle}>จำนวนคนที่กรมพัฒน์ฯ อนุมัติ</label>
+                                <input type="number" value={modalDsdHeadcount} onChange={e => setModalDsdHeadcount(Number(e.target.value))}
+                                  placeholder="0" style={{ ...inputStyle, width: 120 }} />
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        </>
                       )}
 
                       {/* Attendees Section */}
@@ -1104,23 +1336,50 @@ export default function CompanyTraining() {
                               </thead>
                               <tbody>
                                 {attendees.map((a, i) => (
-                                  <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                  <tr key={a.id} style={{ borderBottom: '1px solid var(--border)', background: editingAttendeeId === a.id ? 'var(--bg-secondary)' : 'transparent' }}>
                                     <td style={{ padding: '4px 8px' }}>{i + 1}</td>
-                                    <td style={{ padding: '4px 8px' }}>{a.emp_code || '-'}</td>
-                                    <td style={{ padding: '4px 8px' }}>{a.first_name} {a.last_name}</td>
-                                    <td style={{ padding: '4px 8px' }}>{a.position || '-'}</td>
-                                    <td style={{ padding: '4px 8px' }}>{a.department || '-'}</td>
-                                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
-                                        {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: '4px 8px' }}>
-                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAttendee(a.id); }}
-                                        style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}>
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </td>
+                                    {editingAttendeeId === a.id ? (
+                                      <>
+                                        <td style={{ padding: '4px 8px' }}>
+                                          <input type="text" value={editingAttendee.emp_code || ''} onChange={e => setEditingAttendee({ ...editingAttendee, emp_code: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
+                                        </td>
+                                        <td style={{ padding: '4px 8px' }}>
+                                          <input type="text" placeholder="ชื่อ" value={editingAttendee.first_name || ''} onChange={e => setEditingAttendee({ ...editingAttendee, first_name: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px', marginBottom: 2 }} />
+                                          <input type="text" placeholder="สกุล" value={editingAttendee.last_name || ''} onChange={e => setEditingAttendee({ ...editingAttendee, last_name: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
+                                        </td>
+                                        <td style={{ padding: '4px 8px' }}>
+                                          <input type="text" value={editingAttendee.position || ''} onChange={e => setEditingAttendee({ ...editingAttendee, position: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
+                                        </td>
+                                        <td style={{ padding: '4px 8px' }}>
+                                          <input type="text" value={editingAttendee.department || ''} onChange={e => setEditingAttendee({ ...editingAttendee, department: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
+                                        </td>
+                                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
+                                            {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: '4px 8px', display: 'flex', gap: 4 }}>
+                                          <button onClick={handleSaveAttendee} style={{ border: 'none', background: 'none', color: '#16a34a', cursor: 'pointer', padding: 2 }}><Save size={13} /></button>
+                                          <button onClick={() => setEditingAttendeeId(null)} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}><X size={13} /></button>
+                                        </td>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <td style={{ padding: '4px 8px' }}>{a.emp_code || '-'}</td>
+                                        <td style={{ padding: '4px 8px' }}>{a.first_name} {a.last_name}</td>
+                                        <td style={{ padding: '4px 8px' }}>{a.position || '-'}</td>
+                                        <td style={{ padding: '4px 8px' }}>{a.department || '-'}</td>
+                                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
+                                            {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: '4px 8px', display: 'flex', gap: 4 }}>
+                                          <button onClick={() => startEditAttendee(a)} style={{ border: 'none', background: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 2 }}><Edit2 size={13} /></button>
+                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteAttendee(a.id); }} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}><Trash2 size={13} /></button>
+                                        </td>
+                                      </>
+                                    )}
                                   </tr>
                                 ))}
                               </tbody>
@@ -1150,6 +1409,96 @@ export default function CompanyTraining() {
         )}
 
         {/* Import Modal */}
+
+        {/* DSD Toggle Modal - Feature 1 */}
+        {showDsdToggleModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}
+            onClick={() => setShowDsdToggleModal(false)}>
+            <div style={{ background: 'var(--card-solid)', borderRadius: 12, width: '95%', maxWidth: 400, display: 'flex', flexDirection: 'column' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>🔧 ตั้งค่าสถานะ DSD Eligible</h2>
+              </div>
+              <div style={{ padding: 20 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  หลักสูตร: <strong>{dsdToggleCourseName}</strong>
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                  การเปลี่ยนแปลงจะสะท้อนไปยังหลักสูตรทั้งหมดที่มีชื่อเดียวกัน
+                </p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginBottom: 16 }}>
+                  <input type="checkbox" checked={dsdToggleValue} onChange={e => setDsdToggleValue(e.target.checked)} />
+                  <span>{dsdToggleValue ? 'เปิด (ให้ส่งเอกสาร)' : 'ปิด (ไม่ต้องส่งเอกสาร)'}</span>
+                </label>
+                <button onClick={handleDsdToggle}
+                  style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+                  ยืนยันการเปลี่ยนแปลง
+                </button>
+                <button onClick={() => setShowDsdToggleModal(false)}
+                  style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>
+                  ยกเลิก
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Change Log Panel - Feature 4 */}
+        {showChangeLog && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 60 }}
+            onClick={() => setShowChangeLog(false)}>
+            <div style={{ background: 'var(--card-solid)', borderRadius: 12, width: '95%', maxWidth: 600, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--card-solid)' }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>📝 บันทึกการเปลี่ยนแปลง</h2>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                  {unreviewedChanges.length} รายการที่รอการตรวจสอบ
+                </p>
+              </div>
+              <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+                {loadingChanges ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>กำลังโหลด...</div>
+                ) : unreviewedChanges.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>ไม่มีรายการที่ยังไม่ได้ตรวจสอบ</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {unreviewedChanges.slice(0, 10).map((change: any, i: number) => (
+                      <div key={i} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                          <div>
+                            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', margin: 0, marginBottom: 2 }}>
+                              {change.change_type}
+                            </p>
+                            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0 }}>
+                              โดย {change.changed_by} • {new Date(change.changed_at as string).toLocaleString('th-TH')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleMarkChangesAsReviewed([(change.id as string)])}
+                            style={{ fontSize: 10, padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer' }}
+                          >
+                            ✓ ตรวจสอบแล้ว
+                          </button>
+                        </div>
+                        {change.field_name && (
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                            <strong>{change.field_name}</strong>: {change.old_value} → {change.new_value}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', textAlign: 'right' }}>
+                <button onClick={() => setShowChangeLog(false)}
+                  style={{ padding: '6px 16px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>
+                  ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {showImportModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 60 }}
             onClick={() => setShowImportModal(false)}>

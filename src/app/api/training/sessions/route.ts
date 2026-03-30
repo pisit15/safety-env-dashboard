@@ -8,6 +8,49 @@ function getSupabase() {
   );
 }
 
+// Helper function to log changes
+async function logSessionChanges(
+  supabase: any,
+  sessionId: string,
+  planId: string,
+  companyId: string,
+  changedBy: string,
+  oldData: Record<string, unknown>,
+  newData: Record<string, unknown>
+) {
+  const fieldsToTrack = [
+    'status', 'actual_cost', 'actual_hours', 'instructor_name',
+    'training_location', 'training_method', 'scheduled_date_start',
+    'scheduled_date_end',
+  ];
+
+  const changes = [];
+  for (const field of fieldsToTrack) {
+    const oldValue = oldData[field];
+    const newValue = newData[field];
+    if (oldValue !== newValue && newValue !== undefined) {
+      changes.push({
+        session_id: sessionId,
+        plan_id: planId,
+        company_id: companyId,
+        changed_by: changedBy,
+        change_type: 'session_update',
+        field_name: field,
+        old_value: String(oldValue || ''),
+        new_value: String(newValue || ''),
+      });
+    }
+  }
+
+  if (changes.length > 0) {
+    try {
+      await (supabase.from('training_change_log') as any).insert(changes);
+    } catch (e) {
+      // Silently fail if table doesn't exist
+    }
+  }
+}
+
 // GET - Fetch training sessions
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -118,6 +161,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Log changes for significant fields
+    if (data && existing && updated_by) {
+      const oldData = existing;
+      const newData = sessionData;
+      await logSessionChanges(supabase, data.id, plan_id, company_id, updated_by, oldData, newData);
     }
 
     return NextResponse.json(data);
