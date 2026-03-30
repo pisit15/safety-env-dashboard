@@ -153,7 +153,7 @@ export default function HQTrainingOverview() {
     return allCompanyData.map(cd => {
       const plans = filterByTimeRange(cd.plans).filter(p => p.is_active !== false);
       let completed = 0, scheduled = 0, pending = 0, cancelled = 0, warnings = 0;
-      let totalBudget = 0, totalActual = 0, totalParticipants = 0, totalManHours = 0;
+      let totalBudget = 0, totalActual = 0, totalParticipants = 0, totalManHours = 0, dsdManHours = 0;
 
       // Monthly breakdown
       const monthly = Array.from({ length: 12 }, () => ({ planned: 0, completed: 0, budget: 0, actual: 0 }));
@@ -175,6 +175,9 @@ export default function HQTrainingOverview() {
         const sessPax = s?.actual_participants || s?.training_attendees?.[0]?.count || 0;
         totalParticipants += sessPax;
         totalManHours += s?.total_man_hours || 0;
+        if (s?.dsd_approved && p.dsd_eligible) {
+          dsdManHours += s?.total_man_hours || 0;
+        }
 
         if (em >= 1 && em <= 12) {
           monthly[em - 1].planned++;
@@ -195,7 +198,7 @@ export default function HQTrainingOverview() {
         companyName: cd.companyName,
         totalCourses: completed + scheduled + pending,
         completed, scheduled, pending, cancelled, warnings,
-        totalBudget, totalActual, totalParticipants, totalManHours,
+        totalBudget, totalActual, totalParticipants, totalManHours, dsdManHours,
         monthly,
       };
     });
@@ -242,8 +245,9 @@ export default function HQTrainingOverview() {
     actual: acc.actual + s.totalActual,
     participants: acc.participants + s.totalParticipants,
     manHours: acc.manHours + s.totalManHours,
+    dsdManHours: acc.dsdManHours + s.dsdManHours,
     warnings: acc.warnings + s.warnings,
-  }), { courses: 0, completed: 0, scheduled: 0, pending: 0, budget: 0, actual: 0, participants: 0, manHours: 0, warnings: 0 });
+  }), { courses: 0, completed: 0, scheduled: 0, pending: 0, budget: 0, actual: 0, participants: 0, manHours: 0, dsdManHours: 0, warnings: 0 });
 
   const overallPct = totals.courses > 0 ? Math.round((totals.completed / totals.courses) * 100) : 0;
   const budgetUsedPct = totals.budget > 0 ? Math.round((totals.actual / totals.budget) * 100) : 0;
@@ -1296,7 +1300,7 @@ export default function HQTrainingOverview() {
                     </div>
                   );
                   return sorted.map((s) => (
-                    <div key={s.companyId} style={{ marginBottom: 10 }}>
+                    <div key={s.companyId} style={{ marginBottom: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{s.companyName}</span>
                         <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
@@ -1304,7 +1308,8 @@ export default function HQTrainingOverview() {
                           <span style={{ marginLeft: 6, color: 'var(--text-secondary)' }}>({s.totalParticipants} คน)</span>
                         </span>
                       </div>
-                      <div style={{ position: 'relative', height: 16, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                      {/* Total man-hours bar */}
+                      <div style={{ position: 'relative', height: 12, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden', marginBottom: 2 }}>
                         <div style={{
                           position: 'absolute', left: 0, top: 0, height: '100%',
                           width: `${(s.totalManHours / maxVal) * 100}%`,
@@ -1312,13 +1317,38 @@ export default function HQTrainingOverview() {
                           borderRadius: 4,
                         }} />
                       </div>
+                      {/* DSD approved hours bar */}
+                      <div style={{ position: 'relative', height: 10, background: '#f3f4f6', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, height: '100%',
+                          width: `${(s.dsdManHours / maxVal) * 100}%`,
+                          background: 'linear-gradient(90deg, #fdba74, #f97316)',
+                          borderRadius: 3,
+                        }} />
+                        {s.dsdManHours > 0 && (
+                          <span style={{ position: 'absolute', right: 4, top: -1, fontSize: 8, color: '#9a3412', fontWeight: 600 }}>
+                            DSD {s.dsdManHours.toLocaleString()} ชม.
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ));
                 })()}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border)', fontSize: 12 }}>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 10, color: 'var(--text-secondary)', marginTop: 12, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: 'linear-gradient(90deg, #a78bfa, #7c3aed)', display: 'inline-block' }} /> ชม.อบรมรวม
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: 'linear-gradient(90deg, #fdba74, #f97316)', display: 'inline-block' }} /> ชม.ส่งกรมพัฒน์ (อนุมัติ)
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 6, fontSize: 12 }}>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   รวม: <b style={{ color: '#7c3aed' }}>{totals.manHours.toLocaleString()}</b> ชม.
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  กรมพัฒน์: <b style={{ color: '#f97316' }}>{totals.dsdManHours.toLocaleString()}</b> ชม.
                 </span>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   ผู้เข้าอบรม: <b style={{ color: '#7c3aed' }}>{totals.participants.toLocaleString()}</b> คน
