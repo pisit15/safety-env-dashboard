@@ -945,26 +945,94 @@ export default function HQTrainingOverview() {
 
               {/* Body */}
               <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
-                {/* Info Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
-                  {[
-                    { label: 'เดือนตามแผน', value: MONTH_LABELS[detailCourse.plannedMonth - 1] },
-                    { label: 'สถานะ', value: detailCourse.status === 'completed' ? '✅ อบรมแล้ว' : detailCourse.status === 'scheduled' ? '📅 กำหนดวันแล้ว' : '⏳ ตามแผน' },
-                    { label: 'วันอบรม', value: detailCourse.scheduledDate ? formatDate(detailCourse.scheduledDate) : 'ยังไม่กำหนด' },
-                    { label: 'ชั่วโมง', value: detailCourse.hours || '-' },
-                    { label: 'จำนวนคน (แผน)', value: detailCourse.participants || '-' },
-                    { label: 'งบประมาณ', value: detailCourse.budget ? `${detailCourse.budget.toLocaleString()} ฿` : '-' },
-                    { label: 'ค่าใช้จ่ายจริง', value: detailCourse.actualCost ? `${detailCourse.actualCost.toLocaleString()} ฿` : '-' },
-                    { label: 'ผู้เข้าอบรมจริง', value: detailCourse.actualParticipants || '-' },
-                    { label: 'Man-hours รวม', value: detailCourse.totalManHours || '-' },
-                    ...(detailCourse.instructorName ? [{ label: 'วิทยากร', value: detailCourse.instructorName }] : []),
-                    ...(detailCourse.trainingLocation ? [{ label: 'สถานที่', value: detailCourse.trainingLocation }] : []),
-                  ].map((item, i) => (
-                    <div key={i} style={{ background: 'var(--bg-secondary)', borderRadius: 6, padding: '8px 12px' }}>
-                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{item.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.value}</div>
+                {/* Status bar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '10px 16px', borderRadius: 8, background: detailCourse.status === 'completed' ? '#f0fdf4' : detailCourse.status === 'scheduled' ? '#eff6ff' : '#f9fafb', border: `1px solid ${detailCourse.status === 'completed' ? '#bbf7d0' : detailCourse.status === 'scheduled' ? '#bfdbfe' : '#e5e7eb'}` }}>
+                  <span style={{ fontSize: 20 }}>{detailCourse.status === 'completed' ? '✅' : detailCourse.status === 'scheduled' ? '📅' : '⏳'}</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: detailCourse.status === 'completed' ? '#16a34a' : detailCourse.status === 'scheduled' ? '#2563eb' : '#6b7280' }}>
+                      {detailCourse.status === 'completed' ? 'อบรมแล้ว' : detailCourse.status === 'scheduled' ? 'กำหนดวันแล้ว' : 'ตามแผน'}
                     </div>
-                  ))}
+                    {detailCourse.instructorName && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>วิทยากร: {detailCourse.instructorName}</div>}
+                    {detailCourse.trainingLocation && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>สถานที่: {detailCourse.trainingLocation}</div>}
+                  </div>
+                </div>
+
+                {/* Comparison Table */}
+                <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 20 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)' }}>
+                        <th style={{ padding: '8px 16px', textAlign: 'left', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', width: '34%' }}>รายการ</th>
+                        <th style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', width: '33%' }}>ตามแผน</th>
+                        <th style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', width: '33%' }}>จริง</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Month / Date */}
+                      <tr style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>📅 เดือน / วันที่อบรม</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {MONTH_LABELS[detailCourse.plannedMonth - 1]}
+                        </td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
+                          {detailCourse.scheduledDate ? (
+                            <span style={{ color: '#16a34a' }}>{formatDate(detailCourse.scheduledDate)}</span>
+                          ) : (
+                            <span style={{ color: '#dc2626', fontSize: 12 }}>ยังไม่กำหนด</span>
+                          )}
+                        </td>
+                      </tr>
+                      {/* Participants */}
+                      <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>👥 จำนวนผู้เข้าอบรม</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {detailCourse.participants ? `${detailCourse.participants} คน` : '-'}
+                        </td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
+                          {detailCourse.actualParticipants ? (
+                            <span style={{ color: '#16a34a' }}>{detailCourse.actualParticipants} คน</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                          )}
+                        </td>
+                      </tr>
+                      {/* Hours */}
+                      <tr style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>⏱️ จำนวนชั่วโมง</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {detailCourse.hours ? `${detailCourse.hours} ชม.` : '-'}
+                        </td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
+                          {detailCourse.totalManHours ? (
+                            <span style={{ color: '#16a34a' }}>{detailCourse.totalManHours} Man-hrs</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                          )}
+                        </td>
+                      </tr>
+                      {/* Budget */}
+                      <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>💰 งบประมาณ</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {detailCourse.budget ? `${detailCourse.budget.toLocaleString()} ฿` : '-'}
+                        </td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
+                          {detailCourse.actualCost ? (
+                            <span style={{ color: detailCourse.actualCost > detailCourse.budget ? '#dc2626' : '#16a34a' }}>
+                              {detailCourse.actualCost.toLocaleString()} ฿
+                              {detailCourse.budget > 0 && (
+                                <span style={{ fontSize: 11, marginLeft: 4, opacity: 0.8 }}>
+                                  ({Math.round((detailCourse.actualCost / detailCourse.budget) * 100)}%)
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Attendees */}
