@@ -143,6 +143,11 @@ export default function CompanyTraining() {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkAdding, setBulkAdding] = useState(false);
 
+  // Manual employee entry
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEmp, setManualEmp] = useState({ emp_code: '', first_name: '', last_name: '', position: '', department: '' });
+  const [manualSaving, setManualSaving] = useState(false);
+
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importSheets, setImportSheets] = useState<string[]>([]);
@@ -217,8 +222,8 @@ export default function CompanyTraining() {
     setLoadingAttendees(false);
   };
 
-  const fetchCompanyEmployees = async () => {
-    if (employeesLoaded) return;
+  const fetchCompanyEmployees = async (force = false) => {
+    if (employeesLoaded && !force) return;
     try {
       const res = await fetch(`/api/training/employees?companyId=${companyId}`);
       const data = await res.json();
@@ -467,9 +472,7 @@ export default function CompanyTraining() {
 
       if (result.success) {
         alert(`นำเข้ารายชื่อพนักงานสำเร็จ ${result.count} คน`);
-        setEmployeesLoaded(false);
-        setCompanyEmployees([]);
-        fetchCompanyEmployees();
+        fetchCompanyEmployees(true);
       } else if (result.sql) {
         alert('กรุณาสร้างตาราง company_employees ก่อน — ดู Console สำหรับ SQL');
         console.log('SQL to create table:', result.sql);
@@ -479,6 +482,30 @@ export default function CompanyTraining() {
     } catch (e) {
       console.error(e);
       alert('เกิดข้อผิดพลาดในการอ่านไฟล์ Excel');
+    }
+  };
+
+  // Manual single employee entry
+  const handleManualAddEmployee = async () => {
+    if (!manualEmp.first_name.trim()) { alert('กรุณากรอกชื่อพนักงาน'); return; }
+    setManualSaving(true);
+    try {
+      const res = await fetch('/api/training/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, employees: [manualEmp] }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setManualEmp({ emp_code: '', first_name: '', last_name: '', position: '', department: '' });
+        fetchCompanyEmployees(true);
+      } else {
+        alert(result.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setManualSaving(false);
     }
   };
 
@@ -1561,15 +1588,35 @@ export default function CompanyTraining() {
 
                             {/* Employee list with checkboxes */}
                             {companyEmployees.length === 0 && employeesLoaded ? (
-                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>
-                                <div style={{ marginBottom: 8 }}>ยังไม่มีรายชื่อพนักงาน</div>
-                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--bg)', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                                  <Upload size={12} /> นำเข้ารายชื่อพนักงาน (Excel)
-                                  <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
-                                </label>
-                                <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
-                                  Excel ต้องมีคอลัมน์: รหัสพนักงาน, ชื่อ, นามสกุล, ตำแหน่ง, แผนก
+                              <div style={{ padding: 16 }}>
+                                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>ยังไม่มีรายชื่อพนักงาน</div>
+                                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--bg)', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                                    <Upload size={12} /> นำเข้า Excel
+                                    <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
+                                  </label>
+                                  <button onClick={() => setShowManualEntry(!showManualEntry)}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--success)', background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--success)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                                    <Plus size={12} /> เพิ่มทีละคน
+                                  </button>
                                 </div>
+                                {showManualEntry && (
+                                  <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, marginBottom: 10 }}>
+                                      <input placeholder="รหัสพนักงาน" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
+                                      <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
+                                      <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
+                                      <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
+                                      <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                      <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
+                                        style={{ padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff' }}>
+                                        {manualSaving ? 'กำลังบันทึก...' : '✓ เพิ่มพนักงาน'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ) : companyEmployees.length === 0 && !employeesLoaded ? (
                               <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลดรายชื่อพนักงาน...</div>
@@ -1640,6 +1687,10 @@ export default function CompanyTraining() {
                                   <Upload size={10} /> นำเข้ารายชื่อ
                                   <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
                                 </label>
+                                <button onClick={() => setShowManualEntry(!showManualEntry)}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 4, border: `1px dashed ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, color: showManualEntry ? 'var(--success)' : 'var(--text-secondary)', fontSize: 11, cursor: 'pointer', background: 'transparent', fontWeight: showManualEntry ? 600 : 400 }}>
+                                  <Plus size={10} /> เพิ่มทีละคน
+                                </button>
                               </div>
                               <button onClick={handleBulkAddAttendees} disabled={bulkSelected.size === 0 || bulkAdding}
                                 style={{
@@ -1650,6 +1701,24 @@ export default function CompanyTraining() {
                                 {bulkAdding ? 'กำลังเพิ่ม...' : `เพิ่มผู้เข้าอบรม ${bulkSelected.size > 0 ? `(${bulkSelected.size} คน)` : ''}`}
                               </button>
                             </div>
+
+                            {/* Manual entry inline form */}
+                            {showManualEntry && (
+                              <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 10, border: '1px solid var(--border)', marginTop: 8 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>เพิ่มพนักงานใหม่</div>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                  <input placeholder="รหัสพนักงาน" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                                  <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                                  <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                                  <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                                  <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                                  <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
+                                    style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff', whiteSpace: 'nowrap' }}>
+                                    {manualSaving ? '...' : '✓ เพิ่ม'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           );
                         })()}
