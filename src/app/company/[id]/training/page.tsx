@@ -283,6 +283,7 @@ export default function CompanyTraining() {
           scheduled_date_start: modalDateStart || null,
           scheduled_date_end: modalDateEnd || null,
           actual_cost: modalActualCost,
+          actual_participants: attendees.length,
           hours_per_course: selectedPlan.hours_per_course,
           total_man_hours: modalActualHours * attendees.length,
           note: modalNote,
@@ -1196,9 +1197,12 @@ export default function CompanyTraining() {
                         </span>
                       </td>
                       <td style={tdStyle}>{session?.scheduled_date_start ? formatDate(session.scheduled_date_start) : '-'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>{session?.actual_cost ? session.actual_cost.toLocaleString() : '-'}</td>
-                      <td style={tdStyle}>{session?.actual_participants || '-'}</td>
-                      <td style={tdStyle}>{session?.total_man_hours || '-'}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>{session?.actual_cost != null && session.actual_cost > 0 ? session.actual_cost.toLocaleString() : '-'}</td>
+                      <td style={tdStyle}>{(() => {
+                        const pax = session?.actual_participants || session?.training_attendees?.[0]?.count || 0;
+                        return pax > 0 ? pax : '-';
+                      })()}</td>
+                      <td style={tdStyle}>{session?.total_man_hours != null && session.total_man_hours > 0 ? session.total_man_hours.toLocaleString() : '-'}</td>
                     </tr>
                   );
                 })}
