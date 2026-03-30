@@ -25,11 +25,19 @@ interface PlanRaw {
     id: string;
     status: string;
     scheduled_date_start: string | null;
+    scheduled_date_end: string | null;
     actual_cost: number;
     actual_participants: number;
     total_man_hours: number;
+    hours_per_course: number;
+    actual_hours: number;
     postponed_to_month: number | null;
     original_planned_month: number | null;
+    instructor_name: string | null;
+    training_location: string | null;
+    training_method: string | null;
+    note: string | null;
+    training_attendees?: { count: number }[];
   }[];
 }
 
@@ -59,7 +67,7 @@ export default function HQTrainingOverview() {
   const [trackingMode, setTrackingMode] = useState<'pending' | 'completed'>('pending');
 
   // Course detail modal
-  const [detailCourse, setDetailCourse] = useState<{ companyId: string; company: string; courseName: string; planId: string; sessionId: string | null; status: string; scheduledDate: string | null; dsd: boolean; plannedMonth: number; budget: number; hours: number; participants: number; inHouseExternal: string; category: string; actualCost: number; actualParticipants: number; totalManHours: number; instructorName: string; trainingLocation: string; } | null>(null);
+  const [detailCourse, setDetailCourse] = useState<{ companyId: string; company: string; courseName: string; planId: string; sessionId: string | null; status: string; scheduledDate: string | null; scheduledDateEnd: string | null; dsd: boolean; plannedMonth: number; budget: number; hours: number; participants: number; inHouseExternal: string; category: string; actualCost: number; actualParticipants: number; totalManHours: number; actualHours: number; instructorName: string; trainingLocation: string; trainingMethod: string; note: string; attendeeCount: number; } | null>(null);
   const [detailAttendees, setDetailAttendees] = useState<Record<string, unknown>[]>([]);
   const [detailFiles, setDetailFiles] = useState<{ photos: string[]; signin: string[] }>({ photos: [], signin: [] });
   const [detailLoading, setDetailLoading] = useState(false);
@@ -231,8 +239,13 @@ export default function HQTrainingOverview() {
     actualCost: number;
     actualParticipants: number;
     totalManHours: number;
+    actualHours: number;
     instructorName: string;
     trainingLocation: string;
+    trainingMethod: string;
+    note: string;
+    scheduledDateEnd: string | null;
+    attendeeCount: number;
   };
 
   // Build ALL course items (both pending and completed)
@@ -279,8 +292,13 @@ export default function HQTrainingOverview() {
           actualCost: s?.actual_cost || 0,
           actualParticipants: s?.actual_participants || 0,
           totalManHours: s?.total_man_hours || 0,
-          instructorName: (s as Record<string, unknown>)?.instructor_name as string || '',
-          trainingLocation: (s as Record<string, unknown>)?.training_location as string || '',
+          actualHours: s?.actual_hours || s?.hours_per_course || 0,
+          instructorName: s?.instructor_name || '',
+          trainingLocation: s?.training_location || '',
+          trainingMethod: s?.training_method || '',
+          note: s?.note || '',
+          scheduledDateEnd: s?.scheduled_date_end || null,
+          attendeeCount: s?.training_attendees?.[0]?.count || 0,
         });
       }
     }
@@ -340,6 +358,7 @@ export default function HQTrainingOverview() {
       sessionId: item.sessionId,
       status: item.status,
       scheduledDate: item.scheduledDate,
+      scheduledDateEnd: item.scheduledDateEnd,
       dsd: item.dsd,
       plannedMonth: item.plannedMonth,
       budget: item.budget,
@@ -350,8 +369,12 @@ export default function HQTrainingOverview() {
       actualCost: item.actualCost,
       actualParticipants: item.actualParticipants,
       totalManHours: item.totalManHours,
+      actualHours: item.actualHours,
       instructorName: item.instructorName,
       trainingLocation: item.trainingLocation,
+      trainingMethod: item.trainingMethod,
+      note: item.note,
+      attendeeCount: item.attendeeCount,
     });
     setDetailLoading(true);
     setDetailAttendees([]);
@@ -952,12 +975,17 @@ export default function HQTrainingOverview() {
                     <div style={{ fontSize: 14, fontWeight: 700, color: detailCourse.status === 'completed' ? '#16a34a' : detailCourse.status === 'scheduled' ? '#2563eb' : '#6b7280' }}>
                       {detailCourse.status === 'completed' ? 'อบรมแล้ว' : detailCourse.status === 'scheduled' ? 'กำหนดวันแล้ว' : 'ตามแผน'}
                     </div>
-                    {detailCourse.instructorName && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>วิทยากร: {detailCourse.instructorName}</div>}
-                    {detailCourse.trainingLocation && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>สถานที่: {detailCourse.trainingLocation}</div>}
                   </div>
                 </div>
 
                 {/* Comparison Table */}
+                {(() => {
+                  const actualPax = detailCourse.actualParticipants || detailCourse.attendeeCount || 0;
+                  const plannedTotalHours = detailCourse.hours * detailCourse.participants;
+                  const actualTotalManHours = detailCourse.totalManHours || (actualPax * (detailCourse.actualHours || detailCourse.hours));
+                  const cmpTd: React.CSSProperties = { padding: '10px 16px', textAlign: 'right', fontWeight: 600 };
+                  const labelTd: React.CSSProperties = { padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)', fontSize: 13 };
+                  return (
                 <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 20 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
@@ -970,13 +998,18 @@ export default function HQTrainingOverview() {
                     <tbody>
                       {/* Month / Date */}
                       <tr style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>📅 เดือน / วันที่อบรม</td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <td style={labelTd}>📅 เดือน / วันที่อบรม</td>
+                        <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {MONTH_LABELS[detailCourse.plannedMonth - 1]}
                         </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
+                        <td style={cmpTd}>
                           {detailCourse.scheduledDate ? (
-                            <span style={{ color: '#16a34a' }}>{formatDate(detailCourse.scheduledDate)}</span>
+                            <span style={{ color: '#16a34a' }}>
+                              {formatDate(detailCourse.scheduledDate)}
+                              {detailCourse.scheduledDateEnd && detailCourse.scheduledDateEnd !== detailCourse.scheduledDate && (
+                                <span> - {formatDate(detailCourse.scheduledDateEnd)}</span>
+                              )}
+                            </span>
                           ) : (
                             <span style={{ color: '#dc2626', fontSize: 12 }}>ยังไม่กำหนด</span>
                           )}
@@ -984,39 +1017,67 @@ export default function HQTrainingOverview() {
                       </tr>
                       {/* Participants */}
                       <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>👥 จำนวนผู้เข้าอบรม</td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <td style={labelTd}>👥 จำนวนผู้เข้าอบรม</td>
+                        <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {detailCourse.participants ? `${detailCourse.participants} คน` : '-'}
                         </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
-                          {detailCourse.actualParticipants ? (
-                            <span style={{ color: '#16a34a' }}>{detailCourse.actualParticipants} คน</span>
+                        <td style={cmpTd}>
+                          {actualPax > 0 ? (
+                            <span style={{ color: '#16a34a' }}>
+                              {actualPax} คน
+                              {detailCourse.participants > 0 && (
+                                <span style={{ fontSize: 11, marginLeft: 4, opacity: 0.8 }}>
+                                  ({Math.round((actualPax / detailCourse.participants) * 100)}%)
+                                </span>
+                              )}
+                            </span>
                           ) : (
                             <span style={{ color: 'var(--text-secondary)' }}>-</span>
                           )}
                         </td>
                       </tr>
-                      {/* Hours */}
+                      {/* Hours per course */}
                       <tr style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>⏱️ จำนวนชั่วโมง</td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        <td style={labelTd}>⏱️ ชั่วโมงอบรม / หลักสูตร</td>
+                        <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {detailCourse.hours ? `${detailCourse.hours} ชม.` : '-'}
                         </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
-                          {detailCourse.totalManHours ? (
-                            <span style={{ color: '#16a34a' }}>{detailCourse.totalManHours} Man-hrs</span>
+                        <td style={cmpTd}>
+                          {detailCourse.actualHours ? (
+                            <span style={{ color: '#16a34a' }}>{detailCourse.actualHours} ชม.</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                          )}
+                        </td>
+                      </tr>
+                      {/* Total Man-Hours */}
+                      <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+                        <td style={labelTd}>📊 จำนวนชั่วโมงรวม (Man-hrs)</td>
+                        <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
+                          {plannedTotalHours ? `${plannedTotalHours.toLocaleString()} ชม.` : '-'}
+                        </td>
+                        <td style={cmpTd}>
+                          {actualTotalManHours > 0 ? (
+                            <span style={{ color: '#16a34a' }}>
+                              {actualTotalManHours.toLocaleString()} ชม.
+                              {plannedTotalHours > 0 && (
+                                <span style={{ fontSize: 11, marginLeft: 4, opacity: 0.8 }}>
+                                  ({Math.round((actualTotalManHours / plannedTotalHours) * 100)}%)
+                                </span>
+                              )}
+                            </span>
                           ) : (
                             <span style={{ color: 'var(--text-secondary)' }}>-</span>
                           )}
                         </td>
                       </tr>
                       {/* Budget */}
-                      <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-                        <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>💰 งบประมาณ</td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      <tr style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={labelTd}>💰 งบประมาณ</td>
+                        <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {detailCourse.budget ? `${detailCourse.budget.toLocaleString()} ฿` : '-'}
                         </td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>
+                        <td style={cmpTd}>
                           {detailCourse.actualCost ? (
                             <span style={{ color: detailCourse.actualCost > detailCourse.budget ? '#dc2626' : '#16a34a' }}>
                               {detailCourse.actualCost.toLocaleString()} ฿
@@ -1034,6 +1095,38 @@ export default function HQTrainingOverview() {
                     </tbody>
                   </table>
                 </div>
+                  );
+                })()}
+
+                {/* Additional Info */}
+                {(detailCourse.instructorName || detailCourse.trainingLocation || detailCourse.trainingMethod || detailCourse.note) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 20 }}>
+                    {detailCourse.instructorName && (
+                      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>🎓 วิทยากร</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{detailCourse.instructorName}</div>
+                      </div>
+                    )}
+                    {detailCourse.trainingLocation && (
+                      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>📍 สถานที่อบรม</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{detailCourse.trainingLocation}</div>
+                      </div>
+                    )}
+                    {detailCourse.trainingMethod && (
+                      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>📋 รูปแบบการอบรม</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{detailCourse.trainingMethod}</div>
+                      </div>
+                    )}
+                    {detailCourse.note && (
+                      <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>📝 หมายเหตุ</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{detailCourse.note}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Attendees */}
                 <div style={{ marginBottom: 20 }}>
