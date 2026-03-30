@@ -1405,57 +1405,6 @@ export default function CompanyTraining() {
                     rows={2} style={{ ...inputStyle, marginBottom: 16, resize: 'vertical' }} />
                 </div>
 
-                {/* ═══════════════ SECTION 2: ก่อนอบรม — ยื่นกรมพัฒน์ฯ ═══════════════ */}
-                {selectedPlan.dsd_eligible !== false && (
-                  <div style={{ borderTop: '2px solid var(--border)', paddingTop: 20, marginBottom: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📑</div>
-                      <div>
-                        <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                          ก่อนอบรม — ยื่นกรมพัฒน์ฯ ({selectedPlan.in_house_external?.toLowerCase().includes('in') ? 'ยป.1' : 'ยป.3'})
-                        </h3>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                          ยื่นล่วงหน้า {selectedPlan.in_house_external?.toLowerCase().includes('in') ? '60' : '15'} วันก่อนอบรม
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* DSD Status Header */}
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, padding: '8px 12px', background: '#fef9c3', borderRadius: 6, border: '1px solid #fde68a' }}>
-                      📋 ข้อมูลการยื่นกรมพัฒน์ (สำหรับ HR)
-                    </div>
-
-                    {/* DSD submission options */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: `1px solid ${modalDsdNotSubmitting ? '#fca5a5' : 'var(--border)'}`, background: modalDsdNotSubmitting ? '#fef2f2' : 'var(--bg)' }}>
-                        <input type="checkbox" checked={modalDsdNotSubmitting}
-                          onChange={e => {
-                            setModalDsdNotSubmitting(e.target.checked);
-                            if (e.target.checked) { setModalDsdSubmitted(false); setModalDsdApproved(false); }
-                          }} />
-                        <span style={{ color: modalDsdNotSubmitting ? '#dc2626' : 'var(--text-primary)' }}>ไม่ได้ยื่นกรมพัฒน์</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: modalDsdNotSubmitting ? 'not-allowed' : 'pointer', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdSubmitted ? '#dcfce7' : 'var(--bg)', opacity: modalDsdNotSubmitting ? 0.4 : 1 }}>
-                        <input type="checkbox" checked={modalDsdSubmitted} disabled={modalDsdNotSubmitting}
-                          onChange={e => setModalDsdSubmitted(e.target.checked)} />
-                        <span>ยื่นขอรับรองแล้ว</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: modalDsdNotSubmitting ? 'not-allowed' : 'pointer', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdApproved ? '#dcfce7' : 'var(--bg)', opacity: modalDsdNotSubmitting ? 0.4 : 1 }}>
-                        <input type="checkbox" checked={modalDsdApproved} disabled={modalDsdNotSubmitting}
-                          onChange={e => setModalDsdApproved(e.target.checked)} />
-                        <span>กรมพัฒน์ฯ อนุมัติแล้ว</span>
-                      </label>
-                    </div>
-
-                    {/* Hour warning */}
-                    {!modalDsdNotSubmitting && selectedPlan.hours_per_course > 0 && selectedPlan.hours_per_course < 6 && (
-                      <div style={{ background: '#fef2f2', borderRadius: 6, padding: '6px 10px', marginBottom: 12, fontSize: 11, color: '#991b1b', border: '1px solid #fecaca' }}>
-                        ⚠️ หลักสูตรนี้มี {selectedPlan.hours_per_course} ชม. — กรมพัฒน์ฯ กำหนดไม่ต่ำกว่า 6 ชม.
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Save button (shared) */}
                 <button onClick={handleSaveSession} disabled={saving}
                   style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 20, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
