@@ -293,8 +293,12 @@ export default function CompanyTraining() {
           total_man_hours: modalActualHours * attendees.length,
           note: modalNote,
           updated_by: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
-          postponed_to_month: modalStatus === 'postponed' ? modalPostponedMonth : null,
-          original_planned_month: modalStatus === 'postponed' ? (selectedPlan.training_sessions?.[0]?.original_planned_month || selectedPlan.planned_month) : null,
+          postponed_to_month: modalStatus === 'postponed'
+            ? modalPostponedMonth
+            : (selectedPlan.training_sessions?.[0]?.postponed_to_month || undefined),
+          original_planned_month: modalStatus === 'postponed'
+            ? (selectedPlan.training_sessions?.[0]?.original_planned_month || selectedPlan.planned_month)
+            : (selectedPlan.training_sessions?.[0]?.original_planned_month || undefined),
           // DSD pre-training
           instructor_name: modalInstructor || null,
           training_location: modalLocation || null,
