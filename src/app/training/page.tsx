@@ -948,6 +948,7 @@ export default function HQTrainingOverview() {
                               <th style={th}>เดือน</th>
                               <th style={th}>วันอบรม</th>
                               <th style={th}>DSD</th>
+                              <th style={th}>สถานะ DSD</th>
                               {trackingMode === 'pending' && <th style={th}>ความเร่งด่วน</th>}
                               {trackingMode === 'completed' && <th style={th}>ค่าใช้จ่าย</th>}
                               {trackingMode === 'completed' && <th style={th}>ผู้เข้าอบรม</th>}
@@ -992,19 +993,28 @@ export default function HQTrainingOverview() {
                                       </span>
                                     )}
                                   </td>
+                                  <td style={td}>
+                                    {item.dsd && (
+                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
+                                        กรมพัฒน์
+                                      </span>
+                                    )}
+                                  </td>
+                                  {/* สถานะ DSD — clickable dropdown for HR */}
                                   <td style={{ ...td, position: 'relative' }}>
                                     {item.dsd ? (
                                       <div style={{ position: 'relative', display: 'inline-block' }}>
                                         <button
                                           onClick={(e) => { e.stopPropagation(); handleDsdClick(idx, item); }}
                                           style={{
-                                            fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 700, border: 'none', cursor: item.sessionId ? 'pointer' : 'default',
+                                            fontSize: 9, padding: '2px 8px', borderRadius: 4, fontWeight: 700, border: 'none',
+                                            cursor: item.sessionId ? 'pointer' : 'default',
                                             background: getDsdLabel(item.dsdStatus).bg, color: getDsdLabel(item.dsdStatus).color,
                                             transition: 'all 0.15s',
                                           }}
                                           title={item.sessionId ? (hrPinVerified ? 'คลิกเพื่อเปลี่ยนสถานะ' : 'คลิกเพื่อใส่ PIN HR') : 'ยังไม่มี session'}
                                         >
-                                          {item.dsdStatus === 'none' ? 'กรมพัฒน์' : getDsdLabel(item.dsdStatus).label}
+                                          {getDsdLabel(item.dsdStatus).label}
                                           {hrPinVerified && item.sessionId && <span style={{ marginLeft: 2, fontSize: 8 }}>▼</span>}
                                         </button>
                                         {dsdDropdownIdx === idx && item.sessionId && (
