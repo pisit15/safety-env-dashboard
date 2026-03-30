@@ -157,6 +157,9 @@ export default function CompanyTraining() {
   // Feature 4: Change log and HR notification
   const [unreviewedChanges, setUnreviewedChanges] = useState<Record<string, unknown>[]>([]);
   const [showChangeLog, setShowChangeLog] = useState(false);
+
+  // Feature 5: Inline month selector for plans without a month
+  const [editingMonthPlanId, setEditingMonthPlanId] = useState<string | null>(null);
   const [loadingChanges, setLoadingChanges] = useState(false);
 
   // Auth
@@ -515,6 +518,24 @@ export default function CompanyTraining() {
     }
   };
 
+  // Feature 5: Update planned month for a training plan
+  const handleUpdatePlannedMonth = async (planId: string, month: number) => {
+    try {
+      const res = await fetch('/api/training/plans', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId, planned_month: month }),
+      });
+      if (res.ok) {
+        await fetchPlans();
+      } else {
+        const err = await res.json();
+        alert('บันทึกไม่สำเร็จ: ' + (err.error || 'Unknown error'));
+      }
+    } catch (e) { console.error(e); }
+    setEditingMonthPlanId(null);
+  };
+
   // Feature 4: Change log handlers
   const fetchUnreviewedChanges = async () => {
     setLoadingChanges(true);
@@ -841,7 +862,14 @@ export default function CompanyTraining() {
                     >
                       <td style={tdStyle}>{plan.course_no || i + 1}</td>
                       <td style={{ ...tdStyle, textAlign: 'left', fontWeight: 500 }}>
-                        <div>{plan.course_name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>{plan.course_name}</span>
+                          {plan.dsd_eligible !== false && (
+                            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              ส่งกรมพัฒน์ได้
+                            </span>
+                          )}
+                        </div>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                           {plan.category && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{plan.category}</span>}
                           {session?.original_planned_month && session?.postponed_to_month && (
@@ -859,7 +887,35 @@ export default function CompanyTraining() {
                       <td style={tdStyle}>
                         {(() => {
                           const effMonth = session?.postponed_to_month || plan.planned_month;
-                          return effMonth ? MONTH_LABELS[effMonth - 1] : '-';
+                          if (effMonth) return MONTH_LABELS[effMonth - 1];
+                          // No month assigned — show inline selector if logged in
+                          if (!isLoggedIn) return '-';
+                          if (editingMonthPlanId === plan.id) {
+                            return (
+                              <select
+                                autoFocus
+                                defaultValue=""
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => { if (e.target.value) handleUpdatePlannedMonth(plan.id, Number(e.target.value)); }}
+                                onBlur={() => setEditingMonthPlanId(null)}
+                                style={{ fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--accent)', background: 'var(--bg)', cursor: 'pointer' }}
+                              >
+                                <option value="">เลือก...</option>
+                                {MONTH_LABELS.map((label, mi) => (
+                                  <option key={mi} value={mi + 1}>{label}</option>
+                                ))}
+                              </select>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={e => { e.stopPropagation(); setEditingMonthPlanId(plan.id); }}
+                              style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                              title="กำหนดเดือนอบรม"
+                            >
+                              + กำหนด
+                            </button>
+                          );
                         })()}
                       </td>
                       <td style={tdStyle}>{plan.hours_per_course || '-'}</td>
