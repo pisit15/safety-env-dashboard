@@ -679,243 +679,278 @@ export default function CompanyTraining() {
 
               {/* Modal Body */}
               <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
-                {/* Status */}
-                <label style={labelStyle}>สถานะ</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 16 }}>
-                  {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                    <button key={key} onClick={() => setModalStatus(key)}
-                      style={{ padding: '6px 4px', borderRadius: 6, border: modalStatus === key ? `2px solid ${cfg.color}` : '1px solid var(--border)',
-                        background: modalStatus === key ? cfg.bg : 'transparent', color: cfg.color, fontSize: 11, cursor: 'pointer', fontWeight: modalStatus === key ? 700 : 400 }}>
-                      {cfg.icon} {cfg.label}
-                    </button>
-                  ))}
-                </div>
 
-                {/* Postponed month selector */}
-                {modalStatus === 'postponed' && (
-                  <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
-                    <label style={{ ...labelStyle, color: '#92400e' }}>เลื่อนไปเดือนไหน? *</label>
-                    <select
-                      value={modalPostponedMonth || ''}
-                      onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
-                      style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}
-                    >
-                      <option value="">-- เลือกเดือนใหม่ --</option>
-                      {MONTH_LABELS.map((label, i) => (
-                        <option key={i} value={i + 1}>{label} {selectedYear}</option>
-                      ))}
-                    </select>
-                    {selectedPlan && (
-                      <div style={{ fontSize: 11, color: '#92400e', marginTop: 6 }}>
-                        เดิมกำหนดเดือน: {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนด'}
-                      </div>
-                    )}
+                {/* ═══════════════ SECTION 1: การวางแผน ═══════════════ */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📋</div>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>การวางแผน</h3>
                   </div>
-                )}
 
-                {/* Dates */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                  <div>
-                    <label style={labelStyle}>วันเริ่มอบรม</label>
-                    <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)}
-                      style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>วันสิ้นสุด</label>
-                    <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)}
-                      style={inputStyle} />
-                  </div>
-                </div>
-
-                {/* 30-day warning */}
-                {modalDateStart && (() => {
-                  const dStart = new Date(modalDateStart);
-                  const diffDays = Math.ceil((dStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                  if (diffDays > 0 && diffDays <= 30 && attendees.length === 0) {
-                    return (
-                      <div style={{ background: '#fef2f2', border: '1px solid #dc2626', borderRadius: 6, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#991b1b' }}>
-                        ⚠️ อีก {diffDays} วันถึงวันอบรม — กรุณาเพิ่มรายชื่อผู้ลงทะเบียนเพื่อส่งข้อมูลให้ HR ยื่นกรมพัฒนาฝีมือแรงงานล่วงหน้า 30 วัน
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
-                {/* Cost */}
-                <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
-                <input type="number" value={modalActualCost} onChange={e => setModalActualCost(Number(e.target.value))}
-                  style={{ ...inputStyle, marginBottom: 16 }} />
-
-                {/* Note */}
-                <label style={labelStyle}>หมายเหตุ</label>
-                <textarea value={modalNote} onChange={e => setModalNote(e.target.value)}
-                  rows={3} style={{ ...inputStyle, marginBottom: 16, resize: 'vertical' }} />
-
-                {/* Save button */}
-                <button onClick={handleSaveSession} disabled={saving}
-                  style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 20, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
-                  {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
-                </button>
-
-                {/* Attendees Section */}
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                      👥 รายชื่อผู้เข้าอบรม ({attendees.length} คน)
-                    </h3>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => setShowAddAttendee(!showAddAttendee)}
-                        style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Plus size={12} /> เพิ่ม
+                  {/* Status */}
+                  <label style={labelStyle}>สถานะ</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 16 }}>
+                    {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                      <button key={key} onClick={() => setModalStatus(key)}
+                        style={{ padding: '6px 4px', borderRadius: 6, border: modalStatus === key ? `2px solid ${cfg.color}` : '1px solid var(--border)',
+                          background: modalStatus === key ? cfg.bg : 'transparent', color: cfg.color, fontSize: 11, cursor: 'pointer', fontWeight: modalStatus === key ? 700 : 400 }}>
+                        {cfg.icon} {cfg.label}
                       </button>
-                      <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Upload size={12} /> Upload Excel
-                        <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleUploadAttendeeExcel(e.target.files[0])} />
-                      </label>
-                    </div>
+                    ))}
                   </div>
 
-                  {/* Add attendee form */}
-                  {showAddAttendee && (
-                    <div style={{ background: 'var(--bg)', borderRadius: 6, padding: 12, marginBottom: 12, border: '1px dashed var(--border)' }}>
-                      {/* Employee search/suggestion */}
-                      <div style={{ position: 'relative', marginBottom: 8 }}>
-                        <input
-                          placeholder="🔍 ค้นหาพนักงาน (ชื่อ, นามสกุล, รหัส) หรือพิมพ์ใหม่..."
-                          value={empSearch}
-                          onChange={e => {
-                            setEmpSearch(e.target.value);
-                            setShowEmpSuggestions(true);
-                            if (!employeesLoaded) fetchCompanyEmployees();
-                          }}
-                          onFocus={() => {
-                            setShowEmpSuggestions(true);
-                            if (!employeesLoaded) fetchCompanyEmployees();
-                          }}
-                          style={{ ...inputStyle, width: '100%', fontSize: 13 }}
-                        />
-                        {showEmpSuggestions && companyEmployees.length > 0 && (
-                          <div style={{
-                            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                            background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 6,
-                            maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          }}>
-                            {companyEmployees
-                              .filter(emp => {
-                                if (!empSearch.trim()) return true;
-                                const q = empSearch.toLowerCase();
-                                return (
-                                  (emp.first_name || '').toLowerCase().includes(q) ||
-                                  (emp.last_name || '').toLowerCase().includes(q) ||
-                                  (emp.emp_code || '').toLowerCase().includes(q) ||
-                                  (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q)
-                                );
-                              })
-                              .slice(0, 20)
-                              .map((emp, idx) => (
-                                <div key={idx}
-                                  onClick={() => selectEmployee(emp)}
-                                  style={{
-                                    padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border)',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                  }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                  <span style={{ fontWeight: 600 }}>{emp.first_name} {emp.last_name}</span>
-                                  <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
-                                    {emp.emp_code ? `รหัส: ${emp.emp_code}` : ''}{emp.department ? ` • ${emp.department}` : ''}{emp.position ? ` • ${emp.position}` : ''}
-                                  </span>
-                                </div>
-                              ))
-                            }
-                            {companyEmployees.filter(emp => {
-                              if (!empSearch.trim()) return true;
-                              const q = empSearch.toLowerCase();
-                              return (emp.first_name || '').toLowerCase().includes(q) || (emp.last_name || '').toLowerCase().includes(q) || (emp.emp_code || '').toLowerCase().includes(q) || (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q);
-                            }).length === 0 && (
-                              <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
-                                ไม่พบ — กรุณากรอกข้อมูลด้านล่าง
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {/* Click outside to close suggestions */}
-                      {showEmpSuggestions && <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowEmpSuggestions(false)} />}
-
-                      {newAttendee.first_name && (
-                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 4, padding: '6px 10px', marginBottom: 8, fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
-                          ✓ เลือก: {newAttendee.first_name} {newAttendee.last_name} {newAttendee.emp_code ? `(${newAttendee.emp_code})` : ''}
+                  {/* Postponed month selector */}
+                  {modalStatus === 'postponed' && (
+                    <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                      <label style={{ ...labelStyle, color: '#92400e' }}>เลื่อนไปเดือนไหน? *</label>
+                      <select
+                        value={modalPostponedMonth || ''}
+                        onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
+                        style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}
+                      >
+                        <option value="">-- เลือกเดือนใหม่ --</option>
+                        {MONTH_LABELS.map((label, i) => (
+                          <option key={i} value={i + 1}>{label} {selectedYear}</option>
+                        ))}
+                      </select>
+                      {selectedPlan && (
+                        <div style={{ fontSize: 11, color: '#92400e', marginTop: 6 }}>
+                          เดิมกำหนดเดือน: {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนด'}
                         </div>
                       )}
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-                        <input placeholder="รหัสพนักงาน" value={newAttendee.emp_code} onChange={e => setNewAttendee({ ...newAttendee, emp_code: e.target.value })} style={inputStyle} />
-                        <input placeholder="ชื่อ *" value={newAttendee.first_name} onChange={e => setNewAttendee({ ...newAttendee, first_name: e.target.value })} style={inputStyle} />
-                        <input placeholder="นามสกุล *" value={newAttendee.last_name} onChange={e => setNewAttendee({ ...newAttendee, last_name: e.target.value })} style={inputStyle} />
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-                        <input placeholder="ตำแหน่ง" value={newAttendee.position} onChange={e => setNewAttendee({ ...newAttendee, position: e.target.value })} style={inputStyle} />
-                        <input placeholder="แผนก" value={newAttendee.department} onChange={e => setNewAttendee({ ...newAttendee, department: e.target.value })} style={inputStyle} />
-                        <select value={newAttendee.gender} onChange={e => setNewAttendee({ ...newAttendee, gender: e.target.value })} style={inputStyle}>
-                          <option value="">เพศ</option>
-                          <option value="M">ชาย</option>
-                          <option value="F">หญิง</option>
-                        </select>
-                      </div>
-                      <button onClick={handleAddAttendee} disabled={!newAttendee.first_name || !newAttendee.last_name}
-                        style={{ padding: '6px 16px', borderRadius: 4, border: 'none', background: 'var(--success)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
-                        เพิ่มผู้เข้าอบรม
-                      </button>
                     </div>
                   )}
 
-                  {/* Attendee list */}
-                  {loadingAttendees ? (
-                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>กำลังโหลด...</div>
-                  ) : attendees.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>
-                      ยังไม่มีรายชื่อผู้เข้าอบรม
+                  {/* Dates */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <label style={labelStyle}>วันเริ่มอบรม</label>
+                      <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)}
+                        style={inputStyle} />
                     </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto', maxHeight: 300 }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                        <thead>
-                          <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>#</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>รหัส</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>ชื่อ-สกุล</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>ตำแหน่ง</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'left' }}>แผนก</th>
-                            <th style={{ padding: '6px 8px' }}>ประเภท</th>
-                            <th style={{ padding: '6px 8px', width: 40 }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {attendees.map((a, i) => (
-                            <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                              <td style={{ padding: '4px 8px' }}>{i + 1}</td>
-                              <td style={{ padding: '4px 8px' }}>{a.emp_code || '-'}</td>
-                              <td style={{ padding: '4px 8px' }}>{a.first_name} {a.last_name}</td>
-                              <td style={{ padding: '4px 8px' }}>{a.position || '-'}</td>
-                              <td style={{ padding: '4px 8px' }}>{a.department || '-'}</td>
-                              <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
-                                  {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '4px 8px' }}>
-                                <button onClick={(e) => { e.stopPropagation(); handleDeleteAttendee(a.id); }}
-                                  style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}>
-                                  <Trash2 size={13} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div>
+                      <label style={labelStyle}>วันสิ้นสุด</label>
+                      <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)}
+                        style={inputStyle} />
                     </div>
+                  </div>
+
+                  {/* 30-day warning */}
+                  {modalDateStart && (() => {
+                    const dStart = new Date(modalDateStart);
+                    const diffDays = Math.ceil((dStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays > 0 && diffDays <= 30 && attendees.length === 0) {
+                      return (
+                        <div style={{ background: '#fef2f2', border: '1px solid #dc2626', borderRadius: 6, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#991b1b' }}>
+                          ⚠️ อีก {diffDays} วันถึงวันอบรม — กรุณาเพิ่มรายชื่อผู้ลงทะเบียนเพื่อส่งข้อมูลให้ HR ยื่นกรมพัฒนาฝีมือแรงงานล่วงหน้า 30 วัน
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  {/* Note */}
+                  <label style={labelStyle}>หมายเหตุ</label>
+                  <textarea value={modalNote} onChange={e => setModalNote(e.target.value)}
+                    rows={2} style={{ ...inputStyle, marginBottom: 16, resize: 'vertical' }} />
+
+                  {/* Save planning button */}
+                  <button onClick={handleSaveSession} disabled={saving}
+                    style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
+                    {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
+                  </button>
+                </div>
+
+                {/* ═══════════════ SECTION 2: ผลการอบรม ═══════════════ */}
+                <div style={{ borderTop: '2px solid var(--border)', paddingTop: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: modalStatus === 'completed' ? '#dcfce7' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+                      {modalStatus === 'completed' ? '✅' : '📝'}
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: modalStatus === 'completed' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>ผลการอบรม</h3>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {modalStatus === 'completed' ? 'บันทึกค่าใช้จ่ายจริง และรายชื่อผู้เข้าอบรม' : 'กรอกข้อมูลหลังจากอบรมเสร็จสิ้นแล้ว (เปลี่ยนสถานะเป็น "อบรมแล้ว")'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {modalStatus !== 'completed' && (
+                    <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13, border: '1px dashed var(--border)' }}>
+                      <div style={{ fontSize: 24, marginBottom: 6, opacity: 0.4 }}>🔒</div>
+                      เปลี่ยนสถานะเป็น <strong>&quot;อบรมแล้ว&quot;</strong> เพื่อบันทึกผลการอบรม
+                    </div>
+                  )}
+
+                  {modalStatus === 'completed' && (
+                    <>
+                      {/* Actual Cost */}
+                      <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
+                      <input type="number" value={modalActualCost} onChange={e => setModalActualCost(Number(e.target.value))}
+                        style={{ ...inputStyle, marginBottom: 16 }} />
+
+                      {/* Attendees Section */}
+                      <div style={{ marginTop: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                            👥 รายชื่อผู้เข้าอบรม ({attendees.length} คน)
+                          </h4>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => setShowAddAttendee(!showAddAttendee)}
+                              style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Plus size={12} /> เพิ่ม
+                            </button>
+                            <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Upload size={12} /> Upload Excel
+                              <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleUploadAttendeeExcel(e.target.files[0])} />
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Add attendee form */}
+                        {showAddAttendee && (
+                          <div style={{ background: 'var(--bg)', borderRadius: 6, padding: 12, marginBottom: 12, border: '1px dashed var(--border)' }}>
+                            {/* Employee search/suggestion */}
+                            <div style={{ position: 'relative', marginBottom: 8 }}>
+                              <input
+                                placeholder="🔍 ค้นหาพนักงาน (ชื่อ, นามสกุล, รหัส) หรือพิมพ์ใหม่..."
+                                value={empSearch}
+                                onChange={e => {
+                                  setEmpSearch(e.target.value);
+                                  setShowEmpSuggestions(true);
+                                  if (!employeesLoaded) fetchCompanyEmployees();
+                                }}
+                                onFocus={() => {
+                                  setShowEmpSuggestions(true);
+                                  if (!employeesLoaded) fetchCompanyEmployees();
+                                }}
+                                style={{ ...inputStyle, width: '100%', fontSize: 13 }}
+                              />
+                              {showEmpSuggestions && companyEmployees.length > 0 && (
+                                <div style={{
+                                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                                  background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 6,
+                                  maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                }}>
+                                  {companyEmployees
+                                    .filter(emp => {
+                                      if (!empSearch.trim()) return true;
+                                      const q = empSearch.toLowerCase();
+                                      return (
+                                        (emp.first_name || '').toLowerCase().includes(q) ||
+                                        (emp.last_name || '').toLowerCase().includes(q) ||
+                                        (emp.emp_code || '').toLowerCase().includes(q) ||
+                                        (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q)
+                                      );
+                                    })
+                                    .slice(0, 20)
+                                    .map((emp, idx) => (
+                                      <div key={idx}
+                                        onClick={() => selectEmployee(emp)}
+                                        style={{
+                                          padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border)',
+                                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                      >
+                                        <span style={{ fontWeight: 600 }}>{emp.first_name} {emp.last_name}</span>
+                                        <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+                                          {emp.emp_code ? `รหัส: ${emp.emp_code}` : ''}{emp.department ? ` • ${emp.department}` : ''}{emp.position ? ` • ${emp.position}` : ''}
+                                        </span>
+                                      </div>
+                                    ))
+                                  }
+                                  {companyEmployees.filter(emp => {
+                                    if (!empSearch.trim()) return true;
+                                    const q = empSearch.toLowerCase();
+                                    return (emp.first_name || '').toLowerCase().includes(q) || (emp.last_name || '').toLowerCase().includes(q) || (emp.emp_code || '').toLowerCase().includes(q) || (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q);
+                                  }).length === 0 && (
+                                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
+                                      ไม่พบ — กรุณากรอกข้อมูลด้านล่าง
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {/* Click outside to close suggestions */}
+                            {showEmpSuggestions && <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowEmpSuggestions(false)} />}
+
+                            {newAttendee.first_name && (
+                              <div style={{ background: 'var(--bg-secondary)', borderRadius: 4, padding: '6px 10px', marginBottom: 8, fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+                                ✓ เลือก: {newAttendee.first_name} {newAttendee.last_name} {newAttendee.emp_code ? `(${newAttendee.emp_code})` : ''}
+                              </div>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                              <input placeholder="รหัสพนักงาน" value={newAttendee.emp_code} onChange={e => setNewAttendee({ ...newAttendee, emp_code: e.target.value })} style={inputStyle} />
+                              <input placeholder="ชื่อ *" value={newAttendee.first_name} onChange={e => setNewAttendee({ ...newAttendee, first_name: e.target.value })} style={inputStyle} />
+                              <input placeholder="นามสกุล *" value={newAttendee.last_name} onChange={e => setNewAttendee({ ...newAttendee, last_name: e.target.value })} style={inputStyle} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                              <input placeholder="ตำแหน่ง" value={newAttendee.position} onChange={e => setNewAttendee({ ...newAttendee, position: e.target.value })} style={inputStyle} />
+                              <input placeholder="แผนก" value={newAttendee.department} onChange={e => setNewAttendee({ ...newAttendee, department: e.target.value })} style={inputStyle} />
+                              <select value={newAttendee.gender} onChange={e => setNewAttendee({ ...newAttendee, gender: e.target.value })} style={inputStyle}>
+                                <option value="">เพศ</option>
+                                <option value="M">ชาย</option>
+                                <option value="F">หญิง</option>
+                              </select>
+                            </div>
+                            <button onClick={handleAddAttendee} disabled={!newAttendee.first_name || !newAttendee.last_name}
+                              style={{ padding: '6px 16px', borderRadius: 4, border: 'none', background: 'var(--success)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                              เพิ่มผู้เข้าอบรม
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Attendee list */}
+                        {loadingAttendees ? (
+                          <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>กำลังโหลด...</div>
+                        ) : attendees.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>
+                            ยังไม่มีรายชื่อผู้เข้าอบรม
+                          </div>
+                        ) : (
+                          <div style={{ overflowX: 'auto', maxHeight: 300 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                              <thead>
+                                <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>#</th>
+                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>รหัส</th>
+                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>ชื่อ-สกุล</th>
+                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>ตำแหน่ง</th>
+                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>แผนก</th>
+                                  <th style={{ padding: '6px 8px' }}>ประเภท</th>
+                                  <th style={{ padding: '6px 8px', width: 40 }}></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {attendees.map((a, i) => (
+                                  <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <td style={{ padding: '4px 8px' }}>{i + 1}</td>
+                                    <td style={{ padding: '4px 8px' }}>{a.emp_code || '-'}</td>
+                                    <td style={{ padding: '4px 8px' }}>{a.first_name} {a.last_name}</td>
+                                    <td style={{ padding: '4px 8px' }}>{a.position || '-'}</td>
+                                    <td style={{ padding: '4px 8px' }}>{a.department || '-'}</td>
+                                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
+                                        {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '4px 8px' }}>
+                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteAttendee(a.id); }}
+                                        style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}>
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
