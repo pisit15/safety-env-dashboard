@@ -268,6 +268,8 @@ export default function CompanyTraining() {
     setShowModal(true);
     if (session?.id) fetchAttendees(session.id);
     else setAttendees([]);
+    // Load employee list for attendee checklist
+    fetchCompanyEmployees();
   };
 
   const handleSaveSession = async () => {
