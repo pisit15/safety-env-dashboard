@@ -450,13 +450,10 @@ export default function HQTrainingOverview() {
             {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
-          {['overview', 'course', 'person'].map(tab => (
-            <button key={tab} onClick={() => { setHistoryTab(tab as typeof historyTab); setSearchResults([]); }}
-              style={{ padding: '6px 14px', borderRadius: 6, border: historyTab === tab ? '2px solid var(--accent)' : '1px solid var(--border)',
-                background: historyTab === tab ? 'var(--accent)' : 'var(--card-solid)', color: historyTab === tab ? '#fff' : 'var(--text-primary)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
-              {tab === 'overview' ? '📊 ภาพรวม' : tab === 'course' ? '📚 ค้นหาหลักสูตร' : '👤 ค้นหารายบุคคล'}
-            </button>
-          ))}
+          <button style={{ padding: '6px 14px', borderRadius: 6, border: '2px solid var(--accent)',
+                background: 'var(--accent)', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+              📊 ภาพรวม
+          </button>
         </div>
 
         {/* Time Range Selector — only in overview tab */}
@@ -520,9 +517,6 @@ export default function HQTrainingOverview() {
                   <KPIBox icon="✅" label="อบรมแล้ว" value={`${totals.completed}`} sub={`${overallPct}%`} color="var(--success)" />
                   <KPIBox icon="📅" label="กำหนดวันแล้ว" value={`${totals.scheduled}`} color="#3b82f6" />
                   <KPIBox icon="⏳" label="รอดำเนินการ" value={`${totals.pending}`} color="#f59e0b" />
-                  <KPIBox icon="💰" label="งบประมาณ" value={`${(totals.budget / 1000).toFixed(0)}K`} />
-                  <KPIBox icon="💳" label="ใช้จริง" value={`${(totals.actual / 1000).toFixed(0)}K`} sub={`${budgetUsedPct}%`}
-                    color={totals.actual > totals.budget ? 'var(--danger)' : 'var(--success)'} />
                   <KPIBox icon="👥" label="ผู้เข้าอบรม" value={totals.participants} />
                   {totals.warnings > 0 && <KPIBox icon="⚠️" label="ต้องเร่ง" value={totals.warnings} color="var(--danger)" />}
                 </div>
