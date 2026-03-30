@@ -34,6 +34,7 @@ interface TrainingPlan {
   training_necessity: string;
   responsible_person: string;
   remarks: string;
+  dsd_eligible: boolean;
   training_sessions: TrainingSession[];
 }
 
@@ -54,6 +55,21 @@ interface TrainingSession {
   postponed_to_month: number | null;
   original_planned_month: number | null;
   training_attendees?: { count: number }[];
+  // DSD pre-training
+  instructor_name: string | null;
+  training_location: string | null;
+  training_method: string | null;
+  dsd_submitted: boolean;
+  dsd_submitted_date: string | null;
+  dsd_approved: boolean;
+  dsd_approved_date: string | null;
+  // DSD post-training
+  actual_hours: number;
+  dsd_report_submitted: boolean;
+  dsd_report_submitted_date: string | null;
+  dsd_approved_headcount: number;
+  photos_submitted: boolean;
+  signin_sheet_submitted: boolean;
 }
 
 interface Attendee {
@@ -90,6 +106,20 @@ export default function CompanyTraining() {
   const [modalNote, setModalNote] = useState('');
   const [modalPostponedMonth, setModalPostponedMonth] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // DSD pre-training state
+  const [modalInstructor, setModalInstructor] = useState('');
+  const [modalLocation, setModalLocation] = useState('');
+  const [modalMethod, setModalMethod] = useState('');
+  const [modalDsdSubmitted, setModalDsdSubmitted] = useState(false);
+  const [modalDsdApproved, setModalDsdApproved] = useState(false);
+
+  // DSD post-training state
+  const [modalActualHours, setModalActualHours] = useState(0);
+  const [modalDsdReportSubmitted, setModalDsdReportSubmitted] = useState(false);
+  const [modalPhotosSubmitted, setModalPhotosSubmitted] = useState(false);
+  const [modalSigninSubmitted, setModalSigninSubmitted] = useState(false);
+  const [modalDsdHeadcount, setModalDsdHeadcount] = useState(0);
 
   // Attendee state
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -173,6 +203,18 @@ export default function CompanyTraining() {
     setModalActualCost(session?.actual_cost || 0);
     setModalNote(session?.note || '');
     setModalPostponedMonth(session?.postponed_to_month || null);
+    // DSD pre-training
+    setModalInstructor(session?.instructor_name || '');
+    setModalLocation(session?.training_location || '');
+    setModalMethod(session?.training_method || '');
+    setModalDsdSubmitted(session?.dsd_submitted || false);
+    setModalDsdApproved(session?.dsd_approved || false);
+    // DSD post-training
+    setModalActualHours(session?.actual_hours || 0);
+    setModalDsdReportSubmitted(session?.dsd_report_submitted || false);
+    setModalPhotosSubmitted(session?.photos_submitted || false);
+    setModalSigninSubmitted(session?.signin_sheet_submitted || false);
+    setModalDsdHeadcount(session?.dsd_approved_headcount || 0);
     setShowModal(true);
     if (session?.id) fetchAttendees(session.id);
     else setAttendees([]);
@@ -197,11 +239,23 @@ export default function CompanyTraining() {
           scheduled_date_end: modalDateEnd || null,
           actual_cost: modalActualCost,
           hours_per_course: selectedPlan.hours_per_course,
-          total_man_hours: 0,
+          total_man_hours: modalActualHours * attendees.length,
           note: modalNote,
           updated_by: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
           postponed_to_month: modalStatus === 'postponed' ? modalPostponedMonth : null,
           original_planned_month: modalStatus === 'postponed' ? (selectedPlan.training_sessions?.[0]?.original_planned_month || selectedPlan.planned_month) : null,
+          // DSD pre-training
+          instructor_name: modalInstructor || null,
+          training_location: modalLocation || null,
+          training_method: modalMethod || null,
+          dsd_submitted: modalDsdSubmitted,
+          dsd_approved: modalDsdApproved,
+          // DSD post-training
+          actual_hours: modalActualHours,
+          dsd_report_submitted: modalDsdReportSubmitted,
+          photos_submitted: modalPhotosSubmitted,
+          signin_sheet_submitted: modalSigninSubmitted,
+          dsd_approved_headcount: modalDsdHeadcount,
         }),
       });
       if (res.ok) {
@@ -668,13 +722,38 @@ export default function CompanyTraining() {
               onClick={e => e.stopPropagation()}>
               {/* Modal Header */}
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-secondary)', borderRadius: '16px 16px 0 0' }}>
-                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                  {selectedPlan.course_name}
-                </h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text-primary)', flex: 1 }}>
+                    {selectedPlan.course_name}
+                  </h2>
+                  {selectedPlan.dsd_eligible !== false && (
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>
+                      ส่งกรมพัฒน์ได้
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.5 }}>
                   {selectedPlan.category} • {selectedPlan.in_house_external} • {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนดเดือน'} {selectedYear}
                   • {selectedPlan.hours_per_course} ชม. • งบ {selectedPlan.budget?.toLocaleString()} ฿
                 </div>
+                {/* DSD deadline warnings */}
+                {selectedPlan.dsd_eligible !== false && modalDateStart && !modalDsdSubmitted && (() => {
+                  const isInHouse = selectedPlan.in_house_external?.toLowerCase().includes('in');
+                  const daysRequired = isInHouse ? 60 : 15;
+                  const dStart = new Date(modalDateStart);
+                  const diffDays = Math.ceil((dStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  if (diffDays > 0 && diffDays <= daysRequired + 7) {
+                    return (
+                      <div style={{ marginTop: 8, background: diffDays <= daysRequired ? '#fef2f2' : '#fefce8', border: `1px solid ${diffDays <= daysRequired ? '#dc2626' : '#ca8a04'}`, borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
+                        <strong style={{ color: diffDays <= daysRequired ? '#dc2626' : '#ca8a04' }}>
+                          {diffDays <= daysRequired ? '⚠️ เลยกำหนดยื่น!' : '⏰ ใกล้กำหนดยื่น'}
+                        </strong>{' '}
+                        ต้องยื่น {isInHouse ? 'ยป.1' : 'ยป.3'} ล่วงหน้า {daysRequired} วัน (เหลือ {diffDays} วัน)
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               {/* Modal Body */}
@@ -703,11 +782,8 @@ export default function CompanyTraining() {
                   {modalStatus === 'postponed' && (
                     <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
                       <label style={{ ...labelStyle, color: '#92400e' }}>เลื่อนไปเดือนไหน? *</label>
-                      <select
-                        value={modalPostponedMonth || ''}
-                        onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
-                        style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}
-                      >
+                      <select value={modalPostponedMonth || ''} onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
+                        style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}>
                         <option value="">-- เลือกเดือนใหม่ --</option>
                         {MONTH_LABELS.map((label, i) => (
                           <option key={i} value={i + 1}>{label} {selectedYear}</option>
@@ -725,52 +801,101 @@ export default function CompanyTraining() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                     <div>
                       <label style={labelStyle}>วันเริ่มอบรม</label>
-                      <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)}
-                        style={inputStyle} />
+                      <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
                     </div>
                     <div>
                       <label style={labelStyle}>วันสิ้นสุด</label>
-                      <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)}
-                        style={inputStyle} />
+                      <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
                     </div>
                   </div>
-
-                  {/* 30-day warning */}
-                  {modalDateStart && (() => {
-                    const dStart = new Date(modalDateStart);
-                    const diffDays = Math.ceil((dStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                    if (diffDays > 0 && diffDays <= 30 && attendees.length === 0) {
-                      return (
-                        <div style={{ background: '#fef2f2', border: '1px solid #dc2626', borderRadius: 6, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#991b1b' }}>
-                          ⚠️ อีก {diffDays} วันถึงวันอบรม — กรุณาเพิ่มรายชื่อผู้ลงทะเบียนเพื่อส่งข้อมูลให้ HR ยื่นกรมพัฒนาฝีมือแรงงานล่วงหน้า 30 วัน
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
 
                   {/* Note */}
                   <label style={labelStyle}>หมายเหตุ</label>
                   <textarea value={modalNote} onChange={e => setModalNote(e.target.value)}
                     rows={2} style={{ ...inputStyle, marginBottom: 16, resize: 'vertical' }} />
-
-                  {/* Save planning button */}
-                  <button onClick={handleSaveSession} disabled={saving}
-                    style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
-                    {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
-                  </button>
                 </div>
 
-                {/* ═══════════════ SECTION 2: ผลการอบรม ═══════════════ */}
+                {/* ═══════════════ SECTION 2: ก่อนอบรม — ยื่นกรมพัฒน์ฯ ═══════════════ */}
+                {selectedPlan.dsd_eligible !== false && (
+                  <div style={{ borderTop: '2px solid var(--border)', paddingTop: 20, marginBottom: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📑</div>
+                      <div>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                          ก่อนอบรม — ยื่นกรมพัฒน์ฯ ({selectedPlan.in_house_external?.toLowerCase().includes('in') ? 'ยป.1' : 'ยป.3'})
+                        </h3>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          ยื่นล่วงหน้า {selectedPlan.in_house_external?.toLowerCase().includes('in') ? '60' : '15'} วันก่อนอบรม
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Instructor */}
+                    <label style={labelStyle}>ชื่อวิทยากร</label>
+                    <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)}
+                      placeholder="ระบุชื่อวิทยากร (ต้องตรงกับที่ยื่น)"
+                      style={{ ...inputStyle, marginBottom: 12 }} />
+
+                    {/* Location & Method */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <div>
+                        <label style={labelStyle}>สถานที่อบรม</label>
+                        <input value={modalLocation} onChange={e => setModalLocation(e.target.value)}
+                          placeholder="ต้องตรงกับที่แจ้ง" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วิธีการสอน</label>
+                        <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
+                          <option value="">-- เลือก --</option>
+                          <option value="lecture">บรรยาย</option>
+                          <option value="group_activity">กิจกรรมกลุ่ม</option>
+                          <option value="workshop">ฝึกปฏิบัติ</option>
+                          <option value="elearning">E-Learning</option>
+                          <option value="onsite">On-site Training</option>
+                          <option value="mixed">ผสมผสาน</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Hour warning */}
+                    {selectedPlan.hours_per_course > 0 && selectedPlan.hours_per_course < 6 && (
+                      <div style={{ background: '#fef2f2', borderRadius: 6, padding: '6px 10px', marginBottom: 12, fontSize: 11, color: '#991b1b', border: '1px solid #fecaca' }}>
+                        ⚠️ หลักสูตรนี้มี {selectedPlan.hours_per_course} ชม. — กรมพัฒน์ฯ กำหนดไม่ต่ำกว่า 6 ชม.
+                      </div>
+                    )}
+
+                    {/* DSD submission status */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdSubmitted ? '#dcfce7' : 'var(--bg)' }}>
+                        <input type="checkbox" checked={modalDsdSubmitted} onChange={e => setModalDsdSubmitted(e.target.checked)} />
+                        <span>ยื่นขอรับรองหลักสูตรแล้ว</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdApproved ? '#dcfce7' : 'var(--bg)' }}>
+                        <input type="checkbox" checked={modalDsdApproved} onChange={e => setModalDsdApproved(e.target.checked)} />
+                        <span>กรมพัฒน์ฯ อนุมัติแล้ว</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save button (shared) */}
+                <button onClick={handleSaveSession} disabled={saving}
+                  style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 20, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
+                  {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
+                </button>
+
+                {/* ═══════════════ SECTION 3: หลังอบรม — ผลการอบรม ═══════════════ */}
                 <div style={{ borderTop: '2px solid var(--border)', paddingTop: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: modalStatus === 'completed' ? '#dcfce7' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
                       {modalStatus === 'completed' ? '✅' : '📝'}
                     </div>
                     <div>
-                      <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: modalStatus === 'completed' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>ผลการอบรม</h3>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: modalStatus === 'completed' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>หลังอบรม — ผลการอบรม</h3>
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                        {modalStatus === 'completed' ? 'บันทึกค่าใช้จ่ายจริง และรายชื่อผู้เข้าอบรม' : 'กรอกข้อมูลหลังจากอบรมเสร็จสิ้นแล้ว (เปลี่ยนสถานะเป็น "อบรมแล้ว")'}
+                        {modalStatus === 'completed'
+                          ? 'บันทึกค่าใช้จ่ายจริง ชั่วโมงจริง รายชื่อผู้เข้าอบรม และเอกสารส่งกรมพัฒน์ฯ (รง.1)'
+                          : 'เปลี่ยนสถานะเป็น "อบรมแล้ว" เพื่อกรอกข้อมูล'}
                       </div>
                     </div>
                   </div>
@@ -784,10 +909,63 @@ export default function CompanyTraining() {
 
                   {modalStatus === 'completed' && (
                     <>
-                      {/* Actual Cost */}
-                      <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
-                      <input type="number" value={modalActualCost} onChange={e => setModalActualCost(Number(e.target.value))}
-                        style={{ ...inputStyle, marginBottom: 16 }} />
+                      {/* Post-training deadline warning */}
+                      {selectedPlan.dsd_eligible !== false && modalDateEnd && !modalDsdReportSubmitted && (() => {
+                        const dEnd = new Date(modalDateEnd);
+                        const deadline60 = new Date(dEnd.getTime() + 60 * 24 * 60 * 60 * 1000);
+                        const jan15 = new Date(selectedYear + 1, 0, 15);
+                        const deadline = deadline60 < jan15 ? deadline60 : jan15;
+                        const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        if (daysLeft <= 30) {
+                          return (
+                            <div style={{ background: daysLeft <= 0 ? '#fef2f2' : '#fefce8', border: `1px solid ${daysLeft <= 0 ? '#dc2626' : '#ca8a04'}`, borderRadius: 6, padding: '6px 10px', marginBottom: 16, fontSize: 11 }}>
+                              <strong style={{ color: daysLeft <= 0 ? '#dc2626' : '#ca8a04' }}>
+                                {daysLeft <= 0 ? '⚠️ เลยกำหนดส่ง รง.1!' : `⏰ เหลือ ${daysLeft} วัน`}
+                              </strong>{' '}
+                              ส่ง รง.1 ภายใน 60 วันหลังอบรม (ไม่เกิน 15 ม.ค. {selectedYear + 1})
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* Actual Cost & Hours */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                        <div>
+                          <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
+                          <input type="number" value={modalActualCost} onChange={e => setModalActualCost(Number(e.target.value))} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>ชั่วโมงอบรมจริง</label>
+                          <input type="number" value={modalActualHours} onChange={e => setModalActualHours(Number(e.target.value))} style={inputStyle} />
+                        </div>
+                      </div>
+
+                      {/* DSD post-training documents checklist */}
+                      {selectedPlan.dsd_eligible !== false && (
+                        <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, marginBottom: 16, border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>📋 เอกสารส่งกรมพัฒน์ฯ (รง.1)</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={modalPhotosSubmitted} onChange={e => setModalPhotosSubmitted(e.target.checked)} />
+                              ส่งภาพถ่ายระหว่างอบรม (ภาพหมู่ + กิจกรรม)
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={modalSigninSubmitted} onChange={e => setModalSigninSubmitted(e.target.checked)} />
+                              ส่งใบเซ็นชื่อลงทะเบียน
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={modalDsdReportSubmitted} onChange={e => setModalDsdReportSubmitted(e.target.checked)} />
+                              ยื่น รง.1 แล้ว
+                            </label>
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <label style={labelStyle}>จำนวนคนที่กรมพัฒน์ฯ อนุมัติ</label>
+                            <input type="number" value={modalDsdHeadcount} onChange={e => setModalDsdHeadcount(Number(e.target.value))}
+                              placeholder="0" style={{ ...inputStyle, width: 120 }} />
+                          </div>
+                        </div>
+                      )}
 
                       {/* Attendees Section */}
                       <div style={{ marginTop: 4 }}>
@@ -949,6 +1127,11 @@ export default function CompanyTraining() {
                             </table>
                           </div>
                         )}
+                      {/* Save post-training button */}
+                      <button onClick={handleSaveSession} disabled={saving}
+                        style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: saving ? 0.6 : 1, marginTop: 12 }}>
+                        {saving ? 'กำลังบันทึก...' : '💾 บันทึกผลการอบรม'}
+                      </button>
                       </div>
                     </>
                   )}

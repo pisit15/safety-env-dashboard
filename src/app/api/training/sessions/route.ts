@@ -38,7 +38,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { plan_id, company_id, status, scheduled_date_start, scheduled_date_end,
             actual_cost, actual_participants, hours_per_course, total_man_hours,
-            note, hr_submitted, updated_by, postponed_to_month, original_planned_month } = body;
+            note, hr_submitted, updated_by, postponed_to_month, original_planned_month,
+            // DSD pre-training fields
+            instructor_name, training_location, training_method,
+            dsd_submitted, dsd_submitted_date, dsd_approved, dsd_approved_date,
+            // DSD post-training fields
+            actual_hours, dsd_report_submitted, dsd_report_submitted_date,
+            dsd_approved_headcount, photos_submitted, signin_sheet_submitted } = body;
 
     if (!plan_id || !company_id) {
       return NextResponse.json({ error: 'Missing plan_id or company_id' }, { status: 400 });
@@ -69,6 +75,21 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
       ...(postponed_to_month !== undefined && { postponed_to_month }),
       ...(original_planned_month !== undefined && { original_planned_month }),
+      // DSD pre-training
+      ...(instructor_name !== undefined && { instructor_name }),
+      ...(training_location !== undefined && { training_location }),
+      ...(training_method !== undefined && { training_method }),
+      ...(dsd_submitted !== undefined && { dsd_submitted }),
+      ...(dsd_submitted_date !== undefined && { dsd_submitted_date }),
+      ...(dsd_approved !== undefined && { dsd_approved }),
+      ...(dsd_approved_date !== undefined && { dsd_approved_date }),
+      // DSD post-training
+      ...(actual_hours !== undefined && { actual_hours }),
+      ...(dsd_report_submitted !== undefined && { dsd_report_submitted }),
+      ...(dsd_report_submitted_date !== undefined && { dsd_report_submitted_date }),
+      ...(dsd_approved_headcount !== undefined && { dsd_approved_headcount }),
+      ...(photos_submitted !== undefined && { photos_submitted }),
+      ...(signin_sheet_submitted !== undefined && { signin_sheet_submitted }),
     };
 
     let data;
