@@ -260,15 +260,6 @@ export default function HQTrainingOverview() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCompanyData, selectedYear]);
 
-  // Filter for tracking tab
-  const [trackingFilter, setTrackingFilter] = useState<'all' | 'no-date' | 'has-date'>('all');
-
-  const filteredTracking = trackingList.filter(item => {
-    if (trackingFilter === 'no-date') return !item.scheduledDate;
-    if (trackingFilter === 'has-date') return !!item.scheduledDate;
-    return true;
-  });
-
   const filtered = searchTerm
     ? companySummaries.filter(s => s.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
     : companySummaries;
@@ -645,36 +636,18 @@ export default function HQTrainingOverview() {
                   </div>
                 </div>
 
-                {/* Tracking: Upcoming Courses */}
+                {/* Tracking: Upcoming Courses — no toggle, show all with date status inline */}
                 <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-                    <div>
-                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                        📋 ติดตามหลักสูตรที่ยังไม่อบรม
-                      </h3>
-                      <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-                        เรียงตามเดือนที่ใกล้ถึง — ติดตามให้บริษัทกำหนดวันอบรมและส่งข้อมูล
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {[
-                        { key: 'all' as const, label: `ทั้งหมด (${trackingList.length})` },
-                        { key: 'no-date' as const, label: `ยังไม่กำหนดวัน (${trackingList.filter(t => !t.scheduledDate).length})` },
-                        { key: 'has-date' as const, label: `กำหนดวันแล้ว (${trackingList.filter(t => !!t.scheduledDate).length})` },
-                      ].map(opt => (
-                        <button key={opt.key} onClick={() => setTrackingFilter(opt.key)}
-                          style={{
-                            padding: '4px 10px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                            background: trackingFilter === opt.key ? 'var(--accent)' : 'var(--bg-secondary)',
-                            color: trackingFilter === opt.key ? '#fff' : 'var(--text-secondary)',
-                          }}>
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                      📋 ติดตามหลักสูตรที่ยังไม่อบรม ({trackingList.length} หลักสูตร)
+                    </h3>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                      เรียงตามเดือนที่ใกล้ถึง — ยังไม่กำหนดวัน <b style={{ color: '#dc2626' }}>{trackingList.filter(t => !t.scheduledDate).length}</b> / กำหนดวันแล้ว <b style={{ color: '#16a34a' }}>{trackingList.filter(t => !!t.scheduledDate).length}</b>
+                    </p>
                   </div>
 
-                  {filteredTracking.length === 0 ? (
+                  {trackingList.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>
                       ไม่มีหลักสูตรที่ต้องติดตาม
                     </div>
@@ -687,27 +660,20 @@ export default function HQTrainingOverview() {
                             <th style={{ ...th, textAlign: 'left' }}>บริษัท</th>
                             <th style={{ ...th, textAlign: 'left' }}>หลักสูตร</th>
                             <th style={th}>เดือน</th>
-                            <th style={th}>สถานะ</th>
                             <th style={th}>วันอบรม</th>
                             <th style={th}>DSD</th>
                             <th style={th}>ความเร่งด่วน</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredTracking.map((item, idx) => {
+                          {trackingList.map((item, idx) => {
                             const urgencyConfig = {
-                              overdue: { label: '🔴 เลยกำหนด', color: '#dc2626', bg: '#fee2e2' },
-                              urgent: { label: '🟠 เดือนนี้', color: '#ea580c', bg: '#fff7ed' },
-                              soon: { label: '🟡 เดือนหน้า', color: '#ca8a04', bg: '#fefce8' },
-                              future: { label: '🟢 ยังไม่ถึง', color: '#16a34a', bg: '#f0fdf4' },
+                              overdue: { label: 'เลยกำหนด', color: '#dc2626', bg: '#fee2e2' },
+                              urgent: { label: 'เดือนนี้', color: '#ea580c', bg: '#fff7ed' },
+                              soon: { label: 'เดือนหน้า', color: '#ca8a04', bg: '#fefce8' },
+                              future: { label: 'ยังไม่ถึง', color: '#16a34a', bg: '#f0fdf4' },
                             };
                             const urg = urgencyConfig[item.urgency];
-                            const statusLabels: Record<string, { label: string; color: string; bg: string }> = {
-                              planned: { label: 'ตามแผน', color: '#6b7280', bg: '#f3f4f6' },
-                              scheduled: { label: 'กำหนดวันแล้ว', color: '#3b82f6', bg: '#dbeafe' },
-                              postponed: { label: 'เลื่อน', color: '#f59e0b', bg: '#fef3c7' },
-                            };
-                            const st = statusLabels[item.status] || statusLabels['planned'];
                             return (
                               <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: item.urgency === 'overdue' ? '#fff5f5' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
                                 <td style={td}>{idx + 1}</td>
@@ -716,17 +682,20 @@ export default function HQTrainingOverview() {
                                     {item.company}
                                   </Link>
                                 </td>
-                                <td style={{ ...td, textAlign: 'left', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <td style={{ ...td, textAlign: 'left', maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {item.courseName}
                                 </td>
                                 <td style={{ ...td, fontWeight: 600 }}>{MONTH_LABELS[item.plannedMonth - 1]}</td>
                                 <td style={td}>
-                                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: st.bg, color: st.color, fontWeight: 600 }}>
-                                    {st.label}
-                                  </span>
-                                </td>
-                                <td style={{ ...td, color: item.scheduledDate ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                                  {item.scheduledDate ? formatDate(item.scheduledDate) : 'ยังไม่กำหนด'}
+                                  {item.scheduledDate ? (
+                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>
+                                      {formatDate(item.scheduledDate)}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
+                                      ยังไม่กำหนด
+                                    </span>
+                                  )}
                                 </td>
                                 <td style={td}>
                                   {item.dsd && (
@@ -747,14 +716,6 @@ export default function HQTrainingOverview() {
                       </table>
                     </div>
                   )}
-
-                  {/* Summary counts */}
-                  <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
-                    <span>🔴 เลยกำหนด: <b style={{ color: '#dc2626' }}>{trackingList.filter(t => t.urgency === 'overdue').length}</b></span>
-                    <span>🟠 เดือนนี้: <b style={{ color: '#ea580c' }}>{trackingList.filter(t => t.urgency === 'urgent').length}</b></span>
-                    <span>🟡 เดือนหน้า: <b style={{ color: '#ca8a04' }}>{trackingList.filter(t => t.urgency === 'soon').length}</b></span>
-                    <span>📌 ยังไม่กำหนดวัน: <b style={{ color: '#dc2626' }}>{trackingList.filter(t => !t.scheduledDate).length}</b></span>
-                  </div>
                 </div>
 
                 {/* Warning */}
