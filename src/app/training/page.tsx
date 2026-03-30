@@ -79,6 +79,18 @@ export default function HQTrainingOverview() {
   // Expanded month detail
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
 
+  // Sort state for company summary table
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortCol(col);
+      setSortDir('desc');
+    }
+  };
+
   // DSD Status update (HR PIN)
   const [dsdDropdownIdx, setDsdDropdownIdx] = useState<number | null>(null);
   const [hrPinVerified, setHrPinVerified] = useState(false);
@@ -340,9 +352,31 @@ export default function HQTrainingOverview() {
     return items;
   }, [allTrackingItems]);
 
-  const filtered = searchTerm
-    ? companySummaries.filter(s => s.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
-    : companySummaries;
+  const filtered = useMemo(() => {
+    let list = searchTerm
+      ? companySummaries.filter(s => s.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
+      : [...companySummaries];
+    if (sortCol) {
+      list.sort((a, b) => {
+        let va: number | string = 0, vb: number | string = 0;
+        const pctA = a.totalCourses > 0 ? (a.completed / a.totalCourses) * 100 : 0;
+        const pctB = b.totalCourses > 0 ? (b.completed / b.totalCourses) * 100 : 0;
+        const bPctA = a.totalBudget > 0 ? (a.totalActual / a.totalBudget) * 100 : 0;
+        const bPctB = b.totalBudget > 0 ? (b.totalActual / b.totalBudget) * 100 : 0;
+        switch (sortCol) {
+          case 'company': va = a.companyName; vb = b.companyName; break;
+          case 'total': va = a.totalCourses; vb = b.totalCourses; break;
+          case 'pct': va = pctA; vb = pctB; break;
+          case 'budget': va = a.totalBudget; vb = b.totalBudget; break;
+          case 'actual': va = a.totalActual; vb = b.totalActual; break;
+          case 'budgetPct': va = bPctA; vb = bPctB; break;
+        }
+        if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb as string, 'th') : (vb as string).localeCompare(va, 'th');
+        return sortDir === 'asc' ? (va as number) - (vb as number) : (vb as number) - (va as number);
+      });
+    }
+    return list;
+  }, [companySummaries, searchTerm, sortCol, sortDir]);
 
   const handleCourseSearch = async () => {
     if (!courseSearch.trim()) return;
@@ -843,17 +877,36 @@ export default function HQTrainingOverview() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                          <th style={{ ...th, textAlign: 'left', position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 1 }}>บริษัท</th>
-                          <th style={th}>รวม</th>
-                          <th style={th}>✅</th>
+                          {[
+                            { key: 'company', label: 'บริษัท', align: 'left' as const, sticky: true },
+                            { key: 'total', label: 'รวม', align: 'center' as const },
+                            { key: 'pct', label: '✅', align: 'center' as const },
+                          ].map(col => (
+                            <th key={col.key}
+                              onClick={() => handleSort(col.key)}
+                              style={{
+                                ...th, textAlign: col.align, cursor: 'pointer', userSelect: 'none',
+                                ...(col.sticky ? { position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 1 } : {}),
+                              }}>
+                              {col.label} {sortCol === col.key ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </th>
+                          ))}
                           {MONTH_LABELS.map((m, i) => (
                             <th key={i} style={{ ...th, color: i === currentMonthIdx ? 'var(--accent)' : undefined, fontWeight: i === currentMonthIdx ? 700 : undefined }}>
                               {m}
                             </th>
                           ))}
-                          <th style={{ ...th, textAlign: 'right' }}>งบ</th>
-                          <th style={{ ...th, textAlign: 'right' }}>จริง</th>
-                          <th style={th}>%งบ</th>
+                          {[
+                            { key: 'budget', label: 'งบ', align: 'right' as const },
+                            { key: 'actual', label: 'จริง', align: 'right' as const },
+                            { key: 'budgetPct', label: '%งบ', align: 'center' as const },
+                          ].map(col => (
+                            <th key={col.key}
+                              onClick={() => handleSort(col.key)}
+                              style={{ ...th, textAlign: col.align, cursor: 'pointer', userSelect: 'none' }}>
+                              {col.label} {sortCol === col.key ? (sortDir === 'desc' ? '▼' : '▲') : ''}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
