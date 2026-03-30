@@ -386,11 +386,37 @@ export default function CompanyTraining() {
 
   const handleDeleteAttendee = async (id: string) => {
     const session = selectedPlan?.training_sessions?.[0];
-    if (!confirm('ลบผู้เข้าอบรมนี้?')) return;
     try {
       await fetch(`/api/training/attendees?id=${id}&sessionId=${session?.id || ''}`, { method: 'DELETE' });
       if (session?.id) await fetchAttendees(session.id);
     } catch (e) { console.error(e); }
+  };
+
+  // Toggle attendee: check = add, uncheck = remove (instant)
+  const [togglingEmp, setTogglingEmp] = useState<Set<string>>(new Set());
+  const handleToggleAttendee = async (emp: typeof companyEmployees[0], isCurrentlyAttendee: boolean, attendeeId?: string) => {
+    const session = selectedPlan?.training_sessions?.[0];
+    if (!session || !selectedPlan) return;
+    const empKey = `${emp.emp_code}_${emp.first_name}_${emp.last_name}`;
+    setTogglingEmp(prev => new Set(prev).add(empKey));
+    try {
+      if (isCurrentlyAttendee && attendeeId) {
+        await fetch(`/api/training/attendees?id=${attendeeId}&sessionId=${session.id}`, { method: 'DELETE' });
+      } else {
+        await fetch('/api/training/attendees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: session.id, plan_id: selectedPlan.id, company_id: companyId,
+            emp_code: emp.emp_code || '', first_name: emp.first_name || '', last_name: emp.last_name || '',
+            gender: emp.gender || '', position: emp.position || '', department: emp.department || '',
+            registration_type: 'registered',
+          }),
+        });
+      }
+      await fetchAttendees(session.id);
+    } catch (e) { console.error(e); }
+    setTogglingEmp(prev => { const n = new Set(prev); n.delete(empKey); return n; });
   };
 
   const handleUploadAttendeeExcel = async (file: File) => {
@@ -1541,38 +1567,65 @@ export default function CompanyTraining() {
                         </>
                       )}
 
-                      {/* Attendees Section */}
+                      {/* Attendees Section — Unified Checkbox List */}
                       <div style={{ marginTop: 4 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                            👥 รายชื่อผู้เข้าอบรม ({attendees.length} คน)
+                            👥 ผู้เข้าอบรม <span style={{ color: 'var(--success)', fontWeight: 700 }}>({attendees.length} คน)</span>
                           </h4>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <button onClick={() => setShowAddAttendee(!showAddAttendee)}
-                              style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Plus size={12} /> เพิ่ม
-                            </button>
-                            <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Upload size={12} /> Upload Excel
-                              <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleUploadAttendeeExcel(e.target.files[0])} />
+                            <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Upload size={11} /> นำเข้ารายชื่อ Excel
+                              <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
                             </label>
+                            <button onClick={() => setShowManualEntry(!showManualEntry)}
+                              style={{ padding: '4px 10px', borderRadius: 4, border: `1px solid ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Plus size={11} /> เพิ่มพนักงานใหม่
+                            </button>
                           </div>
                         </div>
+                        <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                          ✓ ติ๊กเลือกพนักงานที่เข้าอบรม — เอาติ๊กออกเพื่อลบออก
+                        </p>
 
-                        {/* Add attendee form */}
-                        {showAddAttendee && (() => {
-                          // Get unique departments and positions for filters
+                        {/* Manual entry form */}
+                        {showManualEntry && (
+                          <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 10, border: '1px solid var(--border)', marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>เพิ่มพนักงานใหม่เข้าระบบ</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                              <input placeholder="รหัสพนักงาน" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                              <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                              <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                              <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                              <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                              <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
+                                style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff', whiteSpace: 'nowrap' }}>
+                                {manualSaving ? '...' : '✓ เพิ่ม'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Filters */}
+                        {(() => {
                           const departments = Array.from(new Set(companyEmployees.map(e => e.department).filter(Boolean))).sort();
                           const positions = Array.from(new Set(
-                            companyEmployees
-                              .filter(e => !bulkFilterDept || e.department === bulkFilterDept)
-                              .map(e => e.position).filter(Boolean)
+                            companyEmployees.filter(e => !bulkFilterDept || e.department === bulkFilterDept).map(e => e.position).filter(Boolean)
                           )).sort();
 
-                          // Already added emp_codes
-                          const existingCodes = new Set(attendees.map(a => a.emp_code).filter(Boolean));
+                          // Build attendee lookup: emp_code → attendee record
+                          const attendeeByCode = new Map<string, Attendee>();
+                          const attendeeByName = new Map<string, Attendee>();
+                          attendees.forEach(a => {
+                            if (a.emp_code) attendeeByCode.set(a.emp_code, a);
+                            attendeeByName.set(`${a.first_name}_${a.last_name}`, a);
+                          });
 
-                          // Filter employees
+                          const findAttendeeFor = (emp: typeof companyEmployees[0]): Attendee | undefined => {
+                            if (emp.emp_code && attendeeByCode.has(emp.emp_code)) return attendeeByCode.get(emp.emp_code);
+                            return attendeeByName.get(`${emp.first_name}_${emp.last_name}`);
+                          };
+
                           const filteredEmps = companyEmployees.filter(emp => {
                             if (bulkFilterDept && emp.department !== bulkFilterDept) return false;
                             if (bulkFilterPos && emp.position !== bulkFilterPos) return false;
@@ -1585,82 +1638,50 @@ export default function CompanyTraining() {
                             return true;
                           });
 
-                          const empKey = (e: typeof companyEmployees[0]) => `${e.emp_code}_${e.first_name}_${e.last_name}`;
-                          const allFilteredKeys = filteredEmps.map(empKey);
-                          const allSelected = allFilteredKeys.length > 0 && allFilteredKeys.every(k => bulkSelected.has(k));
+                          // Sort: attendees first, then alphabetical
+                          const sorted = [...filteredEmps].sort((a, b) => {
+                            const aIsAtt = findAttendeeFor(a) ? 1 : 0;
+                            const bIsAtt = findAttendeeFor(b) ? 1 : 0;
+                            if (aIsAtt !== bIsAtt) return bIsAtt - aIsAtt;
+                            return (a.first_name || '').localeCompare(b.first_name || '');
+                          });
 
                           return (
-                          <div style={{ background: 'var(--bg)', borderRadius: 6, padding: 12, marginBottom: 12, border: '1px dashed var(--border)' }}>
-                            {/* Filters row */}
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                              <select value={bulkFilterDept} onChange={e => { setBulkFilterDept(e.target.value); setBulkFilterPos(''); }}
-                                style={{ ...inputStyle, flex: '1 1 150px', minWidth: 120 }}>
-                                <option value="">ทุกแผนก</option>
-                                {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                              </select>
-                              <select value={bulkFilterPos} onChange={e => setBulkFilterPos(e.target.value)}
-                                style={{ ...inputStyle, flex: '1 1 150px', minWidth: 120 }}>
-                                <option value="">ทุกตำแหน่ง</option>
-                                {positions.map(p => <option key={p} value={p}>{p}</option>)}
-                              </select>
-                              <input
-                                placeholder="🔍 ค้นหาชื่อ/รหัส..."
-                                value={empSearch}
-                                onChange={e => setEmpSearch(e.target.value)}
-                                style={{ ...inputStyle, flex: '1 1 180px', minWidth: 140 }}
-                              />
-                            </div>
+                          <>
+                            {companyEmployees.length > 0 && (
+                              <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                                <select value={bulkFilterDept} onChange={e => { setBulkFilterDept(e.target.value); setBulkFilterPos(''); }}
+                                  style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 120px', minWidth: 100 }}>
+                                  <option value="">ทุกแผนก</option>
+                                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                <select value={bulkFilterPos} onChange={e => setBulkFilterPos(e.target.value)}
+                                  style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 120px', minWidth: 100 }}>
+                                  <option value="">ทุกตำแหน่ง</option>
+                                  {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                                <input placeholder="🔍 ค้นหาชื่อ/รหัส..." value={empSearch} onChange={e => setEmpSearch(e.target.value)}
+                                  style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 150px', minWidth: 120 }} />
+                              </div>
+                            )}
 
-                            {/* Employee list with checkboxes */}
+                            {/* Employee checklist */}
                             {companyEmployees.length === 0 && employeesLoaded ? (
-                              <div style={{ padding: 16 }}>
-                                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>ยังไม่มีรายชื่อพนักงาน</div>
-                                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-                                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--bg)', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                                    <Upload size={12} /> นำเข้า Excel
-                                    <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
-                                  </label>
-                                  <button onClick={() => setShowManualEntry(!showManualEntry)}
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, border: '1px solid var(--success)', background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--success)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                                    <Plus size={12} /> เพิ่มทีละคน
-                                  </button>
-                                </div>
-                                {showManualEntry && (
-                                  <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, marginBottom: 10 }}>
-                                      <input placeholder="รหัสพนักงาน" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
-                                      <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
-                                      <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
-                                      <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
-                                      <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 12, padding: '6px 10px' }} />
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                      <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
-                                        style={{ padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff' }}>
-                                        {manualSaving ? 'กำลังบันทึก...' : '✓ เพิ่มพนักงาน'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
+                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>
+                                ยังไม่มีรายชื่อพนักงาน — กด &quot;นำเข้ารายชื่อ Excel&quot; หรือ &quot;เพิ่มพนักงานใหม่&quot; ด้านบน
                               </div>
                             ) : companyEmployees.length === 0 && !employeesLoaded ? (
                               <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลดรายชื่อพนักงาน...</div>
-                            ) : filteredEmps.length === 0 ? (
+                            ) : loadingAttendees ? (
+                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
+                            ) : sorted.length === 0 ? (
                               <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่พบพนักงานตามเงื่อนไข</div>
                             ) : (
-                              <div style={{ maxHeight: 250, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
+                              <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                                   <thead>
                                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
-                                      <th style={{ padding: '6px 8px', width: 32 }}>
-                                        <input type="checkbox" checked={allSelected}
-                                          onChange={() => {
-                                            const next = new Set(bulkSelected);
-                                            if (allSelected) { allFilteredKeys.forEach(k => next.delete(k)); }
-                                            else { allFilteredKeys.forEach(k => next.add(k)); }
-                                            setBulkSelected(next);
-                                          }} />
-                                      </th>
+                                      <th style={{ padding: '6px 8px', width: 32 }}></th>
                                       <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
                                       <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ชื่อ-สกุล</th>
                                       <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ตำแหน่ง</th>
@@ -1668,32 +1689,33 @@ export default function CompanyTraining() {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {filteredEmps.map((emp, idx) => {
-                                      const k = empKey(emp);
-                                      const isChecked = bulkSelected.has(k);
-                                      const alreadyAdded = !!(emp.emp_code && existingCodes.has(emp.emp_code));
+                                    {sorted.map((emp, idx) => {
+                                      const att = findAttendeeFor(emp);
+                                      const isAttendee = !!att;
+                                      const empK = `${emp.emp_code}_${emp.first_name}_${emp.last_name}`;
+                                      const isToggling = togglingEmp.has(empK);
                                       return (
                                         <tr key={idx} style={{
                                           borderBottom: '1px solid var(--border)',
-                                          background: alreadyAdded ? '#f0fdf4' : isChecked ? '#eff6ff' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
-                                          opacity: alreadyAdded ? 0.5 : 1,
-                                          cursor: alreadyAdded ? 'default' : 'pointer',
+                                          background: isAttendee ? '#f0fdf4' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
+                                          cursor: isToggling ? 'wait' : 'pointer',
+                                          opacity: isToggling ? 0.5 : 1,
+                                          transition: 'background 0.15s',
                                         }}
                                         onClick={() => {
-                                          if (alreadyAdded) return;
-                                          const next = new Set(bulkSelected);
-                                          if (isChecked) next.delete(k); else next.add(k);
-                                          setBulkSelected(next);
+                                          if (isToggling) return;
+                                          handleToggleAttendee(emp, isAttendee, att?.id);
                                         }}>
-                                          <td style={{ padding: '4px 8px' }}>
-                                            <input type="checkbox" checked={isChecked} disabled={alreadyAdded} readOnly />
+                                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                            <input type="checkbox" checked={isAttendee} readOnly style={{ cursor: 'pointer', accentColor: '#16a34a' }} />
                                           </td>
-                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{emp.emp_code || '-'}</td>
-                                          <td style={{ padding: '4px 8px', fontWeight: 600 }}>{emp.first_name} {emp.last_name}</td>
-                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{emp.position || '-'}</td>
-                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{emp.department || '-'}
-                                            {alreadyAdded && <span style={{ marginLeft: 6, fontSize: 10, color: '#16a34a', fontWeight: 600 }}>✓ เพิ่มแล้ว</span>}
+                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.emp_code || '-'}</td>
+                                          <td style={{ padding: '4px 8px', fontWeight: isAttendee ? 600 : 400 }}>
+                                            {emp.first_name} {emp.last_name}
+                                            {isAttendee && <span style={{ marginLeft: 6, fontSize: 9, color: '#16a34a', fontWeight: 700 }}>✓</span>}
                                           </td>
+                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.position || '-'}</td>
+                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.department || '-'}</td>
                                         </tr>
                                       );
                                     })}
@@ -1701,126 +1723,12 @@ export default function CompanyTraining() {
                                 </table>
                               </div>
                             )}
-
-                            {/* Bulk action bar */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 6 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                  แสดง {filteredEmps.length} คน • เลือก <b style={{ color: 'var(--accent)' }}>{bulkSelected.size}</b> คน
-                                </span>
-                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 4, border: '1px dashed var(--border)', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer' }}>
-                                  <Upload size={10} /> นำเข้ารายชื่อ
-                                  <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
-                                </label>
-                                <button onClick={() => setShowManualEntry(!showManualEntry)}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 4, border: `1px dashed ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, color: showManualEntry ? 'var(--success)' : 'var(--text-secondary)', fontSize: 11, cursor: 'pointer', background: 'transparent', fontWeight: showManualEntry ? 600 : 400 }}>
-                                  <Plus size={10} /> เพิ่มทีละคน
-                                </button>
-                              </div>
-                              <button onClick={handleBulkAddAttendees} disabled={bulkSelected.size === 0 || bulkAdding}
-                                style={{
-                                  padding: '6px 20px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: bulkSelected.size === 0 ? 'not-allowed' : 'pointer',
-                                  background: bulkSelected.size > 0 ? 'var(--success)' : 'var(--border)',
-                                  color: '#fff', opacity: bulkAdding ? 0.6 : 1,
-                                }}>
-                                {bulkAdding ? 'กำลังเพิ่ม...' : `เพิ่มผู้เข้าอบรม ${bulkSelected.size > 0 ? `(${bulkSelected.size} คน)` : ''}`}
-                              </button>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+                              พนักงานทั้งหมด {filteredEmps.length} คน • เข้าอบรม <b style={{ color: '#16a34a' }}>{attendees.length}</b> คน
                             </div>
-
-                            {/* Manual entry inline form */}
-                            {showManualEntry && (
-                              <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 10, border: '1px solid var(--border)', marginTop: 8 }}>
-                                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>เพิ่มพนักงานใหม่</div>
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                                  <input placeholder="รหัสพนักงาน" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                                  <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                                  <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                                  <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                                  <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                                  <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
-                                    style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff', whiteSpace: 'nowrap' }}>
-                                    {manualSaving ? '...' : '✓ เพิ่ม'}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          </>
                           );
                         })()}
-
-                        {/* Attendee list */}
-                        {loadingAttendees ? (
-                          <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>กำลังโหลด...</div>
-                        ) : attendees.length === 0 ? (
-                          <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>
-                            ยังไม่มีรายชื่อผู้เข้าอบรม
-                          </div>
-                        ) : (
-                          <div style={{ overflowX: 'auto', maxHeight: 300 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                              <thead>
-                                <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>#</th>
-                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>รหัส</th>
-                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>ชื่อ-สกุล</th>
-                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>ตำแหน่ง</th>
-                                  <th style={{ padding: '6px 8px', textAlign: 'left' }}>แผนก</th>
-                                  <th style={{ padding: '6px 8px' }}>ประเภท</th>
-                                  <th style={{ padding: '6px 8px', width: 40 }}></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {attendees.map((a, i) => (
-                                  <tr key={a.id} style={{ borderBottom: '1px solid var(--border)', background: editingAttendeeId === a.id ? 'var(--bg-secondary)' : 'transparent' }}>
-                                    <td style={{ padding: '4px 8px' }}>{i + 1}</td>
-                                    {editingAttendeeId === a.id ? (
-                                      <>
-                                        <td style={{ padding: '4px 8px' }}>
-                                          <input type="text" value={editingAttendee.emp_code || ''} onChange={e => setEditingAttendee({ ...editingAttendee, emp_code: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
-                                        </td>
-                                        <td style={{ padding: '4px 8px' }}>
-                                          <input type="text" placeholder="ชื่อ" value={editingAttendee.first_name || ''} onChange={e => setEditingAttendee({ ...editingAttendee, first_name: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px', marginBottom: 2 }} />
-                                          <input type="text" placeholder="สกุล" value={editingAttendee.last_name || ''} onChange={e => setEditingAttendee({ ...editingAttendee, last_name: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
-                                        </td>
-                                        <td style={{ padding: '4px 8px' }}>
-                                          <input type="text" value={editingAttendee.position || ''} onChange={e => setEditingAttendee({ ...editingAttendee, position: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
-                                        </td>
-                                        <td style={{ padding: '4px 8px' }}>
-                                          <input type="text" value={editingAttendee.department || ''} onChange={e => setEditingAttendee({ ...editingAttendee, department: e.target.value })} style={{ ...inputStyle, width: '100%', fontSize: 11, padding: '3px 6px' }} />
-                                        </td>
-                                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
-                                            {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
-                                          </span>
-                                        </td>
-                                        <td style={{ padding: '4px 8px', display: 'flex', gap: 4 }}>
-                                          <button onClick={handleSaveAttendee} style={{ border: 'none', background: 'none', color: '#16a34a', cursor: 'pointer', padding: 2 }}><Save size={13} /></button>
-                                          <button onClick={() => setEditingAttendeeId(null)} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}><X size={13} /></button>
-                                        </td>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <td style={{ padding: '4px 8px' }}>{a.emp_code || '-'}</td>
-                                        <td style={{ padding: '4px 8px' }}>{a.first_name} {a.last_name}</td>
-                                        <td style={{ padding: '4px 8px' }}>{a.position || '-'}</td>
-                                        <td style={{ padding: '4px 8px' }}>{a.department || '-'}</td>
-                                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: a.registration_type === 'attended' ? '#dcfce7' : '#dbeafe', color: a.registration_type === 'attended' ? '#16a34a' : '#3b82f6' }}>
-                                            {a.registration_type === 'attended' ? 'เข้าอบรม' : 'ลงทะเบียน'}
-                                          </span>
-                                        </td>
-                                        <td style={{ padding: '4px 8px', display: 'flex', gap: 4 }}>
-                                          <button onClick={() => startEditAttendee(a)} style={{ border: 'none', background: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 2 }}><Edit2 size={13} /></button>
-                                          <button onClick={(e) => { e.stopPropagation(); handleDeleteAttendee(a.id); }} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 2 }}><Trash2 size={13} /></button>
-                                        </td>
-                                      </>
-                                    )}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
                       {/* Save post-training button */}
                       <button onClick={handleSaveSession} disabled={saving}
                         style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: saving ? 0.6 : 1, marginTop: 12 }}>
