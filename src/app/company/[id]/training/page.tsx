@@ -964,12 +964,26 @@ export default function CompanyTraining() {
             {auth.isAdmin && <div style={{ fontSize: 13, marginTop: 8 }}>กดปุ่ม &quot;นำเข้าแผนอบรม&quot; เพื่อ import จาก Excel</div>}
           </div>
         ) : (
-          <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
+          <div style={{ borderRadius: 8, border: '1px solid var(--border)', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', position: 'relative' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '3%' }} />
+                <col style={{ width: '27%' }} />
+                <col style={{ width: '7%' }} />
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '4%' }} />
+                <col style={{ width: '4%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '8%' }} />
+              </colgroup>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                 <tr style={{ background: 'var(--card-solid)', borderBottom: '2px solid var(--border)' }}>
                   <th style={thStyle}>#</th>
-                  <th style={{ ...thStyle, minWidth: 250, textAlign: 'left' }}>ชื่อหลักสูตร</th>
+                  <th style={{ ...thStyle, textAlign: 'left' }}>ชื่อหลักสูตร</th>
                   <th style={thStyle}>ประเภท</th>
                   <th style={thStyle}>เดือน</th>
                   <th style={thStyle}>ชม.</th>
@@ -995,8 +1009,8 @@ export default function CompanyTraining() {
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)'; }}
                     >
                       <td style={tdStyle}>{plan.course_no || i + 1}</td>
-                      <td style={{ ...tdStyle, textAlign: 'left', fontWeight: 500 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <td style={{ ...tdStyle, textAlign: 'left', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flexWrap: 'wrap' }}>
                           <span>{plan.course_name}</span>
                           {plan.dsd_eligible !== false && (
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -1885,8 +1899,8 @@ export default function CompanyTraining() {
 }
 
 // Helpers
-const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' };
-const tdStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'center', whiteSpace: 'nowrap' };
+const thStyle: React.CSSProperties = { padding: '8px 6px', textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', background: 'var(--card-solid)' };
+const tdStyle: React.CSSProperties = { padding: '8px 6px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' };
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 };
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 13 };
 
