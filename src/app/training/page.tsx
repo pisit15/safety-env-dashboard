@@ -149,9 +149,9 @@ export default function HQTrainingOverview() {
       for (const p of plans) {
         const s = p.training_sessions?.[0];
         const status = s?.status || 'planned';
+        if (status === 'cancelled') { cancelled++; continue; }
         if (status === 'completed') completed++;
         else if (status === 'scheduled') scheduled++;
-        else if (status === 'cancelled') cancelled++;
         else pending++;
 
         totalBudget += p.budget || 0;
@@ -178,7 +178,7 @@ export default function HQTrainingOverview() {
       return {
         companyId: cd.companyId,
         companyName: cd.companyName,
-        totalCourses: plans.length,
+        totalCourses: completed + scheduled + pending,
         completed, scheduled, pending, cancelled, warnings,
         totalBudget, totalActual, totalParticipants, totalManHours,
         monthly,
