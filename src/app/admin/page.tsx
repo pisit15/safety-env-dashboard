@@ -243,7 +243,7 @@ export default function AdminPage() {
   const fetchDsdCourses = useCallback(async () => {
     setDsdLoading(true);
     try {
-      const res = await fetch('/api/training/dsd-courses');
+      const res = await fetch(`/api/training/dsd-courses?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (Array.isArray(data)) setDsdCourses(data);
     } catch { /* ignore */ }
@@ -259,7 +259,10 @@ export default function AdminPage() {
         body: JSON.stringify({ course_name: courseName, dsd_eligible: newValue }),
       });
       if (res.ok) {
-        await fetchDsdCourses();
+        // Optimistic UI update — change state immediately
+        setDsdCourses(prev => prev.map(c =>
+          c.course_name === courseName ? { ...c, dsd_eligible: newValue } : c
+        ));
       } else {
         alert('บันทึกไม่สำเร็จ');
       }
