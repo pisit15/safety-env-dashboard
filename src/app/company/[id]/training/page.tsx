@@ -1083,17 +1083,17 @@ export default function CompanyTraining() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '3%' }} />
-                <col style={{ width: '27%' }} />
+                <col style={{ width: '24%' }} />
                 <col style={{ width: '7%' }} />
                 <col style={{ width: '5%' }} />
                 <col style={{ width: '4%' }} />
                 <col style={{ width: '4%' }} />
-                <col style={{ width: '9%' }} />
-                <col style={{ width: '9%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '12%' }} />
                 <col style={{ width: '10%' }} />
                 <col style={{ width: '9%' }} />
                 <col style={{ width: '5%' }} />
-                <col style={{ width: '8%' }} />
+                <col style={{ width: '9%' }} />
               </colgroup>
               <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                 <tr style={{ background: 'var(--card-solid)', borderBottom: '2px solid var(--border)' }}>
@@ -1134,7 +1134,6 @@ export default function CompanyTraining() {
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-                          {plan.category && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{plan.category}</span>}
                           {session?.original_planned_month && session?.postponed_to_month && (
                             <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: session?.status === 'completed' ? '#d1fae5' : '#fef3c7', color: session?.status === 'completed' ? '#065f46' : '#92400e', fontWeight: 600 }}>
                               เลื่อนจาก {MONTH_LABELS[session.original_planned_month - 1]} → {MONTH_LABELS[session.postponed_to_month - 1]}
@@ -1191,8 +1190,8 @@ export default function CompanyTraining() {
                         })()}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{plan.budget ? plan.budget.toLocaleString() : '-'}</td>
-                      <td style={tdStyle}>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: cfg.bg, color: cfg.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      <td style={{ ...tdStyle, overflow: 'visible' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: cfg.bg, color: cfg.color, fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-block' }}>
                           {cfg.icon} {cfg.label}
                         </span>
                       </td>
