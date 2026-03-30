@@ -99,6 +99,7 @@ export default function CompanyTraining() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [timeRange, setTimeRange] = useState<string>('year');
+  const [viewMode, setViewMode] = useState<'overview' | 'update'>('overview');
   const currentMonthIdx = new Date().getMonth();
 
   // Modal form state
@@ -687,8 +688,30 @@ export default function CompanyTraining() {
           </p>
         </div>
 
-        {/* Year selector */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* View Mode Toggle + Year selector */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+          {/* View mode toggle */}
+          <div style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            {[
+              { key: 'overview' as const, label: '📊 ภาพรวม', icon: Eye },
+              { key: 'update' as const, label: '📝 อัปเดตข้อมูล', icon: Edit2 },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setViewMode(opt.key)}
+                style={{
+                  padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  background: viewMode === opt.key ? 'var(--accent)' : 'transparent',
+                  color: viewMode === opt.key ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <select
             value={selectedYear}
             onChange={e => setSelectedYear(Number(e.target.value))}
@@ -697,70 +720,79 @@ export default function CompanyTraining() {
             {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
-          {/* Status filter */}
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
-            <option value="all">ทั้งหมด</option>
-            <option value="planned">ตามแผน</option>
-            <option value="scheduled">กำหนดวันแล้ว</option>
-            <option value="completed">อบรมแล้ว</option>
-            <option value="cancelled">ยกเลิก</option>
-            <option value="postponed">เลื่อน</option>
-          </select>
+          {viewMode === 'update' && (
+            <>
+              {/* Status filter — only in update mode */}
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
+                <option value="all">ทั้งหมด</option>
+                <option value="planned">ตามแผน</option>
+                <option value="scheduled">กำหนดวันแล้ว</option>
+                <option value="completed">อบรมแล้ว</option>
+                <option value="cancelled">ยกเลิก</option>
+                <option value="postponed">เลื่อน</option>
+              </select>
 
-          {auth.isAdmin && (
-            <button onClick={() => setShowImportModal(true)}
-              style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Upload size={14} /> นำเข้าแผนอบรม (Excel)
-            </button>
+              {auth.isAdmin && (
+                <button onClick={() => setShowImportModal(true)}
+                  style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Upload size={14} /> นำเข้าแผนอบรม (Excel)
+                </button>
+              )}
+            </>
           )}
         </div>
 
-        {/* Time Range Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
-          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>ช่วงเวลา:</span>
-          <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-            {[
-              { key: 'year', label: 'ทั้งปี' },
-              { key: 'ytd', label: `ถึง ${MONTH_LABELS[currentMonthIdx]} (YTD)` },
-            ].map(opt => (
-              <button
-                key={opt.key}
-                onClick={() => setTimeRange(opt.key)}
-                style={{
-                  padding: '4px 12px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  background: timeRange === opt.key ? 'var(--accent)' : 'transparent',
-                  color: timeRange === opt.key ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+        {/* Time Range Selector — only in overview mode */}
+        {viewMode === 'overview' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>ช่วงเวลา:</span>
+            <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              {[
+                { key: 'year', label: 'ทั้งปี' },
+                { key: 'ytd', label: `ถึง ${MONTH_LABELS[currentMonthIdx]} (YTD)` },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setTimeRange(opt.key)}
+                  style={{
+                    padding: '4px 12px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    background: timeRange === opt.key ? 'var(--accent)' : 'transparent',
+                    color: timeRange === opt.key ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <select
+              value={MONTH_KEYS.includes(timeRange) ? timeRange : ''}
+              onChange={(e) => e.target.value && setTimeRange(e.target.value)}
+              style={{
+                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--text-secondary)',
+                border: '1px solid var(--border)', outline: 'none',
+              }}
+            >
+              <option value="" disabled>เลือกเดือน...</option>
+              {MONTH_LABELS.map((name, i) => (
+                <option key={MONTH_KEYS[i]} value={MONTH_KEYS[i]}>{name}</option>
+              ))}
+            </select>
+            {timeRange !== 'year' && (
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
+                {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
+              </span>
+            )}
           </div>
-          <select
-            value={MONTH_KEYS.includes(timeRange) ? timeRange : ''}
-            onChange={(e) => e.target.value && setTimeRange(e.target.value)}
-            style={{
-              padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-secondary)',
-              color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--text-secondary)',
-              border: '1px solid var(--border)', outline: 'none',
-            }}
-          >
-            <option value="" disabled>เลือกเดือน...</option>
-            {MONTH_LABELS.map((name, i) => (
-              <option key={MONTH_KEYS[i]} value={MONTH_KEYS[i]}>{name}</option>
-            ))}
-          </select>
-          {timeRange !== 'year' && (
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
-              {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
-            </span>
-          )}
-        </div>
+        )}
 
+        {/* ===== OVERVIEW MODE ===== */}
+        {viewMode === 'overview' && (
+          <>
         {/* Warning alerts */}
         {warningPlans.length > 0 && (
           <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
@@ -876,7 +908,12 @@ export default function CompanyTraining() {
             </div>
           </div>
         )}
+          </>
+        )}
 
+        {/* ===== UPDATE MODE ===== */}
+        {viewMode === 'update' && (
+          <>
         {/* Table */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
@@ -1000,6 +1037,9 @@ export default function CompanyTraining() {
               </tbody>
             </table>
           </div>
+        )}
+
+          </>
         )}
 
         {/* Detail Modal */}
