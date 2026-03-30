@@ -137,6 +137,12 @@ export default function CompanyTraining() {
   const [showEmpSuggestions, setShowEmpSuggestions] = useState(false);
   const [employeesLoaded, setEmployeesLoaded] = useState(false);
 
+  // Bulk add: department/position filter + checkbox selection
+  const [bulkFilterDept, setBulkFilterDept] = useState('');
+  const [bulkFilterPos, setBulkFilterPos] = useState('');
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkAdding, setBulkAdding] = useState(false);
+
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importSheets, setImportSheets] = useState<string[]>([]);
@@ -329,6 +335,39 @@ export default function CompanyTraining() {
     });
     setEmpSearch('');
     setShowEmpSuggestions(false);
+  };
+
+  // Bulk add selected employees
+  const handleBulkAddAttendees = async () => {
+    const session = selectedPlan?.training_sessions?.[0];
+    if (!session || !selectedPlan || bulkSelected.size === 0) return;
+    setBulkAdding(true);
+    try {
+      for (const key of Array.from(bulkSelected)) {
+        const emp = companyEmployees.find(e => `${e.emp_code}_${e.first_name}_${e.last_name}` === key);
+        if (!emp) continue;
+        await fetch('/api/training/attendees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: session.id,
+            plan_id: selectedPlan.id,
+            company_id: companyId,
+            emp_code: emp.emp_code || '',
+            first_name: emp.first_name || '',
+            last_name: emp.last_name || '',
+            gender: emp.gender || '',
+            position: emp.position || '',
+            department: emp.department || '',
+            registration_type: 'registered',
+          }),
+        });
+      }
+      await fetchAttendees(session.id);
+      setBulkSelected(new Set());
+      setEmployeesLoaded(false);
+    } catch (e) { console.error(e); }
+    setBulkAdding(false);
   };
 
   const handleDeleteAttendee = async (id: string) => {
@@ -1372,100 +1411,137 @@ export default function CompanyTraining() {
                         </div>
 
                         {/* Add attendee form */}
-                        {showAddAttendee && (
-                          <div style={{ background: 'var(--bg)', borderRadius: 6, padding: 12, marginBottom: 12, border: '1px dashed var(--border)' }}>
-                            {/* Employee search/suggestion */}
-                            <div style={{ position: 'relative', marginBottom: 8 }}>
-                              <input
-                                placeholder="🔍 ค้นหาพนักงาน (ชื่อ, นามสกุล, รหัส) หรือพิมพ์ใหม่..."
-                                value={empSearch}
-                                onChange={e => {
-                                  setEmpSearch(e.target.value);
-                                  setShowEmpSuggestions(true);
-                                  if (!employeesLoaded) fetchCompanyEmployees();
-                                }}
-                                onFocus={() => {
-                                  setShowEmpSuggestions(true);
-                                  if (!employeesLoaded) fetchCompanyEmployees();
-                                }}
-                                style={{ ...inputStyle, width: '100%', fontSize: 13 }}
-                              />
-                              {showEmpSuggestions && companyEmployees.length > 0 && (
-                                <div style={{
-                                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                                  background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 6,
-                                  maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                }}>
-                                  {companyEmployees
-                                    .filter(emp => {
-                                      if (!empSearch.trim()) return true;
-                                      const q = empSearch.toLowerCase();
-                                      return (
-                                        (emp.first_name || '').toLowerCase().includes(q) ||
-                                        (emp.last_name || '').toLowerCase().includes(q) ||
-                                        (emp.emp_code || '').toLowerCase().includes(q) ||
-                                        (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q)
-                                      );
-                                    })
-                                    .slice(0, 20)
-                                    .map((emp, idx) => (
-                                      <div key={idx}
-                                        onClick={() => selectEmployee(emp)}
-                                        style={{
-                                          padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--border)',
-                                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                        }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                      >
-                                        <span style={{ fontWeight: 600 }}>{emp.first_name} {emp.last_name}</span>
-                                        <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
-                                          {emp.emp_code ? `รหัส: ${emp.emp_code}` : ''}{emp.department ? ` • ${emp.department}` : ''}{emp.position ? ` • ${emp.position}` : ''}
-                                        </span>
-                                      </div>
-                                    ))
-                                  }
-                                  {companyEmployees.filter(emp => {
-                                    if (!empSearch.trim()) return true;
-                                    const q = empSearch.toLowerCase();
-                                    return (emp.first_name || '').toLowerCase().includes(q) || (emp.last_name || '').toLowerCase().includes(q) || (emp.emp_code || '').toLowerCase().includes(q) || (`${emp.first_name} ${emp.last_name}`).toLowerCase().includes(q);
-                                  }).length === 0 && (
-                                    <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
-                                      ไม่พบ — กรุณากรอกข้อมูลด้านล่าง
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            {/* Click outside to close suggestions */}
-                            {showEmpSuggestions && <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowEmpSuggestions(false)} />}
+                        {showAddAttendee && (() => {
+                          // Load employees on first open
+                          if (!employeesLoaded) fetchCompanyEmployees();
 
-                            {newAttendee.first_name && (
-                              <div style={{ background: 'var(--bg-secondary)', borderRadius: 4, padding: '6px 10px', marginBottom: 8, fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
-                                ✓ เลือก: {newAttendee.first_name} {newAttendee.last_name} {newAttendee.emp_code ? `(${newAttendee.emp_code})` : ''}
+                          // Get unique departments and positions for filters
+                          const departments = Array.from(new Set(companyEmployees.map(e => e.department).filter(Boolean))).sort();
+                          const positions = Array.from(new Set(
+                            companyEmployees
+                              .filter(e => !bulkFilterDept || e.department === bulkFilterDept)
+                              .map(e => e.position).filter(Boolean)
+                          )).sort();
+
+                          // Already added emp_codes
+                          const existingCodes = new Set(attendees.map(a => a.emp_code).filter(Boolean));
+
+                          // Filter employees
+                          const filteredEmps = companyEmployees.filter(emp => {
+                            if (bulkFilterDept && emp.department !== bulkFilterDept) return false;
+                            if (bulkFilterPos && emp.position !== bulkFilterPos) return false;
+                            if (empSearch.trim()) {
+                              const q = empSearch.toLowerCase();
+                              if (!(emp.first_name || '').toLowerCase().includes(q) &&
+                                  !(emp.last_name || '').toLowerCase().includes(q) &&
+                                  !(emp.emp_code || '').toLowerCase().includes(q)) return false;
+                            }
+                            return true;
+                          });
+
+                          const empKey = (e: typeof companyEmployees[0]) => `${e.emp_code}_${e.first_name}_${e.last_name}`;
+                          const allFilteredKeys = filteredEmps.map(empKey);
+                          const allSelected = allFilteredKeys.length > 0 && allFilteredKeys.every(k => bulkSelected.has(k));
+
+                          return (
+                          <div style={{ background: 'var(--bg)', borderRadius: 6, padding: 12, marginBottom: 12, border: '1px dashed var(--border)' }}>
+                            {/* Filters row */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                              <select value={bulkFilterDept} onChange={e => { setBulkFilterDept(e.target.value); setBulkFilterPos(''); }}
+                                style={{ ...inputStyle, flex: '1 1 150px', minWidth: 120 }}>
+                                <option value="">ทุกแผนก</option>
+                                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                              </select>
+                              <select value={bulkFilterPos} onChange={e => setBulkFilterPos(e.target.value)}
+                                style={{ ...inputStyle, flex: '1 1 150px', minWidth: 120 }}>
+                                <option value="">ทุกตำแหน่ง</option>
+                                {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                              </select>
+                              <input
+                                placeholder="🔍 ค้นหาชื่อ/รหัส..."
+                                value={empSearch}
+                                onChange={e => setEmpSearch(e.target.value)}
+                                style={{ ...inputStyle, flex: '1 1 180px', minWidth: 140 }}
+                              />
+                            </div>
+
+                            {/* Employee list with checkboxes */}
+                            {companyEmployees.length === 0 ? (
+                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลดรายชื่อพนักงาน...</div>
+                            ) : filteredEmps.length === 0 ? (
+                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่พบพนักงานตามเงื่อนไข</div>
+                            ) : (
+                              <div style={{ maxHeight: 250, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                  <thead>
+                                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                      <th style={{ padding: '6px 8px', width: 32 }}>
+                                        <input type="checkbox" checked={allSelected}
+                                          onChange={() => {
+                                            const next = new Set(bulkSelected);
+                                            if (allSelected) { allFilteredKeys.forEach(k => next.delete(k)); }
+                                            else { allFilteredKeys.forEach(k => next.add(k)); }
+                                            setBulkSelected(next);
+                                          }} />
+                                      </th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ชื่อ-สกุล</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ตำแหน่ง</th>
+                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>แผนก</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filteredEmps.map((emp, idx) => {
+                                      const k = empKey(emp);
+                                      const isChecked = bulkSelected.has(k);
+                                      const alreadyAdded = !!(emp.emp_code && existingCodes.has(emp.emp_code));
+                                      return (
+                                        <tr key={idx} style={{
+                                          borderBottom: '1px solid var(--border)',
+                                          background: alreadyAdded ? '#f0fdf4' : isChecked ? '#eff6ff' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
+                                          opacity: alreadyAdded ? 0.5 : 1,
+                                          cursor: alreadyAdded ? 'default' : 'pointer',
+                                        }}
+                                        onClick={() => {
+                                          if (alreadyAdded) return;
+                                          const next = new Set(bulkSelected);
+                                          if (isChecked) next.delete(k); else next.add(k);
+                                          setBulkSelected(next);
+                                        }}>
+                                          <td style={{ padding: '4px 8px' }}>
+                                            <input type="checkbox" checked={isChecked} disabled={alreadyAdded} readOnly />
+                                          </td>
+                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{emp.emp_code || '-'}</td>
+                                          <td style={{ padding: '4px 8px', fontWeight: 600 }}>{emp.first_name} {emp.last_name}</td>
+                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{emp.position || '-'}</td>
+                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}>{emp.department || '-'}
+                                            {alreadyAdded && <span style={{ marginLeft: 6, fontSize: 10, color: '#16a34a', fontWeight: 600 }}>✓ เพิ่มแล้ว</span>}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
                               </div>
                             )}
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-                              <input placeholder="รหัสพนักงาน" value={newAttendee.emp_code} onChange={e => setNewAttendee({ ...newAttendee, emp_code: e.target.value })} style={inputStyle} />
-                              <input placeholder="ชื่อ *" value={newAttendee.first_name} onChange={e => setNewAttendee({ ...newAttendee, first_name: e.target.value })} style={inputStyle} />
-                              <input placeholder="นามสกุล *" value={newAttendee.last_name} onChange={e => setNewAttendee({ ...newAttendee, last_name: e.target.value })} style={inputStyle} />
+                            {/* Bulk action bar */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                แสดง {filteredEmps.length} คน • เลือก <b style={{ color: 'var(--accent)' }}>{bulkSelected.size}</b> คน
+                              </span>
+                              <button onClick={handleBulkAddAttendees} disabled={bulkSelected.size === 0 || bulkAdding}
+                                style={{
+                                  padding: '6px 20px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: bulkSelected.size === 0 ? 'not-allowed' : 'pointer',
+                                  background: bulkSelected.size > 0 ? 'var(--success)' : 'var(--border)',
+                                  color: '#fff', opacity: bulkAdding ? 0.6 : 1,
+                                }}>
+                                {bulkAdding ? 'กำลังเพิ่ม...' : `เพิ่มผู้เข้าอบรม ${bulkSelected.size > 0 ? `(${bulkSelected.size} คน)` : ''}`}
+                              </button>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-                              <input placeholder="ตำแหน่ง" value={newAttendee.position} onChange={e => setNewAttendee({ ...newAttendee, position: e.target.value })} style={inputStyle} />
-                              <input placeholder="แผนก" value={newAttendee.department} onChange={e => setNewAttendee({ ...newAttendee, department: e.target.value })} style={inputStyle} />
-                              <select value={newAttendee.gender} onChange={e => setNewAttendee({ ...newAttendee, gender: e.target.value })} style={inputStyle}>
-                                <option value="">เพศ</option>
-                                <option value="M">ชาย</option>
-                                <option value="F">หญิง</option>
-                              </select>
-                            </div>
-                            <button onClick={handleAddAttendee} disabled={!newAttendee.first_name || !newAttendee.last_name}
-                              style={{ padding: '6px 16px', borderRadius: 4, border: 'none', background: 'var(--success)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
-                              เพิ่มผู้เข้าอบรม
-                            </button>
                           </div>
-                        )}
+                          );
+                        })()}
 
                         {/* Attendee list */}
                         {loadingAttendees ? (
