@@ -1447,11 +1447,11 @@ export default function CompanyTraining() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                         <div>
                           <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
-                          <input type="number" value={modalActualCost} onChange={e => setModalActualCost(Number(e.target.value))} style={inputStyle} />
+                          <input type="number" value={modalActualCost || ''} placeholder="ใส่ตัวเลขเท่านั้น" onChange={e => setModalActualCost(e.target.value === '' ? 0 : Number(e.target.value))} style={inputStyle} />
                         </div>
                         <div>
-                          <label style={labelStyle}>ชั่วโมงอบรมจริง</label>
-                          <input type="number" value={modalActualHours} onChange={e => setModalActualHours(Number(e.target.value))} style={inputStyle} />
+                          <label style={labelStyle}>ชั่วโมงอบรมของหลักสูตร</label>
+                          <input type="number" value={modalActualHours || ''} placeholder="ใส่ตัวเลขเท่านั้น" onChange={e => setModalActualHours(e.target.value === '' ? 0 : Number(e.target.value))} style={inputStyle} />
                         </div>
                       </div>
                       {/* DSD post-training documents checklist */}
