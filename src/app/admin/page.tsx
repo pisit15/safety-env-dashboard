@@ -117,6 +117,12 @@ export default function AdminPage() {
   const [dsdActiveToggling, setDsdActiveToggling] = useState<string | null>(null);
   const [dsdSearch, setDsdSearch] = useState('');
 
+  // HR PIN state
+  const [hrPin, setHrPin] = useState('');
+  const [hrPinInput, setHrPinInput] = useState('');
+  const [hrPinSaving, setHrPinSaving] = useState(false);
+  const [hrPinMsg, setHrPinMsg] = useState('');
+
   // Check admin session on mount
   useEffect(() => {
     const saved = sessionStorage.getItem('admin_auth');
@@ -244,12 +250,43 @@ export default function AdminPage() {
   const fetchDsdCourses = useCallback(async () => {
     setDsdLoading(true);
     try {
-      const res = await fetch(`/api/training/dsd-courses?t=${Date.now()}`, { cache: 'no-store' });
+      const [res, pinRes] = await Promise.all([
+        fetch(`/api/training/dsd-courses?t=${Date.now()}`, { cache: 'no-store' }),
+        fetch(`/api/settings?t=${Date.now()}`, { cache: 'no-store' }),
+      ]);
       const data = await res.json();
       if (Array.isArray(data)) setDsdCourses(data);
+      const pinData = await pinRes.json();
+      const pin = pinData?.settings?.hr_pin || '1234';
+      setHrPin(pin);
+      setHrPinInput(pin);
     } catch { /* ignore */ }
     setDsdLoading(false);
   }, []);
+
+  const handleSaveHrPin = async () => {
+    if (!hrPinInput || hrPinInput.length < 4) {
+      setHrPinMsg('กรุณาใส่ PIN อย่างน้อย 4 หลัก');
+      return;
+    }
+    setHrPinSaving(true);
+    setHrPinMsg('');
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'hr_pin', value: hrPinInput }),
+      });
+      if (res.ok) {
+        setHrPin(hrPinInput);
+        setHrPinMsg('บันทึก PIN สำเร็จ');
+        setTimeout(() => setHrPinMsg(''), 3000);
+      } else {
+        setHrPinMsg('เกิดข้อผิดพลาด');
+      }
+    } catch { setHrPinMsg('เกิดข้อผิดพลาด'); }
+    setHrPinSaving(false);
+  };
 
   const handleDsdToggle = async (courseName: string, newValue: boolean) => {
     setDsdToggling(courseName);
@@ -1178,6 +1215,44 @@ export default function AdminPage() {
             <p className="text-[11px] mb-4" style={{ color: 'var(--text-secondary)' }}>
               จัดการหลักสูตร — เปิด/ปิด badge &quot;ส่งกรมพัฒน์ได้&quot; หรือ นำออก/นำเข้าแผนอบรมประจำปี ของทุกบริษัทพร้อมกัน
             </p>
+
+            {/* HR PIN Setting */}
+            <div className="mb-4 p-3 rounded-lg" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span style={{ fontSize: 14 }}>🔑</span>
+                <span className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>รหัส PIN สำหรับ HR</span>
+                <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>— HR ใช้รหัสนี้ในการอัปเดตสถานะกรมพัฒน์ฯ ในหน้าติดตามหลักสูตร</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={hrPinInput}
+                  onChange={e => setHrPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="ใส่ PIN 4-6 หลัก"
+                  className="px-3 py-1.5 rounded-lg text-[13px] font-mono tracking-widest"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', width: 140, textAlign: 'center', letterSpacing: '0.3em' }}
+                />
+                <button
+                  onClick={handleSaveHrPin}
+                  disabled={hrPinSaving || hrPinInput === hrPin}
+                  className="text-[11px] px-3 py-1.5 rounded-lg font-medium"
+                  style={{
+                    background: hrPinInput !== hrPin ? 'var(--accent)' : 'var(--bg-tertiary)',
+                    color: hrPinInput !== hrPin ? '#fff' : 'var(--text-secondary)',
+                    border: 'none',
+                    cursor: hrPinInput !== hrPin ? 'pointer' : 'default',
+                    opacity: hrPinSaving ? 0.5 : 1,
+                  }}
+                >
+                  {hrPinSaving ? 'กำลังบันทึก...' : 'บันทึก PIN'}
+                </button>
+                {hrPinMsg && (
+                  <span className="text-[11px] font-medium" style={{ color: hrPinMsg.includes('สำเร็จ') ? '#16a34a' : '#dc2626' }}>
+                    {hrPinMsg}
+                  </span>
+                )}
+              </div>
+            </div>
 
             {/* Search */}
             <input

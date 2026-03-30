@@ -38,6 +38,9 @@ interface PlanRaw {
     training_method: string | null;
     note: string | null;
     training_attendees?: { count: number }[];
+    dsd_submitted?: boolean;
+    dsd_approved?: boolean;
+    dsd_not_submitting?: boolean;
   }[];
 }
 
@@ -74,6 +77,15 @@ export default function HQTrainingOverview() {
 
   // Expanded month detail
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
+
+  // DSD Status update (HR PIN)
+  const [dsdDropdownIdx, setDsdDropdownIdx] = useState<number | null>(null);
+  const [hrPinVerified, setHrPinVerified] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pendingDsdUpdate, setPendingDsdUpdate] = useState<{ sessionId: string; status: string; idx: number } | null>(null);
+  const [dsdUpdating, setDsdUpdating] = useState(false);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -230,6 +242,7 @@ export default function HQTrainingOverview() {
     status: string;
     scheduledDate: string | null;
     dsd: boolean;
+    dsdStatus: 'none' | 'not_submitting' | 'submitted' | 'approved';
     daysUntil: number;
     urgency: 'overdue' | 'urgent' | 'soon' | 'future';
     budget: number;
@@ -283,6 +296,7 @@ export default function HQTrainingOverview() {
           status,
           scheduledDate: s?.scheduled_date_start || null,
           dsd: p.dsd_eligible,
+          dsdStatus: s?.dsd_approved ? 'approved' : s?.dsd_submitted ? 'submitted' : s?.dsd_not_submitting ? 'not_submitting' : 'none',
           daysUntil: diffDays,
           urgency,
           budget: p.budget || 0,
@@ -348,6 +362,116 @@ export default function HQTrainingOverview() {
     } catch { setSearchResults([]); }
     setSearching(false);
   };
+
+  // DSD Status labels
+  const DSD_STATUS_OPTIONS: { value: string; label: string; color: string; bg: string }[] = [
+    { value: 'none', label: 'ไม่ระบุ', color: '#6b7280', bg: '#f3f4f6' },
+    { value: 'not_submitting', label: 'ไม่ได้ยื่น', color: '#dc2626', bg: '#fee2e2' },
+    { value: 'submitted', label: 'ยื่นแล้ว', color: '#ca8a04', bg: '#fef9c3' },
+    { value: 'approved', label: 'อนุมัติแล้ว', color: '#16a34a', bg: '#dcfce7' },
+  ];
+
+  const getDsdLabel = (status: string) => DSD_STATUS_OPTIONS.find(o => o.value === status) || DSD_STATUS_OPTIONS[0];
+
+  // Handle DSD status click — verify PIN first, then show dropdown
+  const handleDsdClick = (idx: number, item: TrackingItem) => {
+    if (!item.dsd || !item.sessionId) return;
+    if (hrPinVerified) {
+      setDsdDropdownIdx(dsdDropdownIdx === idx ? null : idx);
+    } else {
+      setPendingDsdUpdate({ sessionId: item.sessionId, status: '', idx });
+      setShowPinModal(true);
+      setPinInput('');
+      setPinError('');
+    }
+  };
+
+  // Verify PIN
+  const handlePinVerify = async () => {
+    if (!pinInput || pinInput.length < 4) {
+      setPinError('กรุณาใส่ PIN อย่างน้อย 4 หลัก');
+      return;
+    }
+    setDsdUpdating(true);
+    try {
+      // Test PIN by making a dummy request (we'll just verify)
+      const res = await fetch('/api/training/dsd-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: 'test', dsd_status: 'none', hr_pin: pinInput }),
+      });
+      if (res.status === 403) {
+        setPinError('รหัส PIN ไม่ถูกต้อง');
+        setDsdUpdating(false);
+        return;
+      }
+      // PIN is correct (even if session_id is wrong)
+      setHrPinVerified(true);
+      setShowPinModal(false);
+      if (pendingDsdUpdate) {
+        setDsdDropdownIdx(pendingDsdUpdate.idx);
+      }
+    } catch {
+      setPinError('เกิดข้อผิดพลาด');
+    }
+    setDsdUpdating(false);
+  };
+
+  // Update DSD status
+  const handleDsdStatusChange = async (sessionId: string, newStatus: string, idx: number) => {
+    setDsdUpdating(true);
+    try {
+      const res = await fetch('/api/training/dsd-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, dsd_status: newStatus, hr_pin: pinInput || sessionStorage.getItem('hr_pin') || '' }),
+      });
+      if (res.ok) {
+        // Store PIN in session for future use
+        if (pinInput) sessionStorage.setItem('hr_pin', pinInput);
+        // Update local state
+        setAllCompanyData(prev => prev.map(cd => ({
+          ...cd,
+          plans: cd.plans.map(p => ({
+            ...p,
+            training_sessions: p.training_sessions.map(s => {
+              if (s.id === sessionId) {
+                return {
+                  ...s,
+                  dsd_not_submitting: newStatus === 'not_submitting',
+                  dsd_submitted: newStatus === 'submitted' || newStatus === 'approved',
+                  dsd_approved: newStatus === 'approved',
+                };
+              }
+              return s;
+            }),
+          })),
+        })));
+      } else {
+        const err = await res.json();
+        if (res.status === 403) {
+          setHrPinVerified(false);
+          sessionStorage.removeItem('hr_pin');
+          alert('รหัส PIN ไม่ถูกต้อง กรุณาใส่ใหม่');
+        } else {
+          alert(err.error || 'เกิดข้อผิดพลาด');
+        }
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+    }
+    setDsdDropdownIdx(null);
+    setDsdUpdating(false);
+  };
+
+  // Restore HR PIN from session storage on mount
+  useEffect(() => {
+    const savedPin = sessionStorage.getItem('hr_pin');
+    if (savedPin) {
+      setPinInput(savedPin);
+      setHrPinVerified(true);
+    }
+  }, []);
 
   // Open course detail modal
   const openCourseDetail = async (item: TrackingItem) => {
@@ -430,9 +554,64 @@ export default function HQTrainingOverview() {
     postponed: { label: 'เลื่อน', color: '#f59e0b', bg: '#fef3c7' },
   };
 
+  // Close DSD dropdown on outside click
+  useEffect(() => {
+    if (dsdDropdownIdx === null) return;
+    const handler = () => setDsdDropdownIdx(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [dsdDropdownIdx]);
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
+
+      {/* HR PIN Modal */}
+      {showPinModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setShowPinModal(false)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', maxWidth: 340, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', textAlign: 'center' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🔑</div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', color: '#1a1a1a' }}>ใส่รหัส HR</h3>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 20px' }}>ใส่ PIN เพื่ออัปเดตสถานะกรมพัฒน์ฯ</p>
+            <input
+              type="password"
+              value={pinInput}
+              onChange={e => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinError(''); }}
+              placeholder="PIN 4-6 หลัก"
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') handlePinVerify(); }}
+              style={{
+                width: '100%', padding: '12px', fontSize: 20, textAlign: 'center', letterSpacing: '0.4em',
+                border: `2px solid ${pinError ? '#dc2626' : '#e5e7eb'}`, borderRadius: 10, outline: 'none',
+                fontFamily: 'monospace', boxSizing: 'border-box',
+              }}
+            />
+            {pinError && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 8, marginBottom: 0 }}>{pinError}</p>}
+            <button
+              onClick={handlePinVerify}
+              disabled={dsdUpdating || pinInput.length < 4}
+              style={{
+                width: '100%', padding: '12px', marginTop: 16, borderRadius: 10, border: 'none',
+                background: pinInput.length >= 4 ? '#007AFF' : '#e5e7eb',
+                color: pinInput.length >= 4 ? '#fff' : '#9ca3af',
+                fontWeight: 600, fontSize: 14, cursor: pinInput.length >= 4 ? 'pointer' : 'default',
+                opacity: dsdUpdating ? 0.6 : 1,
+              }}
+            >
+              {dsdUpdating ? 'กำลังตรวจสอบ...' : 'ยืนยัน'}
+            </button>
+            <button
+              onClick={() => setShowPinModal(false)}
+              style={{ marginTop: 10, background: 'none', border: 'none', color: '#6b7280', fontSize: 13, cursor: 'pointer' }}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      )}
+
       <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -813,11 +992,53 @@ export default function HQTrainingOverview() {
                                       </span>
                                     )}
                                   </td>
-                                  <td style={td}>
-                                    {item.dsd && (
-                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
-                                        กรมพัฒน์
-                                      </span>
+                                  <td style={{ ...td, position: 'relative' }}>
+                                    {item.dsd ? (
+                                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDsdClick(idx, item); }}
+                                          style={{
+                                            fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 700, border: 'none', cursor: item.sessionId ? 'pointer' : 'default',
+                                            background: getDsdLabel(item.dsdStatus).bg, color: getDsdLabel(item.dsdStatus).color,
+                                            transition: 'all 0.15s',
+                                          }}
+                                          title={item.sessionId ? (hrPinVerified ? 'คลิกเพื่อเปลี่ยนสถานะ' : 'คลิกเพื่อใส่ PIN HR') : 'ยังไม่มี session'}
+                                        >
+                                          {item.dsdStatus === 'none' ? 'กรมพัฒน์' : getDsdLabel(item.dsdStatus).label}
+                                          {hrPinVerified && item.sessionId && <span style={{ marginLeft: 2, fontSize: 8 }}>▼</span>}
+                                        </button>
+                                        {dsdDropdownIdx === idx && item.sessionId && (
+                                          <div
+                                            style={{
+                                              position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                                              zIndex: 100, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8,
+                                              boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 4, minWidth: 130, marginTop: 4,
+                                            }}
+                                            onClick={e => e.stopPropagation()}
+                                          >
+                                            {DSD_STATUS_OPTIONS.map(opt => (
+                                              <button
+                                                key={opt.value}
+                                                onClick={() => handleDsdStatusChange(item.sessionId!, opt.value, idx)}
+                                                disabled={dsdUpdating}
+                                                style={{
+                                                  display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px',
+                                                  fontSize: 11, border: 'none', borderRadius: 4, cursor: dsdUpdating ? 'wait' : 'pointer',
+                                                  background: item.dsdStatus === opt.value ? opt.bg : 'transparent',
+                                                  color: opt.color, fontWeight: item.dsdStatus === opt.value ? 700 : 500,
+                                                  opacity: dsdUpdating ? 0.5 : 1,
+                                                }}
+                                                onMouseEnter={e => { if (item.dsdStatus !== opt.value) (e.target as HTMLElement).style.background = '#f3f4f6'; }}
+                                                onMouseLeave={e => { if (item.dsdStatus !== opt.value) (e.target as HTMLElement).style.background = 'transparent'; }}
+                                              >
+                                                {item.dsdStatus === opt.value && '✓ '}{opt.label}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: 9, color: 'var(--text-secondary)' }}>-</span>
                                     )}
                                   </td>
                                   {trackingMode === 'pending' && (
