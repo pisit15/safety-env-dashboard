@@ -162,6 +162,10 @@ export default function HQTrainingOverview() {
         const s = p.training_sessions?.[0];
         const status = s?.status || 'planned';
         if (status === 'cancelled') { cancelled++; continue; }
+
+        const em = getEffectiveMonth(p);
+        if (em < 1 || em > 12) continue; // skip plans without a valid month
+
         if (status === 'completed') completed++;
         else if (status === 'scheduled') scheduled++;
         else pending++;
@@ -172,7 +176,6 @@ export default function HQTrainingOverview() {
         totalParticipants += sessPax;
         totalManHours += s?.total_man_hours || 0;
 
-        const em = getEffectiveMonth(p);
         if (em >= 1 && em <= 12) {
           monthly[em - 1].planned++;
           if (status === 'completed') monthly[em - 1].completed++;
