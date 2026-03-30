@@ -55,6 +55,15 @@ export default function HQTrainingOverview() {
   const [searchResults, setSearchResults] = useState<Record<string, unknown>[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // Tracking toggle: pending vs completed
+  const [trackingMode, setTrackingMode] = useState<'pending' | 'completed'>('pending');
+
+  // Course detail modal
+  const [detailCourse, setDetailCourse] = useState<{ companyId: string; company: string; courseName: string; planId: string; sessionId: string | null; status: string; scheduledDate: string | null; dsd: boolean; plannedMonth: number; budget: number; hours: number; participants: number; inHouseExternal: string; category: string; actualCost: number; actualParticipants: number; totalManHours: number; instructorName: string; trainingLocation: string; } | null>(null);
+  const [detailAttendees, setDetailAttendees] = useState<Record<string, unknown>[]>([]);
+  const [detailFiles, setDetailFiles] = useState<{ photos: string[]; signin: string[] }>({ photos: [], signin: [] });
+  const [detailLoading, setDetailLoading] = useState(false);
+
   // Expanded month detail
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
 
@@ -201,27 +210,42 @@ export default function HQTrainingOverview() {
   const overallPct = totals.courses > 0 ? Math.round((totals.completed / totals.courses) * 100) : 0;
   const budgetUsedPct = totals.budget > 0 ? Math.round((totals.actual / totals.budget) * 100) : 0;
 
-  // Tracking list: all pending/scheduled courses sorted by upcoming month
-  const trackingList = useMemo(() => {
+  // Tracking item type
+  type TrackingItem = {
+    company: string;
+    companyId: string;
+    courseName: string;
+    planId: string;
+    sessionId: string | null;
+    plannedMonth: number;
+    status: string;
+    scheduledDate: string | null;
+    dsd: boolean;
+    daysUntil: number;
+    urgency: 'overdue' | 'urgent' | 'soon' | 'future';
+    budget: number;
+    hours: number;
+    participants: number;
+    inHouseExternal: string;
+    category: string;
+    actualCost: number;
+    actualParticipants: number;
+    totalManHours: number;
+    instructorName: string;
+    trainingLocation: string;
+  };
+
+  // Build ALL course items (both pending and completed)
+  const allTrackingItems = useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
-    const items: {
-      company: string;
-      companyId: string;
-      courseName: string;
-      plannedMonth: number;
-      status: string;
-      scheduledDate: string | null;
-      dsd: boolean;
-      daysUntil: number;
-      urgency: 'overdue' | 'urgent' | 'soon' | 'future';
-    }[] = [];
+    const items: TrackingItem[] = [];
 
     for (const cd of allCompanyData) {
       for (const p of cd.plans) {
         const s = p.training_sessions?.[0];
         const status = s?.status || 'planned';
-        if (status === 'completed' || status === 'cancelled') continue;
+        if (status === 'cancelled') continue;
 
         const em = getEffectiveMonth(p);
         if (em < 1 || em > 12) continue;
@@ -230,7 +254,8 @@ export default function HQTrainingOverview() {
         const diffDays = Math.round((plannedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
         let urgency: 'overdue' | 'urgent' | 'soon' | 'future' = 'future';
-        if (em < currentMonth) urgency = 'overdue';
+        if (status === 'completed') urgency = 'future';
+        else if (em < currentMonth) urgency = 'overdue';
         else if (em === currentMonth) urgency = 'urgent';
         else if (em === currentMonth + 1) urgency = 'soon';
 
@@ -238,12 +263,24 @@ export default function HQTrainingOverview() {
           company: cd.companyName,
           companyId: cd.companyId,
           courseName: p.course_name,
+          planId: p.id,
+          sessionId: s?.id || null,
           plannedMonth: em,
           status,
           scheduledDate: s?.scheduled_date_start || null,
           dsd: p.dsd_eligible,
           daysUntil: diffDays,
           urgency,
+          budget: p.budget || 0,
+          hours: p.hours_per_course || 0,
+          participants: p.planned_participants || 0,
+          inHouseExternal: p.in_house_external || '',
+          category: p.category || '',
+          actualCost: s?.actual_cost || 0,
+          actualParticipants: s?.actual_participants || 0,
+          totalManHours: s?.total_man_hours || 0,
+          instructorName: (s as Record<string, unknown>)?.instructor_name as string || '',
+          trainingLocation: (s as Record<string, unknown>)?.training_location as string || '',
         });
       }
     }
@@ -259,6 +296,13 @@ export default function HQTrainingOverview() {
     return items;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCompanyData, selectedYear]);
+
+  const trackingList = useMemo(() => allTrackingItems.filter(t => t.status !== 'completed'), [allTrackingItems]);
+  const completedList = useMemo(() => {
+    const items = allTrackingItems.filter(t => t.status === 'completed');
+    items.sort((a, b) => a.plannedMonth - b.plannedMonth || a.company.localeCompare(b.company));
+    return items;
+  }, [allTrackingItems]);
 
   const filtered = searchTerm
     ? companySummaries.filter(s => s.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -284,6 +328,72 @@ export default function HQTrainingOverview() {
       setSearchResults(Array.isArray(data) ? data : []);
     } catch { setSearchResults([]); }
     setSearching(false);
+  };
+
+  // Open course detail modal
+  const openCourseDetail = async (item: TrackingItem) => {
+    setDetailCourse({
+      companyId: item.companyId,
+      company: item.company,
+      courseName: item.courseName,
+      planId: item.planId,
+      sessionId: item.sessionId,
+      status: item.status,
+      scheduledDate: item.scheduledDate,
+      dsd: item.dsd,
+      plannedMonth: item.plannedMonth,
+      budget: item.budget,
+      hours: item.hours,
+      participants: item.participants,
+      inHouseExternal: item.inHouseExternal,
+      category: item.category,
+      actualCost: item.actualCost,
+      actualParticipants: item.actualParticipants,
+      totalManHours: item.totalManHours,
+      instructorName: item.instructorName,
+      trainingLocation: item.trainingLocation,
+    });
+    setDetailLoading(true);
+    setDetailAttendees([]);
+    setDetailFiles({ photos: [], signin: [] });
+
+    try {
+      // Fetch attendees
+      if (item.planId) {
+        const res = await fetch(`/api/training/attendees?planId=${item.planId}`);
+        const data = await res.json();
+        if (Array.isArray(data)) setDetailAttendees(data);
+      }
+      // Fetch files from Supabase storage
+      if (item.sessionId) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wdjhsalkmjbrujqzqllu.supabase.co';
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+        const basePath = `${item.companyId}/${item.sessionId}`;
+        const photos: string[] = [];
+        const signin: string[] = [];
+        for (const fileType of ['photos', 'signin'] as const) {
+          try {
+            const listRes = await fetch(`${supabaseUrl}/storage/v1/object/list/training-documents/${basePath}/${fileType}`, {
+              headers: { 'Authorization': `Bearer ${supabaseKey}`, 'apikey': supabaseKey },
+            });
+            if (listRes.ok) {
+              const files = await listRes.json();
+              if (Array.isArray(files)) {
+                for (const f of files) {
+                  if (f.name) {
+                    const url = `${supabaseUrl}/storage/v1/object/public/training-documents/${basePath}/${fileType}/${f.name}`;
+                    if (fileType === 'photos') photos.push(url);
+                    else signin.push(url);
+                  }
+                }
+              }
+            }
+          } catch { /* ignore */ }
+        }
+        setDetailFiles({ photos, signin });
+      }
+    } catch { /* ignore */ }
+    setDetailLoading(false);
   };
 
   const maxMonthlyPlanned = Math.max(...globalMonthly.map(d => d.planned), 1);
@@ -636,86 +746,126 @@ export default function HQTrainingOverview() {
                   </div>
                 </div>
 
-                {/* Tracking: Upcoming Courses — no toggle, show all with date status inline */}
+                {/* Tracking: Course tracking with toggle */}
                 <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
-                  <div style={{ marginBottom: 16 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                      📋 ติดตามหลักสูตรที่ยังไม่อบรม ({trackingList.length} หลักสูตร)
-                    </h3>
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-                      เรียงตามเดือนที่ใกล้ถึง — ยังไม่กำหนดวัน <b style={{ color: '#dc2626' }}>{trackingList.filter(t => !t.scheduledDate).length}</b> / กำหนดวันแล้ว <b style={{ color: '#16a34a' }}>{trackingList.filter(t => !!t.scheduledDate).length}</b>
-                    </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                    <div>
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                        📋 ติดตามข้อมูลหลักสูตรอบรม
+                      </h3>
+                      <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                        {trackingMode === 'pending'
+                          ? <>ยังไม่อบรม {trackingList.length} หลักสูตร — ยังไม่กำหนดวัน <b style={{ color: '#dc2626' }}>{trackingList.filter(t => !t.scheduledDate).length}</b> / กำหนดวันแล้ว <b style={{ color: '#16a34a' }}>{trackingList.filter(t => !!t.scheduledDate).length}</b></>
+                          : <>จัดอบรมแล้ว {completedList.length} หลักสูตร</>
+                        }
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <button
+                        onClick={() => setTrackingMode('pending')}
+                        style={{ padding: '6px 16px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: trackingMode === 'pending' ? 'var(--accent)' : 'var(--bg)', color: trackingMode === 'pending' ? '#fff' : 'var(--text-secondary)' }}
+                      >
+                        ⏳ ยังไม่อบรม ({trackingList.length})
+                      </button>
+                      <button
+                        onClick={() => setTrackingMode('completed')}
+                        style={{ padding: '6px 16px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: '1px solid var(--border)', background: trackingMode === 'completed' ? '#16a34a' : 'var(--bg)', color: trackingMode === 'completed' ? '#fff' : 'var(--text-secondary)' }}
+                      >
+                        ✅ อบรมแล้ว ({completedList.length})
+                      </button>
+                    </div>
                   </div>
 
-                  {trackingList.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>
-                      ไม่มีหลักสูตรที่ต้องติดตาม
-                    </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                        <thead>
-                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                            <th style={th}>#</th>
-                            <th style={{ ...th, textAlign: 'left' }}>บริษัท</th>
-                            <th style={{ ...th, textAlign: 'left' }}>หลักสูตร</th>
-                            <th style={th}>เดือน</th>
-                            <th style={th}>วันอบรม</th>
-                            <th style={th}>DSD</th>
-                            <th style={th}>ความเร่งด่วน</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trackingList.map((item, idx) => {
-                            const urgencyConfig = {
-                              overdue: { label: 'เลยกำหนด', color: '#dc2626', bg: '#fee2e2' },
-                              urgent: { label: 'เดือนนี้', color: '#ea580c', bg: '#fff7ed' },
-                              soon: { label: 'เดือนหน้า', color: '#ca8a04', bg: '#fefce8' },
-                              future: { label: 'ยังไม่ถึง', color: '#16a34a', bg: '#f0fdf4' },
-                            };
-                            const urg = urgencyConfig[item.urgency];
-                            return (
-                              <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: item.urgency === 'overdue' ? '#fff5f5' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
-                                <td style={td}>{idx + 1}</td>
-                                <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>
-                                  <Link href={`/company/${item.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-                                    {item.company}
-                                  </Link>
-                                </td>
-                                <td style={{ ...td, textAlign: 'left', maxWidth: 350, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {item.courseName}
-                                </td>
-                                <td style={{ ...td, fontWeight: 600 }}>{MONTH_LABELS[item.plannedMonth - 1]}</td>
-                                <td style={td}>
-                                  {item.scheduledDate ? (
-                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>
-                                      {formatDate(item.scheduledDate)}
+                  {(() => {
+                    const displayList = trackingMode === 'pending' ? trackingList : completedList;
+                    if (displayList.length === 0) return (
+                      <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 13 }}>
+                        {trackingMode === 'pending' ? 'ไม่มีหลักสูตรที่ต้องติดตาม' : 'ยังไม่มีหลักสูตรที่จัดอบรมแล้ว'}
+                      </div>
+                    );
+                    return (
+                      <div style={{ borderRadius: 8, border: '1px solid var(--border)', maxHeight: 500, overflowY: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
+                              <th style={th}>#</th>
+                              <th style={{ ...th, textAlign: 'left' }}>บริษัท</th>
+                              <th style={{ ...th, textAlign: 'left' }}>หลักสูตร</th>
+                              <th style={th}>เดือน</th>
+                              <th style={th}>วันอบรม</th>
+                              <th style={th}>DSD</th>
+                              {trackingMode === 'pending' && <th style={th}>ความเร่งด่วน</th>}
+                              {trackingMode === 'completed' && <th style={th}>ค่าใช้จ่าย</th>}
+                              {trackingMode === 'completed' && <th style={th}>ผู้เข้าอบรม</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayList.map((item, idx) => {
+                              const urgencyConfig = {
+                                overdue: { label: 'เลยกำหนด', color: '#dc2626', bg: '#fee2e2' },
+                                urgent: { label: 'เดือนนี้', color: '#ea580c', bg: '#fff7ed' },
+                                soon: { label: 'เดือนหน้า', color: '#ca8a04', bg: '#fefce8' },
+                                future: { label: 'ยังไม่ถึง', color: '#16a34a', bg: '#f0fdf4' },
+                              };
+                              const urg = urgencyConfig[item.urgency];
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: trackingMode === 'pending' && item.urgency === 'overdue' ? '#fff5f5' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = trackingMode === 'pending' && item.urgency === 'overdue' ? '#fff5f5' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)'; }}
+                                >
+                                  <td style={td}>{idx + 1}</td>
+                                  <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>
+                                    <Link href={`/company/${item.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                                      {item.company}
+                                    </Link>
+                                  </td>
+                                  <td style={{ ...td, textAlign: 'left' }}
+                                    onClick={() => openCourseDetail(item)}
+                                  >
+                                    <span style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted' as const, textUnderlineOffset: '3px' }}>
+                                      {item.courseName}
                                     </span>
-                                  ) : (
-                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
-                                      ยังไม่กำหนด
-                                    </span>
+                                  </td>
+                                  <td style={{ ...td, fontWeight: 600 }}>{MONTH_LABELS[item.plannedMonth - 1]}</td>
+                                  <td style={td}>
+                                    {item.scheduledDate ? (
+                                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>
+                                        {formatDate(item.scheduledDate)}
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
+                                        ยังไม่กำหนด
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td style={td}>
+                                    {item.dsd && (
+                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
+                                        กรมพัฒน์
+                                      </span>
+                                    )}
+                                  </td>
+                                  {trackingMode === 'pending' && (
+                                    <td style={td}>
+                                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: urg.bg, color: urg.color, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                        {urg.label}
+                                      </span>
+                                    </td>
                                   )}
-                                </td>
-                                <td style={td}>
-                                  {item.dsd && (
-                                    <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
-                                      กรมพัฒน์
-                                    </span>
+                                  {trackingMode === 'completed' && (
+                                    <>
+                                      <td style={{ ...td, textAlign: 'right' }}>{item.actualCost ? item.actualCost.toLocaleString() : '-'}</td>
+                                      <td style={td}>{item.actualParticipants || '-'}</td>
+                                    </>
                                   )}
-                                </td>
-                                <td style={td}>
-                                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: urg.bg, color: urg.color, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                    {urg.label}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Warning */}
@@ -758,6 +908,154 @@ export default function HQTrainingOverview() {
               </button>
             </div>
             {renderSearchResults()}
+          </div>
+        )}
+
+        {/* Course Detail Modal */}
+        {detailCourse && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 40, overflowY: 'auto' }}
+            onClick={() => setDetailCourse(null)}>
+            <div style={{ background: 'var(--card-solid)', borderRadius: 12, width: '95%', maxWidth: 800, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+              onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{detailCourse.courseName}</h3>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 12 }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 4, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      {detailCourse.company}
+                    </span>
+                    {detailCourse.category && (
+                      <span style={{ padding: '2px 8px', borderRadius: 4, background: '#f3f4f6', color: '#6b7280' }}>
+                        {detailCourse.category}
+                      </span>
+                    )}
+                    <span style={{ padding: '2px 8px', borderRadius: 4, background: detailCourse.inHouseExternal?.toLowerCase().includes('in') ? '#dbeafe' : '#f3e8ff', color: detailCourse.inHouseExternal?.toLowerCase().includes('in') ? '#1d4ed8' : '#7c3aed' }}>
+                      {detailCourse.inHouseExternal?.toLowerCase().includes('in') ? 'In-House' : 'External'}
+                    </span>
+                    {detailCourse.dsd && (
+                      <span style={{ padding: '2px 8px', borderRadius: 4, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, fontSize: 10 }}>
+                        ส่งกรมพัฒน์ได้
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => setDetailCourse(null)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: 'var(--text-secondary)', padding: '0 4px' }}>×</button>
+              </div>
+
+              {/* Body */}
+              <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+                {/* Info Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
+                  {[
+                    { label: 'เดือนตามแผน', value: MONTH_LABELS[detailCourse.plannedMonth - 1] },
+                    { label: 'สถานะ', value: detailCourse.status === 'completed' ? '✅ อบรมแล้ว' : detailCourse.status === 'scheduled' ? '📅 กำหนดวันแล้ว' : '⏳ ตามแผน' },
+                    { label: 'วันอบรม', value: detailCourse.scheduledDate ? formatDate(detailCourse.scheduledDate) : 'ยังไม่กำหนด' },
+                    { label: 'ชั่วโมง', value: detailCourse.hours || '-' },
+                    { label: 'จำนวนคน (แผน)', value: detailCourse.participants || '-' },
+                    { label: 'งบประมาณ', value: detailCourse.budget ? `${detailCourse.budget.toLocaleString()} ฿` : '-' },
+                    { label: 'ค่าใช้จ่ายจริง', value: detailCourse.actualCost ? `${detailCourse.actualCost.toLocaleString()} ฿` : '-' },
+                    { label: 'ผู้เข้าอบรมจริง', value: detailCourse.actualParticipants || '-' },
+                    { label: 'Man-hours รวม', value: detailCourse.totalManHours || '-' },
+                    ...(detailCourse.instructorName ? [{ label: 'วิทยากร', value: detailCourse.instructorName }] : []),
+                    ...(detailCourse.trainingLocation ? [{ label: 'สถานที่', value: detailCourse.trainingLocation }] : []),
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: 'var(--bg-secondary)', borderRadius: 6, padding: '8px 12px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{item.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Attendees */}
+                <div style={{ marginBottom: 20 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-primary)' }}>
+                    👥 รายชื่อผู้เข้าอบรม ({detailLoading ? '...' : detailAttendees.length} คน)
+                  </h4>
+                  {detailLoading ? (
+                    <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
+                  ) : detailAttendees.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12, background: 'var(--bg-secondary)', borderRadius: 6 }}>ยังไม่มีรายชื่อผู้เข้าอบรม</div>
+                  ) : (
+                    <div style={{ borderRadius: 6, border: '1px solid var(--border)', maxHeight: 250, overflowY: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-secondary)' }}>
+                          <tr>
+                            <th style={{ ...th, fontSize: 11 }}>#</th>
+                            <th style={{ ...th, textAlign: 'left', fontSize: 11 }}>รหัส</th>
+                            <th style={{ ...th, textAlign: 'left', fontSize: 11 }}>ชื่อ-สกุล</th>
+                            <th style={{ ...th, textAlign: 'left', fontSize: 11 }}>ตำแหน่ง</th>
+                            <th style={{ ...th, textAlign: 'left', fontSize: 11 }}>แผนก</th>
+                            <th style={{ ...th, fontSize: 11 }}>ชม.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detailAttendees.map((a: Record<string, unknown>, i: number) => (
+                            <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td style={td}>{i + 1}</td>
+                              <td style={{ ...td, textAlign: 'left' }}>{a.emp_code as string || '-'}</td>
+                              <td style={{ ...td, textAlign: 'left', fontWeight: 500 }}>{a.first_name as string} {a.last_name as string}</td>
+                              <td style={{ ...td, textAlign: 'left' }}>{a.position as string || '-'}</td>
+                              <td style={{ ...td, textAlign: 'left' }}>{a.department as string || '-'}</td>
+                              <td style={td}>{(a.hours_attended as number) || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Uploaded Files */}
+                <div>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-primary)' }}>
+                    📎 ไฟล์ที่อัปโหลด
+                  </h4>
+                  {detailLoading ? (
+                    <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
+                  ) : detailFiles.photos.length === 0 && detailFiles.signin.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12, background: 'var(--bg-secondary)', borderRadius: 6 }}>ยังไม่มีไฟล์ที่อัปโหลด</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {detailFiles.photos.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>📸 รูปภาพการอบรม ({detailFiles.photos.length} ไฟล์)</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {detailFiles.photos.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                style={{ width: 80, height: 80, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)', display: 'block' }}>
+                                <img src={url} alt={`photo-${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {detailFiles.signin.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>📝 ใบลงชื่อ ({detailFiles.signin.length} ไฟล์)</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {detailFiles.signin.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', fontSize: 12, textDecoration: 'none' }}>
+                                📄 ไฟล์ {i + 1}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Link to company training page */}
+                <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                  <Link href={`/company/${detailCourse.companyId}/training`}
+                    style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
+                    ไปหน้าอบรมของ {detailCourse.company} →
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -811,7 +1109,7 @@ export default function HQTrainingOverview() {
   }
 }
 
-const th: React.CSSProperties = { padding: '8px 10px', textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' };
+const th: React.CSSProperties = { padding: '8px 10px', textAlign: 'center', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', background: 'var(--bg-secondary)' };
 const td: React.CSSProperties = { padding: '6px 10px', textAlign: 'center', whiteSpace: 'nowrap' };
 
 function formatDate(d: string): string {
