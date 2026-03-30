@@ -64,6 +64,7 @@ interface TrainingSession {
   dsd_submitted_date: string | null;
   dsd_approved: boolean;
   dsd_approved_date: string | null;
+  dsd_not_submitting: boolean;
   // DSD post-training
   actual_hours: number;
   dsd_report_submitted: boolean;
@@ -117,6 +118,7 @@ export default function CompanyTraining() {
   const [modalMethod, setModalMethod] = useState('');
   const [modalDsdSubmitted, setModalDsdSubmitted] = useState(false);
   const [modalDsdApproved, setModalDsdApproved] = useState(false);
+  const [modalDsdNotSubmitting, setModalDsdNotSubmitting] = useState(false);
 
   // DSD post-training state
   const [modalActualHours, setModalActualHours] = useState(0);
@@ -251,6 +253,7 @@ export default function CompanyTraining() {
     setModalMethod(session?.training_method || '');
     setModalDsdSubmitted(session?.dsd_submitted || false);
     setModalDsdApproved(session?.dsd_approved || false);
+    setModalDsdNotSubmitting(session?.dsd_not_submitting || false);
     // DSD post-training
     setModalActualHours(session?.actual_hours || 0);
     setModalDsdReportSubmitted(session?.dsd_report_submitted || false);
@@ -290,8 +293,9 @@ export default function CompanyTraining() {
           instructor_name: modalInstructor || null,
           training_location: modalLocation || null,
           training_method: modalMethod || null,
-          dsd_submitted: modalDsdSubmitted,
-          dsd_approved: modalDsdApproved,
+          dsd_submitted: modalDsdNotSubmitting ? false : modalDsdSubmitted,
+          dsd_approved: modalDsdNotSubmitting ? false : modalDsdApproved,
+          dsd_not_submitting: modalDsdNotSubmitting,
           // DSD post-training
           actual_hours: modalActualHours,
           dsd_report_submitted: modalDsdReportSubmitted,
@@ -1322,51 +1326,70 @@ export default function CompanyTraining() {
                       </div>
                     </div>
 
-                    {/* Instructor */}
-                    <label style={labelStyle}>ชื่อวิทยากร</label>
-                    <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)}
-                      placeholder="ระบุชื่อวิทยากร (ต้องตรงกับที่ยื่น)"
-                      style={{ ...inputStyle, marginBottom: 12 }} />
-
-                    {/* Location & Method */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                      <div>
-                        <label style={labelStyle}>สถานที่อบรม</label>
-                        <input value={modalLocation} onChange={e => setModalLocation(e.target.value)}
-                          placeholder="ต้องตรงกับที่แจ้ง" style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>วิธีการสอน</label>
-                        <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
-                          <option value="">-- เลือก --</option>
-                          <option value="lecture">บรรยาย</option>
-                          <option value="group_activity">กิจกรรมกลุ่ม</option>
-                          <option value="workshop">ฝึกปฏิบัติ</option>
-                          <option value="elearning">E-Learning</option>
-                          <option value="onsite">On-site Training</option>
-                          <option value="mixed">ผสมผสาน</option>
-                        </select>
-                      </div>
+                    {/* DSD Status Header */}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10, padding: '8px 12px', background: '#fef9c3', borderRadius: 6, border: '1px solid #fde68a' }}>
+                      📋 ข้อมูลการยื่นกรมพัฒน์ (สำหรับ HR)
                     </div>
 
-                    {/* Hour warning */}
-                    {selectedPlan.hours_per_course > 0 && selectedPlan.hours_per_course < 6 && (
-                      <div style={{ background: '#fef2f2', borderRadius: 6, padding: '6px 10px', marginBottom: 12, fontSize: 11, color: '#991b1b', border: '1px solid #fecaca' }}>
-                        ⚠️ หลักสูตรนี้มี {selectedPlan.hours_per_course} ชม. — กรมพัฒน์ฯ กำหนดไม่ต่ำกว่า 6 ชม.
-                      </div>
-                    )}
-
-                    {/* DSD submission status */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdSubmitted ? '#dcfce7' : 'var(--bg)' }}>
-                        <input type="checkbox" checked={modalDsdSubmitted} onChange={e => setModalDsdSubmitted(e.target.checked)} />
-                        <span>ยื่นขอรับรองหลักสูตรแล้ว</span>
+                    {/* DSD submission options */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', padding: '8px 10px', borderRadius: 6, border: `1px solid ${modalDsdNotSubmitting ? '#fca5a5' : 'var(--border)'}`, background: modalDsdNotSubmitting ? '#fef2f2' : 'var(--bg)' }}>
+                        <input type="checkbox" checked={modalDsdNotSubmitting}
+                          onChange={e => {
+                            setModalDsdNotSubmitting(e.target.checked);
+                            if (e.target.checked) { setModalDsdSubmitted(false); setModalDsdApproved(false); }
+                          }} />
+                        <span style={{ color: modalDsdNotSubmitting ? '#dc2626' : 'var(--text-primary)' }}>ไม่ได้ยื่นกรมพัฒน์</span>
                       </label>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdApproved ? '#dcfce7' : 'var(--bg)' }}>
-                        <input type="checkbox" checked={modalDsdApproved} onChange={e => setModalDsdApproved(e.target.checked)} />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: modalDsdNotSubmitting ? 'not-allowed' : 'pointer', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdSubmitted ? '#dcfce7' : 'var(--bg)', opacity: modalDsdNotSubmitting ? 0.4 : 1 }}>
+                        <input type="checkbox" checked={modalDsdSubmitted} disabled={modalDsdNotSubmitting}
+                          onChange={e => setModalDsdSubmitted(e.target.checked)} />
+                        <span>ยื่นขอรับรองแล้ว</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: modalDsdNotSubmitting ? 'not-allowed' : 'pointer', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: modalDsdApproved ? '#dcfce7' : 'var(--bg)', opacity: modalDsdNotSubmitting ? 0.4 : 1 }}>
+                        <input type="checkbox" checked={modalDsdApproved} disabled={modalDsdNotSubmitting}
+                          onChange={e => setModalDsdApproved(e.target.checked)} />
                         <span>กรมพัฒน์ฯ อนุมัติแล้ว</span>
                       </label>
                     </div>
+
+                    {!modalDsdNotSubmitting && (
+                      <>
+                        {/* Instructor */}
+                        <label style={labelStyle}>ชื่อวิทยากร</label>
+                        <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)}
+                          placeholder="ระบุชื่อวิทยากร (ต้องตรงกับที่ยื่น)"
+                          style={{ ...inputStyle, marginBottom: 12 }} />
+
+                        {/* Location & Method */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                          <div>
+                            <label style={labelStyle}>สถานที่อบรม</label>
+                            <input value={modalLocation} onChange={e => setModalLocation(e.target.value)}
+                              placeholder="ต้องตรงกับที่แจ้ง" style={inputStyle} />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>วิธีการสอน</label>
+                            <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
+                              <option value="">-- เลือก --</option>
+                              <option value="lecture">บรรยาย</option>
+                              <option value="group_activity">กิจกรรมกลุ่ม</option>
+                              <option value="workshop">ฝึกปฏิบัติ</option>
+                              <option value="elearning">E-Learning</option>
+                              <option value="onsite">On-site Training</option>
+                              <option value="mixed">ผสมผสาน</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Hour warning */}
+                        {selectedPlan.hours_per_course > 0 && selectedPlan.hours_per_course < 6 && (
+                          <div style={{ background: '#fef2f2', borderRadius: 6, padding: '6px 10px', marginBottom: 12, fontSize: 11, color: '#991b1b', border: '1px solid #fecaca' }}>
+                            ⚠️ หลักสูตรนี้มี {selectedPlan.hours_per_course} ชม. — กรมพัฒน์ฯ กำหนดไม่ต่ำกว่า 6 ชม.
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
