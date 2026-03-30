@@ -113,24 +113,38 @@ export async function DELETE(request: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
-// PATCH - Update a training plan's planned_month
+// PATCH - Update a training plan (planned_month or is_active)
 export async function PATCH(request: NextRequest) {
   try {
-    const { plan_id, planned_month } = await request.json();
+    const body = await request.json();
+    const { plan_id, planned_month, is_active } = body;
 
-    if (!plan_id || !planned_month) {
-      return NextResponse.json({ error: 'Missing plan_id or planned_month' }, { status: 400 });
+    if (!plan_id) {
+      return NextResponse.json({ error: 'Missing plan_id' }, { status: 400 });
     }
 
-    if (planned_month < 1 || planned_month > 12) {
-      return NextResponse.json({ error: 'planned_month must be between 1 and 12' }, { status: 400 });
+    const updateData: Record<string, unknown> = {};
+
+    if (planned_month !== undefined) {
+      if (planned_month < 1 || planned_month > 12) {
+        return NextResponse.json({ error: 'planned_month must be between 1 and 12' }, { status: 400 });
+      }
+      updateData.planned_month = planned_month;
+    }
+
+    if (is_active !== undefined) {
+      updateData.is_active = is_active;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
     const supabase = getSupabase();
 
     const { data, error } = await supabase
       .from('training_plans')
-      .update({ planned_month })
+      .update(updateData)
       .eq('id', plan_id)
       .select()
       .single();

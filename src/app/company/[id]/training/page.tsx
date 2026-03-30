@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
-import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, Edit2, Save, Bell, Eye, X } from 'lucide-react';
+import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, Edit2, Save, Bell, Eye, EyeOff, X } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -36,6 +36,7 @@ interface TrainingPlan {
   responsible_person: string;
   remarks: string;
   dsd_eligible: boolean;
+  is_active: boolean;
   training_sessions: TrainingSession[];
 }
 
@@ -178,6 +179,10 @@ export default function CompanyTraining() {
   // Feature 5: Inline month selector for plans without a month
   const [editingMonthPlanId, setEditingMonthPlanId] = useState<string | null>(null);
   const [loadingChanges, setLoadingChanges] = useState(false);
+
+  // Feature 6: Show/hide inactive plans
+  const [showHiddenPlans, setShowHiddenPlans] = useState(false);
+  const [togglingPlanId, setTogglingPlanId] = useState<string | null>(null);
 
   // Auth
   const isLoggedIn = auth.isAdmin || !!auth.companyAuth[companyId];
@@ -720,6 +725,20 @@ export default function CompanyTraining() {
     setEditingMonthPlanId(null);
   };
 
+  // Feature 6: Toggle plan active/hidden
+  const handleTogglePlanActive = async (planId: string, currentActive: boolean) => {
+    setTogglingPlanId(planId);
+    try {
+      const res = await fetch('/api/training/plans', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: planId, is_active: !currentActive }),
+      });
+      if (res.ok) await fetchPlans();
+    } catch (e) { console.error(e); }
+    setTogglingPlanId(null);
+  };
+
   // Feature 4: Change log handlers
   const fetchUnreviewedChanges = async () => {
     setLoadingChanges(true);
@@ -764,7 +783,9 @@ export default function CompanyTraining() {
   };
 
   // Filter plans by time range
-  const timeFilteredPlans = plans.filter(p => {
+  const hiddenCount = plans.filter(p => p.is_active === false).length;
+  const activePlans = showHiddenPlans ? plans : plans.filter(p => p.is_active !== false);
+  const timeFilteredPlans = activePlans.filter(p => {
     if (timeRange === 'year') return true;
     const effectiveM = getEffectiveMonth(p);
     if (timeRange === 'ytd') return effectiveM >= 1 && effectiveM <= currentMonthIdx + 1;
@@ -895,6 +916,14 @@ export default function CompanyTraining() {
                   <button onClick={() => setShowImportModal(true)}
                     style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Upload size={14} /> นำเข้าแผนอบรม (Excel)
+                  </button>
+                )}
+
+                {hiddenCount > 0 && (
+                  <button onClick={() => setShowHiddenPlans(!showHiddenPlans)}
+                    style={{ padding: '6px 14px', borderRadius: 6, border: `1px solid ${showHiddenPlans ? '#f59e0b' : 'var(--border)'}`, background: showHiddenPlans ? '#fef3c7' : 'var(--card-solid)', color: showHiddenPlans ? '#92400e' : 'var(--text-secondary)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {showHiddenPlans ? <EyeOff size={13} /> : <Eye size={13} />}
+                    {showHiddenPlans ? `ซ่อน (${hiddenCount})` : `ที่ซ่อน (${hiddenCount})`}
                   </button>
                 )}
               </>
@@ -1142,12 +1171,13 @@ export default function CompanyTraining() {
                   const session = getSession(plan);
                   const status = session?.status || 'planned';
                   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
+                  const isHidden = plan.is_active === false;
                   return (
                     <tr key={plan.id}
                       onClick={() => isLoggedIn ? openPlanModal(plan) : setShowLoginDialog(true)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)'; }}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: isHidden ? '#fefce8' : i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)', opacity: isHidden ? 0.6 : 1 }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isHidden ? '#fef9c3' : 'var(--bg-secondary)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isHidden ? '#fefce8' : i % 2 === 0 ? 'var(--bg)' : 'var(--card-solid)'; }}
                     >
                       <td style={tdStyle}>{plan.course_no || i + 1}</td>
                       <td style={{ ...tdStyle, textAlign: 'left', fontWeight: 500, whiteSpace: 'normal', wordBreak: 'break-word' }}>
@@ -1157,6 +1187,20 @@ export default function CompanyTraining() {
                             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                               ส่งกรมพัฒน์ได้
                             </span>
+                          )}
+                          {isHidden && (
+                            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              ซ่อนอยู่
+                            </span>
+                          )}
+                          {isLoggedIn && (
+                            <button
+                              title={isHidden ? 'แสดงในแผน' : 'ซ่อนจากแผน'}
+                              onClick={e => { e.stopPropagation(); handleTogglePlanActive(plan.id, plan.is_active !== false); }}
+                              style={{ border: 'none', background: 'none', cursor: togglingPlanId === plan.id ? 'wait' : 'pointer', padding: '1px 3px', color: isHidden ? '#f59e0b' : 'var(--text-secondary)', opacity: togglingPlanId === plan.id ? 0.4 : 0.7, flexShrink: 0, display: 'flex', alignItems: 'center' }}
+                            >
+                              {isHidden ? <Eye size={13} /> : <EyeOff size={13} />}
+                            </button>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
