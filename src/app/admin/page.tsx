@@ -59,7 +59,7 @@ export default function AdminPage() {
   const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -108,6 +108,13 @@ export default function AdminPage() {
   const [editUserDisplayName, setEditUserDisplayName] = useState('');
   const [userFilterCompany, setUserFilterCompany] = useState('all');
   const [editAdminPassword, setEditAdminPassword] = useState('');
+
+  // DSD course management state
+  interface DsdCourse { course_name: string; dsd_eligible: boolean; company_count: number; }
+  const [dsdCourses, setDsdCourses] = useState<DsdCourse[]>([]);
+  const [dsdLoading, setDsdLoading] = useState(false);
+  const [dsdToggling, setDsdToggling] = useState<string | null>(null);
+  const [dsdSearch, setDsdSearch] = useState('');
 
   // Check admin session on mount
   useEffect(() => {
@@ -233,6 +240,33 @@ export default function AdminPage() {
       .catch(() => {});
   }, []);
 
+  const fetchDsdCourses = useCallback(async () => {
+    setDsdLoading(true);
+    try {
+      const res = await fetch('/api/training/dsd-courses');
+      const data = await res.json();
+      if (Array.isArray(data)) setDsdCourses(data);
+    } catch { /* ignore */ }
+    setDsdLoading(false);
+  }, []);
+
+  const handleDsdToggle = async (courseName: string, newValue: boolean) => {
+    setDsdToggling(courseName);
+    try {
+      const res = await fetch('/api/training/dsd-toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_name: courseName, dsd_eligible: newValue }),
+      });
+      if (res.ok) {
+        await fetchDsdCourses();
+      } else {
+        alert('บันทึกไม่สำเร็จ');
+      }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+    setDsdToggling(null);
+  };
+
   useEffect(() => {
     if (!isAdminLoggedIn) return;
     if (activeTab === 'audit') fetchAudit();
@@ -241,7 +275,8 @@ export default function AdminPage() {
     if (activeTab === 'credentials') fetchCredentials();
     if (activeTab === 'users') fetchCompanyUsers();
     if (activeTab === 'admins') fetchAdminAccounts();
-  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts]);
+    if (activeTab === 'dsd') fetchDsdCourses();
+  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses]);
 
   const handleApproveReject = async (id: number, status: 'approved' | 'rejected') => {
     await fetch('/api/edit-requests', {
@@ -467,6 +502,7 @@ export default function AdminPage() {
             { key: 'deadlines', label: 'กำหนด Deadline', minRole: 'admin' },
             { key: 'users', label: 'ผู้ใช้บริษัท', minRole: 'super_admin' },
             { key: 'admins', label: 'จัดการ Admin', minRole: 'super_admin' },
+            { key: 'dsd', label: 'กรมพัฒน์ฯ', minRole: 'admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
           ].filter(tab => {
             if (tab.minRole === 'viewer') return true;
@@ -1109,6 +1145,96 @@ export default function AdminPage() {
         )}
 
         {/* COMPANIES TAB */}
+        {/* DSD COURSE MANAGEMENT TAB */}
+        {activeTab === 'dsd' && (
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+              <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>จัดการหลักสูตรที่ส่งกรมพัฒนาฝีมือแรงงานได้</h3>
+            </div>
+            <p className="text-[11px] mb-4" style={{ color: 'var(--text-secondary)' }}>
+              เปิด/ปิด badge &quot;ส่งกรมพัฒน์ได้&quot; ต่อรายชื่อหลักสูตร — มีผลกับทุกบริษัทที่มีหลักสูตรชื่อเดียวกัน
+            </p>
+
+            {/* Search */}
+            <input
+              type="text"
+              placeholder="🔍 ค้นหาชื่อหลักสูตร..."
+              value={dsdSearch}
+              onChange={e => setDsdSearch(e.target.value)}
+              className="w-full mb-4 px-3 py-2 rounded-lg text-[12px]"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            />
+
+            {dsdLoading ? (
+              <div className="text-center py-8 text-[12px]" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="apple-table w-full text-[11px]">
+                  <thead>
+                    <tr style={{ borderColor: 'var(--border)' }}>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>#</th>
+                      <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 300 }}>ชื่อหลักสูตร</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>จำนวนบริษัท</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>ส่งกรมพัฒน์ได้</th>
+                      <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dsdCourses
+                      .filter(c => !dsdSearch || c.course_name.toLowerCase().includes(dsdSearch.toLowerCase()))
+                      .map((course, i) => (
+                      <tr key={course.course_name} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-3 px-3" style={{ color: 'var(--text-secondary)' }}>{i + 1}</td>
+                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {course.course_name}
+                        </td>
+                        <td className="py-3 px-3 text-center" style={{ color: 'var(--text-secondary)' }}>
+                          {course.company_count} บริษัท
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {course.dsd_eligible ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#dbeafe', color: '#1d4ed8' }}>
+                              ส่งได้
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'var(--bg-tertiary)', color: 'var(--muted)' }}>
+                              ไม่ส่ง
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            onClick={() => handleDsdToggle(course.course_name, !course.dsd_eligible)}
+                            disabled={dsdToggling === course.course_name}
+                            className="text-[11px] px-3 py-1 rounded-lg font-medium transition-colors"
+                            style={{
+                              background: course.dsd_eligible ? '#fee2e2' : '#dcfce7',
+                              color: course.dsd_eligible ? '#dc2626' : '#16a34a',
+                              border: 'none',
+                              cursor: dsdToggling === course.course_name ? 'wait' : 'pointer',
+                              opacity: dsdToggling === course.course_name ? 0.5 : 1,
+                            }}
+                          >
+                            {dsdToggling === course.course_name ? '...' : course.dsd_eligible ? 'ปิด' : 'เปิด'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {dsdCourses.filter(c => !dsdSearch || c.course_name.toLowerCase().includes(dsdSearch.toLowerCase())).length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="text-center py-8 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                          {dsdSearch ? 'ไม่พบหลักสูตรที่ค้นหา' : 'ยังไม่มีหลักสูตร'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'companies' && (
           <div className="glass-card p-5 animate-fade-in-up">
             <div className="flex items-center gap-2 mb-4">
