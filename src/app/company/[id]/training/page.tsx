@@ -8,6 +8,7 @@ import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, Edit2, Save, Bell, Eye, X } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   planned: { label: 'ตามแผน', color: '#6b7280', bg: '#f3f4f6', icon: '○' },
@@ -97,6 +98,8 @@ export default function CompanyTraining() {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [timeRange, setTimeRange] = useState<string>('year');
+  const currentMonthIdx = new Date().getMonth();
 
   // Modal form state
   const [modalStatus, setModalStatus] = useState('planned');
@@ -571,22 +574,30 @@ export default function CompanyTraining() {
     }
   };
 
-  const totalCourses = plans.length;
-  const completedCourses = plans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
-  const scheduledCourses = plans.filter(p => p.training_sessions?.[0]?.status === 'scheduled').length;
-  const pendingCourses = plans.filter(p => !p.training_sessions?.[0] || p.training_sessions[0].status === 'planned').length;
-  const totalBudget = plans.reduce((s, p) => s + (p.budget || 0), 0);
-  const totalActual = plans.reduce((s, p) => s + (p.training_sessions?.[0]?.actual_cost || 0), 0);
-
-  // Monthly chart data: planned vs completed per month
-  // When postponed from month X → Y, the plan moves to month Y
+  // Monthly chart data helper: when postponed from month X → Y, the plan moves to month Y
   const getEffectiveMonth = (p: TrainingPlan) => {
     const s = p.training_sessions?.[0];
     if (s?.status === 'postponed' && s.postponed_to_month) return s.postponed_to_month;
-    // If completed/scheduled but was postponed, use postponed_to_month
     if (s?.postponed_to_month && s?.original_planned_month) return s.postponed_to_month;
     return p.planned_month;
   };
+
+  // Filter plans by time range
+  const timeFilteredPlans = plans.filter(p => {
+    if (timeRange === 'year') return true;
+    const effectiveM = getEffectiveMonth(p);
+    if (timeRange === 'ytd') return effectiveM >= 1 && effectiveM <= currentMonthIdx + 1;
+    const monthIdx = MONTH_KEYS.indexOf(timeRange);
+    if (monthIdx >= 0) return effectiveM === monthIdx + 1;
+    return true;
+  });
+
+  const totalCourses = timeFilteredPlans.length;
+  const completedCourses = timeFilteredPlans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
+  const scheduledCourses = timeFilteredPlans.filter(p => p.training_sessions?.[0]?.status === 'scheduled').length;
+  const pendingCourses = timeFilteredPlans.filter(p => !p.training_sessions?.[0] || p.training_sessions[0].status === 'planned').length;
+  const totalBudget = timeFilteredPlans.reduce((s, p) => s + (p.budget || 0), 0);
+  const totalActual = timeFilteredPlans.reduce((s, p) => s + (p.training_sessions?.[0]?.actual_cost || 0), 0);
 
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
@@ -632,7 +643,8 @@ export default function CompanyTraining() {
     return false;
   });
 
-  const filteredPlans = statusFilter === 'all' ? plans : plans.filter(p => {
+  const filteredPlans = timeFilteredPlans.filter(p => {
+    if (statusFilter === 'all') return true;
     const status = p.training_sessions?.[0]?.status || 'planned';
     return status === statusFilter;
   });
@@ -701,6 +713,51 @@ export default function CompanyTraining() {
               style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Upload size={14} /> นำเข้าแผนอบรม (Excel)
             </button>
+          )}
+        </div>
+
+        {/* Time Range Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
+          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>ช่วงเวลา:</span>
+          <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            {[
+              { key: 'year', label: 'ทั้งปี' },
+              { key: 'ytd', label: `ถึง ${MONTH_LABELS[currentMonthIdx]} (YTD)` },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setTimeRange(opt.key)}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  background: timeRange === opt.key ? 'var(--accent)' : 'transparent',
+                  color: timeRange === opt.key ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <select
+            value={MONTH_KEYS.includes(timeRange) ? timeRange : ''}
+            onChange={(e) => e.target.value && setTimeRange(e.target.value)}
+            style={{
+              padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-secondary)',
+              color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--text-secondary)',
+              border: '1px solid var(--border)', outline: 'none',
+            }}
+          >
+            <option value="" disabled>เลือกเดือน...</option>
+            {MONTH_LABELS.map((name, i) => (
+              <option key={MONTH_KEYS[i]} value={MONTH_KEYS[i]}>{name}</option>
+            ))}
+          </select>
+          {timeRange !== 'year' && (
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
+              {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
+            </span>
           )}
         </div>
 
