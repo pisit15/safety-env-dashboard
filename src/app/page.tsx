@@ -269,36 +269,78 @@ export default function HomePage() {
           </div>
         </>)}
 
-        {/* Company List — visible to ALL users */}
+        {/* Company List — visible to ALL users, grouped by BU */}
         <div className="mt-10 mb-4 animate-fade-in-up">
-          <h2 className="text-[15px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-            <Building2 size={16} className="inline mr-1.5" style={{ color: 'var(--accent)' }} />
-            บริษัทในกลุ่ม
+          <h2 className="text-[20px] font-bold mb-6 text-center" style={{ color: 'var(--text-primary)' }}>
+            เข้าสู่ระบบผู้ใช้งาน คลิกชื่อบริษัทเพื่อเข้าสู่ User Login
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {COMPANIES.map((company) => {
-              const isActive = true; // All companies are active (training data imported)
-              return (
-                <Link key={company.id} href={isActive ? `/company/${company.id}` : '#'}>
-                  <div
-                    className={`glass-card rounded-xl p-4 transition-all duration-200 text-center ${isActive ? 'hover:scale-[1.03] cursor-pointer' : 'opacity-40 cursor-default'}`}
-                    style={{ border: '1px solid var(--border)' }}
-                  >
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 text-[12px] font-bold text-white"
-                      style={{ background: isActive ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'var(--bg-secondary)' }}>
-                      {isActive ? company.shortName.substring(0, 2) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                    </div>
-                    <p className="text-[13px] font-semibold" style={{ color: isActive ? 'var(--text-primary)' : 'var(--muted)' }}>
-                      {company.shortName}
-                    </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: isActive ? 'var(--success)' : 'var(--muted)' }}>
-                      {isActive ? 'พร้อมใช้งาน' : 'รอเชื่อมต่อ'}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          {(() => {
+            // Define BU display order and colors
+            const BU_ORDER = ['HQ', 'Biodiesel', 'Renewable Energy', 'EV', 'Waste Management', ''];
+            const BU_LABELS: Record<string, string> = {
+              'HQ': 'HQ',
+              'Biodiesel': 'Biodiesel',
+              'Renewable Energy': 'Renewable Energy',
+              'EV': 'EV',
+              'Waste Management': 'Waste Management',
+              '': 'ไม่ระบุ',
+            };
+            const BU_COLORS: Record<string, string> = {
+              'HQ': '#6366f1',
+              'Biodiesel': '#16a34a',
+              'Renewable Energy': '#0ea5e9',
+              'EV': '#f59e0b',
+              'Waste Management': '#ef4444',
+              '': '#9ca3af',
+            };
+
+            // Group companies by BU
+            const grouped = BU_ORDER.map(bu => ({
+              bu,
+              label: BU_LABELS[bu] || bu || 'ไม่ระบุ',
+              color: BU_COLORS[bu] || '#9ca3af',
+              companies: COMPANIES.filter(c => (c.bu || '') === bu),
+            })).filter(g => g.companies.length > 0);
+
+            return grouped.map(group => (
+              <div key={group.bu} className="mb-5">
+                <h3
+                  className="text-[14px] font-semibold mb-2"
+                  style={{
+                    color: 'var(--text-primary)',
+                    borderLeft: `3px solid ${group.color}`,
+                    paddingLeft: '8px',
+                  }}
+                >
+                  {group.label}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {group.companies.map((company) => {
+                    const isActive = true;
+                    return (
+                      <Link key={company.id} href={isActive ? `/company/${company.id}` : '#'}>
+                        <div
+                          className={`glass-card rounded-xl p-4 transition-all duration-200 text-center ${isActive ? 'hover:scale-[1.03] cursor-pointer' : 'opacity-40 cursor-default'}`}
+                          style={{ border: '1px solid var(--border)' }}
+                        >
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 text-[12px] font-bold text-white"
+                            style={{ background: isActive ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'var(--bg-secondary)' }}>
+                            {isActive ? company.shortName.substring(0, 2) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                          </div>
+                          <p className="text-[13px] font-semibold" style={{ color: isActive ? 'var(--text-primary)' : 'var(--muted)' }}>
+                            {company.shortName}
+                          </p>
+                          <p className="text-[10px] mt-0.5" style={{ color: isActive ? 'var(--success)' : 'var(--muted)' }}>
+                            {isActive ? 'พร้อมใช้งาน' : 'รอเชื่อมต่อ'}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ));
+          })()}
         </div>
       </main>
     </div>
