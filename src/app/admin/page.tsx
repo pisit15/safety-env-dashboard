@@ -1438,7 +1438,9 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {COMPANIES.map(c => {
+                  {(() => {
+                    // Sort by BU order, then alphabetically by name within each BU
+                    const buOrder = ['HQ', 'Biodiesel', 'Renewable Energy', 'EV', 'Waste Management', ''];
                     const groupColors: Record<string, { bg: string; color: string }> = {
                       'Factory': { bg: '#dbeafe', color: '#1d4ed8' },
                       'Non-Factory': { bg: '#f3e8ff', color: '#7c3aed' },
@@ -1450,6 +1452,19 @@ export default function AdminPage() {
                       'EV': { bg: '#e0e7ff', color: '#3730a3' },
                       'Waste Management': { bg: '#ffedd5', color: '#9a3412' },
                     };
+                    const sorted = [...COMPANIES].sort((a, b) => {
+                      const aBu = getSettingValue(a.id, 'bu', a.bu || '');
+                      const bBu = getSettingValue(b.id, 'bu', b.bu || '');
+                      const aIdx = buOrder.indexOf(aBu);
+                      const bIdx = buOrder.indexOf(bBu);
+                      if (aIdx !== bIdx) return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+                      const aName = getSettingValue(a.id, 'company_name', a.name);
+                      const bName = getSettingValue(b.id, 'company_name', b.name);
+                      return aName.localeCompare(bName);
+                    });
+                    let lastBu = '';
+                    const rows: React.ReactNode[] = [];
+                    sorted.forEach(c => {
                     const currentName = getSettingValue(c.id, 'company_name', c.name);
                     const currentGroup = getSettingValue(c.id, 'group_name', c.group || '');
                     const currentBu = getSettingValue(c.id, 'bu', c.bu || '');
@@ -1459,7 +1474,24 @@ export default function AdminPage() {
                     const isSavingThis = settingSaving === c.id;
                     const isEditing = editingCompany === c.id;
                     const hasSheet = !!(currentSheetId);
-                    return (
+                    // Add BU section header when BU changes
+                    if (currentBu !== lastBu) {
+                      lastBu = currentBu;
+                      const bStyle = currentBu ? buColors[currentBu] : null;
+                      rows.push(
+                        <tr key={`bu-header-${currentBu || 'none'}`} style={{ background: bStyle ? bStyle.bg + '33' : 'var(--bg-tertiary)' }}>
+                          <td colSpan={8} className="py-2 px-3">
+                            <span className="text-[11px] font-semibold" style={{ color: bStyle?.color || 'var(--text-muted)' }}>
+                              {currentBu || 'ไม่ระบุ BU'}
+                            </span>
+                            <span className="text-[10px] ml-2" style={{ color: 'var(--text-muted)' }}>
+                              ({sorted.filter(s => getSettingValue(s.id, 'bu', s.bu || '') === currentBu).length} บริษัท)
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    rows.push(
                       <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px', background: isEditing ? 'var(--bg-secondary)' : undefined }} className="hover:bg-white/5">
                         {/* Company Name */}
                         <td className="py-2 px-3">
@@ -1581,7 +1613,9 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     );
-                  })}
+                    });
+                    return rows;
+                  })()}
                 </tbody>
               </table>
             </div>
