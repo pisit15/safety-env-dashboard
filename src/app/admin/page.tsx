@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
+import { COMPANY_GROUPS, COMPANY_BUS, CompanyGroup, CompanyBU } from '@/lib/types';
 
 const MONTH_LABELS: Record<string, string> = {
   jan: 'ม.ค.', feb: 'ก.พ.', mar: 'มี.ค.', apr: 'เม.ย.',
@@ -1377,6 +1378,8 @@ export default function AdminPage() {
                 <thead>
                   <tr style={{ borderColor: 'var(--border)' }}>
                     <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Group</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>BU</th>
                     <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Google Sheet ID</th>
                     <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Safety Sheet</th>
                     <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Envi Sheet</th>
@@ -1384,22 +1387,52 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {COMPANIES.map(c => (
-                    <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                      <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</td>
-                      <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'var(--muted)' }}>-</span>}</td>
-                      <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.safetySheet || '-'}</td>
-                      <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.enviSheet || '-'}</td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
-                          background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
-                          color: c.sheetId ? '#30d158' : 'var(--muted)'
-                        }}>
-                          {c.sheetId ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {COMPANIES.map(c => {
+                    const groupColors: Record<string, { bg: string; color: string }> = {
+                      'Factory': { bg: '#dbeafe', color: '#1d4ed8' },
+                      'Non-Factory': { bg: '#f3e8ff', color: '#7c3aed' },
+                    };
+                    const buColors: Record<string, { bg: string; color: string }> = {
+                      'HQ': { bg: '#fef3c7', color: '#92400e' },
+                      'Biodiesel': { bg: '#dcfce7', color: '#166534' },
+                      'Renewable Energy': { bg: '#dbeafe', color: '#1e40af' },
+                      'EV': { bg: '#e0e7ff', color: '#3730a3' },
+                      'Waste Management': { bg: '#ffedd5', color: '#9a3412' },
+                    };
+                    const defaultStyle = { bg: 'var(--bg-secondary)', color: 'var(--text-muted)' };
+                    const gStyle = c.group ? (groupColors[c.group] || defaultStyle) : defaultStyle;
+                    const bStyle = c.bu ? (buColors[c.bu] || defaultStyle) : defaultStyle;
+                    return (
+                      <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</td>
+                        <td className="py-3 px-3 text-center">
+                          {c.group ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: gStyle.bg, color: gStyle.color }}>
+                              {c.group}
+                            </span>
+                          ) : <span style={{ color: 'var(--muted)' }}>-</span>}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {c.bu ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: bStyle.bg, color: bStyle.color }}>
+                              {c.bu}
+                            </span>
+                          ) : <span style={{ color: 'var(--muted)' }}>-</span>}
+                        </td>
+                        <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'var(--muted)' }}>-</span>}</td>
+                        <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.safetySheet || '-'}</td>
+                        <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.enviSheet || '-'}</td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
+                            background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
+                            color: c.sheetId ? '#30d158' : 'var(--muted)'
+                          }}>
+                            {c.sheetId ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

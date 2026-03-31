@@ -6,6 +6,12 @@ export interface YearSheetConfig {
   enviSheet: string;       // Sheet name for Environment Plan
 }
 
+export type CompanyGroup = 'Factory' | 'Non-Factory' | '';
+export type CompanyBU = 'HQ' | 'Biodiesel' | 'Renewable Energy' | 'EV' | 'Waste Management' | '';
+
+export const COMPANY_GROUPS: CompanyGroup[] = ['Factory', 'Non-Factory'];
+export const COMPANY_BUS: CompanyBU[] = ['HQ', 'Biodiesel', 'Renewable Energy', 'EV', 'Waste Management'];
+
 export interface CompanyConfig {
   id: string;
   name: string;
@@ -14,6 +20,8 @@ export interface CompanyConfig {
   safetySheet: string;     // Default Sheet name for Safety Plan
   enviSheet: string;       // Default Sheet name for Environment Plan
   years?: Record<number, YearSheetConfig>; // Per-year sheet configs (e.g. { 2026: {...}, 2027: {...} })
+  group?: CompanyGroup;    // Factory or Non-Factory
+  bu?: CompanyBU;          // Business Unit
 }
 
 export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled' | 'not_applicable';
