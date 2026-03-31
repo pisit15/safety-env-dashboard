@@ -170,7 +170,30 @@ export default function Sidebar() {
           </>
         )}
 
-        {/* Company list removed — navigate via Home page */}
+        {/* HQ Overview link — visible when on a company page (for any logged-in user) */}
+        {currentCompanyId && isAnyAuth && !collapsed && (
+          <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <p className="text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2"
+              style={{ color: 'var(--muted)' }}>
+              ภาพรวม HQ
+            </p>
+            <div className="space-y-0.5">
+              <Link href="/training">
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200"
+                  style={{
+                    color: pathname === '/training' ? 'var(--accent)' : 'var(--text-secondary)',
+                    fontWeight: pathname === '/training' ? 600 : 400,
+                    background: pathname === '/training' ? 'var(--accent-glow)' : 'transparent',
+                  }}
+                >
+                  <GraduationCap size={18} strokeWidth={1.8} className="flex-shrink-0" />
+                  <span>ภาพรวมแผนอบรม</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Management section — Admin only */}
         {auth.isAdmin && (
