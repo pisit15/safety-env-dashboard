@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { useRouter } from 'next/navigation';
 import {
   ClipboardList,
   GraduationCap,
@@ -19,6 +20,10 @@ import {
   Building2,
   CheckCircle2,
   Clock,
+  X,
+  LogIn,
+  User,
+  Lock,
 } from 'lucide-react';
 
 const PROJECTS = [
@@ -92,8 +97,44 @@ interface DbCompanySetting {
 
 export default function HomePage() {
   const auth = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState<QuickStat | null>(null);
   const [dbBuMap, setDbBuMap] = useState<Record<string, string>>({});
+
+  // Login modal state
+  const [loginModal, setLoginModal] = useState<{ companyId: string; companyName: string } | null>(null);
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const openLoginModal = (companyId: string, companyName: string) => {
+    // If already logged in for this company, go straight to company page
+    const ca = auth.getCompanyAuth(companyId);
+    if (ca.isLoggedIn || auth.isAdmin) {
+      router.push(`/company/${companyId}`);
+      return;
+    }
+    setLoginModal({ companyId, companyName });
+    setLoginUser('');
+    setLoginPass('');
+    setLoginError('');
+  };
+
+  const handleCompanyLogin = async () => {
+    if (!loginModal || !loginPass) return;
+    setLoginLoading(true);
+    setLoginError('');
+    const result = await auth.companyLogin(loginModal.companyId, loginUser, loginPass);
+    setLoginLoading(false);
+    if (result.success) {
+      setLoginModal(null);
+      router.push(`/company/${loginModal.companyId}`);
+    } else {
+      setLoginError(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+    }
+  };
+
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('dashboard_year');
@@ -343,24 +384,26 @@ export default function HomePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                   {group.companies.map((company) => {
                     const isActive = true;
+                    const ca = auth.getCompanyAuth(company.id);
+                    const isLoggedIn = ca.isLoggedIn || auth.isAdmin;
                     return (
-                      <Link key={company.id} href={isActive ? `/company/${company.id}` : '#'}>
-                        <div
-                          className={`glass-card rounded-xl p-4 transition-all duration-200 text-center ${isActive ? 'hover:scale-[1.03] cursor-pointer' : 'opacity-40 cursor-default'}`}
-                          style={{ border: '1px solid var(--border)' }}
-                        >
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 text-[12px] font-bold text-white"
-                            style={{ background: isActive ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'var(--bg-secondary)' }}>
-                            {isActive ? company.shortName.substring(0, 2) : <span style={{ color: 'var(--muted)' }}>—</span>}
-                          </div>
-                          <p className="text-[13px] font-semibold" style={{ color: isActive ? 'var(--text-primary)' : 'var(--muted)' }}>
-                            {company.shortName}
-                          </p>
-                          <p className="text-[10px] mt-0.5" style={{ color: isActive ? 'var(--success)' : 'var(--muted)' }}>
-                            {isActive ? 'พร้อมใช้งาน' : 'รอเชื่อมต่อ'}
-                          </p>
+                      <div
+                        key={company.id}
+                        onClick={() => openLoginModal(company.id, company.shortName)}
+                        className={`glass-card rounded-xl p-4 transition-all duration-200 text-center ${isActive ? 'hover:scale-[1.03] cursor-pointer' : 'opacity-40 cursor-default'}`}
+                        style={{ border: '1px solid var(--border)' }}
+                      >
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 text-[12px] font-bold text-white"
+                          style={{ background: isActive ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'var(--bg-secondary)' }}>
+                          {isActive ? company.shortName.substring(0, 2) : <span style={{ color: 'var(--muted)' }}>—</span>}
                         </div>
-                      </Link>
+                        <p className="text-[13px] font-semibold" style={{ color: isActive ? 'var(--text-primary)' : 'var(--muted)' }}>
+                          {company.shortName}
+                        </p>
+                        <p className="text-[10px] mt-0.5" style={{ color: isLoggedIn ? 'var(--success)' : 'var(--muted)' }}>
+                          {isLoggedIn ? '✓ เข้าสู่ระบบแล้ว' : 'คลิกเพื่อเข้าสู่ระบบ'}
+                        </p>
+                      </div>
                     );
                   })}
                 </div>
@@ -368,6 +411,97 @@ export default function HomePage() {
             ));
           })()}
         </div>
+
+        {/* Login Modal Overlay */}
+        {loginModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setLoginModal(null)}
+          >
+            <div
+              className="glass-card rounded-2xl p-6 w-full max-w-[360px] animate-fade-in-up"
+              style={{ border: '1px solid var(--border)', background: 'var(--bg-primary)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' }}>
+                    {loginModal.companyName.substring(0, 2)}
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {loginModal.companyName}
+                    </h3>
+                    <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เข้าสู่ระบบ</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setLoginModal(null)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-70"
+                  style={{ background: 'var(--bg-secondary)' }}
+                >
+                  <X size={16} style={{ color: 'var(--muted)' }} />
+                </button>
+              </div>
+
+              {/* Username */}
+              <div className="relative mb-3">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                <input
+                  type="text"
+                  value={loginUser}
+                  onChange={e => setLoginUser(e.target.value)}
+                  placeholder="Username (ถ้ามี)"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl text-[13px] focus:outline-none transition-all"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  autoFocus
+                />
+              </div>
+
+              {/* Password */}
+              <div className="relative mb-3">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                <input
+                  type="password"
+                  value={loginPass}
+                  onChange={e => setLoginPass(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleCompanyLogin()}
+                  placeholder="รหัสผ่าน"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-xl text-[13px] focus:outline-none transition-all"
+                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              {/* Error */}
+              {loginError && (
+                <p className="text-[12px] mb-3 px-1" style={{ color: 'var(--danger)' }}>{loginError}</p>
+              )}
+
+              {/* Login Button */}
+              <button
+                onClick={handleCompanyLogin}
+                disabled={!loginPass || loginLoading}
+                className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+                style={{
+                  background: loginPass ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'var(--bg-secondary)',
+                  color: loginPass ? '#fff' : 'var(--muted)',
+                  cursor: loginPass ? 'pointer' : 'not-allowed',
+                  opacity: loginLoading ? 0.7 : 1,
+                }}
+              >
+                {loginLoading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <LogIn size={16} />
+                )}
+                {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
