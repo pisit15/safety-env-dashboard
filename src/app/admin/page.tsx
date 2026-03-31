@@ -118,6 +118,11 @@ export default function AdminPage() {
   const [dsdActiveToggling, setDsdActiveToggling] = useState<string | null>(null);
   const [dsdSearch, setDsdSearch] = useState('');
 
+  // Company settings (Group/BU from DB)
+  interface CompanySetting { company_id: string; group_name: string; bu: string; }
+  const [companySettings, setCompanySettings] = useState<CompanySetting[]>([]);
+  const [settingSaving, setSettingSaving] = useState<string | null>(null); // company_id being saved
+
   // HR PIN state
   const [hrPin, setHrPin] = useState('');
   const [hrPinInput, setHrPinInput] = useState('');
@@ -248,6 +253,38 @@ export default function AdminPage() {
       .catch(() => {});
   }, []);
 
+  const fetchCompanySettings = useCallback(() => {
+    fetch('/api/company-settings')
+      .then(r => r.json())
+      .then(d => setCompanySettings(d.settings || []))
+      .catch(() => {});
+  }, []);
+
+  const handleSettingChange = async (companyId: string, field: 'group_name' | 'bu', value: string) => {
+    // Optimistic update
+    setCompanySettings(prev => {
+      const existing = prev.find(s => s.company_id === companyId);
+      if (existing) {
+        return prev.map(s => s.company_id === companyId ? { ...s, [field]: value } : s);
+      }
+      return [...prev, { company_id: companyId, group_name: field === 'group_name' ? value : '', bu: field === 'bu' ? value : '' }];
+    });
+    setSettingSaving(companyId);
+    try {
+      const current = companySettings.find(s => s.company_id === companyId);
+      await fetch('/api/company-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: companyId,
+          group_name: field === 'group_name' ? value : (current?.group_name || ''),
+          bu: field === 'bu' ? value : (current?.bu || ''),
+        }),
+      });
+    } catch { /* ignore */ }
+    setSettingSaving(null);
+  };
+
   const fetchDsdCourses = useCallback(async () => {
     setDsdLoading(true);
     try {
@@ -337,7 +374,8 @@ export default function AdminPage() {
     if (activeTab === 'users') fetchCompanyUsers();
     if (activeTab === 'admins') fetchAdminAccounts();
     if (activeTab === 'dsd') fetchDsdCourses();
-  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses]);
+    if (activeTab === 'companies') fetchCompanySettings();
+  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses, fetchCompanySettings]);
 
   const handleApproveReject = async (id: number, status: 'approved' | 'rejected') => {
     await fetch('/api/edit-requests', {
@@ -1399,25 +1437,46 @@ export default function AdminPage() {
                       'EV': { bg: '#e0e7ff', color: '#3730a3' },
                       'Waste Management': { bg: '#ffedd5', color: '#9a3412' },
                     };
-                    const defaultStyle = { bg: 'var(--bg-secondary)', color: 'var(--text-muted)' };
-                    const gStyle = c.group ? (groupColors[c.group] || defaultStyle) : defaultStyle;
-                    const bStyle = c.bu ? (buColors[c.bu] || defaultStyle) : defaultStyle;
+                    // Get DB setting or fallback to static config
+                    const dbSetting = companySettings.find(s => s.company_id === c.id);
+                    const currentGroup = dbSetting?.group_name ?? (c.group || '');
+                    const currentBu = dbSetting?.bu ?? (c.bu || '');
+                    const isSavingThis = settingSaving === c.id;
                     return (
                       <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>{c.name}</td>
-                        <td className="py-3 px-3 text-center">
-                          {c.group ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: gStyle.bg, color: gStyle.color }}>
-                              {c.group}
-                            </span>
-                          ) : <span style={{ color: 'var(--muted)' }}>-</span>}
+                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {c.name}
+                          {isSavingThis && <span className="ml-2 text-[9px]" style={{ color: 'var(--accent)' }}>บันทึก...</span>}
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          {c.bu ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: bStyle.bg, color: bStyle.color }}>
-                              {c.bu}
-                            </span>
-                          ) : <span style={{ color: 'var(--muted)' }}>-</span>}
+                        <td className="py-2 px-3 text-center">
+                          <select
+                            value={currentGroup}
+                            onChange={e => handleSettingChange(c.id, 'group_name', e.target.value)}
+                            className="text-[10px] px-2 py-1 rounded-lg border-0 font-medium cursor-pointer"
+                            style={{
+                              background: currentGroup ? (groupColors[currentGroup]?.bg || 'var(--bg-secondary)') : 'var(--bg-secondary)',
+                              color: currentGroup ? (groupColors[currentGroup]?.color || 'var(--text-muted)') : 'var(--text-muted)',
+                              outline: 'none',
+                            }}
+                          >
+                            <option value="">-- ไม่ระบุ --</option>
+                            {COMPANY_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          <select
+                            value={currentBu}
+                            onChange={e => handleSettingChange(c.id, 'bu', e.target.value)}
+                            className="text-[10px] px-2 py-1 rounded-lg border-0 font-medium cursor-pointer"
+                            style={{
+                              background: currentBu ? (buColors[currentBu]?.bg || 'var(--bg-secondary)') : 'var(--bg-secondary)',
+                              color: currentBu ? (buColors[currentBu]?.color || 'var(--text-muted)') : 'var(--text-muted)',
+                              outline: 'none',
+                            }}
+                          >
+                            <option value="">-- ไม่ระบุ --</option>
+                            {COMPANY_BUS.map(b => <option key={b} value={b}>{b}</option>)}
+                          </select>
                         </td>
                         <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'var(--muted)' }}>-</span>}</td>
                         <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.safetySheet || '-'}</td>
