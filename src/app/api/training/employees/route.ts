@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   // Try company_employees master table first
   let query = supabase
     .from('company_employees')
-    .select('id, emp_code, first_name, last_name, gender, position, department, employment_status, is_active, created_at, updated_at')
+    .select('id, emp_code, first_name, last_name, gender, position, department, is_active, created_at, updated_at')
     .eq('company_id', companyId)
     .order('first_name', { ascending: true });
 
@@ -34,9 +34,16 @@ export async function GET(request: NextRequest) {
 
   const { data: masterData, error: masterError } = await query;
 
-  if (!masterError && masterData && masterData.length > 0) {
-    return NextResponse.json(masterData);
+  // Map is_active to employment_status for frontend compatibility
+  if (!masterError && masterData) {
+    const mapped = masterData.map((e: Record<string, unknown>) => ({
+      ...e,
+      employment_status: e.is_active === false ? 'resigned' : 'active',
+    }));
+    if (mapped.length > 0) return NextResponse.json(mapped);
   }
+
+  // Already handled above with mapping
 
   // Fallback: get unique employees from training_attendees
   const { data, error } = await supabase
@@ -154,7 +161,10 @@ export async function PUT(request: NextRequest) {
     if (gender !== undefined) updateData.gender = gender;
     if (position !== undefined) updateData.position = position;
     if (department !== undefined) updateData.department = department;
-    if (employment_status !== undefined) updateData.employment_status = employment_status;
+    // Map employment_status to is_active
+    if (employment_status !== undefined) {
+      updateData.is_active = employment_status === 'active';
+    }
     if (is_active !== undefined) updateData.is_active = is_active;
 
     const { data, error } = await supabase
