@@ -13,6 +13,7 @@ function getSupabase() {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const companyId = searchParams.get('companyId');
+  const all = searchParams.get('all'); // If 'true', include resigned employees
 
   if (!companyId) {
     return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
@@ -21,12 +22,17 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabase();
 
   // Try company_employees master table first
-  const { data: masterData, error: masterError } = await supabase
+  let query = supabase
     .from('company_employees')
-    .select('emp_code, first_name, last_name, gender, position, department')
+    .select('id, emp_code, first_name, last_name, gender, position, department, employment_status, is_active, created_at, updated_at')
     .eq('company_id', companyId)
-    .eq('is_active', true)
     .order('first_name', { ascending: true });
+
+  if (all !== 'true') {
+    query = query.eq('is_active', true);
+  }
+
+  const { data: masterData, error: masterError } = await query;
 
   if (!masterError && masterData && masterData.length > 0) {
     return NextResponse.json(masterData);
@@ -128,4 +134,64 @@ CREATE POLICY "Allow anon access" ON company_employees FOR ALL USING (true) WITH
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+// PUT - Update a single employee
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, emp_code, first_name, last_name, gender, position, department, employment_status, is_active } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing employee id' }, { status: 400 });
+    }
+
+    const supabase = getSupabase();
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (emp_code !== undefined) updateData.emp_code = emp_code;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
+    if (gender !== undefined) updateData.gender = gender;
+    if (position !== undefined) updateData.position = position;
+    if (department !== undefined) updateData.department = department;
+    if (employment_status !== undefined) updateData.employment_status = employment_status;
+    if (is_active !== undefined) updateData.is_active = is_active;
+
+    const { data, error } = await supabase
+      .from('company_employees')
+      .update(updateData)
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// DELETE - Remove an employee
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Missing employee id' }, { status: 400 });
+  }
+
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('company_employees')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }

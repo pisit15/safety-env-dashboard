@@ -19,7 +19,7 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
-
+  Users,
   LogOut,
   Home,
 } from 'lucide-react';
@@ -28,6 +28,7 @@ import {
 const PROJECTS = [
   { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' as const },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training', ready: true as const },
+  { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '', companyPath: '/employees', ready: 'companyOnly' as const },
   { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: false as const },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
@@ -127,16 +128,26 @@ export default function Sidebar() {
                 const currentCompany = companyForLinks ? COMPANIES.find(c => c.id === companyForLinks) : null;
 
                 // Resolve ready state for this company
-                const isReady = auth.isAdmin
-                  ? true // Admin always sees all HQ links
-                  : p.ready === 'hasSheet' ? !!(currentCompany?.sheetId) : p.ready;
+                const isCompanyOnly = p.ready === 'companyOnly';
+                const isReady = isCompanyOnly
+                  ? !!currentCompanyId // Only show on company pages
+                  : auth.isAdmin
+                    ? true // Admin always sees all HQ links
+                    : p.ready === 'hasSheet' ? !!(currentCompany?.sheetId) : p.ready;
+
+                // Skip companyOnly items when admin is on HQ page (no currentCompanyId)
+                if (isCompanyOnly && !currentCompanyId) return null;
 
                 const href = isReady
-                  ? (auth.isAdmin ? p.hqHref : companyForLinks ? `/company/${companyForLinks}${p.companyPath}` : '#')
+                  ? (isCompanyOnly
+                    ? `/company/${currentCompanyId}${p.companyPath}`
+                    : auth.isAdmin ? p.hqHref : companyForLinks ? `/company/${companyForLinks}${p.companyPath}` : '#')
                   : '#';
-                const isActive = auth.isAdmin
-                  ? (pathname === p.hqHref || pathname.startsWith(p.hqHref + '/'))
-                  : companyForLinks ? pathname === `/company/${companyForLinks}${p.companyPath}` : false;
+                const isActive = isCompanyOnly
+                  ? pathname === `/company/${currentCompanyId}${p.companyPath}`
+                  : auth.isAdmin
+                    ? (pathname === p.hqHref || pathname.startsWith(p.hqHref + '/'))
+                    : companyForLinks ? pathname === `/company/${companyForLinks}${p.companyPath}` : false;
                 const Icon = p.icon;
 
                 const content = (
