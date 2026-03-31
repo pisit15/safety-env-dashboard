@@ -64,7 +64,7 @@ export const COMPANIES: CompanyConfig[] = [
     },
   },
   // Placeholder companies (add real Sheet IDs when ready)
-  { id: 'ea-hq', name: 'EA HQ', shortName: 'EA HQ', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'HQ' },
+  { id: 'ea-hq', name: 'EA HQ', shortName: 'EA HQ', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
   { id: 'ewhk', name: 'EWHK', shortName: 'EWHK', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'eslo', name: 'ESLO', shortName: 'ESLO', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'esn', name: 'ESN', shortName: 'ESN', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
