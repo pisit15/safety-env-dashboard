@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCompanyById } from '@/lib/companies';
+import { getCompanyByIdWithDb } from '@/lib/company-settings';
 
 function getSupabase() {
   return createClient(
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing companyId or password' }, { status: 400 });
     }
 
-    const company = getCompanyById(companyId);
+    const company = await getCompanyByIdWithDb(companyId);
 
     // ── 1. Try company_users table first (multi-user system) ──
     try {

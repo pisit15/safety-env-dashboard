@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { COMPANIES, getActiveCompanies } from '@/lib/companies';
+import { getActiveCompaniesWithDb } from '@/lib/company-settings';
 import { getCompanySummary, fetchActivities, MONTH_KEYS } from '@/lib/sheets';
 import { Activity, MonthStatus } from '@/lib/types';
 import { createClient } from '@supabase/supabase-js';
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const companyFilter = searchParams.get('company') || '';
 
   try {
-    const activeCompanies = getActiveCompanies();
+    const activeCompanies = await getActiveCompaniesWithDb();
     const companies = companyFilter
       ? activeCompanies.filter(c => c.id === companyFilter)
       : activeCompanies;

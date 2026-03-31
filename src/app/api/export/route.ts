@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
-import { getCompanyForYear, DEFAULT_YEAR } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { getCompanyForYearWithDb } from '@/lib/company-settings';
 import { fetchActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
 
 function getSupabase() {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing companyId or planType' }, { status: 400 });
   }
 
-  const company = getCompanyForYear(companyId, year);
+  const company = await getCompanyForYearWithDb(companyId, year);
   if (!company || !company.sheetId) {
     return NextResponse.json({ error: 'Company not found' }, { status: 404 });
   }

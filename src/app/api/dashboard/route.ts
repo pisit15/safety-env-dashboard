@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { COMPANIES, getActiveCompanies, getActiveCompaniesForYear, DEFAULT_YEAR } from '@/lib/companies';
+import { getActiveCompaniesForYearWithDb, getCompaniesWithDbOverrides } from '@/lib/company-settings';
 import { getCompanySummary, fetchActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
 import { getDemoDashboard } from '@/lib/demo-data';
 import { DashboardData, CompanySummary, MonthlyProgress, Activity, MonthStatus } from '@/lib/types';
@@ -110,7 +111,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const activeCompanies = getActiveCompaniesForYear(year);
+    const activeCompanies = await getActiveCompaniesForYearWithDb(year);
 
     if (activeCompanies.length === 0) {
       return NextResponse.json(getDemoDashboard());
@@ -157,8 +158,10 @@ export async function GET(request: Request) {
       return NextResponse.json(getDemoDashboard());
     }
 
-    // Include placeholder companies
-    const placeholders = COMPANIES.filter(c => c.sheetId === '').map(c => ({
+    // Include placeholder companies (those without sheet IDs)
+    const allCompaniesWithDb = await getCompaniesWithDbOverrides();
+    const activeIds = new Set(activeCompanies.map(c => c.id));
+    const placeholders = allCompaniesWithDb.filter(c => !activeIds.has(c.id)).map(c => ({
       companyId: c.id,
       companyName: c.name,
       shortName: c.shortName,

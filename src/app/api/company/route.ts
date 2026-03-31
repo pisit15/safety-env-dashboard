@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCompanyForYear, DEFAULT_YEAR } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { getCompanyForYearWithDb } from '@/lib/company-settings';
 import { fetchActivities, getCompanySummary } from '@/lib/sheets';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
   const planType = (searchParams.get('plan') || 'environment') as 'safety' | 'environment';
   const year = parseInt(searchParams.get('year') || String(DEFAULT_YEAR), 10);
 
-  const company = getCompanyForYear(companyId, year);
+  const company = await getCompanyForYearWithDb(companyId, year);
   if (!company || !company.sheetId) {
     return NextResponse.json(
       { activities: [], summary: null, error: 'Company not configured' },
