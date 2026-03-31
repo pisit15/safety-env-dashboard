@@ -118,10 +118,14 @@ export default function AdminPage() {
   const [dsdActiveToggling, setDsdActiveToggling] = useState<string | null>(null);
   const [dsdSearch, setDsdSearch] = useState('');
 
-  // Company settings (Group/BU from DB)
-  interface CompanySetting { company_id: string; group_name: string; bu: string; }
+  // Company settings (from DB)
+  interface CompanySetting {
+    company_id: string; company_name: string; group_name: string; bu: string;
+    sheet_id: string; safety_sheet: string; envi_sheet: string;
+  }
   const [companySettings, setCompanySettings] = useState<CompanySetting[]>([]);
-  const [settingSaving, setSettingSaving] = useState<string | null>(null); // company_id being saved
+  const [settingSaving, setSettingSaving] = useState<string | null>(null);
+  const [editingCompany, setEditingCompany] = useState<string | null>(null); // company_id being edited
 
   // HR PIN state
   const [hrPin, setHrPin] = useState('');
@@ -260,29 +264,36 @@ export default function AdminPage() {
       .catch(() => {});
   }, []);
 
-  const handleSettingChange = async (companyId: string, field: 'group_name' | 'bu', value: string) => {
+  const handleSettingChange = async (companyId: string, field: string, value: string) => {
     // Optimistic update
     setCompanySettings(prev => {
       const existing = prev.find(s => s.company_id === companyId);
       if (existing) {
         return prev.map(s => s.company_id === companyId ? { ...s, [field]: value } : s);
       }
-      return [...prev, { company_id: companyId, group_name: field === 'group_name' ? value : '', bu: field === 'bu' ? value : '' }];
+      const c = COMPANIES.find(co => co.id === companyId);
+      const newEntry: CompanySetting = {
+        company_id: companyId, company_name: c?.name || '', group_name: c?.group || '',
+        bu: c?.bu || '', sheet_id: c?.sheetId || '', safety_sheet: c?.safetySheet || '', envi_sheet: c?.enviSheet || '',
+        [field]: value,
+      };
+      return [...prev, newEntry];
     });
     setSettingSaving(companyId);
     try {
-      const current = companySettings.find(s => s.company_id === companyId);
       await fetch('/api/company-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_id: companyId,
-          group_name: field === 'group_name' ? value : (current?.group_name || ''),
-          bu: field === 'bu' ? value : (current?.bu || ''),
-        }),
+        body: JSON.stringify({ company_id: companyId, [field]: value }),
       });
     } catch { /* ignore */ }
     setSettingSaving(null);
+  };
+
+  const getSettingValue = (companyId: string, field: keyof CompanySetting, fallback: string) => {
+    const s = companySettings.find(s => s.company_id === companyId);
+    if (s && s[field] !== undefined && s[field] !== null) return s[field];
+    return fallback;
   };
 
   const fetchDsdCourses = useCallback(async () => {
@@ -1410,18 +1421,20 @@ export default function AdminPage() {
             <div className="flex items-center gap-2 mb-4">
               <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
               <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>รายชื่อบริษัท ({COMPANIES.length})</h3>
+              <span className="text-[10px] ml-2" style={{ color: 'var(--text-muted)' }}>คลิกที่แถวเพื่อแก้ไข</span>
             </div>
             <div className="overflow-x-auto">
               <table className="apple-table w-full text-[11px]">
                 <thead>
                   <tr style={{ borderColor: 'var(--border)' }}>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Group</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>BU</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Google Sheet ID</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Safety Sheet</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>Envi Sheet</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)' }}>สถานะ</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 120 }}>บริษัท</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 100 }}>Group</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 130 }}>BU</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 200 }}>Google Sheet ID</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 160 }}>Safety Sheet</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 160 }}>Envi Sheet</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 80 }}>สถานะ</th>
+                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 60 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1437,17 +1450,35 @@ export default function AdminPage() {
                       'EV': { bg: '#e0e7ff', color: '#3730a3' },
                       'Waste Management': { bg: '#ffedd5', color: '#9a3412' },
                     };
-                    // Get DB setting or fallback to static config
-                    const dbSetting = companySettings.find(s => s.company_id === c.id);
-                    const currentGroup = dbSetting?.group_name ?? (c.group || '');
-                    const currentBu = dbSetting?.bu ?? (c.bu || '');
+                    const currentName = getSettingValue(c.id, 'company_name', c.name);
+                    const currentGroup = getSettingValue(c.id, 'group_name', c.group || '');
+                    const currentBu = getSettingValue(c.id, 'bu', c.bu || '');
+                    const currentSheetId = getSettingValue(c.id, 'sheet_id', c.sheetId || '');
+                    const currentSafetySheet = getSettingValue(c.id, 'safety_sheet', c.safetySheet || '');
+                    const currentEnviSheet = getSettingValue(c.id, 'envi_sheet', c.enviSheet || '');
                     const isSavingThis = settingSaving === c.id;
+                    const isEditing = editingCompany === c.id;
+                    const hasSheet = !!(currentSheetId);
                     return (
-                      <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
-                        <td className="py-3 px-3 font-medium" style={{ color: 'var(--text-primary)' }}>
-                          {c.name}
-                          {isSavingThis && <span className="ml-2 text-[9px]" style={{ color: 'var(--accent)' }}>บันทึก...</span>}
+                      <tr key={c.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px', background: isEditing ? 'var(--bg-secondary)' : undefined }} className="hover:bg-white/5">
+                        {/* Company Name */}
+                        <td className="py-2 px-3">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={currentName}
+                              onChange={e => handleSettingChange(c.id, 'company_name', e.target.value)}
+                              className="text-[11px] w-full px-2 py-1 rounded border font-medium"
+                              style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                            />
+                          ) : (
+                            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                              {currentName}
+                              {isSavingThis && <span className="ml-2 text-[9px]" style={{ color: 'var(--accent)' }}>บันทึก...</span>}
+                            </span>
+                          )}
                         </td>
+                        {/* Group */}
                         <td className="py-2 px-3 text-center">
                           <select
                             value={currentGroup}
@@ -1463,6 +1494,7 @@ export default function AdminPage() {
                             {COMPANY_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
                         </td>
+                        {/* BU */}
                         <td className="py-2 px-3 text-center">
                           <select
                             value={currentBu}
@@ -1478,16 +1510,74 @@ export default function AdminPage() {
                             {COMPANY_BUS.map(b => <option key={b} value={b}>{b}</option>)}
                           </select>
                         </td>
-                        <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.sheetId ? <code>{c.sheetId.slice(0, 20)}...</code> : <span style={{ color: 'var(--muted)' }}>-</span>}</td>
-                        <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.safetySheet || '-'}</td>
-                        <td className="py-3 px-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{c.enviSheet || '-'}</td>
-                        <td className="py-3 px-3 text-center">
+                        {/* Google Sheet ID */}
+                        <td className="py-2 px-3">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={currentSheetId}
+                              onChange={e => handleSettingChange(c.id, 'sheet_id', e.target.value)}
+                              placeholder="Google Spreadsheet ID..."
+                              className="text-[10px] w-full px-2 py-1 rounded border font-mono"
+                              style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                            />
+                          ) : (
+                            <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                              {currentSheetId ? <code>{currentSheetId.length > 20 ? currentSheetId.slice(0, 20) + '...' : currentSheetId}</code> : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                            </span>
+                          )}
+                        </td>
+                        {/* Safety Sheet */}
+                        <td className="py-2 px-3">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={currentSafetySheet}
+                              onChange={e => handleSettingChange(c.id, 'safety_sheet', e.target.value)}
+                              placeholder="ชื่อ Sheet Safety Plan..."
+                              className="text-[10px] w-full px-2 py-1 rounded border"
+                              style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                            />
+                          ) : (
+                            <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{currentSafetySheet || '-'}</span>
+                          )}
+                        </td>
+                        {/* Envi Sheet */}
+                        <td className="py-2 px-3">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={currentEnviSheet}
+                              onChange={e => handleSettingChange(c.id, 'envi_sheet', e.target.value)}
+                              placeholder="ชื่อ Sheet Envi Plan..."
+                              className="text-[10px] w-full px-2 py-1 rounded border"
+                              style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                            />
+                          ) : (
+                            <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{currentEnviSheet || '-'}</span>
+                          )}
+                        </td>
+                        {/* Status */}
+                        <td className="py-2 px-3 text-center">
                           <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
-                            background: c.sheetId ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
-                            color: c.sheetId ? '#30d158' : 'var(--muted)'
+                            background: hasSheet ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
+                            color: hasSheet ? '#30d158' : 'var(--text-muted)'
                           }}>
-                            {c.sheetId ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
+                            {hasSheet ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
                           </span>
+                        </td>
+                        {/* Edit button */}
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            onClick={() => setEditingCompany(isEditing ? null : c.id)}
+                            className="text-[10px] px-2 py-1 rounded-lg transition-colors"
+                            style={{
+                              background: isEditing ? 'var(--accent)' : 'var(--bg-secondary)',
+                              color: isEditing ? '#fff' : 'var(--text-secondary)',
+                            }}
+                          >
+                            {isEditing ? '✓ เสร็จ' : '✎ แก้ไข'}
+                          </button>
                         </td>
                       </tr>
                     );
