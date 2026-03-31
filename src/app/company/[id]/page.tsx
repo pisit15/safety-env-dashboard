@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -30,7 +31,25 @@ export default function CompanyDashboard() {
   const { id } = useParams() as { id: string };
   const auth = useAuth();
   const company = COMPANIES.find(c => c.id === id);
-  const companyName = company?.shortName || id.toUpperCase();
+
+  // Fetch DB settings to check if company has sheet configured via Admin
+  const [dbSheetId, setDbSheetId] = useState<string | null>(null);
+  const [dbCompanyName, setDbCompanyName] = useState<string>('');
+  useEffect(() => {
+    fetch('/api/company-settings')
+      .then(r => r.json())
+      .then(d => {
+        const s = (d.settings || []).find((s: { company_id: string }) => s.company_id === id);
+        if (s) {
+          setDbSheetId(s.sheet_id || '');
+          setDbCompanyName(s.company_name || '');
+        }
+      })
+      .catch(() => {});
+  }, [id]);
+
+  const hasSheet = !!(dbSheetId || company?.sheetId);
+  const companyName = dbCompanyName || company?.shortName || id.toUpperCase();
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
@@ -64,8 +83,8 @@ export default function CompanyDashboard() {
           {PROJECTS.map(p => {
             const Icon = p.icon;
             const href = `/company/${id}${p.path}`;
-            // Resolve ready state: 'hasSheet' means only ready if company has Google Sheet
-            const isReady = p.ready === 'hasSheet' ? !!(company?.sheetId) : p.ready;
+            // Resolve ready state: 'hasSheet' means only ready if company has Google Sheet (static or DB)
+            const isReady = p.ready === 'hasSheet' ? hasSheet : p.ready;
             return (
               <Link key={p.id} href={isReady ? href : '#'}>
                 <div
