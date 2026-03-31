@@ -19,7 +19,7 @@ export const COMPANIES: CompanyConfig[] = [
     safetySheet: 'AAB Safety Plan rev1',
     enviSheet: 'AAB Envi Plan rev1',
     group: 'Factory',
-    bu: 'Biodiesel',
+    bu: 'EV',
     years: {
       2026: {
         sheetId: '1sWQSLTCQZ96PYiFIsZ3zHjjfCnYGN8fL',
@@ -65,18 +65,18 @@ export const COMPANIES: CompanyConfig[] = [
   },
   // Placeholder companies (add real Sheet IDs when ready)
   { id: 'ea-hq', name: 'EA HQ', shortName: 'EA HQ', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'HQ' },
-  { id: 'ewhk', name: 'EWHK', shortName: 'EWHK', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Biodiesel' },
-  { id: 'eslo', name: 'ESLO', shortName: 'ESLO', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Renewable Energy' },
-  { id: 'esn', name: 'ESN', shortName: 'ESN', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Renewable Energy' },
-  { id: 'esl', name: 'ESL', shortName: 'ESL', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Renewable Energy' },
-  { id: 'esp', name: 'ESP', shortName: 'ESP', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Renewable Energy' },
-  { id: 'esm', name: 'ESM', shortName: 'ESM', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Renewable Energy' },
-  { id: 'hnm', name: 'HNM', shortName: 'HNM', sheetId: '', safetySheet: '', enviSheet: '', group: '', bu: '' },
+  { id: 'ewhk', name: 'EWHK', shortName: 'EWHK', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
+  { id: 'eslo', name: 'ESLO', shortName: 'ESLO', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
+  { id: 'esn', name: 'ESN', shortName: 'ESN', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
+  { id: 'esl', name: 'ESL', shortName: 'ESL', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
+  { id: 'esp', name: 'ESP', shortName: 'ESP', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
+  { id: 'esm', name: 'ESM', shortName: 'ESM', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'EV' },
+  { id: 'hnm', name: 'HNM', shortName: 'HNM', sheetId: '', safetySheet: '', enviSheet: '', group: '', bu: 'Renewable Energy' },
   { id: 'amt', name: 'AMT', shortName: 'AMT', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'EV' },
   { id: 'mmc', name: 'MMC', shortName: 'MMC', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'EV' },
   { id: 'wmp', name: 'WMP', shortName: 'WMP', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Waste Management' },
-  { id: 'mmr', name: 'MMR', shortName: 'MMR', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'EV' },
-  { id: 'gtr', name: 'GTR', shortName: 'GTR', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'EV' },
+  { id: 'mmr', name: 'MMR', shortName: 'MMR', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
+  { id: 'gtr', name: 'GTR', shortName: 'GTR', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
   { id: 'swm', name: 'SWM', shortName: 'SWM', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Waste Management' },
 ];
 
