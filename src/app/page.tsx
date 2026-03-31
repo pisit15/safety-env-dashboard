@@ -85,9 +85,15 @@ interface QuickStat {
   overallPct: number;
 }
 
+interface DbCompanySetting {
+  company_id: string;
+  bu: string;
+}
+
 export default function HomePage() {
   const auth = useAuth();
   const [stats, setStats] = useState<QuickStat | null>(null);
+  const [dbBuMap, setDbBuMap] = useState<Record<string, string>>({});
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('dashboard_year');
@@ -99,6 +105,28 @@ export default function HomePage() {
   useEffect(() => {
     localStorage.setItem('dashboard_year', String(selectedYear));
   }, [selectedYear]);
+
+  // Fetch BU settings from DB so homepage stays in sync with Admin
+  useEffect(() => {
+    fetch('/api/company-settings')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.settings) {
+          const map: Record<string, string> = {};
+          data.settings.forEach((s: DbCompanySetting) => {
+            map[s.company_id] = s.bu ?? '';
+          });
+          setDbBuMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build companies list with DB BU overrides
+  const companiesWithDbBu = COMPANIES.map(c => ({
+    ...c,
+    bu: (c.id in dbBuMap ? dbBuMap[c.id] : c.bu) as typeof c.bu,
+  }));
 
   // Fetch quick stats from action-plan dashboard (admin only)
   useEffect(() => {
@@ -276,30 +304,28 @@ export default function HomePage() {
           </h2>
           {(() => {
             // Define BU display order and colors
-            const BU_ORDER = ['HQ', 'Biodiesel', 'Renewable Energy', 'EV', 'Waste Management', ''];
+            const BU_ORDER = ['EV', 'Renewable Energy', 'Biodiesel', 'Waste Management', ''];
             const BU_LABELS: Record<string, string> = {
-              'HQ': 'HQ',
-              'Biodiesel': 'Biodiesel',
-              'Renewable Energy': 'Renewable Energy',
               'EV': 'EV',
+              'Renewable Energy': 'Renewable Energy',
+              'Biodiesel': 'Biodiesel',
               'Waste Management': 'Waste Management',
               '': 'ไม่ระบุ',
             };
             const BU_COLORS: Record<string, string> = {
-              'HQ': '#6366f1',
-              'Biodiesel': '#16a34a',
-              'Renewable Energy': '#0ea5e9',
               'EV': '#f59e0b',
+              'Renewable Energy': '#0ea5e9',
+              'Biodiesel': '#16a34a',
               'Waste Management': '#ef4444',
               '': '#9ca3af',
             };
 
-            // Group companies by BU
+            // Group companies by BU (uses DB overrides)
             const grouped = BU_ORDER.map(bu => ({
               bu,
               label: BU_LABELS[bu] || bu || 'ไม่ระบุ',
               color: BU_COLORS[bu] || '#9ca3af',
-              companies: COMPANIES.filter(c => (c.bu || '') === bu),
+              companies: companiesWithDbBu.filter(c => (c.bu || '') === bu),
             })).filter(g => g.companies.length > 0);
 
             return grouped.map(group => (
