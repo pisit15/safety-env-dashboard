@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
-import { Search, Upload, Plus, Edit2, Trash2, ChevronDown, ChevronUp, X, GraduationCap } from 'lucide-react';
+import { Search, Upload, Plus, Edit2, Trash2, ChevronDown, ChevronUp, X, GraduationCap, BookOpen, Users, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Employee {
@@ -27,6 +27,30 @@ interface TrainingRecord {
   training_plans?: { course_name: string; category: string; hours_per_course: number; planned_month: number; year: number };
   training_sessions?: { status: string; scheduled_date_start: string; scheduled_date_end: string };
   created_at: string;
+}
+
+interface CourseAttendee {
+  emp_code: string;
+  first_name: string;
+  last_name: string;
+  position: string;
+  department: string;
+  hours_attended: number;
+  session_status: string;
+  scheduled_date_start: string | null;
+  scheduled_date_end: string | null;
+}
+
+interface CourseWithAttendees {
+  course_name: string;
+  category: string;
+  hours_per_course: number;
+  in_house_external: string;
+  year: number;
+  planned_month: number;
+  total_attendees: number;
+  completed_count: number;
+  attendees: CourseAttendee[];
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -62,6 +86,16 @@ export default function EmployeesPage() {
 
   // Import
   const [importing, setImporting] = useState(false);
+
+  // Tab: 'employees' or 'courses'
+  const [activeTab, setActiveTab] = useState<'employees' | 'courses'>('employees');
+
+  // Course search
+  const [courses, setCourses] = useState<CourseWithAttendees[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [courseSearch, setCourseSearch] = useState('');
+  const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
+  const [coursesFetched, setCoursesFetched] = useState(false);
 
   // Auth
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -107,6 +141,35 @@ export default function EmployeesPage() {
   }, [companyId]);
 
   useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
+
+  // Fetch courses with attendees
+  const fetchCourses = useCallback(async () => {
+    setLoadingCourses(true);
+    try {
+      const res = await fetch(`/api/training/courses-attendees?companyId=${companyId}`);
+      const data = await res.json();
+      if (data.courses) setCourses(data.courses);
+    } catch { /* ignore */ }
+    setLoadingCourses(false);
+    setCoursesFetched(true);
+  }, [companyId]);
+
+  // Fetch courses when switching to courses tab
+  useEffect(() => {
+    if (activeTab === 'courses' && !coursesFetched) {
+      fetchCourses();
+    }
+  }, [activeTab, coursesFetched, fetchCourses]);
+
+  // Filtered courses
+  const filteredCourses = useMemo(() => {
+    if (!courseSearch) return courses;
+    const q = courseSearch.toLowerCase();
+    return courses.filter(c =>
+      (c.course_name || '').toLowerCase().includes(q) ||
+      (c.category || '').toLowerCase().includes(q)
+    );
+  }, [courses, courseSearch]);
 
   // Departments
   const departments = useMemo(() =>
@@ -346,6 +409,33 @@ export default function EmployeesPage() {
             </p>
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)', display: 'inline-flex' }}>
+            <button
+              onClick={() => setActiveTab('employees')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: activeTab === 'employees' ? 'var(--card-solid)' : 'transparent',
+                color: activeTab === 'employees' ? 'var(--accent)' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'employees' ? 'var(--shadow-sm)' : 'none',
+              }}
+            >
+              <Users size={15} /> รายชื่อพนักงาน
+            </button>
+            <button
+              onClick={() => setActiveTab('courses')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: activeTab === 'courses' ? 'var(--card-solid)' : 'transparent',
+                color: activeTab === 'courses' ? 'var(--accent)' : 'var(--text-secondary)',
+                boxShadow: activeTab === 'courses' ? 'var(--shadow-sm)' : 'none',
+              }}
+            >
+              <BookOpen size={15} /> ค้นหาตามหลักสูตร
+            </button>
+          </div>
+
+          {activeTab === 'employees' && (<>
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="glass-card rounded-xl p-4">
@@ -475,6 +565,162 @@ export default function EmployeesPage() {
               แสดง {filtered.length} / {employees.length} คน
             </div>
           </div>
+          </>)}
+
+          {/* Course Search Tab */}
+          {activeTab === 'courses' && (
+            <>
+              {/* Course search toolbar */}
+              <div className="glass-card rounded-xl p-4 mb-4">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div className="relative flex-1 min-w-[250px]">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+                    <input
+                      type="text" placeholder="ค้นหาชื่อหลักสูตร หรือหมวดหมู่..."
+                      value={courseSearch} onChange={e => setCourseSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: '100%' }}
+                    />
+                  </div>
+                  <button onClick={() => { setCoursesFetched(false); fetchCourses(); }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                    โหลดใหม่
+                  </button>
+                </div>
+              </div>
+
+              {/* Course list */}
+              {loadingCourses ? (
+                <div className="glass-card rounded-xl text-center py-12 text-sm" style={{ color: 'var(--text-secondary)' }}>กำลังโหลดหลักสูตร...</div>
+              ) : filteredCourses.length === 0 ? (
+                <div className="glass-card rounded-xl text-center py-12 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {courses.length === 0 ? 'ยังไม่มีหลักสูตรในระบบ' : 'ไม่พบหลักสูตรตามคำค้นหา'}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredCourses.map((course, idx) => {
+                    const isExpanded = expandedCourse === course.course_name;
+                    return (
+                      <div key={idx} className="glass-card rounded-xl overflow-hidden">
+                        {/* Course header row */}
+                        <button
+                          onClick={() => setExpandedCourse(isExpanded ? null : course.course_name)}
+                          className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors"
+                          style={{ background: isExpanded ? 'var(--accent-glow)' : 'transparent' }}
+                        >
+                          <ChevronRight
+                            size={16}
+                            className="flex-shrink-0 transition-transform"
+                            style={{ color: 'var(--accent)', transform: isExpanded ? 'rotate(90deg)' : 'none' }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                                {course.course_name}
+                              </span>
+                              {course.category && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                                  style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
+                                  {course.category}
+                                </span>
+                              )}
+                              {course.in_house_external && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                                  style={{ background: course.in_house_external === 'In-house' ? '#dbeafe' : '#fef3c7', color: course.in_house_external === 'In-house' ? '#1d4ed8' : '#92400e' }}>
+                                  {course.in_house_external}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                              {course.hours_per_course} ชม. • ปี {course.year}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>ผู้เข้าอบรม</div>
+                              <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{course.total_attendees} คน</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs" style={{ color: 'var(--text-muted)' }}>อบรมแล้ว</div>
+                              <div className="text-sm font-bold" style={{ color: course.completed_count > 0 ? '#16a34a' : 'var(--text-muted)' }}>
+                                {course.completed_count} คน
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* Expanded attendee list */}
+                        {isExpanded && (
+                          <div style={{ borderTop: '1px solid var(--border)' }}>
+                            {course.attendees.length === 0 ? (
+                              <div className="text-center py-6 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                ยังไม่มีผู้เข้าอบรม
+                              </div>
+                            ) : (
+                              <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                  <thead>
+                                    <tr style={{ background: 'var(--bg-secondary)' }}>
+                                      <th className="text-left py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>#</th>
+                                      <th className="text-left py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>รหัส</th>
+                                      <th className="text-left py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>ชื่อ-สกุล</th>
+                                      <th className="text-left py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>ตำแหน่ง</th>
+                                      <th className="text-left py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>แผนก</th>
+                                      <th className="text-center py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>วันที่อบรม</th>
+                                      <th className="text-center py-2.5 px-4 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>สถานะ</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {course.attendees.map((att, ai) => {
+                                      const statusLabel = att.session_status === 'completed' ? 'อบรมแล้ว' :
+                                        att.session_status === 'cancelled' ? 'ยกเลิก' : 'วางแผน';
+                                      const statusColor = att.session_status === 'completed' ? '#16a34a' :
+                                        att.session_status === 'cancelled' ? '#dc2626' : 'var(--text-secondary)';
+                                      const statusBg = att.session_status === 'completed' ? '#f0fdf4' :
+                                        att.session_status === 'cancelled' ? '#fef2f2' : 'var(--bg-secondary)';
+                                      return (
+                                        <tr key={ai} style={{ borderBottom: '1px solid var(--border)' }}>
+                                          <td className="py-2 px-4 text-xs" style={{ color: 'var(--text-muted)' }}>{ai + 1}</td>
+                                          <td className="py-2 px-4 text-xs" style={{ color: 'var(--text-secondary)' }}>{att.emp_code || '-'}</td>
+                                          <td className="py-2 px-4" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                                            {att.first_name} {att.last_name}
+                                          </td>
+                                          <td className="py-2 px-4" style={{ color: 'var(--text-secondary)' }}>{att.position || '-'}</td>
+                                          <td className="py-2 px-4" style={{ color: 'var(--text-secondary)' }}>{att.department || '-'}</td>
+                                          <td className="py-2 px-4 text-center text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                            {att.scheduled_date_start ? new Date(att.scheduled_date_start).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
+                                          </td>
+                                          <td className="py-2 px-4 text-center">
+                                            <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium"
+                                              style={{ background: statusBg, color: statusColor }}>
+                                              {statusLabel}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            <div className="px-4 py-2 text-xs" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                              รวม {course.total_attendees} คน • อบรมแล้ว {course.completed_count} คน
+                              {course.total_attendees > 0 && (
+                                <span> • ({Math.round((course.completed_count / course.total_attendees) * 100)}%)</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="text-xs mt-2 px-1" style={{ color: 'var(--text-muted)' }}>
+                    แสดง {filteredCourses.length} / {courses.length} หลักสูตร
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Add/Edit Modal */}
