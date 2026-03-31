@@ -859,6 +859,33 @@ export default function CompanyTraining() {
 
   const getSession = (plan: TrainingPlan): TrainingSession | undefined => plan.training_sessions?.[0];
 
+  // Login gate — require login to view training page
+  if (!isLoggedIn) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+        <Sidebar />
+        <main style={{ flex: 1, padding: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="glass-card" style={{ borderRadius: 16, padding: 32, maxWidth: 380, width: '100%', textAlign: 'center' }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)' }}>เข้าสู่ระบบ</h2>
+            <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--text-secondary)' }}>
+              กรอกข้อมูลของ <strong>{company?.name || companyId.toUpperCase()}</strong> เพื่อดูแผนอบรม
+            </p>
+            <input type="text" placeholder="Username" value={loginUser} onChange={e => setLoginUser(e.target.value)}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', marginBottom: 8, boxSizing: 'border-box' }} />
+            <input type="password" placeholder="รหัสผ่าน" value={loginPass} onChange={e => setLoginPass(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', marginBottom: 12, boxSizing: 'border-box' }} />
+            {loginError && <p style={{ fontSize: 12, marginBottom: 8, color: 'var(--danger)' }}>{loginError}</p>}
+            <button onClick={handleLogin} disabled={loggingIn} className="btn-primary"
+              style={{ width: '100%', padding: '10px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: loggingIn ? 0.6 : 1 }}>
+              {loggingIn ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
