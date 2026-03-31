@@ -401,7 +401,9 @@ export default function EmployeesPage() {
     setEditingCert(null);
     setPreviewImage(null);
     try {
-      const res = await fetch(`/api/certificates?companyId=${companyId}&employeeId=${emp.id}`);
+      // Use employeeId if available, otherwise fallback to empCode
+      const queryParam = emp.id ? `employeeId=${emp.id}` : `empCode=${encodeURIComponent(emp.emp_code)}`;
+      const res = await fetch(`/api/certificates?companyId=${companyId}&${queryParam}`);
       const data = await res.json();
       setCertificates(Array.isArray(data) ? data : []);
     } catch { setCertificates([]); }
@@ -455,7 +457,8 @@ export default function EmployeesPage() {
       setShowCertForm(false);
       setEditingCert(null);
       // Refresh certificates list
-      const res = await fetch(`/api/certificates?companyId=${companyId}&employeeId=${certsEmp.id}`);
+      const queryParam = certsEmp.id ? `employeeId=${certsEmp.id}` : `empCode=${encodeURIComponent(certsEmp.emp_code)}`;
+      const res = await fetch(`/api/certificates?companyId=${companyId}&${queryParam}`);
       const data = await res.json();
       setCertificates(Array.isArray(data) ? data : []);
     } catch { alert('บันทึกไม่สำเร็จ'); }
