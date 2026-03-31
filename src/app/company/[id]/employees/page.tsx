@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
-import { Search, Upload, Plus, Edit2, Trash2, ChevronDown, ChevronUp, X, GraduationCap, BookOpen, Users, ChevronRight } from 'lucide-react';
+import { Search, Upload, Plus, Edit2, Trash2, ChevronDown, ChevronUp, X, GraduationCap, BookOpen, Users, ChevronRight, Award, Image, Calendar, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Employee {
@@ -53,6 +53,22 @@ interface CourseWithAttendees {
   attendees: CourseAttendee[];
 }
 
+interface Certificate {
+  id: string;
+  company_id: string;
+  employee_id: string;
+  emp_code: string;
+  certificate_name: string;
+  issued_date: string | null;
+  expiry_date: string | null;
+  no_expiry: boolean;
+  certificate_number: string;
+  issuer: string;
+  image_url: string;
+  notes: string;
+  created_at: string;
+}
+
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   active: { label: 'ทำงาน', color: '#16a34a', bg: '#f0fdf4' },
   resigned: { label: 'ลาออก', color: '#dc2626', bg: '#fef2f2' },
@@ -96,6 +112,21 @@ export default function EmployeesPage() {
   const [courseSearch, setCourseSearch] = useState('');
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [coursesFetched, setCoursesFetched] = useState(false);
+
+  // Certificates
+  const [showCerts, setShowCerts] = useState(false);
+  const [certsEmp, setCertsEmp] = useState<Employee | null>(null);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [loadingCerts, setLoadingCerts] = useState(false);
+  const [showCertForm, setShowCertForm] = useState(false);
+  const [editingCert, setEditingCert] = useState<Certificate | null>(null);
+  const [certForm, setCertForm] = useState({
+    certificate_name: '', issued_date: '', expiry_date: '', no_expiry: false,
+    certificate_number: '', issuer: '', notes: '', image_url: '',
+  });
+  const [savingCert, setSavingCert] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Auth
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -361,6 +392,115 @@ export default function EmployeesPage() {
     setImporting(false);
   };
 
+  // Certificate functions
+  const openCerts = async (emp: Employee) => {
+    setCertsEmp(emp);
+    setShowCerts(true);
+    setLoadingCerts(true);
+    setShowCertForm(false);
+    setEditingCert(null);
+    setPreviewImage(null);
+    try {
+      const res = await fetch(`/api/certificates?companyId=${companyId}&employeeId=${emp.id}`);
+      const data = await res.json();
+      setCertificates(Array.isArray(data) ? data : []);
+    } catch { setCertificates([]); }
+    setLoadingCerts(false);
+  };
+
+  const openAddCert = () => {
+    setEditingCert(null);
+    setCertForm({ certificate_name: '', issued_date: '', expiry_date: '', no_expiry: false, certificate_number: '', issuer: '', notes: '', image_url: '' });
+    setShowCertForm(true);
+  };
+
+  const openEditCert = (cert: Certificate) => {
+    setEditingCert(cert);
+    setCertForm({
+      certificate_name: cert.certificate_name || '',
+      issued_date: cert.issued_date || '',
+      expiry_date: cert.expiry_date || '',
+      no_expiry: cert.no_expiry || false,
+      certificate_number: cert.certificate_number || '',
+      issuer: cert.issuer || '',
+      notes: cert.notes || '',
+      image_url: cert.image_url || '',
+    });
+    setShowCertForm(true);
+  };
+
+  const handleSaveCert = async () => {
+    if (!certForm.certificate_name.trim() || !certsEmp) return;
+    setSavingCert(true);
+    try {
+      const payload = {
+        ...certForm,
+        company_id: companyId,
+        employee_id: certsEmp.id,
+        emp_code: certsEmp.emp_code,
+      };
+      if (editingCert) {
+        await fetch('/api/certificates', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingCert.id, ...certForm }),
+        });
+      } else {
+        await fetch('/api/certificates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      setShowCertForm(false);
+      setEditingCert(null);
+      // Refresh certificates list
+      const res = await fetch(`/api/certificates?companyId=${companyId}&employeeId=${certsEmp.id}`);
+      const data = await res.json();
+      setCertificates(Array.isArray(data) ? data : []);
+    } catch { alert('บันทึกไม่สำเร็จ'); }
+    setSavingCert(false);
+  };
+
+  const handleDeleteCert = async (cert: Certificate) => {
+    if (!confirm(`ต้องการลบใบ Certificate "${cert.certificate_name}" ?`)) return;
+    try {
+      await fetch(`/api/certificates?id=${cert.id}`, { method: 'DELETE' });
+      setCertificates(prev => prev.filter(c => c.id !== cert.id));
+    } catch { alert('ลบไม่สำเร็จ'); }
+  };
+
+  const handleCertImageUpload = async (file: File) => {
+    if (!certsEmp) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', companyId);
+      formData.append('employeeId', certsEmp.id);
+      const res = await fetch('/api/certificates/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.url) {
+        setCertForm(f => ({ ...f, image_url: data.url }));
+      } else {
+        alert(data.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch { alert('อัปโหลดไม่สำเร็จ'); }
+    setUploadingImage(false);
+  };
+
+  const getCertExpiryStatus = (cert: Certificate) => {
+    if (cert.no_expiry) return { label: 'ไม่หมดอายุ', color: '#6366f1', bg: '#eef2ff' };
+    if (!cert.expiry_date) return { label: 'ไม่ระบุ', color: 'var(--text-muted)', bg: 'var(--bg-secondary)' };
+    const now = new Date();
+    const exp = new Date(cert.expiry_date);
+    const daysLeft = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysLeft < 0) return { label: 'หมดอายุแล้ว', color: '#dc2626', bg: '#fef2f2' };
+    if (daysLeft <= 30) return { label: `เหลือ ${daysLeft} วัน`, color: '#ea580c', bg: '#fff7ed' };
+    if (daysLeft <= 90) return { label: `เหลือ ${daysLeft} วัน`, color: '#d97706', bg: '#fffbeb' };
+    return { label: `เหลือ ${daysLeft} วัน`, color: '#16a34a', bg: '#f0fdf4' };
+  };
+
   // Stats
   const activeCount = employees.filter(e => (e.employment_status || 'active') === 'active').length;
   const resignedCount = employees.filter(e => e.employment_status === 'resigned').length;
@@ -538,6 +678,10 @@ export default function EmployeesPage() {
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <div className="flex items-center justify-center gap-1">
+                              <button onClick={() => openCerts(emp)} title="ใบ Certificate"
+                                className="p-1.5 rounded-lg transition-colors" style={{ color: '#6366f1' }}>
+                                <Award size={15} />
+                              </button>
                               <button onClick={() => openHistory(emp)} title="ประวัติอบรม"
                                 className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--accent)' }}>
                                 <GraduationCap size={15} />
@@ -858,6 +1002,263 @@ export default function EmployeesPage() {
                   ปิด
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+        {/* Certificate Modal */}
+        {showCerts && certsEmp && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setShowCerts(false); setCertsEmp(null); setShowCertForm(false); setPreviewImage(null); }}>
+            <div className="glass-card rounded-2xl w-full max-w-3xl flex flex-col" style={{ backdropFilter: 'blur(40px)', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 pt-5 pb-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                      <Award size={20} style={{ color: '#6366f1' }} /> ใบ Certificate
+                    </h3>
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      {certsEmp.first_name} {certsEmp.last_name}
+                      {certsEmp.emp_code && <span> ({certsEmp.emp_code})</span>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!showCertForm && (
+                      <button onClick={openAddCert}
+                        className="btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium">
+                        <Plus size={13} /> เพิ่ม Certificate
+                      </button>
+                    )}
+                    <button onClick={() => { setShowCerts(false); setCertsEmp(null); setShowCertForm(false); setPreviewImage(null); }} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 overflow-y-auto flex-1">
+                {/* Certificate Form */}
+                {showCertForm && (
+                  <div className="mb-5 p-4 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                      {editingCert ? 'แก้ไข Certificate' : 'เพิ่ม Certificate ใหม่'}
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>ชื่อ Certificate *</label>
+                        <input type="text" value={certForm.certificate_name}
+                          onChange={e => setCertForm(f => ({ ...f, certificate_name: e.target.value }))}
+                          style={inputStyle} placeholder="เช่น จป.วิชาชีพ, ISO 45001 Lead Auditor" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>เลขที่ใบ Certificate</label>
+                          <input type="text" value={certForm.certificate_number}
+                            onChange={e => setCertForm(f => ({ ...f, certificate_number: e.target.value }))}
+                            style={inputStyle} placeholder="เลขที่ (ถ้ามี)" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>หน่วยงานที่ออก</label>
+                          <input type="text" value={certForm.issuer}
+                            onChange={e => setCertForm(f => ({ ...f, issuer: e.target.value }))}
+                            style={inputStyle} placeholder="เช่น กรมสวัสดิการฯ" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>วันที่ออก</label>
+                          <input type="date" value={certForm.issued_date}
+                            onChange={e => setCertForm(f => ({ ...f, issued_date: e.target.value }))}
+                            style={inputStyle} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                            วันหมดอายุ
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={certForm.no_expiry}
+                                onChange={e => setCertForm(f => ({ ...f, no_expiry: e.target.checked, expiry_date: '' }))} />
+                              <span className="text-[11px]" style={{ color: '#6366f1' }}>ไม่หมดอายุ</span>
+                            </label>
+                          </label>
+                          {!certForm.no_expiry ? (
+                            <input type="date" value={certForm.expiry_date}
+                              onChange={e => setCertForm(f => ({ ...f, expiry_date: e.target.value }))}
+                              style={inputStyle} />
+                          ) : (
+                            <div className="px-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, color: '#6366f1', fontWeight: 500 }}>
+                              ใช้ได้ตลอดไป (ไม่หมดอายุ)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>หมายเหตุ</label>
+                        <input type="text" value={certForm.notes}
+                          onChange={e => setCertForm(f => ({ ...f, notes: e.target.value }))}
+                          style={inputStyle} placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)" />
+                      </div>
+                      {/* Image upload */}
+                      <div>
+                        <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>แนบภาพใบ Certificate</label>
+                        <div className="flex items-center gap-3 mt-1">
+                          <label className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingImage ? 'opacity-50' : ''}`}
+                            style={{ background: 'var(--border)', color: 'var(--text-primary)', border: '1px dashed var(--text-muted)' }}>
+                            <Image size={14} /> {uploadingImage ? 'กำลังอัปโหลด...' : 'เลือกไฟล์ภาพ'}
+                            <input type="file" accept="image/*,.pdf" hidden disabled={uploadingImage}
+                              onChange={e => { if (e.target.files?.[0]) handleCertImageUpload(e.target.files[0]); e.target.value = ''; }} />
+                          </label>
+                          {certForm.image_url && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px]" style={{ color: '#16a34a' }}>อัปโหลดแล้ว</span>
+                              <button onClick={() => setPreviewImage(certForm.image_url)}
+                                className="text-[11px] underline" style={{ color: 'var(--accent)' }}>ดูภาพ</button>
+                              <button onClick={() => setCertForm(f => ({ ...f, image_url: '' }))}
+                                className="text-[11px]" style={{ color: '#dc2626' }}>ลบภาพ</button>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>รองรับ JPG, PNG, WebP, PDF ขนาดไม่เกิน 10MB</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                      <button onClick={() => { setShowCertForm(false); setEditingCert(null); }}
+                        className="flex-1 px-4 py-2 rounded-lg text-sm"
+                        style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        ยกเลิก
+                      </button>
+                      <button onClick={handleSaveCert} disabled={savingCert || !certForm.certificate_name.trim()}
+                        className="btn-primary flex-1 px-4 py-2 rounded-lg text-sm font-medium"
+                        style={{ opacity: savingCert || !certForm.certificate_name.trim() ? 0.5 : 1 }}>
+                        {savingCert ? 'กำลังบันทึก...' : editingCert ? 'บันทึก' : 'เพิ่ม Certificate'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Certificate List */}
+                {loadingCerts ? (
+                  <div className="text-center py-8 text-sm" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+                ) : certificates.length === 0 && !showCertForm ? (
+                  <div className="text-center py-8">
+                    <Award size={32} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีใบ Certificate</p>
+                    <button onClick={openAddCert} className="mt-2 text-xs underline" style={{ color: 'var(--accent)' }}>
+                      เพิ่ม Certificate ใบแรก
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {certificates.map((cert, i) => {
+                      const expiry = getCertExpiryStatus(cert);
+                      const isExpired = !cert.no_expiry && cert.expiry_date && new Date(cert.expiry_date) < new Date();
+                      return (
+                        <div key={cert.id || i} className="rounded-xl p-4 flex items-start gap-3"
+                          style={{ background: 'var(--bg-secondary)', border: `1px solid ${isExpired ? '#fecaca' : 'var(--border)'}` }}>
+                          {/* Cert image thumbnail */}
+                          {cert.image_url ? (
+                            <button onClick={() => setPreviewImage(cert.image_url)}
+                              className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden"
+                              style={{ border: '1px solid var(--border)', background: '#fff' }}>
+                              {cert.image_url.endsWith('.pdf') ? (
+                                <div className="w-full h-full flex items-center justify-center text-[10px]" style={{ color: 'var(--text-muted)' }}>PDF</div>
+                              ) : (
+                                <img src={cert.image_url} alt="" className="w-full h-full object-cover" />
+                              )}
+                            </button>
+                          ) : (
+                            <div className="flex-shrink-0 w-14 h-14 rounded-lg flex items-center justify-center"
+                              style={{ background: 'var(--border)', border: '1px solid var(--border)' }}>
+                              <Award size={20} style={{ color: 'var(--text-muted)' }} />
+                            </div>
+                          )}
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                {cert.certificate_name}
+                              </span>
+                              {isExpired && <AlertTriangle size={13} style={{ color: '#dc2626' }} />}
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                              {cert.certificate_number && <span>เลขที่: {cert.certificate_number}</span>}
+                              {cert.issuer && <span>ออกโดย: {cert.issuer}</span>}
+                              {cert.issued_date && (
+                                <span>วันที่ออก: {new Date(cert.issued_date).toLocaleDateString('th-TH')}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium"
+                                style={{ background: expiry.bg, color: expiry.color }}>
+                                {cert.no_expiry ? 'ไม่หมดอายุ (ตลอดชีพ)' :
+                                  cert.expiry_date ? `หมดอายุ: ${new Date(cert.expiry_date).toLocaleDateString('th-TH')} — ${expiry.label}` :
+                                  'ไม่ระบุวันหมดอายุ'}
+                              </span>
+                            </div>
+                            {cert.notes && (
+                              <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>📝 {cert.notes}</p>
+                            )}
+                          </div>
+                          {/* Actions */}
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {cert.image_url && (
+                              <button onClick={() => setPreviewImage(cert.image_url)} title="ดูภาพ"
+                                className="p-1.5 rounded-lg" style={{ color: 'var(--accent)' }}>
+                                <Image size={14} />
+                              </button>
+                            )}
+                            <button onClick={() => openEditCert(cert)} title="แก้ไข"
+                              className="p-1.5 rounded-lg" style={{ color: 'var(--warning)' }}>
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteCert(cert)} title="ลบ"
+                              className="p-1.5 rounded-lg" style={{ color: '#dc2626' }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-3 flex-shrink-0 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  รวม {certificates.length} ใบ
+                  {certificates.filter(c => {
+                    if (c.no_expiry || !c.expiry_date) return false;
+                    return new Date(c.expiry_date) < new Date();
+                  }).length > 0 && (
+                    <span style={{ color: '#dc2626' }}>
+                      {' '}• หมดอายุ {certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length} ใบ
+                    </span>
+                  )}
+                </span>
+                <button onClick={() => { setShowCerts(false); setCertsEmp(null); setShowCertForm(false); setPreviewImage(null); }}
+                  className="px-4 py-2 rounded-lg text-sm"
+                  style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                  ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Preview Modal */}
+        {previewImage && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4" onClick={() => setPreviewImage(null)}>
+            <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setPreviewImage(null)}
+                className="absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center z-10"
+                style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
+                <X size={16} />
+              </button>
+              {previewImage.endsWith('.pdf') ? (
+                <iframe src={previewImage} className="w-full rounded-xl" style={{ height: '80vh', border: 'none' }} />
+              ) : (
+                <img src={previewImage} alt="Certificate" className="w-full h-auto max-h-[85vh] object-contain rounded-xl" style={{ background: '#fff' }} />
+              )}
+              <a href={previewImage} target="_blank" rel="noopener noreferrer"
+                className="block text-center mt-2 text-xs underline" style={{ color: '#94a3b8' }}>
+                เปิดในแท็บใหม่
+              </a>
             </div>
           </div>
         )}
