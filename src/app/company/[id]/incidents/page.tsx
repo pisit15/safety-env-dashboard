@@ -223,6 +223,9 @@ export default function IncidentsPage() {
   const [selectedYears, setSelectedYears] = useState<number[]>([2021, 2022, 2023, 2024, 2025, 2026]);
   const [incidentCategory, setIncidentCategory] = useState<'total' | 'injury' | 'property'>('total');
 
+  // Cross-filter for injury charts (click to drill down)
+  const [injuryFilter, setInjuryFilter] = useState<{ field: string; value: string } | null>(null);
+
   // Multi-year TRIR/LTIFR trend — raw data for client-side computation
   const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
   const [trendManhours, setTrendManhours] = useState<Record<number, number>>({});
@@ -859,7 +862,7 @@ export default function IncidentsPage() {
               ].map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => { setIncidentCategory(tab.key); setPage(1); }}
+                  onClick={() => { setIncidentCategory(tab.key); setPage(1); setInjuryFilter(null); }}
                   className="px-4 py-1.5 rounded-md text-[12px] font-medium transition-all"
                   style={{
                     background: incidentCategory === tab.key ? 'var(--accent)' : 'transparent',
@@ -1355,8 +1358,8 @@ export default function IncidentsPage() {
 
               {/* ===================== INJURY-SPECIFIC CHARTS (only when injury tab) ===================== */}
               {incidentCategory === 'injury' && (() => {
-                // Filter injured persons by workRelatedOnly + selected years
-                const filteredPersons = injuredPersonsData.filter(p => {
+                // Base filter: workRelatedOnly + selected years + injury type
+                const allFilteredPersons = injuredPersonsData.filter(p => {
                   const incInfo = injuredIncidentMap[p.incident_no];
                   if (!incInfo) return false;
                   if (!selectedYears.includes(incInfo.year)) return false;
@@ -1365,18 +1368,37 @@ export default function IncidentsPage() {
                   return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p2 => t.includes(p2));
                 });
 
+                // Apply cross-filter
+                const filteredPersons = injuryFilter
+                  ? allFilteredPersons.filter(p => {
+                      if (injuryFilter.field === 'is_lti') {
+                        const isLti = p.is_lti === 'ใช่';
+                        return injuryFilter.value === 'หยุดงาน (LTI)' ? isLti : !isLti;
+                      }
+                      return (p[injuryFilter.field as keyof InjuredPerson] as string || 'ไม่ระบุ') === injuryFilter.value;
+                    })
+                  : allFilteredPersons;
+
                 const YEAR_COLORS_INJ: Record<number, string> = {
                   2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
                   2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
                 };
                 const activeYears = selectedYears.filter(y =>
-                  filteredPersons.some(p => injuredIncidentMap[p.incident_no]?.year === y)
+                  allFilteredPersons.some(p => injuredIncidentMap[p.incident_no]?.year === y)
                 ).sort();
 
-                // Helper: group by a field per year
-                const groupByFieldPerYear = (field: keyof InjuredPerson, labels?: string[]) => {
+                // Field labels for display
+                const FIELD_LABELS: Record<string, string> = {
+                  is_lti: 'หยุดงานหรือไม่',
+                  injury_severity: 'ระดับการบาดเจ็บ',
+                  nature_of_injury: 'ลักษณะการบาดเจ็บ',
+                  body_part: 'ส่วนร่างกาย',
+                };
+
+                // Helper: group persons by a field per year
+                const groupByFieldPerYear = (persons: InjuredPerson[], field: keyof InjuredPerson, labels?: string[]) => {
                   const counts: Record<string, Record<number, number>> = {};
-                  filteredPersons.forEach(p => {
+                  persons.forEach(p => {
                     const val = (p[field] as string) || 'ไม่ระบุ';
                     const yr = injuredIncidentMap[p.incident_no]?.year;
                     if (!yr) return;
@@ -1398,41 +1420,75 @@ export default function IncidentsPage() {
                   return { keys, counts };
                 };
 
-                // ---- Stacked horizontal bar chart (1 bar per item, segments = years) ----
+                // ---- Clickable stacked horizontal bar chart ----
                 const renderStackedBarChart = (
                   title: string,
+                  chartField: string,
                   data: { keys: string[]; counts: Record<string, Record<number, number>> },
                 ) => {
                   const { keys, counts } = data;
                   if (keys.length === 0) return null;
                   const maxTotal = Math.max(...keys.map(k => activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0)), 1);
+                  const isThisChartFiltered = injuryFilter?.field === chartField;
 
                   return (
-                    <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                      <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>{title}</h3>
-                      <div className="space-y-2.5">
+                    <div className="rounded-2xl p-5" style={{
+                      background: 'var(--card-solid)',
+                      border: isThisChartFiltered ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+                        {isThisChartFiltered && (
+                          <button
+                            onClick={() => setInjuryFilter(null)}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors hover:opacity-80"
+                            style={{ background: 'var(--accent)', color: '#fff' }}
+                          >
+                            {injuryFilter?.value} <X size={10} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
                         {keys.map(k => {
                           const total = activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0);
                           const barPct = (total / maxTotal) * 100;
+                          const isActive = isThisChartFiltered && injuryFilter?.value === k;
+                          const isDimmed = isThisChartFiltered && !isActive;
+
                           return (
-                            <div key={k} className="flex items-center gap-3">
-                              <span className="text-[11px] font-medium shrink-0 text-right" style={{ color: 'var(--text-primary)', width: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={k}>{k}</span>
+                            <div
+                              key={k}
+                              className="flex items-center gap-3 rounded-lg px-2 py-1 transition-all"
+                              style={{
+                                cursor: 'pointer',
+                                opacity: isDimmed ? 0.3 : 1,
+                                background: isActive ? 'var(--bg-secondary)' : 'transparent',
+                              }}
+                              onClick={() => {
+                                if (isActive) {
+                                  setInjuryFilter(null);
+                                } else {
+                                  setInjuryFilter({ field: chartField, value: k });
+                                }
+                              }}
+                            >
+                              <span className="text-[11px] font-medium shrink-0 text-right" style={{ color: 'var(--text-primary)', width: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={k}>{k}</span>
                               <div className="flex-1 flex items-center gap-2">
-                                <div className="flex-1 relative rounded-md overflow-hidden" style={{ height: 24, background: 'var(--bg-secondary)' }}>
+                                <div className="flex-1 relative rounded-md overflow-hidden" style={{ height: 22, background: 'var(--bg-secondary)' }}>
                                   <div className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden" style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%` }}>
                                     {activeYears.map(y => {
                                       const val = counts[k]?.[y] || 0;
                                       if (val === 0) return null;
                                       const segPct = (val / total) * 100;
                                       return (
-                                        <div key={y} className="h-full flex items-center justify-center" style={{ width: `${segPct}%`, background: YEAR_COLORS_INJ[y] || '#9ca3af', minWidth: val > 0 ? 16 : 0 }} title={`${y}: ${val}`}>
-                                          {segPct > 18 && <span className="text-[9px] font-bold text-white/80">{val}</span>}
+                                        <div key={y} className="h-full flex items-center justify-center" style={{ width: `${segPct}%`, background: YEAR_COLORS_INJ[y] || '#9ca3af', minWidth: val > 0 ? 14 : 0 }} title={`${y}: ${val}`}>
+                                          {segPct > 20 && <span className="text-[9px] font-bold text-white/80">{val}</span>}
                                         </div>
                                       );
                                     })}
                                   </div>
                                 </div>
-                                <span className="text-[12px] font-bold shrink-0" style={{ color: 'var(--text-primary)', width: 28, textAlign: 'right' }}>{total}</span>
+                                <span className="text-[12px] font-bold shrink-0" style={{ color: 'var(--text-primary)', width: 26, textAlign: 'right' }}>{total}</span>
                               </div>
                             </div>
                           );
@@ -1442,11 +1498,16 @@ export default function IncidentsPage() {
                   );
                 };
 
-                // ---- Data computations ----
+                // ---- Data computations (use filteredPersons for all charts EXCEPT the source chart) ----
+                // For the chart that IS the filter source, show allFilteredPersons so user sees full options
+                const personsFor = (chartField: string) =>
+                  injuryFilter && injuryFilter.field !== chartField ? filteredPersons : allFilteredPersons;
+
                 // Chart 1: LTI vs non-LTI
                 const ltiData = (() => {
+                  const src = personsFor('is_lti');
                   const counts: Record<string, Record<number, number>> = { 'หยุดงาน (LTI)': {}, 'ไม่หยุดงาน': {} };
-                  filteredPersons.forEach(p => {
+                  src.forEach(p => {
                     const yr = injuredIncidentMap[p.incident_no]?.year;
                     if (!yr) return;
                     const key = p.is_lti === 'ใช่' ? 'หยุดงาน (LTI)' : 'ไม่หยุดงาน';
@@ -1463,43 +1524,62 @@ export default function IncidentsPage() {
                   lostDaysData[yr] = (lostDaysData[yr] || 0) + (Number(p.lost_work_days) || 0);
                 });
                 const maxLostDays = Math.max(...activeYears.map(y => lostDaysData[y] || 0), 1);
+                const totalLostDays = activeYears.reduce((s, y) => s + (lostDaysData[y] || 0), 0);
 
                 // Chart 3-5
-                const severityData = groupByFieldPerYear('injury_severity', INJ_SEVERITIES);
-                const natureData = groupByFieldPerYear('nature_of_injury');
-                const bodyPartData = groupByFieldPerYear('body_part');
+                const severityData = groupByFieldPerYear(personsFor('injury_severity'), 'injury_severity', INJ_SEVERITIES);
+                const natureData = groupByFieldPerYear(personsFor('nature_of_injury'), 'nature_of_injury');
+                const bodyPartData = groupByFieldPerYear(personsFor('body_part'), 'body_part');
 
                 return (
                   <div className="mt-2">
-                    {filteredPersons.length === 0 ? (
+                    {allFilteredPersons.length === 0 ? (
                       <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                         <p className="text-[13px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลผู้บาดเจ็บ สำหรับปีที่เลือก</p>
                       </div>
                     ) : (
                       <>
-                        {/* Legend (shared for all charts) */}
-                        <div className="flex flex-wrap items-center gap-4 mb-5 px-1">
-                          <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>สี = ปี:</span>
+                        {/* Top bar: Legend + Filter indicator */}
+                        <div className="flex flex-wrap items-center gap-4 mb-4 px-1">
                           {activeYears.map(y => (
                             <div key={y} className="flex items-center gap-1.5">
-                              <div className="w-3.5 h-3.5 rounded" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
-                              <span className="text-[12px] font-semibold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
+                              <div className="w-3 h-3 rounded" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
+                              <span className="text-[11px] font-semibold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
                             </div>
                           ))}
                           <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                            (ผู้บาดเจ็บทั้งหมด {filteredPersons.length} คน)
+                            | แสดง {filteredPersons.length} จาก {allFilteredPersons.length} คน
                           </span>
+                          {injuryFilter && (
+                            <button
+                              onClick={() => setInjuryFilter(null)}
+                              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:shadow-md"
+                              style={{ background: 'var(--accent)', color: '#fff' }}
+                            >
+                              {FIELD_LABELS[injuryFilter.field] || injuryFilter.field}: {injuryFilter.value}
+                              <X size={12} />
+                            </button>
+                          )}
+                          {!injuryFilter && (
+                            <span className="text-[10px] italic" style={{ color: 'var(--muted)' }}>
+                              คลิกที่แท่งกราฟเพื่อกรองข้อมูล
+                            </span>
+                          )}
                         </div>
 
                         {/* Row 1: LTI + Lost days */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-                          {/* Chart 1: LTI vs non-LTI */}
-                          {renderStackedBarChart('หยุดงานหรือไม่', ltiData)}
+                          {renderStackedBarChart('หยุดงานหรือไม่', 'is_lti', ltiData)}
 
                           {/* Chart 2: Lost work days — vertical bar */}
                           <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                            <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>จำนวนวันหยุดงาน</h3>
-                            <div className="flex items-end gap-4 justify-center" style={{ height: 180 }}>
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>จำนวนวันหยุดงาน</h3>
+                              <span className="text-[12px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                                รวม {totalLostDays.toLocaleString()} วัน
+                              </span>
+                            </div>
+                            <div className="flex items-end gap-4 justify-center" style={{ height: 170 }}>
                               {activeYears.map(y => {
                                 const val = lostDaysData[y] || 0;
                                 const pct = maxLostDays > 0 ? (val / maxLostDays) * 100 : 0;
@@ -1507,9 +1587,9 @@ export default function IncidentsPage() {
                                   <div key={y} className="flex flex-col items-center" style={{ flex: 1, maxWidth: 72 }}>
                                     <span className="text-[14px] font-bold mb-1" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{val}</span>
                                     <div className="w-full rounded-t-lg" style={{
-                                      height: `${Math.max(pct * 1.4, val > 0 ? 6 : 2)}px`,
+                                      height: `${Math.max(pct * 1.3, val > 0 ? 6 : 2)}px`,
                                       background: YEAR_COLORS_INJ[y] || '#9ca3af',
-                                      maxHeight: 140,
+                                      maxHeight: 130,
                                       opacity: val > 0 ? 1 : 0.15,
                                     }} />
                                     <span className="text-[12px] font-bold mt-2" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
@@ -1522,13 +1602,13 @@ export default function IncidentsPage() {
 
                         {/* Chart 3: Injury severity */}
                         <div className="mb-5">
-                          {renderStackedBarChart('ระดับการบาดเจ็บ', severityData)}
+                          {renderStackedBarChart('ระดับการบาดเจ็บ', 'injury_severity', severityData)}
                         </div>
 
                         {/* Row 2: Nature + Body part */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                          {renderStackedBarChart('ลักษณะการบาดเจ็บ', natureData)}
-                          {renderStackedBarChart('ส่วนร่างกายที่ได้รับบาดเจ็บ', bodyPartData)}
+                          {renderStackedBarChart('ลักษณะการบาดเจ็บ', 'nature_of_injury', natureData)}
+                          {renderStackedBarChart('ส่วนร่างกายที่ได้รับบาดเจ็บ', 'body_part', bodyPartData)}
                         </div>
                       </>
                     )}
