@@ -853,30 +853,21 @@ export default function IncidentsPage() {
                     <table className="w-full text-[12px]">
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>#</th>
-                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>วันที่</th>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>วันที่</th>
                           <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>รายละเอียด</th>
-                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>ประเภท</th>
-                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>ความรุนแรง</th>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>ประเภท</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredDashIncidents.slice(0, 20).map((inc, idx) => {
+                        {filteredDashIncidents.slice(0, 20).map((inc) => {
                           const badge = getTypeBadge(inc.incident_type);
-                          const sevColor = getSevColor(inc.actual_severity || '');
                           return (
                             <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{idx + 1}</td>
-                              <td className="py-2 px-3" style={{ color: 'var(--text-primary)' }}>{inc.incident_date}</td>
-                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }} title={inc.incident_no}>{inc.incident_no}</td>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{inc.incident_date}</td>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.description || inc.incident_detail || '-'}</td>
                               <td className="py-2 px-3">
-                                <span className="px-2 py-1 rounded-md text-[11px] font-medium" style={{ background: badge.bg, color: badge.color }}>
+                                <span className="px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap" style={{ background: badge.bg, color: badge.color }}>
                                   {inc.incident_type}
-                                </span>
-                              </td>
-                              <td className="py-2 px-3">
-                                <span className="font-medium" style={{ color: sevColor }}>
-                                  {inc.actual_severity || '-'}
                                 </span>
                               </td>
                             </tr>
