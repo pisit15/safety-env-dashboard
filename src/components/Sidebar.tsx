@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
@@ -46,6 +46,23 @@ export default function Sidebar() {
     const idx = order.indexOf(theme);
     setTheme(order[(idx + 1) % 3]);
   };
+
+  // Fetch DB company settings (for sheetId overrides)
+  const [dbSheetMap, setDbSheetMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    fetch('/api/company-settings')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.settings) {
+          const map: Record<string, string> = {};
+          data.settings.forEach((s: { company_id: string; sheet_id?: string }) => {
+            if (s.sheet_id) map[s.company_id] = s.sheet_id;
+          });
+          setDbSheetMap(map);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Determine which companies the user has access to
   const loggedInCompanyIds = Object.keys(auth.companyAuth);
@@ -133,7 +150,7 @@ export default function Sidebar() {
                   ? !!currentCompanyId // Only show on company pages
                   : auth.isAdmin
                     ? true // Admin always sees all HQ links
-                    : p.ready === 'hasSheet' ? !!(currentCompany?.sheetId) : p.ready;
+                    : p.ready === 'hasSheet' ? !!(currentCompany?.sheetId || (companyForLinks && dbSheetMap[companyForLinks])) : p.ready;
 
                 // Skip companyOnly items when admin is on HQ page (no currentCompanyId)
                 if (isCompanyOnly && !currentCompanyId) return null;
