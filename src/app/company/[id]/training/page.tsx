@@ -986,8 +986,7 @@ export default function CompanyTraining() {
           </div>
         </div>
 
-        {/* Time Range Selector — only in overview mode */}
-        {viewMode === 'overview' && (
+        {/* Time Range Selector — both modes */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
             <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>ช่วงเวลา:</span>
@@ -1031,7 +1030,6 @@ export default function CompanyTraining() {
               </span>
             )}
           </div>
-        )}
 
         {/* ===== OVERVIEW MODE ===== */}
         {viewMode === 'overview' && (
