@@ -553,16 +553,14 @@ export default function IncidentsPage() {
     <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="px-8 pt-8 pb-4">
-          <div className="flex items-center justify-between mb-4">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 px-8 pt-6 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
+          {/* Title row */}
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 สถิติอุบัติเหตุ — {companyName}
               </h1>
-              <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-                Incident Statistics & Recording
-              </p>
             </div>
             <div className="flex items-center gap-3">
               {/* View mode tabs */}
@@ -598,137 +596,88 @@ export default function IncidentsPage() {
 
           {/* Dashboard Filter Bar — Year Checkboxes & Work-Related Toggle */}
           {viewMode === 'dashboard' && (
-            <div className="rounded-xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-              <div className="flex items-center gap-6 flex-wrap">
-                {/* Year Checkboxes */}
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+            <div className="flex items-center gap-5 flex-wrap">
+              {/* Year Checkboxes */}
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
+                {[2021, 2022, 2023, 2024, 2025, 2026].map(yr => (
+                  <label key={yr} className="flex items-center gap-1 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={selectedYears.includes(2021)}
+                      checked={selectedYears.includes(yr)}
                       onChange={e => {
                         if (e.target.checked) {
-                          setSelectedYears([...selectedYears, 2021].sort());
+                          setSelectedYears([...selectedYears, yr].sort());
                         } else {
-                          setSelectedYears(selectedYears.filter(y => y !== 2021));
+                          const next = selectedYears.filter(y => y !== yr);
+                          if (next.length > 0) setSelectedYears(next);
                         }
                       }}
-                      className="w-4 h-4 rounded cursor-pointer accent-current"
-                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                      className="w-3.5 h-3.5 rounded cursor-pointer"
+                      style={{ accentColor: 'var(--accent)' }}
                     />
-                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2021</span>
+                    <span className="text-[12px]" style={{ color: selectedYears.includes(yr) ? 'var(--text-primary)' : 'var(--muted)' }}>{yr}</span>
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(2022)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, 2022].sort());
-                        } else {
-                          setSelectedYears(selectedYears.filter(y => y !== 2022));
-                        }
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer"
-                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2022</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(2023)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, 2023].sort());
-                        } else {
-                          setSelectedYears(selectedYears.filter(y => y !== 2023));
-                        }
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer"
-                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2023</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(2024)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, 2024].sort());
-                        } else {
-                          setSelectedYears(selectedYears.filter(y => y !== 2024));
-                        }
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer"
-                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2024</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(2025)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, 2025].sort());
-                        } else {
-                          setSelectedYears(selectedYears.filter(y => y !== 2025));
-                        }
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer"
-                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2025</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(2026)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, 2026].sort());
-                        } else {
-                          setSelectedYears(selectedYears.filter(y => y !== 2026));
-                        }
-                      }}
-                      className="w-4 h-4 rounded cursor-pointer"
-                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2026</span>
-                  </label>
-                </div>
-
-                {/* Work-Related Toggle */}
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ตัวกรอง:</span>
-                  <button
-                    onClick={() => setWorkRelatedOnly(!workRelatedOnly)}
-                    className="relative inline-flex items-center h-6 w-11 rounded-full transition-colors"
-                    style={{
-                      background: workRelatedOnly ? 'var(--accent)' : 'var(--border)',
-                    }}
-                  >
-                    <span
-                      className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
-                      style={{
-                        transform: workRelatedOnly ? 'translateX(22px)' : 'translateX(2px)',
-                      }}
-                    />
-                  </button>
-                  <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
-                    {workRelatedOnly ? 'เฉพาะจากการทำงาน' : 'ทั้งหมด'}
-                  </span>
-                </div>
+                ))}
               </div>
+
+              {/* Separator */}
+              <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
+              {/* Work-Related Toggle */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setWorkRelatedOnly(!workRelatedOnly)}
+                  className="relative inline-flex items-center h-5 w-9 rounded-full transition-colors"
+                  style={{
+                    background: workRelatedOnly ? 'var(--accent)' : 'var(--border)',
+                  }}
+                >
+                  <span
+                    className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                    style={{
+                      transform: workRelatedOnly ? 'translateX(17px)' : 'translateX(2px)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                    }}
+                  />
+                </button>
+                <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>
+                  เฉพาะจากการทำงาน
+                </span>
+              </div>
+
+              {/* Active filter indicator */}
+              {(dashFilter.month || dashFilter.type) && (
+                <>
+                  <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px]" style={{ color: 'var(--muted)' }}>กรอง:</span>
+                    {dashFilter.month && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
+                        {MONTH_TH[dashFilter.month] || dashFilter.month}
+                        <button onClick={() => setDashFilter(f => ({ ...f, month: undefined }))} className="ml-1 opacity-70 hover:opacity-100">×</button>
+                      </span>
+                    )}
+                    {dashFilter.type && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ background: getTypeColor(dashFilter.type), color: '#fff' }}>
+                        {dashFilter.type}
+                        <button onClick={() => setDashFilter(f => ({ ...f, type: undefined }))} className="ml-1 opacity-70 hover:opacity-100">×</button>
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setDashFilter({})}
+                      className="text-[11px] underline"
+                      style={{ color: 'var(--muted)' }}
+                    >ล้างทั้งหมด</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* List view year selector */}
           {viewMode === 'list' && (
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
               <select
                 value={year}
