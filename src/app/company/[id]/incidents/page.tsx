@@ -378,14 +378,13 @@ export default function IncidentsPage() {
     })).then(setYearlyTrend);
   }, [viewMode, id]);
 
-  // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only
-  const s = summaryData?.summary;
-  const tifrCombined = manHours.total > 0 && s ? (s.totalInjuries / manHours.total) * 1000000 : null;
-  const ltifrCombined = manHours.total > 0 && s ? (s.ltiCases / manHours.total) * 1000000 : null;
-  const tifrEmployee = manHours.employee > 0 && s ? ((s.employeeInjuries || 0) / manHours.employee) * 1000000 : null;
-  const ltifrEmployee = manHours.employee > 0 && s ? ((s.employeeLti || 0) / manHours.employee) * 1000000 : null;
-  const tifrContractor = manHours.contractor > 0 && s ? ((s.contractorInjuries || 0) / manHours.contractor) * 1000000 : null;
-  const ltifrContractor = manHours.contractor > 0 && s ? ((s.contractorLti || 0) / manHours.contractor) * 1000000 : null;
+  // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only (uses liveStats for toggle support)
+  const tifrCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
+  const ltifrCombined = manHours.total > 0 ? (liveStats.ltiCases / manHours.total) * 1000000 : null;
+  const tifrEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
+  const ltifrEmployee = manHours.employee > 0 ? (liveStats.employeeLti / manHours.employee) * 1000000 : null;
+  const tifrContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
+  const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
 
   // Form handlers
   const openNewForm = () => {
@@ -513,8 +512,52 @@ export default function IncidentsPage() {
   };
   const getTypeColor = (t: string) => TYPE_COLORS[t] || '#9ca3af';
 
+  // Base incidents filtered by workRelatedOnly (for KPIs, type cards, charts)
+  const baseIncidents = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
+
+  // Compute live stats from baseIncidents (respects workRelatedOnly toggle)
+  const liveStats = (() => {
+    const INJURY_TYPES_PART = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
+    const injuryIncidents = baseIncidents.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p)));
+    const ltiIncidents = baseIncidents.filter(i => {
+      const t = i.incident_type || '';
+      return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+    });
+    const nearMisses = baseIncidents.filter(i => i.incident_type === 'Near Miss');
+    const propDamage = baseIncidents.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+    const fatalities = baseIncidents.filter(i => (i.incident_type || '').includes('เสียชีวิต'));
+    const directCost = baseIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0);
+    const indirectCost = baseIncidents.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0);
+
+    // Employee vs Contractor breakdown
+    const empInj = injuryIncidents.filter(i => (i.person_type || '').includes('พนักงาน'));
+    const conInj = injuryIncidents.filter(i => (i.person_type || '').includes('ผู้รับเหมา'));
+    const empLti = ltiIncidents.filter(i => (i.person_type || '').includes('พนักงาน'));
+    const conLti = ltiIncidents.filter(i => (i.person_type || '').includes('ผู้รับเหมา'));
+
+    // Type breakdown
+    const typeBreakdown: Record<string, number> = {};
+    baseIncidents.forEach(i => { const t = i.incident_type || 'อื่นๆ'; typeBreakdown[t] = (typeBreakdown[t] || 0) + 1; });
+
+    return {
+      totalIncidents: baseIncidents.length,
+      totalInjuries: injuryIncidents.length,
+      ltiCases: ltiIncidents.length,
+      nearMisses: nearMisses.length,
+      propertyDamage: propDamage.length,
+      fatalities: fatalities.length,
+      totalDirectCost: directCost,
+      totalIndirectCost: indirectCost,
+      employeeInjuries: empInj.length,
+      contractorInjuries: conInj.length,
+      employeeLti: empLti.length,
+      contractorLti: conLti.length,
+      typeBreakdown,
+    };
+  })();
+
   // Filtered dashboard incidents based on dashFilter and workRelatedOnly
-  const filteredDashIncidents = dashIncidents.filter(inc => {
+  const filteredDashIncidents = baseIncidents.filter(inc => {
     if (dashFilter.month) {
       const incMonth = inc.month;
       const monthNum = parseInt(String(incMonth));
@@ -524,17 +567,13 @@ export default function IncidentsPage() {
     if (dashFilter.type) {
       if (inc.incident_type !== dashFilter.type) return false;
     }
-    if (workRelatedOnly) {
-      if (inc.work_related !== 'ใช่') return false;
-    }
     return true;
   });
 
-  // Compute monthly stacked data from dashIncidents (respects work-related filter)
-  const incidentsForMonthly = workRelatedOnly ? filteredDashIncidents : dashIncidents;
+  // Compute monthly stacked data from baseIncidents (respects work-related filter)
   const monthlyStacked: Record<string, Record<string, number>> = {};
   MONTHS.forEach(m => { monthlyStacked[m] = {}; });
-  incidentsForMonthly.forEach(inc => {
+  baseIncidents.forEach(inc => {
     const raw = inc.month;
     const num = parseInt(String(raw));
     const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
@@ -704,9 +743,9 @@ export default function IncidentsPage() {
               {/* KPI Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: 'Total Incident', value: summaryData.summary.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
-                  { label: 'TRC Cases', value: summaryData.summary.totalInjuries, icon: Activity, color: '#f97316' },
-                  { label: 'LTI Cases', value: summaryData.summary.ltiCases, icon: Clock, color: '#ef4444' },
+                  { label: 'Total Incident', value: liveStats.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
+                  { label: 'TRC Cases', value: liveStats.totalInjuries, icon: Activity, color: '#f97316' },
+                  { label: 'LTI Cases', value: liveStats.ltiCases, icon: Clock, color: '#ef4444' },
                   { label: 'Total Manhour', value: manHours.total, icon: Users, color: '#3b82f6' },
                 ].map((kpi, idx) => (
                   <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
@@ -752,7 +791,7 @@ export default function IncidentsPage() {
                         </span>
                       </div>
                       <div className="text-[10px] pt-1" style={{ color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
-                        Man-hours: {manHours.employee > 0 ? manHours.employee.toLocaleString() : '-'} | Injuries: {summaryData.summary.employeeInjuries || 0} | LTI: {summaryData.summary.employeeLti || 0}
+                        Man-hours: {manHours.employee > 0 ? manHours.employee.toLocaleString() : '-'} | Injuries: {liveStats.employeeInjuries} | LTI: {liveStats.employeeLti}
                       </div>
                     </div>
                   </div>
@@ -776,7 +815,7 @@ export default function IncidentsPage() {
                         </span>
                       </div>
                       <div className="text-[10px] pt-1" style={{ color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
-                        Man-hours: {manHours.contractor > 0 ? manHours.contractor.toLocaleString() : '-'} | Injuries: {summaryData.summary.contractorInjuries || 0} | LTI: {summaryData.summary.contractorLti || 0}
+                        Man-hours: {manHours.contractor > 0 ? manHours.contractor.toLocaleString() : '-'} | Injuries: {liveStats.contractorInjuries} | LTI: {liveStats.contractorLti}
                       </div>
                     </div>
                   </div>
@@ -800,7 +839,7 @@ export default function IncidentsPage() {
                         </span>
                       </div>
                       <div className="text-[10px] pt-1" style={{ color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
-                        Man-hours: {manHours.total > 0 ? manHours.total.toLocaleString() : '-'} | Injuries: {summaryData.summary.totalInjuries} | LTI: {summaryData.summary.ltiCases}
+                        Man-hours: {manHours.total > 0 ? manHours.total.toLocaleString() : '-'} | Injuries: {liveStats.totalInjuries} | LTI: {liveStats.ltiCases}
                       </div>
                     </div>
                   </div>
@@ -813,17 +852,17 @@ export default function IncidentsPage() {
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>ค่าเสียหายรวม</p>
                     <p className="text-2xl font-bold mt-1" style={{ color: '#22c55e' }}>
-                      {(summaryData.summary.totalDirectCost + summaryData.summary.totalIndirectCost).toLocaleString()} ฿
+                      {(liveStats.totalDirectCost + liveStats.totalIndirectCost).toLocaleString()} ฿
                     </p>
                   </div>
                   <div className="flex gap-6">
                     <div className="text-right">
                       <p className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายตรง</p>
-                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{summaryData.summary.totalDirectCost.toLocaleString()} ฿</p>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{liveStats.totalDirectCost.toLocaleString()} ฿</p>
                     </div>
                     <div className="text-right">
                       <p className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายอ้อม</p>
-                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{summaryData.summary.totalIndirectCost.toLocaleString()} ฿</p>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{liveStats.totalIndirectCost.toLocaleString()} ฿</p>
                     </div>
                   </div>
                 </div>
@@ -910,7 +949,7 @@ export default function IncidentsPage() {
                     { type: 'โรคจากการทำงาน', bg: '#f1f5f9', border: '#cbd5e1', text: '#475569' },
                     { type: 'สิ่งแวดล้อม', bg: '#ecfccb', border: '#bef264', text: '#3f6212' },
                   ].map(({ type, bg, border, text }) => {
-                    const count = summaryData.typeBreakdown[type] || 0;
+                    const count = liveStats.typeBreakdown[type] || 0;
                     const isActive = dashFilter.type === type;
                     return (
                       <button
