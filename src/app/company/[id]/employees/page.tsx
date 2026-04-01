@@ -603,7 +603,7 @@ export default function EmployeesPage() {
                 <input
                   type="text" placeholder="ค้นหา รหัส ชื่อ ตำแหน่ง..."
                   value={search} onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: '100%' }}
+                  className="w-full pr-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: '100%', paddingLeft: 36 }}
                 />
               </div>
               <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
@@ -725,7 +725,7 @@ export default function EmployeesPage() {
                     <input
                       type="text" placeholder="ค้นหาชื่อหลักสูตร หรือหมวดหมู่..."
                       value={courseSearch} onChange={e => setCourseSearch(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: '100%' }}
+                      className="w-full pr-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: '100%', paddingLeft: 36 }}
                     />
                   </div>
                   <button onClick={() => { setCoursesFetched(false); fetchCourses(); }}
