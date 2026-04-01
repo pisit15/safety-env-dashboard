@@ -90,6 +90,15 @@ export async function GET(request: NextRequest) {
         if (i.incident_type === 'เสียชีวิต (Fatality)' || i.actual_severity === 'S6 เสียชีวิต') byCompany[c].fatality++;
       });
 
+      // Split injuries by person_type: employee vs contractor
+      const isContractor = (pt: string | null | undefined) => pt === 'ผู้รับเหมา';
+      const isEmployee = (pt: string | null | undefined) => pt !== 'ผู้รับเหมา' && pt !== null && pt !== undefined && pt !== '';
+
+      const employeeInjuries = injuries.filter(i => isEmployee(i.person_type));
+      const contractorInjuries = injuries.filter(i => isContractor(i.person_type));
+      const employeeLti = ltiCases.filter(i => isEmployee(i.person_type));
+      const contractorLti = ltiCases.filter(i => isContractor(i.person_type));
+
       return NextResponse.json({
         summary: {
           totalIncidents,
@@ -100,6 +109,11 @@ export async function GET(request: NextRequest) {
           fatalities: fatalities.length,
           totalDirectCost,
           totalIndirectCost,
+          // Split by person type
+          employeeInjuries: employeeInjuries.length,
+          contractorInjuries: contractorInjuries.length,
+          employeeLti: employeeLti.length,
+          contractorLti: contractorLti.length,
         },
         monthlyData,
         severityBreakdown,

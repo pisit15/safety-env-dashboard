@@ -89,6 +89,10 @@ interface SummaryData {
     fatalities: number;
     totalDirectCost: number;
     totalIndirectCost: number;
+    employeeInjuries: number;
+    contractorInjuries: number;
+    employeeLti: number;
+    contractorLti: number;
   };
   monthlyData: Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }>;
   severityBreakdown: Record<string, number>;
@@ -176,9 +180,14 @@ export default function IncidentsPage() {
     else if (viewMode === 'list') fetchList();
   }, [viewMode, fetchSummary, fetchList]);
 
-  // Calculate TIFR/LTIFR
-  const tifr = manHours.total > 0 && summaryData ? ((summaryData.summary.totalInjuries / manHours.total) * 1000000) : null;
-  const ltifr = manHours.total > 0 && summaryData ? ((summaryData.summary.ltiCases / manHours.total) * 1000000) : null;
+  // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only
+  const s = summaryData?.summary;
+  const tifrCombined = manHours.total > 0 && s ? (s.totalInjuries / manHours.total) * 1000000 : null;
+  const ltifrCombined = manHours.total > 0 && s ? (s.ltiCases / manHours.total) * 1000000 : null;
+  const tifrEmployee = manHours.employee > 0 && s ? ((s.employeeInjuries || 0) / manHours.employee) * 1000000 : null;
+  const ltifrEmployee = manHours.employee > 0 && s ? ((s.employeeLti || 0) / manHours.employee) * 1000000 : null;
+  const tifrContractor = manHours.contractor > 0 && s ? ((s.contractorInjuries || 0) / manHours.contractor) * 1000000 : null;
+  const ltifrContractor = manHours.contractor > 0 && s ? ((s.contractorLti || 0) / manHours.contractor) * 1000000 : null;
 
   // Form handlers
   const openNewForm = () => {
@@ -351,33 +360,110 @@ export default function IncidentsPage() {
                 ))}
               </div>
 
-              {/* TIFR / LTIFR + Cost */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>TIFR</p>
-                  <p className="text-[10px] mb-3" style={{ color: 'var(--muted)' }}>Total Injury Frequency Rate</p>
-                  <p className="text-3xl font-bold" style={{ color: tifr !== null ? '#f97316' : 'var(--muted)' }}>
-                    {tifr !== null ? tifr.toFixed(2) : 'N/A'}
+              {/* TIFR / LTIFR — 3-way split + Cost */}
+              <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                  TIFR / LTIFR
+                </h3>
+                {manHours.total === 0 && (
+                  <p className="text-[12px] mb-3 px-3 py-2 rounded-lg" style={{ background: '#fef3c7', color: '#92400e' }}>
+                    กรุณากรอก Man-hours ที่หน้า &quot;ชั่วโมงการทำงาน&quot; เพื่อคำนวณ TIFR/LTIFR
                   </p>
-                  {tifr === null && <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>กรุณากรอก Man-hours</p>}
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Employee */}
+                  <div className="rounded-xl p-4" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full" style={{ background: '#3b82f6' }} />
+                      <span className="text-[11px] font-semibold" style={{ color: '#3b82f6' }}>พนักงาน (Employee)</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>TIFR</span>
+                        <span className="text-lg font-bold" style={{ color: tifrEmployee !== null ? '#f97316' : 'var(--muted)' }}>
+                          {tifrEmployee !== null ? tifrEmployee.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>LTIFR</span>
+                        <span className="text-lg font-bold" style={{ color: ltifrEmployee !== null ? '#ef4444' : 'var(--muted)' }}>
+                          {ltifrEmployee !== null ? ltifrEmployee.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] pt-1" style={{ color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
+                        Man-hours: {manHours.employee > 0 ? manHours.employee.toLocaleString() : '-'} | Injuries: {summaryData.summary.employeeInjuries || 0} | LTI: {summaryData.summary.employeeLti || 0}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Contractor */}
+                  <div className="rounded-xl p-4" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full" style={{ background: '#f97316' }} />
+                      <span className="text-[11px] font-semibold" style={{ color: '#f97316' }}>ผู้รับเหมา (Contractor)</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>TIFR</span>
+                        <span className="text-lg font-bold" style={{ color: tifrContractor !== null ? '#f97316' : 'var(--muted)' }}>
+                          {tifrContractor !== null ? tifrContractor.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>LTIFR</span>
+                        <span className="text-lg font-bold" style={{ color: ltifrContractor !== null ? '#ef4444' : 'var(--muted)' }}>
+                          {ltifrContractor !== null ? ltifrContractor.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] pt-1" style={{ color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
+                        Man-hours: {manHours.contractor > 0 ? manHours.contractor.toLocaleString() : '-'} | Injuries: {summaryData.summary.contractorInjuries || 0} | LTI: {summaryData.summary.contractorLti || 0}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Combined */}
+                  <div className="rounded-xl p-4" style={{ background: 'var(--bg-secondary)', border: '2px solid var(--accent)' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full" style={{ background: '#6366f1' }} />
+                      <span className="text-[11px] font-semibold" style={{ color: '#6366f1' }}>รวม (Combined)</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>TIFR</span>
+                        <span className="text-xl font-bold" style={{ color: tifrCombined !== null ? '#f97316' : 'var(--muted)' }}>
+                          {tifrCombined !== null ? tifrCombined.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>LTIFR</span>
+                        <span className="text-xl font-bold" style={{ color: ltifrCombined !== null ? '#ef4444' : 'var(--muted)' }}>
+                          {ltifrCombined !== null ? ltifrCombined.toFixed(2) : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] pt-1" style={{ color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
+                        Man-hours: {manHours.total > 0 ? manHours.total.toLocaleString() : '-'} | Injuries: {summaryData.summary.totalInjuries} | LTI: {summaryData.summary.ltiCases}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>LTIFR</p>
-                  <p className="text-[10px] mb-3" style={{ color: 'var(--muted)' }}>Lost Time Injury Frequency Rate</p>
-                  <p className="text-3xl font-bold" style={{ color: ltifr !== null ? '#ef4444' : 'var(--muted)' }}>
-                    {ltifr !== null ? ltifr.toFixed(2) : 'N/A'}
-                  </p>
-                  {ltifr === null && <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>กรุณากรอก Man-hours</p>}
-                </div>
-                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>ค่าเสียหาย</p>
-                  <p className="text-[10px] mb-3" style={{ color: 'var(--muted)' }}>Direct + Indirect Cost</p>
-                  <p className="text-2xl font-bold" style={{ color: '#22c55e' }}>
-                    {(summaryData.summary.totalDirectCost + summaryData.summary.totalIndirectCost).toLocaleString()} ฿
-                  </p>
-                  <div className="flex gap-4 mt-1">
-                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ตรง: {summaryData.summary.totalDirectCost.toLocaleString()}</span>
-                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>อ้อม: {summaryData.summary.totalIndirectCost.toLocaleString()}</span>
+              </div>
+
+              {/* Cost Summary */}
+              <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>ค่าเสียหายรวม</p>
+                    <p className="text-2xl font-bold mt-1" style={{ color: '#22c55e' }}>
+                      {(summaryData.summary.totalDirectCost + summaryData.summary.totalIndirectCost).toLocaleString()} ฿
+                    </p>
+                  </div>
+                  <div className="flex gap-6">
+                    <div className="text-right">
+                      <p className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายตรง</p>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{summaryData.summary.totalDirectCost.toLocaleString()} ฿</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายอ้อม</p>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{summaryData.summary.totalIndirectCost.toLocaleString()} ฿</p>
+                    </div>
                   </div>
                 </div>
               </div>

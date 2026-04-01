@@ -15,6 +15,7 @@ import {
   FileText,
   ArrowRight,
   Building2,
+  Clock,
 } from 'lucide-react';
 
 // ready can be: true (all companies), false (no company), or 'hasSheet' (only companies with Google Sheet)
@@ -22,6 +23,7 @@ const PROJECTS = [
   { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, path: '/action-plan', ready: 'hasSheet' as const },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, path: '/training', ready: true },
   { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, path: '/incidents', ready: true },
+  { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, path: '/manhours', ready: true },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, path: '/safety-patrol', ready: false },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, path: '/risk', ready: false },
   { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, path: '/nearmiss', ready: false },
