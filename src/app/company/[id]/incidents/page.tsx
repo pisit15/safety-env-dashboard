@@ -227,6 +227,20 @@ export default function IncidentsPage() {
   const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
   const [trendManhours, setTrendManhours] = useState<Record<number, number>>({});
 
+  // Injured persons data for injury-specific charts
+  interface InjuredPerson {
+    incident_no: string;
+    person_type?: string;
+    injury_severity?: string;
+    nature_of_injury?: string;
+    body_part?: string;
+    body_side?: string;
+    is_lti?: string;
+    lost_work_days?: number;
+  }
+  const [injuredPersonsData, setInjuredPersonsData] = useState<InjuredPerson[]>([]);
+  const [injuredIncidentMap, setInjuredIncidentMap] = useState<Record<string, { year: number; work_related: string; incident_type: string }>>({});
+
   // Fetch summary (handles multi-year for dashboard)
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -395,6 +409,23 @@ export default function IncidentsPage() {
       })
       .catch(() => setTrendManhours({}));
   }, [viewMode, id]);
+
+  // Fetch injured persons data when in injury category
+  useEffect(() => {
+    if (viewMode !== 'dashboard' || incidentCategory !== 'injury' || selectedYears.length === 0) {
+      return;
+    }
+    fetch(`/api/incidents/injured-bulk?company_id=${id}&years=${selectedYears.join(',')}`)
+      .then(r => r.json())
+      .then(data => {
+        setInjuredPersonsData(data.persons || []);
+        setInjuredIncidentMap(data.incidentMap || {});
+      })
+      .catch(() => {
+        setInjuredPersonsData([]);
+        setInjuredIncidentMap({});
+      });
+  }, [viewMode, id, incidentCategory, selectedYears]);
 
   // Form handlers
   const openNewForm = () => {
@@ -1315,6 +1346,238 @@ export default function IncidentsPage() {
                   </>
                 );
               })()}
+
+              {/* ===================== INJURY-SPECIFIC CHARTS (only when injury tab) ===================== */}
+              {incidentCategory === 'injury' && (() => {
+                // Filter injured persons by workRelatedOnly + selected years
+                const filteredPersons = injuredPersonsData.filter(p => {
+                  const incInfo = injuredIncidentMap[p.incident_no];
+                  if (!incInfo) return false;
+                  if (!selectedYears.includes(incInfo.year)) return false;
+                  if (workRelatedOnly && incInfo.work_related !== 'ใช่') return false;
+                  // Only injury-type incidents
+                  const t = incInfo.incident_type || '';
+                  return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p2 => t.includes(p2));
+                });
+
+                const YEAR_COLORS_INJ: Record<number, string> = {
+                  2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
+                  2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
+                };
+                const activeYears = selectedYears.filter(y =>
+                  filteredPersons.some(p => injuredIncidentMap[p.incident_no]?.year === y)
+                ).sort();
+
+                // Helper: group by a field per year
+                const groupByFieldPerYear = (field: keyof InjuredPerson, labels?: string[]) => {
+                  const counts: Record<string, Record<number, number>> = {};
+                  filteredPersons.forEach(p => {
+                    const val = (p[field] as string) || 'ไม่ระบุ';
+                    const yr = injuredIncidentMap[p.incident_no]?.year;
+                    if (!yr) return;
+                    if (!counts[val]) counts[val] = {};
+                    counts[val][yr] = (counts[val][yr] || 0) + 1;
+                  });
+                  // Sort by total descending, optionally filter by labels
+                  let keys = Object.keys(counts);
+                  if (labels) {
+                    // Ensure order matches labels, include only those with data
+                    keys = labels.filter(l => counts[l]);
+                    // Add any keys not in labels
+                    Object.keys(counts).forEach(k => { if (!keys.includes(k)) keys.push(k); });
+                  } else {
+                    keys.sort((a, b) => {
+                      const totA = Object.values(counts[a]).reduce((s, v) => s + v, 0);
+                      const totB = Object.values(counts[b]).reduce((s, v) => s + v, 0);
+                      return totB - totA;
+                    });
+                  }
+                  // Limit to top 15 for readability
+                  keys = keys.slice(0, 15);
+                  return { keys, counts };
+                };
+
+                // Helper: render horizontal grouped bar chart
+                const renderGroupedBarChart = (
+                  title: string,
+                  subtitle: string,
+                  data: { keys: string[]; counts: Record<string, Record<number, number>> },
+                ) => {
+                  const { keys, counts } = data;
+                  if (keys.length === 0) return null;
+                  const maxVal = Math.max(
+                    ...keys.flatMap(k => activeYears.map(y => counts[k]?.[y] || 0)),
+                    1
+                  );
+
+                  return (
+                    <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <div className="mb-4">
+                        <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>{subtitle}</p>
+                      </div>
+                      {/* Legend */}
+                      <div className="flex flex-wrap gap-3 mb-4">
+                        {activeYears.map(y => (
+                          <div key={y} className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded-sm" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
+                            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{y}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Bars */}
+                      <div className="space-y-3">
+                        {keys.map(k => {
+                          const total = activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0);
+                          return (
+                            <div key={k}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[12px] font-medium truncate max-w-[200px]" style={{ color: 'var(--text-primary)' }} title={k}>{k}</span>
+                                <span className="text-[11px] font-bold" style={{ color: 'var(--muted)' }}>{total}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                {activeYears.map(y => {
+                                  const val = counts[k]?.[y] || 0;
+                                  const pct = (val / maxVal) * 100;
+                                  return (
+                                    <div key={y} className="flex-1 relative" style={{ height: 20 }}>
+                                      <div className="absolute inset-0 rounded-sm" style={{ background: 'var(--bg-secondary)' }} />
+                                      <div
+                                        className="absolute left-0 top-0 bottom-0 rounded-sm flex items-center justify-end pr-1.5 transition-all"
+                                        style={{ width: `${Math.max(pct, val > 0 ? 8 : 0)}%`, background: YEAR_COLORS_INJ[y] || '#9ca3af' }}
+                                      >
+                                        {val > 0 && (
+                                          <span className="text-[9px] font-bold text-white">{val}</span>
+                                        )}
+                                      </div>
+                                      {activeYears.length > 1 && (
+                                        <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px]" style={{ color: 'var(--muted)' }}>
+                                          {y.toString().slice(-2)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                };
+
+                // ---- Chart 1: LTI vs non-LTI (หยุดงานหรือไม่) ----
+                const ltiData = (() => {
+                  const counts: Record<string, Record<number, number>> = { 'หยุดงาน (LTI)': {}, 'ไม่หยุดงาน': {} };
+                  filteredPersons.forEach(p => {
+                    const yr = injuredIncidentMap[p.incident_no]?.year;
+                    if (!yr) return;
+                    const key = p.is_lti === 'ใช่' ? 'หยุดงาน (LTI)' : 'ไม่หยุดงาน';
+                    counts[key][yr] = (counts[key][yr] || 0) + 1;
+                  });
+                  return { keys: ['หยุดงาน (LTI)', 'ไม่หยุดงาน'], counts };
+                })();
+
+                // ---- Chart 2: Lost work days per year (จำนวนวันหยุดงาน) ----
+                const lostDaysData = (() => {
+                  const perYear: Record<number, number> = {};
+                  filteredPersons.forEach(p => {
+                    const yr = injuredIncidentMap[p.incident_no]?.year;
+                    if (!yr) return;
+                    perYear[yr] = (perYear[yr] || 0) + (Number(p.lost_work_days) || 0);
+                  });
+                  return perYear;
+                })();
+                const maxLostDays = Math.max(...activeYears.map(y => lostDaysData[y] || 0), 1);
+
+                // ---- Chart 3: Injury severity (ระดับการบาดเจ็บ) ----
+                const severityData = groupByFieldPerYear('injury_severity', INJ_SEVERITIES);
+
+                // ---- Chart 4: Nature of injury (ลักษณะการบาดเจ็บ) ----
+                const natureData = groupByFieldPerYear('nature_of_injury');
+
+                // ---- Chart 5: Body part (ส่วนร่างกาย) ----
+                const bodyPartData = groupByFieldPerYear('body_part');
+
+                return (
+                  <div className="mt-6">
+                    <h2 className="text-[16px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+                      📊 วิเคราะห์รายละเอียดการบาดเจ็บ
+                    </h2>
+
+                    {filteredPersons.length === 0 ? (
+                      <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                        <p className="text-[13px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลผู้บาดเจ็บ สำหรับปีที่เลือก</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Top row: LTI breakdown + Lost work days */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                          {/* Chart 1: LTI vs non-LTI */}
+                          {renderGroupedBarChart(
+                            'หยุดงานหรือไม่',
+                            'เปรียบเทียบจำนวนผู้บาดเจ็บที่หยุดงาน (LTI) vs ไม่หยุดงาน',
+                            ltiData
+                          )}
+
+                          {/* Chart 2: Lost work days — vertical bar */}
+                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                            <div className="mb-4">
+                              <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>จำนวนวันหยุดงาน</h3>
+                              <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>รวมจำนวนวันหยุดงานทั้งหมดในแต่ละปี</p>
+                            </div>
+                            <div className="flex items-end gap-3 justify-center" style={{ height: 200 }}>
+                              {activeYears.map(y => {
+                                const val = lostDaysData[y] || 0;
+                                const pct = (val / maxLostDays) * 100;
+                                return (
+                                  <div key={y} className="flex flex-col items-center gap-1" style={{ flex: 1, maxWidth: 80 }}>
+                                    <span className="text-[13px] font-bold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{val}</span>
+                                    <div className="w-full rounded-t-lg transition-all" style={{
+                                      height: `${Math.max(pct * 1.6, val > 0 ? 8 : 2)}px`,
+                                      background: YEAR_COLORS_INJ[y] || '#9ca3af',
+                                      maxHeight: 160,
+                                      opacity: val > 0 ? 1 : 0.2,
+                                    }} />
+                                    <span className="text-[11px] font-semibold mt-1" style={{ color: 'var(--text-secondary)' }}>{y}</span>
+                                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>วัน</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Chart 3: Injury severity */}
+                        {renderGroupedBarChart(
+                          'ระดับการบาดเจ็บ',
+                          'เปรียบเทียบระดับความรุนแรงของการบาดเจ็บในแต่ละปี',
+                          severityData
+                        )}
+
+                        {/* Bottom row: Nature of injury + Body part */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                          {/* Chart 4: Nature of injury */}
+                          {renderGroupedBarChart(
+                            'ลักษณะการบาดเจ็บ',
+                            'ประเภทของการบาดเจ็บที่พบมากที่สุด เปรียบเทียบรายปี',
+                            natureData
+                          )}
+
+                          {/* Chart 5: Body part */}
+                          {renderGroupedBarChart(
+                            'ส่วนร่างกายที่ได้รับบาดเจ็บ',
+                            'อวัยวะที่ได้รับบาดเจ็บบ่อยที่สุด เปรียบเทียบรายปี',
+                            bodyPartData
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
             </div>
           ) : viewMode === 'list' ? (
             /* ===================== LIST VIEW ===================== */
