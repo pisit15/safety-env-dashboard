@@ -378,14 +378,6 @@ export default function IncidentsPage() {
     })).then(setYearlyTrend);
   }, [viewMode, id]);
 
-  // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only (uses liveStats for toggle support)
-  const tifrCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
-  const ltifrCombined = manHours.total > 0 ? (liveStats.ltiCases / manHours.total) * 1000000 : null;
-  const tifrEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
-  const ltifrEmployee = manHours.employee > 0 ? (liveStats.employeeLti / manHours.employee) * 1000000 : null;
-  const tifrContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
-  const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
-
   // Form handlers
   const openNewForm = () => {
     setEditingIncident(null);
@@ -555,6 +547,14 @@ export default function IncidentsPage() {
       typeBreakdown,
     };
   })();
+
+  // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only (uses liveStats for toggle support)
+  const tifrCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
+  const ltifrCombined = manHours.total > 0 ? (liveStats.ltiCases / manHours.total) * 1000000 : null;
+  const tifrEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
+  const ltifrEmployee = manHours.employee > 0 ? (liveStats.employeeLti / manHours.employee) * 1000000 : null;
+  const tifrContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
+  const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
 
   // Filtered dashboard incidents based on dashFilter and workRelatedOnly
   const filteredDashIncidents = baseIncidents.filter(inc => {
