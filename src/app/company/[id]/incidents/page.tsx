@@ -1063,20 +1063,27 @@ export default function IncidentsPage() {
                           <span className="text-[10px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{monthTotal}</span>
                         )}
                         <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden" style={{ height: Math.max(barHeight, 4) }}>
-                          {allTypes.map((type, idx) => {
+                          {allTypes.map((type) => {
                             const count = monthData[type] || 0;
-                            return count > 0 ? (
+                            if (count <= 0) return null;
+                            const segPct = monthTotal > 0 ? (count / monthTotal) * 100 : 0;
+                            const segH = (count / monthTotal) * barHeight;
+                            return (
                               <div
                                 key={`${m}-${type}`}
                                 onClick={() => setDashFilter({ month: m, type })}
-                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                                className="cursor-pointer hover:opacity-80 transition-opacity relative flex items-center justify-center"
                                 style={{
-                                  height: `${monthTotal > 0 ? (count / monthTotal) * 100 : 0}%`,
+                                  height: `${segPct}%`,
                                   background: getTypeColor(type),
                                   minHeight: 3,
                                 }}
-                              />
-                            ) : null;
+                              >
+                                {segH >= 14 && (
+                                  <span className="text-[9px] font-medium leading-none" style={{ color: 'rgba(255,255,255,0.55)' }}>{count}</span>
+                                )}
+                              </div>
+                            );
                           })}
                           {monthTotal === 0 && <div style={{ height: 4, background: 'var(--border)' }} />}
                         </div>
