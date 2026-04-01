@@ -405,27 +405,71 @@ export default function CompanyTraining() {
 
   // Toggle attendee: check = add, uncheck = remove (instant)
   const [togglingEmp, setTogglingEmp] = useState<Set<string>>(new Set());
+
+  // Helper: ensure a training_session exists for a plan, auto-create if needed
+  const ensureSession = async (plan: TrainingPlan): Promise<string | null> => {
+    const existing = plan.training_sessions?.[0];
+    if (existing?.id) return existing.id;
+    // Auto-create session with 'planned' status
+    try {
+      const res = await fetch('/api/training/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          company_id: companyId,
+          status: modalStatus || 'planned',
+          scheduled_date_start: null,
+          scheduled_date_end: null,
+          actual_cost: 0,
+          actual_participants: 0,
+          hours_per_course: plan.hours_per_course,
+          total_man_hours: 0,
+          note: '',
+          updated_by: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Refresh plans to get the new session
+        await fetchPlans();
+        return data?.session?.id || data?.id || null;
+      }
+    } catch (e) { console.error('Failed to create session:', e); }
+    return null;
+  };
+
   const handleToggleAttendee = async (emp: typeof companyEmployees[0], isCurrentlyAttendee: boolean, attendeeId?: string) => {
-    const session = selectedPlan?.training_sessions?.[0];
-    if (!session || !selectedPlan) return;
+    if (!selectedPlan) return;
     const empKey = `${emp.emp_code}_${emp.first_name}_${emp.last_name}`;
     setTogglingEmp(prev => new Set(prev).add(empKey));
     try {
+      // Get or create session
+      let sessionId: string | null = selectedPlan.training_sessions?.[0]?.id || null;
+      if (!sessionId) {
+        sessionId = await ensureSession(selectedPlan);
+        if (!sessionId) {
+          alert('ไม่สามารถสร้าง session ได้ กรุณาบันทึกสถานะก่อน');
+          setTogglingEmp(prev => { const n = new Set(prev); n.delete(empKey); return n; });
+          return;
+        }
+      }
+
       if (isCurrentlyAttendee && attendeeId) {
-        await fetch(`/api/training/attendees?id=${attendeeId}&sessionId=${session.id}`, { method: 'DELETE' });
+        await fetch(`/api/training/attendees?id=${attendeeId}&sessionId=${sessionId}`, { method: 'DELETE' });
       } else {
         await fetch('/api/training/attendees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            session_id: session.id, plan_id: selectedPlan.id, company_id: companyId,
+            session_id: sessionId, plan_id: selectedPlan.id, company_id: companyId,
             emp_code: emp.emp_code || '', first_name: emp.first_name || '', last_name: emp.last_name || '',
             gender: emp.gender || '', position: emp.position || '', department: emp.department || '',
             registration_type: 'registered',
           }),
         });
       }
-      await fetchAttendees(session.id);
+      await fetchAttendees(sessionId);
     } catch (e) { console.error(e); }
     setTogglingEmp(prev => { const n = new Set(prev); n.delete(empKey); return n; });
   };
