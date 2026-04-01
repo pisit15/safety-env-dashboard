@@ -50,8 +50,8 @@ interface Incident {
 
 export default function HQIncidentsPage() {
   const auth = useAuth();
-  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
-  const [workRelatedOnly, setWorkRelatedOnly] = useState(false);
+  const [selectedYears, setSelectedYears] = useState<number[]>([2021, 2022, 2023, 2024, 2025, 2026]);
+  const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
   const [manHoursByCompany, setManHoursByCompany] = useState<Record<string, { employee: number; contractor: number; total: number }>>({});

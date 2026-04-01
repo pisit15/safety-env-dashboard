@@ -14,7 +14,7 @@ import {
 // Dropdown options matching the Excel template
 const INCIDENT_TYPES = [
   'เสียชีวิต (Fatality)', 'บาดเจ็บ - หยุดงาน > 3 วัน', 'บาดเจ็บ - หยุดงาน ≤ 3 วัน',
-  'บาดเจ็บ - ทำงานอย่างจำกัด', 'บาดเจ็บ - ไม่หยุดงาน', 'บาดเจ็บ - ปฐมพยาบาล (FA)',
+  'บาดเจ็บ - ทำงานอย่างจำกัด', 'บาดเจ็บ - ไม่หยุดงาน',
   'ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล',
   'Near Miss', 'โรคจากการทำงาน', 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', 'สิ่งแวดล้อม',
 ];
@@ -219,8 +219,8 @@ export default function IncidentsPage() {
   const [dashIncidents, setDashIncidents] = useState<Incident[]>([]);
 
   // Dashboard new filters: work-related and multi-year
-  const [workRelatedOnly, setWorkRelatedOnly] = useState(false);
-  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+  const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
+  const [selectedYears, setSelectedYears] = useState<number[]>([2021, 2022, 2023, 2024, 2025, 2026]);
 
   // Multi-year TRIR/LTIFR trend — raw data for client-side computation
   const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
@@ -502,7 +502,6 @@ export default function IncidentsPage() {
     'บาดเจ็บ - ไม่หยุดงาน': '#f97316',
     'บาดเจ็บ - หยุดงาน ≤ 3 วัน': '#eab308',
     'บาดเจ็บ - หยุดงาน > 3 วัน': '#ef4444',
-    'บาดเจ็บ - ปฐมพยาบาล (FA)': '#06b6d4',
     'บาดเจ็บ - ทำงานอย่างจำกัด': '#a855f7',
     'Near Miss': '#22c55e',
     'เสียชีวิต (Fatality)': '#991b1b',
@@ -992,13 +991,12 @@ export default function IncidentsPage() {
 
               {/* Incident Type Breakdown Cards — fixed order matching reference */}
               <div className="mb-6">
-                <div className="grid grid-cols-4 lg:grid-cols-7 gap-2">
+                <div className="grid grid-cols-4 lg:grid-cols-6 gap-2">
                   {[
                     { type: 'Near Miss', bg: '#d1fae5', border: '#6ee7b7', text: '#065f46' },
                     { type: 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', bg: '#ccfbf1', border: '#5eead4', text: '#115e59' },
                     { type: 'ทรัพย์สินเสียหาย', bg: '#dbeafe', border: '#93c5fd', text: '#1e40af' },
                     { type: 'บาดเจ็บ - ไม่หยุดงาน', bg: '#fef3c7', border: '#fcd34d', text: '#92400e' },
-                    { type: 'บาดเจ็บ - ปฐมพยาบาล (FA)', bg: '#fef3c7', border: '#fcd34d', text: '#92400e' },
                     { type: 'บาดเจ็บ - ทำงานอย่างจำกัด', bg: '#fed7aa', border: '#fdba74', text: '#9a3412' },
                     { type: 'บาดเจ็บ - หยุดงาน ≤ 3 วัน', bg: '#fed7aa', border: '#fb923c', text: '#9a3412' },
                     { type: 'บาดเจ็บ - หยุดงาน > 3 วัน', bg: '#fecaca', border: '#f87171', text: '#991b1b' },
@@ -1051,7 +1049,7 @@ export default function IncidentsPage() {
               {/* Monthly Stacked Bar Chart */}
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                  อุบัติการณ์รายเดือน — {year}
+                  อุบัติการณ์รายเดือน — {selectedYears.length === 1 ? selectedYears[0] : selectedYears.join(', ')}
                 </h3>
                 <div className="flex items-end gap-2" style={{ height: 280 }}>
                   {MONTHS.map(m => {
