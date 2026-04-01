@@ -361,12 +361,14 @@ export default function HomePage() {
               '': '#9ca3af',
             };
 
-            // Group companies by BU (uses DB overrides)
+            // Group companies by BU (uses DB overrides), sorted alphabetically within each group
             const grouped = BU_ORDER.map(bu => ({
               bu,
               label: BU_LABELS[bu] || bu || 'ไม่ระบุ',
               color: BU_COLORS[bu] || '#9ca3af',
-              companies: companiesWithDbBu.filter(c => (c.bu || '') === bu),
+              companies: companiesWithDbBu
+                .filter(c => (c.bu || '') === bu)
+                .sort((a, b) => a.shortName.localeCompare(b.shortName)),
             })).filter(g => g.companies.length > 0);
 
             return grouped.map(group => (
@@ -420,85 +422,98 @@ export default function HomePage() {
             onClick={() => setLoginModal(null)}
           >
             <div
-              className="glass-card rounded-2xl p-6 w-full max-w-[360px] animate-fade-in-up"
-              style={{ border: '1px solid var(--border)', background: 'var(--bg-primary)' }}
+              className="rounded-2xl p-0 w-full max-w-[380px] animate-fade-in-up overflow-hidden"
+              style={{
+                background: '#ffffff',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.08)',
+              }}
               onClick={e => e.stopPropagation()}
             >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' }}>
-                    {loginModal.companyName.substring(0, 2)}
+              {/* Modal Header — gradient banner */}
+              <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)' }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold"
+                      style={{ background: 'rgba(255,255,255,0.25)', color: '#fff' }}>
+                      {loginModal.companyName.substring(0, 2)}
+                    </div>
+                    <div>
+                      <h3 className="text-[16px] font-bold text-white">
+                        {loginModal.companyName}
+                      </h3>
+                      <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.7)' }}>เข้าสู่ระบบผู้ใช้งาน</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                      {loginModal.companyName}
-                    </h3>
-                    <p className="text-[11px]" style={{ color: 'var(--muted)' }}>เข้าสู่ระบบ</p>
-                  </div>
+                  <button
+                    onClick={() => setLoginModal(null)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.2)' }}
+                  >
+                    <X size={16} style={{ color: '#fff' }} />
+                  </button>
                 </div>
+              </div>
+
+              {/* Form body */}
+              <div className="px-6 py-5">
+                {/* Username */}
+                <label className="block text-[11px] font-semibold mb-1.5" style={{ color: '#6b7280' }}>USERNAME</label>
+                <div className="relative mb-4">
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                  <input
+                    type="text"
+                    value={loginUser}
+                    onChange={e => setLoginUser(e.target.value)}
+                    placeholder="Username (ถ้ามี)"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                    style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Password */}
+                <label className="block text-[11px] font-semibold mb-1.5" style={{ color: '#6b7280' }}>PASSWORD</label>
+                <div className="relative mb-4">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                  <input
+                    type="password"
+                    value={loginPass}
+                    onChange={e => setLoginPass(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleCompanyLogin()}
+                    placeholder="รหัสผ่าน"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                    style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }}
+                  />
+                </div>
+
+                {/* Error */}
+                {loginError && (
+                  <div className="mb-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                    {loginError}
+                  </div>
+                )}
+
+                {/* Login Button */}
                 <button
-                  onClick={() => setLoginModal(null)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-70"
-                  style={{ background: 'var(--bg-secondary)' }}
+                  onClick={handleCompanyLogin}
+                  disabled={!loginPass || loginLoading}
+                  className="w-full py-3 rounded-lg text-[14px] font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+                  style={{
+                    background: loginPass ? 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)' : '#e5e7eb',
+                    color: loginPass ? '#fff' : '#9ca3af',
+                    cursor: loginPass ? 'pointer' : 'not-allowed',
+                    opacity: loginLoading ? 0.7 : 1,
+                    boxShadow: loginPass ? '0 4px 14px rgba(0,122,255,0.3)' : 'none',
+                  }}
                 >
-                  <X size={16} style={{ color: 'var(--muted)' }} />
+                  {loginLoading ? (
+                    <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <LogIn size={16} />
+                  )}
+                  {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
                 </button>
               </div>
-
-              {/* Username */}
-              <div className="relative mb-3">
-                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
-                <input
-                  type="text"
-                  value={loginUser}
-                  onChange={e => setLoginUser(e.target.value)}
-                  placeholder="Username (ถ้ามี)"
-                  className="w-full pl-10 pr-3 py-2.5 rounded-xl text-[13px] focus:outline-none transition-all"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                  autoFocus
-                />
-              </div>
-
-              {/* Password */}
-              <div className="relative mb-3">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
-                <input
-                  type="password"
-                  value={loginPass}
-                  onChange={e => setLoginPass(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCompanyLogin()}
-                  placeholder="รหัสผ่าน"
-                  className="w-full pl-10 pr-3 py-2.5 rounded-xl text-[13px] focus:outline-none transition-all"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                />
-              </div>
-
-              {/* Error */}
-              {loginError && (
-                <p className="text-[12px] mb-3 px-1" style={{ color: 'var(--danger)' }}>{loginError}</p>
-              )}
-
-              {/* Login Button */}
-              <button
-                onClick={handleCompanyLogin}
-                disabled={!loginPass || loginLoading}
-                className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-2"
-                style={{
-                  background: loginPass ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'var(--bg-secondary)',
-                  color: loginPass ? '#fff' : 'var(--muted)',
-                  cursor: loginPass ? 'pointer' : 'not-allowed',
-                  opacity: loginLoading ? 0.7 : 1,
-                }}
-              >
-                {loginLoading ? (
-                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <LogIn size={16} />
-                )}
-                {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-              </button>
             </div>
           </div>
         )}
