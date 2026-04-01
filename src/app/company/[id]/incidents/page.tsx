@@ -1102,6 +1102,139 @@ export default function IncidentsPage() {
                 </div>
               </div>
 
+              {/* ===== Monthly Trend Comparison + Cumulative Charts ===== */}
+              {(() => {
+                const YEAR_COLORS: Record<number, string> = {
+                  2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
+                  2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
+                };
+                // Monthly counts per year from baseIncidents
+                const yearMonthCounts: Record<number, number[]> = {};
+                selectedYears.forEach(y => { yearMonthCounts[y] = Array(12).fill(0); });
+                baseIncidents.forEach(inc => {
+                  const y = inc.year;
+                  if (!yearMonthCounts[y]) return;
+                  const num = parseInt(String(inc.month));
+                  const mi = (num >= 1 && num <= 12) ? num - 1 : MONTHS.indexOf(String(inc.month));
+                  if (mi >= 0 && mi < 12) yearMonthCounts[y][mi]++;
+                });
+
+                const activeYears = selectedYears.filter(y => yearMonthCounts[y]?.some(v => v > 0));
+                if (activeYears.length === 0) return null;
+
+                // Cumulative
+                const yearCumulative: Record<number, number[]> = {};
+                selectedYears.forEach(y => {
+                  yearCumulative[y] = [];
+                  let sum = 0;
+                  yearMonthCounts[y].forEach(v => { sum += v; yearCumulative[y].push(sum); });
+                });
+
+                const maxTrend = Math.max(...selectedYears.flatMap(y => yearMonthCounts[y]), 1);
+                const maxCum = Math.max(...selectedYears.flatMap(y => yearCumulative[y]), 1);
+
+                const chartW = 700, chartH = 260;
+                const padL = 45, padR = 20, padT = 20, padB = 35;
+                const plotW = chartW - padL - padR;
+                const plotH = chartH - padT - padB;
+
+                const renderChart = (title: string, getData: (y: number) => number[], maxVal: number) => {
+                  // Grid lines
+                  const gridCount = 5;
+                  const gridLines = Array.from({ length: gridCount + 1 }, (_, i) => {
+                    const val = Math.round((maxVal / gridCount) * i);
+                    const yPos = padT + plotH - (val / maxVal) * plotH;
+                    return { val, y: yPos };
+                  });
+
+                  return (
+                    <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+                      <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ maxHeight: 300 }}>
+                        {/* Grid lines */}
+                        {gridLines.map(g => (
+                          <g key={g.val}>
+                            <line x1={padL} y1={g.y} x2={chartW - padR} y2={g.y} stroke="var(--border)" strokeWidth={0.5} />
+                            <text x={padL - 6} y={g.y + 3} textAnchor="end" fontSize={9} fill="var(--muted)">{g.val}</text>
+                          </g>
+                        ))}
+                        {/* Month labels */}
+                        {MONTHS.map((m, i) => {
+                          const x = padL + (i / 11) * plotW;
+                          return (
+                            <text key={m} x={x} y={chartH - 8} textAnchor="middle" fontSize={10} fill="var(--muted)">
+                              {MONTH_TH[m]}
+                            </text>
+                          );
+                        })}
+                        {/* Lines per year */}
+                        {selectedYears.map(y => {
+                          const data = getData(y);
+                          const points = data.map((v, i) => ({
+                            x: padL + (i / 11) * plotW,
+                            y: padT + plotH - (v / maxVal) * plotH,
+                          }));
+                          const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+                          const color = YEAR_COLORS[y] || '#9ca3af';
+                          const hasData = data.some(v => v > 0);
+                          if (!hasData) return null;
+                          return (
+                            <g key={y}>
+                              {/* Area fill */}
+                              <path
+                                d={`${pathD} L${points[points.length - 1].x},${padT + plotH} L${points[0].x},${padT + plotH} Z`}
+                                fill={color} opacity={0.06}
+                              />
+                              {/* Line */}
+                              <path d={pathD} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+                              {/* Data points + values */}
+                              {points.map((p, i) => (
+                                <g key={i}>
+                                  <circle cx={p.x} cy={p.y} r={3.5} fill="#fff" stroke={color} strokeWidth={2} />
+                                  {data[i] > 0 && (
+                                    <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize={9} fontWeight={600} fill={color}>
+                                      {data[i]}
+                                    </text>
+                                  )}
+                                </g>
+                              ))}
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      {/* Legend */}
+                      <div className="flex gap-4 mt-3 justify-center flex-wrap">
+                        {selectedYears.map(y => {
+                          const color = YEAR_COLORS[y] || '#9ca3af';
+                          const hasData = getData(y).some(v => v > 0);
+                          return (
+                            <div key={y} className="flex items-center gap-1.5" style={{ opacity: hasData ? 1 : 0.3 }}>
+                              <div className="w-4 h-[3px] rounded-full" style={{ background: color }} />
+                              <span className="text-[11px] font-medium" style={{ color }}>{y}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                };
+
+                return (
+                  <>
+                    {renderChart(
+                      'แนวโน้มอุบัติการณ์รายเดือน — เปรียบเทียบรายปี',
+                      (y) => yearMonthCounts[y] || Array(12).fill(0),
+                      maxTrend
+                    )}
+                    {renderChart(
+                      'อุบัติการณ์สะสมรายเดือน — เปรียบเทียบรายปี',
+                      (y) => yearCumulative[y] || Array(12).fill(0),
+                      maxCum
+                    )}
+                  </>
+                );
+              })()}
+
               {/* Incident List Table */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
