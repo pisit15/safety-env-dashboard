@@ -87,11 +87,11 @@ export async function GET(request: NextRequest) {
 // POST — attempt to create tables via Supabase Management API
 export async function POST() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const projectRef = supabaseUrl.match(/https:\/\/([^.]+)/)?.[1] || '';
 
   if (!serviceKey) {
-    return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }, { status: 500 });
+    return NextResponse.json({ error: 'No Supabase key available' }, { status: 500 });
   }
 
   const sql = getMissingSQL({ injured_persons: 'missing', man_hours: 'missing' });
