@@ -225,6 +225,8 @@ export default function IncidentsPage() {
 
   // Cross-filter for injury charts (click to drill down)
   const [injuryFilter, setInjuryFilter] = useState<{ field: string; value: string } | null>(null);
+  // Cross-filter for property damage charts
+  const [propFilter, setPropFilter] = useState<{ field: string; value: string } | null>(null);
 
   // Multi-year TRIR/LTIFR trend — raw data for client-side computation
   const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
@@ -844,11 +846,11 @@ export default function IncidentsPage() {
               {[
                 { key: 'total' as const, label: 'ทั้งหมด' },
                 { key: 'injury' as const, label: 'อุบัติเหตุบาดเจ็บ' },
-                { key: 'property' as const, label: 'ทรัพย์สินเสียหาย' },
+                { key: 'property' as const, label: 'Property Damage' },
               ].map(tab => (
                 <button
                   key={tab.key}
-                  onClick={() => { setIncidentCategory(tab.key); setPage(1); setInjuryFilter(null); }}
+                  onClick={() => { setIncidentCategory(tab.key); setPage(1); setInjuryFilter(null); setPropFilter(null); }}
                   className="px-4 py-1.5 rounded-md text-[12px] font-medium transition-all"
                   style={{
                     background: incidentCategory === tab.key ? 'var(--accent)' : 'transparent',
@@ -912,11 +914,22 @@ export default function IncidentsPage() {
                       { label: 'ค่าเสียหาย', value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`, icon: DollarSign, color: '#22c55e' },
                     ];
                   } else {
+                    const fmtCost = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M ฿` : v >= 1000 ? `${(v / 1000).toFixed(0)}K ฿` : `${v.toLocaleString()} ฿`;
+                    const prodImpactCount = categoryIncidents.filter(i => {
+                      const pi = (i as Record<string, unknown>).production_impact as string || '';
+                      return pi && pi !== 'ไม่มีผลกระทบ';
+                    }).length;
+                    const openActions = categoryIncidents.filter(i => {
+                      const st = (i as Record<string, unknown>).report_status as string || '';
+                      return st === 'Draft' || st === 'Open' || st === 'In Progress';
+                    }).length;
                     kpis = [
-                      { label: 'ทรัพย์สินเสียหาย', value: liveStats.totalIncidents, icon: Shield, color: '#6366f1' },
-                      { label: 'ค่าเสียหายตรง', value: liveStats.totalDirectCost >= 1000 ? `${(liveStats.totalDirectCost / 1000).toFixed(0)}K ฿` : `${liveStats.totalDirectCost.toLocaleString()} ฿`, icon: DollarSign, color: '#ef4444' },
-                      { label: 'ค่าเสียหายอ้อม', value: liveStats.totalIndirectCost >= 1000 ? `${(liveStats.totalIndirectCost / 1000).toFixed(0)}K ฿` : `${liveStats.totalIndirectCost.toLocaleString()} ฿`, icon: DollarSign, color: '#f97316' },
-                      { label: 'ค่าเสียหายรวม', value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`, icon: DollarSign, color: '#22c55e' },
+                      { label: 'เหตุการณ์ทั้งหมด', value: liveStats.totalIncidents, icon: Shield, color: '#1e40af' },
+                      { label: 'ค่าเสียหายรวม', value: fmtCost(totalCost), icon: DollarSign, color: '#b45309' },
+                      { label: 'Direct Cost', value: fmtCost(liveStats.totalDirectCost), sub: 'ค่าซ่อม/ทดแทนทรัพย์สิน', icon: DollarSign, color: '#dc2626' },
+                      { label: 'Indirect Cost', value: fmtCost(liveStats.totalIndirectCost), sub: 'ค่าหยุดผลิต/ค่าเสียโอกาส', icon: DollarSign, color: '#ea580c' },
+                      { label: 'กระทบการผลิต', value: prodImpactCount, sub: 'เหตุการณ์ที่มี production impact', icon: Activity, color: '#7c3aed' },
+                      { label: 'Action ค้าง', value: openActions, sub: 'รอดำเนินการ/สอบสวน', icon: FileText, color: '#0891b2' },
                     ];
                   }
 
@@ -1167,8 +1180,8 @@ export default function IncidentsPage() {
                 </div>
               )}
 
-              {/* Monthly Stacked Bar Chart (hidden for injury tab) */}
-              {incidentCategory !== 'injury' && (
+              {/* Monthly Stacked Bar Chart (only for total tab) */}
+              {incidentCategory === 'total' && (
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   อุบัติการณ์รายเดือน — {selectedYears.length === 1 ? selectedYears[0] : selectedYears.join(', ')}
@@ -1225,8 +1238,8 @@ export default function IncidentsPage() {
               </div>
               )}
 
-              {/* Incident List Table (hidden for injury tab) */}
-              {incidentCategory !== 'injury' && (
+              {/* Incident List Table (only for total tab) */}
+              {incidentCategory === 'total' && (
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   รายการอุบัติการณ์ {filteredDashIncidents.length > 0 ? `(${filteredDashIncidents.length})` : ''}
@@ -1658,62 +1671,205 @@ export default function IncidentsPage() {
               {incidentCategory === 'property' && (() => {
                 const YEAR_COLORS_PROP: Record<number, string> = {
                   2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
-                  2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
+                  2024: '#1e40af', 2025: '#d97706', 2026: '#0891b2',
                 };
                 const propActiveYears = selectedYears.filter(y =>
                   categoryIncidents.some(i => i.year === y)
                 ).sort();
 
-                // ---- Chart 1: Property damage type per year ----
-                const dmgTypeCounts: Record<string, Record<number, number>> = {};
-                categoryIncidents.forEach(inc => {
-                  const t = (inc as Record<string, unknown>).property_damage_type as string || 'ไม่ระบุ';
-                  const yr = inc.year;
-                  if (!dmgTypeCounts[t]) dmgTypeCounts[t] = {};
-                  dmgTypeCounts[t][yr] = (dmgTypeCounts[t][yr] || 0) + 1;
-                });
-                let dmgTypeKeys = Object.keys(dmgTypeCounts);
-                dmgTypeKeys.sort((a, b) => {
-                  const totA = Object.values(dmgTypeCounts[a]).reduce((s, v) => s + v, 0);
-                  const totB = Object.values(dmgTypeCounts[b]).reduce((s, v) => s + v, 0);
-                  return totB - totA;
-                });
-                dmgTypeKeys = dmgTypeKeys.slice(0, 12);
+                // Apply cross-filter from propFilter
+                const propFilteredIncidents = propFilter
+                  ? categoryIncidents.filter(inc => {
+                      const val = (inc as Record<string, unknown>)[propFilter.field] as string || 'ไม่ระบุ';
+                      return val === propFilter.value;
+                    })
+                  : categoryIncidents;
 
-                // ---- Chart 2: Cost per year (direct + indirect) ----
-                const costPerYear: Record<number, { direct: number; indirect: number }> = {};
-                categoryIncidents.forEach(inc => {
+                // Helper: get incidents for a specific chart (source chart shows all, others show filtered)
+                const incidentsFor = (chartField: string) =>
+                  propFilter && propFilter.field !== chartField ? propFilteredIncidents : categoryIncidents;
+
+                const fmtCostShort = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toLocaleString();
+
+                // ---- Monthly cost trend data ----
+                const monthlyCostData: Record<number, { direct: number; indirect: number }[]> = {};
+                selectedYears.forEach(y => { monthlyCostData[y] = Array.from({ length: 12 }, () => ({ direct: 0, indirect: 0 })); });
+                propFilteredIncidents.forEach(inc => {
                   const yr = inc.year;
-                  if (!costPerYear[yr]) costPerYear[yr] = { direct: 0, indirect: 0 };
-                  costPerYear[yr].direct += Number(inc.direct_cost) || 0;
-                  costPerYear[yr].indirect += Number(inc.indirect_cost) || 0;
+                  if (!monthlyCostData[yr]) return;
+                  const num = parseInt(String(inc.month));
+                  const mi = (num >= 1 && num <= 12) ? num - 1 : MONTHS.indexOf(String(inc.month));
+                  if (mi >= 0 && mi < 12) {
+                    monthlyCostData[yr][mi].direct += Number(inc.direct_cost) || 0;
+                    monthlyCostData[yr][mi].indirect += Number(inc.indirect_cost) || 0;
+                  }
                 });
-                const maxCostYear = Math.max(
-                  ...propActiveYears.map(y => (costPerYear[y]?.direct || 0) + (costPerYear[y]?.indirect || 0)),
+                const maxMonthlyCost = Math.max(
+                  ...selectedYears.flatMap(y => (monthlyCostData[y] || []).map(m => m.direct + m.indirect)),
                   1
                 );
-                const totalCost = propActiveYears.reduce((s, y) => s + (costPerYear[y]?.direct || 0) + (costPerYear[y]?.indirect || 0), 0);
 
-                // ---- Chart 3: Incident count per year ----
-                const countPerYear: Record<number, number> = {};
-                categoryIncidents.forEach(inc => {
-                  countPerYear[inc.year] = (countPerYear[inc.year] || 0) + 1;
+                // ---- Breakdown helpers (stacked horizontal bar) ----
+                const groupByField = (field: string, incs: Incident[]) => {
+                  const counts: Record<string, Record<number, { count: number; cost: number }>> = {};
+                  incs.forEach(inc => {
+                    const val = (inc as Record<string, unknown>)[field] as string || 'ไม่ระบุ';
+                    const yr = inc.year;
+                    if (!counts[val]) counts[val] = {};
+                    if (!counts[val][yr]) counts[val][yr] = { count: 0, cost: 0 };
+                    counts[val][yr].count += 1;
+                    counts[val][yr].cost += (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
+                  });
+                  let keys = Object.keys(counts);
+                  keys.sort((a, b) => {
+                    const totA = Object.values(counts[a]).reduce((s, v) => s + v.cost, 0);
+                    const totB = Object.values(counts[b]).reduce((s, v) => s + v.cost, 0);
+                    return totB - totA;
+                  });
+                  keys = keys.slice(0, 10);
+                  return { keys, counts };
+                };
+
+                // Reusable stacked bar renderer for property charts
+                const renderPropStackedBar = (
+                  title: string,
+                  chartField: string,
+                  data: { keys: string[]; counts: Record<string, Record<number, { count: number; cost: number }>> },
+                  showCost = true,
+                ) => {
+                  const { keys, counts } = data;
+                  if (keys.length === 0) return null;
+                  const maxTotal = Math.max(...keys.map(k =>
+                    showCost
+                      ? propActiveYears.reduce((s, y) => s + (counts[k]?.[y]?.cost || 0), 0)
+                      : propActiveYears.reduce((s, y) => s + (counts[k]?.[y]?.count || 0), 0)
+                  ), 1);
+                  const isThisChartFiltered = propFilter?.field === chartField;
+
+                  return (
+                    <div className="rounded-2xl p-5" style={{
+                      background: 'var(--card-solid)',
+                      border: isThisChartFiltered ? '2px solid #1e40af' : '1px solid var(--border)',
+                    }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+                        {isThisChartFiltered && (
+                          <button
+                            onClick={() => setPropFilter(null)}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors hover:opacity-80"
+                            style={{ background: '#1e40af', color: '#fff' }}
+                          >
+                            {propFilter?.value} <X size={10} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        {keys.map(k => {
+                          const totalVal = showCost
+                            ? propActiveYears.reduce((s, y) => s + (counts[k]?.[y]?.cost || 0), 0)
+                            : propActiveYears.reduce((s, y) => s + (counts[k]?.[y]?.count || 0), 0);
+                          const countVal = propActiveYears.reduce((s, y) => s + (counts[k]?.[y]?.count || 0), 0);
+                          const barPct = (totalVal / maxTotal) * 100;
+                          const isActive = isThisChartFiltered && propFilter?.value === k;
+                          const isDimmed = isThisChartFiltered && !isActive;
+
+                          return (
+                            <div
+                              key={k}
+                              className="flex items-center gap-3 rounded-lg px-2 py-1 transition-all"
+                              style={{
+                                cursor: 'pointer',
+                                opacity: isDimmed ? 0.3 : 1,
+                                background: isActive ? 'var(--bg-secondary)' : 'transparent',
+                              }}
+                              onClick={() => {
+                                if (isActive) { setPropFilter(null); }
+                                else { setPropFilter({ field: chartField, value: k }); }
+                              }}
+                            >
+                              <span className="text-[11px] font-medium shrink-0 text-right" style={{ color: 'var(--text-primary)', width: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={k}>{k}</span>
+                              <div className="flex-1 flex items-center gap-2">
+                                <div className="flex-1 relative rounded-md overflow-hidden" style={{ height: 22, background: 'var(--bg-secondary)' }}>
+                                  <div className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden" style={{ width: `${Math.max(barPct, totalVal > 0 ? 3 : 0)}%` }}>
+                                    {propActiveYears.map(y => {
+                                      const val = showCost ? (counts[k]?.[y]?.cost || 0) : (counts[k]?.[y]?.count || 0);
+                                      if (val === 0) return null;
+                                      const segPct = (val / totalVal) * 100;
+                                      return (
+                                        <div key={y} className="h-full flex items-center justify-center" style={{ width: `${segPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af', minWidth: val > 0 ? 14 : 0 }} title={`${y}: ${showCost ? fmtCostShort(val) + ' ฿' : val + ' ครั้ง'}`}>
+                                          {segPct > 25 && <span className="text-[9px] font-bold text-white/80">{showCost ? fmtCostShort(val) : val}</span>}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="shrink-0 text-right" style={{ width: 70 }}>
+                                  <span className="text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>{showCost ? `${fmtCostShort(totalVal)} ฿` : totalVal}</span>
+                                  {showCost && <span className="text-[9px] ml-1" style={{ color: 'var(--muted)' }}>({countVal})</span>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                };
+
+                // ---- Data for breakdown charts ----
+                const dmgTypeData = groupByField('property_damage_type', incidentsFor('property_damage_type'));
+                const areaData = groupByField('area', incidentsFor('area'));
+                const agencyData = groupByField('agency_source', incidentsFor('agency_source'));
+                const deptData = groupByField('department', incidentsFor('department'));
+
+                // ---- Top 5 highest cost incidents ----
+                const top5 = [...propFilteredIncidents]
+                  .map(inc => ({
+                    ...inc,
+                    totalCostVal: (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0),
+                  }))
+                  .sort((a, b) => b.totalCostVal - a.totalCostVal)
+                  .slice(0, 5);
+
+                // ---- Cost driver insights ----
+                const totalPropCost = propFilteredIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0);
+                const costByDmgType: Record<string, number> = {};
+                propFilteredIncidents.forEach(inc => {
+                  const t = (inc as Record<string, unknown>).property_damage_type as string || 'ไม่ระบุ';
+                  costByDmgType[t] = (costByDmgType[t] || 0) + (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
                 });
-                const maxCountYear = Math.max(...propActiveYears.map(y => countPerYear[y] || 0), 1);
+                const topCostDriver = Object.entries(costByDmgType).sort((a, b) => b[1] - a[1])[0];
+                const topCostDriverPct = topCostDriver && totalPropCost > 0 ? Math.round((topCostDriver[1] / totalPropCost) * 100) : 0;
 
-                // Stacked bar renderer for damage type
-                const maxDmgTotal = Math.max(...dmgTypeKeys.map(k => propActiveYears.reduce((s, y) => s + (dmgTypeCounts[k]?.[y] || 0), 0)), 1);
+                const costByArea: Record<string, number> = {};
+                propFilteredIncidents.forEach(inc => {
+                  const a = inc.area || 'ไม่ระบุ';
+                  costByArea[a] = (costByArea[a] || 0) + (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
+                });
+                const topAreaDriver = Object.entries(costByArea).sort((a, b) => b[1] - a[1])[0];
+                const topAreaPct = topAreaDriver && totalPropCost > 0 ? Math.round((topAreaDriver[1] / totalPropCost) * 100) : 0;
+
+                // ---- Quick filter chips ----
+                const chipFilters = [
+                  { label: 'ทั้งหมด', field: '', value: '' },
+                  { label: 'เครื่องจักร/อุปกรณ์', field: 'property_damage_type', value: 'เครื่องจักร/อุปกรณ์เสียหาย' },
+                  { label: 'ยานพาหนะ', field: 'property_damage_type', value: 'ยานพาหนะเสียหาย' },
+                  { label: 'โครงสร้าง', field: 'property_damage_type', value: 'โครงสร้างอาคาร/ผนัง' },
+                  { label: 'เพลิงไหม้', field: 'property_damage_type', value: 'เพลิงไหม้' },
+                ];
 
                 return (
                   <div className="mt-2">
                     {categoryIncidents.length === 0 ? (
-                      <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                        <p className="text-[13px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลทรัพย์สินเสียหาย สำหรับปีที่เลือก</p>
+                      <div className="rounded-2xl p-10 text-center" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                        <Shield size={36} className="mx-auto mb-3" style={{ color: 'var(--muted)', opacity: 0.4 }} />
+                        <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>ช่วงเวลานี้ไม่มีเหตุทรัพย์สินเสียหาย</p>
+                        <p className="text-[12px] mt-1" style={{ color: 'var(--muted)' }}>ลองเปลี่ยนช่วงปีหรือเปิด filter ทั้งหมด</p>
                       </div>
                     ) : (
                       <>
-                        {/* Legend */}
-                        <div className="flex flex-wrap items-center gap-4 mb-4 px-1">
+                        {/* Legend + filter info + quick chips */}
+                        <div className="flex flex-wrap items-center gap-3 mb-4 px-1">
                           {propActiveYears.map(y => (
                             <div key={y} className="flex items-center gap-1.5">
                               <div className="w-3 h-3 rounded" style={{ background: YEAR_COLORS_PROP[y] || '#9ca3af' }} />
@@ -1721,117 +1877,261 @@ export default function IncidentsPage() {
                             </div>
                           ))}
                           <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                            | ทรัพย์สินเสียหายทั้งหมด {categoryIncidents.length} ครั้ง
+                            | แสดง {propFilteredIncidents.length} จาก {categoryIncidents.length} เหตุการณ์
                           </span>
+                          {propFilter && (
+                            <button
+                              onClick={() => setPropFilter(null)}
+                              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:shadow-md"
+                              style={{ background: '#1e40af', color: '#fff' }}
+                            >
+                              {propFilter.value} <X size={12} />
+                            </button>
+                          )}
                         </div>
 
-                        {/* Row 1: Count per year + Cost per year */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-                          {/* Incident count per year */}
-                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                            <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>จำนวนครั้ง — เปรียบเทียบรายปี</h3>
-                            <div className="flex items-end gap-4 justify-center" style={{ height: 170 }}>
-                              {propActiveYears.map(y => {
-                                const val = countPerYear[y] || 0;
-                                const pct = (val / maxCountYear) * 100;
-                                return (
-                                  <div key={y} className="flex flex-col items-center" style={{ flex: 1, maxWidth: 72 }}>
-                                    <span className="text-[16px] font-bold mb-1" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{val}</span>
-                                    <div className="w-full rounded-t-lg" style={{
-                                      height: `${Math.max(pct * 1.3, val > 0 ? 6 : 2)}px`,
-                                      background: YEAR_COLORS_PROP[y] || '#9ca3af',
-                                      maxHeight: 130,
-                                      opacity: val > 0 ? 1 : 0.15,
-                                    }} />
-                                    <span className="text-[12px] font-bold mt-2" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
-                                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>ครั้ง</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Cost per year (stacked direct + indirect) */}
-                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>มูลค่าความเสียหาย</h3>
-                              <span className="text-[12px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                                รวม {totalCost.toLocaleString()} ฿
-                              </span>
-                            </div>
-                            <div className="flex items-end gap-4 justify-center" style={{ height: 170 }}>
-                              {propActiveYears.map(y => {
-                                const d = costPerYear[y]?.direct || 0;
-                                const ind = costPerYear[y]?.indirect || 0;
-                                const total = d + ind;
-                                const pct = (total / maxCostYear) * 100;
-                                const dPct = total > 0 ? (d / total) * 100 : 0;
-                                return (
-                                  <div key={y} className="flex flex-col items-center" style={{ flex: 1, maxWidth: 72 }}>
-                                    <span className="text-[11px] font-bold mb-1" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>
-                                      {total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total.toLocaleString()}
-                                    </span>
-                                    <div className="w-full rounded-t-lg overflow-hidden flex flex-col-reverse" style={{
-                                      height: `${Math.max(pct * 1.3, total > 0 ? 6 : 2)}px`,
-                                      maxHeight: 130,
-                                      opacity: total > 0 ? 1 : 0.15,
-                                    }}>
-                                      {/* Direct cost (bottom, darker) */}
-                                      <div style={{ height: `${dPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af' }} />
-                                      {/* Indirect cost (top, lighter) */}
-                                      <div style={{ height: `${100 - dPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af', opacity: 0.4 }} />
-                                    </div>
-                                    <span className="text-[12px] font-bold mt-2" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div className="flex justify-center gap-4 mt-3">
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 rounded" style={{ background: '#3b82f6' }} />
-                                <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายตรง</span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <div className="w-3 h-3 rounded" style={{ background: '#3b82f6', opacity: 0.4 }} />
-                                <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายอ้อม</span>
-                              </div>
-                            </div>
-                          </div>
+                        {/* Quick Filter Chips */}
+                        <div className="flex flex-wrap gap-2 mb-5 px-1">
+                          {chipFilters.map(chip => {
+                            const isActive = chip.field === '' ? !propFilter : (propFilter?.field === chip.field && propFilter?.value === chip.value);
+                            return (
+                              <button
+                                key={chip.label}
+                                onClick={() => chip.field === '' ? setPropFilter(null) : setPropFilter({ field: chip.field, value: chip.value })}
+                                className="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all"
+                                style={{
+                                  background: isActive ? '#1e40af' : 'var(--bg-secondary)',
+                                  color: isActive ? '#fff' : 'var(--text-secondary)',
+                                  border: `1px solid ${isActive ? '#1e40af' : 'var(--border)'}`,
+                                }}
+                              >
+                                {chip.label}
+                              </button>
+                            );
+                          })}
+                          {!propFilter && (
+                            <span className="text-[10px] italic self-center" style={{ color: 'var(--muted)' }}>
+                              คลิกที่แท่งกราฟเพื่อกรองข้อมูล
+                            </span>
+                          )}
                         </div>
 
-                        {/* Chart: Property damage type (stacked horizontal bar) */}
+                        {/* Cost Driver Insights */}
+                        {totalPropCost > 0 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+                            {topCostDriver && topCostDriverPct > 0 && (
+                              <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#1e40af15' }}>
+                                  <TrendingUp size={18} style={{ color: '#1e40af' }} />
+                                </div>
+                                <div>
+                                  <p className="text-[12px] font-semibold" style={{ color: '#1e3a5f' }}>
+                                    {topCostDriverPct}% ของความเสียหายมาจาก{topCostDriver[0]}
+                                  </p>
+                                  <p className="text-[10px]" style={{ color: '#64748b' }}>มูลค่า {fmtCostShort(topCostDriver[1])} ฿ จากทั้งหมด {fmtCostShort(totalPropCost)} ฿</p>
+                                </div>
+                              </div>
+                            )}
+                            {topAreaDriver && topAreaPct > 0 && (
+                              <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#b4530915' }}>
+                                  <Activity size={18} style={{ color: '#b45309' }} />
+                                </div>
+                                <div>
+                                  <p className="text-[12px] font-semibold" style={{ color: '#78350f' }}>
+                                    พื้นที่ {topAreaDriver[0]} มีค่าเสียหายสูงสุด ({topAreaPct}%)
+                                  </p>
+                                  <p className="text-[10px]" style={{ color: '#92400e' }}>มูลค่า {fmtCostShort(topAreaDriver[1])} ฿</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Monthly Cost Trend Chart */}
                         <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                          <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>ประเภททรัพย์สินเสียหาย</h3>
-                          {dmgTypeKeys.length === 0 ? (
-                            <p className="text-[12px] py-4 text-center" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลประเภททรัพย์สิน</p>
+                          <h3 className="text-[14px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>แนวโน้มค่าเสียหายรายเดือน</h3>
+                          {(() => {
+                            const chartW = 700, chartH = 240;
+                            const padL = 55, padR = 20, padT = 20, padB = 30;
+                            const plotW = chartW - padL - padR;
+                            const plotH = chartH - padT - padB;
+                            const gridCount = 4;
+                            const gridLines = Array.from({ length: gridCount + 1 }, (_, i) => {
+                              const val = (maxMonthlyCost / gridCount) * i;
+                              const yPos = padT + plotH - (val / maxMonthlyCost) * plotH;
+                              return { val, y: yPos };
+                            });
+
+                            return (
+                              <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ maxHeight: 280 }}>
+                                {gridLines.map(g => (
+                                  <g key={g.val}>
+                                    <line x1={padL} y1={g.y} x2={chartW - padR} y2={g.y} stroke="var(--border)" strokeWidth={0.5} />
+                                    <text x={padL - 6} y={g.y + 3} textAnchor="end" fontSize={9} fill="var(--muted)">{fmtCostShort(g.val)}</text>
+                                  </g>
+                                ))}
+                                {MONTHS.map((m, i) => (
+                                  <text key={m} x={padL + (i / 11) * plotW} y={chartH - 6} textAnchor="middle" fontSize={10} fill="var(--muted)">{MONTH_TH[m]}</text>
+                                ))}
+                                {propActiveYears.map(yr => {
+                                  const data = monthlyCostData[yr] || [];
+                                  const hasData = data.some(d => d.direct + d.indirect > 0);
+                                  if (!hasData) return null;
+                                  const points = data.map((d, i) => ({
+                                    x: padL + (i / 11) * plotW,
+                                    y: padT + plotH - ((d.direct + d.indirect) / maxMonthlyCost) * plotH,
+                                    val: d.direct + d.indirect,
+                                  }));
+                                  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+                                  const color = YEAR_COLORS_PROP[yr] || '#9ca3af';
+                                  return (
+                                    <g key={yr}>
+                                      <path d={`${pathD} L${points[11].x},${padT + plotH} L${points[0].x},${padT + plotH} Z`} fill={color} opacity={0.06} />
+                                      <path d={pathD} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+                                      {points.map((p, i) => p.val > 0 ? (
+                                        <g key={i}>
+                                          <circle cx={p.x} cy={p.y} r={3.5} fill="#fff" stroke={color} strokeWidth={2} />
+                                          <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize={8} fontWeight={600} fill={color}>{fmtCostShort(p.val)}</text>
+                                        </g>
+                                      ) : null)}
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Breakdown charts: Damage Type + Area (by cost) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                          {renderPropStackedBar('ประเภททรัพย์สินเสียหาย (ตามมูลค่า)', 'property_damage_type', dmgTypeData, true)}
+                          {renderPropStackedBar('พื้นที่เกิดเหตุ (ตามมูลค่า)', 'area', areaData, true)}
+                        </div>
+
+                        {/* Breakdown charts: Agency/Asset + Department */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                          {renderPropStackedBar('แหล่งที่มา / Asset', 'agency_source', agencyData, true)}
+                          {renderPropStackedBar('แผนก / Department', 'department', deptData, false)}
+                        </div>
+
+                        {/* Top 5 Highest Cost Incidents */}
+                        {top5.length > 0 && (
+                          <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                            <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Top 5 เหตุการณ์ค่าเสียหายสูงสุด</h3>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-[12px]">
+                                <thead>
+                                  <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                                    {['#', 'Incident No', 'วันที่', 'พื้นที่', 'ประเภท', 'Direct Cost', 'Indirect Cost', 'รวม', 'สถานะ'].map(h => (
+                                      <th key={h} className="text-left py-2 px-3 font-semibold" style={{ color: 'var(--muted)', fontSize: 10, whiteSpace: 'nowrap' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {top5.map((inc, idx) => (
+                                    <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <td className="py-2 px-3 font-bold" style={{ color: idx === 0 ? '#b45309' : 'var(--text-secondary)' }}>{idx + 1}</td>
+                                      <td className="py-2 px-3 font-mono font-semibold" style={{ color: '#1e40af' }}>{inc.incident_no}</td>
+                                      <td className="py-2 px-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{inc.incident_date}</td>
+                                      <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.area || '-'}</td>
+                                      <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{(inc as Record<string, unknown>).property_damage_type as string || '-'}</td>
+                                      <td className="py-2 px-3 font-semibold" style={{ color: '#dc2626' }}>{(Number(inc.direct_cost) || 0).toLocaleString()} ฿</td>
+                                      <td className="py-2 px-3 font-semibold" style={{ color: '#ea580c' }}>{(Number(inc.indirect_cost) || 0).toLocaleString()} ฿</td>
+                                      <td className="py-2 px-3 font-bold" style={{ color: '#1e40af' }}>{inc.totalCostVal.toLocaleString()} ฿</td>
+                                      <td className="py-2 px-3">
+                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{
+                                          background: inc.report_status === 'Closed' ? '#dcfce7' : inc.report_status === 'Approved' ? '#dbeafe' : '#fef3c7',
+                                          color: inc.report_status === 'Closed' ? '#16a34a' : inc.report_status === 'Approved' ? '#2563eb' : '#d97706',
+                                        }}>
+                                          {inc.report_status || 'Draft'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Property Incident List */}
+                        <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                          <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                            รายการเหตุการณ์ทรัพย์สินเสียหาย ({propFilteredIncidents.length})
+                          </h3>
+                          {propFilteredIncidents.length > 0 ? (
+                            <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
+                              <table className="w-full text-[12px]">
+                                <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                                  <tr style={{ borderBottom: '2px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                                    {['Incident No', 'วันที่', 'พื้นที่', 'แหล่งที่มา/Asset', 'รายละเอียด', 'Direct Cost', 'Indirect Cost', 'Production Impact', 'Insurance', 'สถานะ'].map(h => (
+                                      <th key={h} className="text-left py-2 px-3 font-semibold" style={{ color: 'var(--muted)', fontSize: 10, whiteSpace: 'nowrap' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {propFilteredIncidents.slice(0, 30).map((inc) => (
+                                    <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <td className="py-2 px-3 font-mono font-semibold whitespace-nowrap" style={{ color: '#1e40af' }}>{inc.incident_no}</td>
+                                      <td className="py-2 px-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{inc.incident_date}</td>
+                                      <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.area || '-'}</td>
+                                      <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.agency_source || '-'}</td>
+                                      <td className="py-2 px-3 max-w-[200px] truncate" style={{ color: 'var(--text-secondary)' }} title={inc.description || ''}>{inc.description || '-'}</td>
+                                      <td className="py-2 px-3 font-semibold whitespace-nowrap" style={{ color: '#dc2626' }}>{(Number(inc.direct_cost) || 0).toLocaleString()} ฿</td>
+                                      <td className="py-2 px-3 font-semibold whitespace-nowrap" style={{ color: '#ea580c' }}>{(Number(inc.indirect_cost) || 0).toLocaleString()} ฿</td>
+                                      <td className="py-2 px-3">
+                                        {(() => {
+                                          const pi = (inc as Record<string, unknown>).production_impact as string || '';
+                                          const hasImpact = pi && pi !== 'ไม่มีผลกระทบ';
+                                          return (
+                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" style={{
+                                              background: hasImpact ? '#fef3c7' : '#f1f5f9',
+                                              color: hasImpact ? '#92400e' : '#94a3b8',
+                                            }}>
+                                              {pi || 'ไม่ระบุ'}
+                                            </span>
+                                          );
+                                        })()}
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        {(() => {
+                                          const ic = (inc as Record<string, unknown>).insurance_claim as string || '';
+                                          return (
+                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" style={{
+                                              background: ic === 'เคลมสำเร็จ' ? '#dcfce7' : ic === 'อยู่ระหว่างเคลม' ? '#dbeafe' : '#f1f5f9',
+                                              color: ic === 'เคลมสำเร็จ' ? '#16a34a' : ic === 'อยู่ระหว่างเคลม' ? '#2563eb' : '#94a3b8',
+                                            }}>
+                                              {ic || '-'}
+                                            </span>
+                                          );
+                                        })()}
+                                      </td>
+                                      <td className="py-2 px-3">
+                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" style={{
+                                          background: inc.report_status === 'Closed' ? '#dcfce7' : inc.report_status === 'Approved' ? '#dbeafe' : '#fef3c7',
+                                          color: inc.report_status === 'Closed' ? '#16a34a' : inc.report_status === 'Approved' ? '#2563eb' : '#d97706',
+                                        }}>
+                                          {inc.report_status || 'Draft'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                              {propFilteredIncidents.length > 30 && (
+                                <p className="text-[11px] text-center py-2" style={{ color: 'var(--muted)' }}>
+                                  แสดง 30 จาก {propFilteredIncidents.length} รายการ — ใช้ filter เพื่อค้นหาเฉพาะเจาะจง
+                                </p>
+                              )}
+                            </div>
                           ) : (
-                            <div className="space-y-2">
-                              {dmgTypeKeys.map(k => {
-                                const total = propActiveYears.reduce((s, y) => s + (dmgTypeCounts[k]?.[y] || 0), 0);
-                                const barPct = (total / maxDmgTotal) * 100;
-                                return (
-                                  <div key={k} className="flex items-center gap-3">
-                                    <span className="text-[11px] font-medium shrink-0 text-right" style={{ color: 'var(--text-primary)', width: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={k}>{k}</span>
-                                    <div className="flex-1 flex items-center gap-2">
-                                      <div className="flex-1 relative rounded-md overflow-hidden" style={{ height: 24, background: 'var(--bg-secondary)' }}>
-                                        <div className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden" style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%` }}>
-                                          {propActiveYears.map(y => {
-                                            const val = dmgTypeCounts[k]?.[y] || 0;
-                                            if (val === 0) return null;
-                                            const segPct = (val / total) * 100;
-                                            return (
-                                              <div key={y} className="h-full flex items-center justify-center" style={{ width: `${segPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af', minWidth: val > 0 ? 14 : 0 }} title={`${y}: ${val}`}>
-                                                {segPct > 20 && <span className="text-[9px] font-bold text-white/80">{val}</span>}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                      <span className="text-[12px] font-bold shrink-0" style={{ color: 'var(--text-primary)', width: 26, textAlign: 'right' }}>{total}</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                            <div className="py-8 text-center">
+                              <Shield size={28} className="mx-auto mb-2" style={{ color: 'var(--muted)', opacity: 0.4 }} />
+                              <p className="text-[13px]" style={{ color: 'var(--muted)' }}>ไม่มีเหตุการณ์ตาม filter ที่เลือก</p>
+                              {propFilter && (
+                                <button onClick={() => setPropFilter(null)} className="mt-2 text-[12px] underline" style={{ color: '#1e40af' }}>ล้าง filter</button>
+                              )}
                             </div>
                           )}
                         </div>
