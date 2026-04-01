@@ -339,6 +339,11 @@ export default function IncidentsPage() {
     setSaving(false);
   };
 
+  // Determine if injury-related sections should be shown based on incident_type
+  const NON_INJURY_TYPES = ['ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล', 'Near Miss', 'สิ่งแวดล้อม'];
+  const selectedType = (formData.incident_type as string) || '';
+  const showInjurySections = selectedType !== '' && !NON_INJURY_TYPES.includes(selectedType);
+
   const handleDelete = async (inc: Incident) => {
     if (!confirm(`ต้องการลบ ${inc.incident_no}?`)) return;
     try {
@@ -797,12 +802,38 @@ export default function IncidentsPage() {
                 </div>
 
                 <div className="p-6 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto">
-                  {/* Section 1: Identification */}
+                  {/* Section 1: Identification — Incident Type first */}
                   <div>
                     <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
                       <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[11px] font-bold">1</span>
                       IDENTIFICATION
                     </h3>
+                    {/* Incident Type — prominent selector */}
+                    <div className="mb-4 p-3 rounded-lg" style={{ background: selectedType ? '#f0fdf4' : '#fef9c3', border: `1px solid ${selectedType ? '#bbf7d0' : '#fde68a'}` }}>
+                      <label className="block text-[12px] font-bold mb-1.5" style={{ color: '#374151' }}>ประเภทอุบัติการณ์ * <span className="font-normal text-[11px]" style={{ color: '#6b7280' }}>(เลือกก่อนเพื่อแสดงฟอร์มที่เกี่ยวข้อง)</span></label>
+                      <select
+                        value={selectedType}
+                        onChange={e => {
+                          updateForm('incident_type', e.target.value);
+                          // Clear injury data if switching to non-injury type
+                          if (NON_INJURY_TYPES.includes(e.target.value)) {
+                            setInjuredPersons([]);
+                            updateForm('injured_count', 0);
+                          }
+                        }}
+                        style={{ ...selectStyle, fontSize: 14, padding: '10px 12px', fontWeight: 600, background: '#ffffff' }}
+                      >
+                        <option value="">— กรุณาเลือกประเภทอุบัติการณ์ —</option>
+                        {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      {selectedType && (
+                        <p className="mt-1.5 text-[11px]" style={{ color: showInjurySections ? '#16a34a' : '#d97706' }}>
+                          {showInjurySections
+                            ? '✓ ฟอร์มจะแสดงส่วนข้อมูลการบาดเจ็บ + Injured Person Log'
+                            : '⚡ ฟอร์มจะซ่อนส่วนข้อมูลการบาดเจ็บ (ไม่เกี่ยวข้อง)'}
+                        </p>
+                      )}
+                    </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่เกิดเหตุ *</label>
@@ -830,7 +861,8 @@ export default function IncidentsPage() {
                     </div>
                   </div>
 
-                  {/* Section 2: Who */}
+                  {/* Section 2: Who — only show for injury-related types */}
+                  {showInjurySections && (
                   <div>
                     <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
                       <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[11px] font-bold">2</span>
@@ -850,6 +882,7 @@ export default function IncidentsPage() {
                       </div>
                     </div>
                   </div>
+                  )}
 
                   {/* Section 3: What & Where */}
                   <div>
@@ -866,10 +899,10 @@ export default function IncidentsPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภทอุบัติการณ์ *</label>
-                        <select value={(formData.incident_type as string) || ''} onChange={e => updateForm('incident_type', e.target.value)} style={selectStyle}>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กิจกรรมขณะเกิดเหตุ</label>
+                        <select value={(formData.activity as string) || ''} onChange={e => updateForm('activity', e.target.value)} style={selectStyle}>
                           <option value="">เลือก</option>
-                          {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                          {ACTIVITIES.map(a => <option key={a} value={a}>{a}</option>)}
                         </select>
                       </div>
                       <div>
@@ -886,6 +919,8 @@ export default function IncidentsPage() {
                           {POTENTIAL_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
+                      {showInjurySections && (
+                      <>
                       <div>
                         <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>จำนวนผู้บาดเจ็บ</label>
                         <input type="number" value={(formData.injured_count as number) || 0} onChange={e => updateForm('injured_count', parseInt(e.target.value) || 0)} style={inputStyle} min={0} />
@@ -904,13 +939,8 @@ export default function IncidentsPage() {
                           {AGENCY_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กิจกรรมขณะเกิดเหตุ</label>
-                        <select value={(formData.activity as string) || ''} onChange={e => updateForm('activity', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {ACTIVITIES.map(a => <option key={a} value={a}>{a}</option>)}
-                        </select>
-                      </div>
+                      </>
+                      )}
                     </div>
                     <div className="mt-3">
                       <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>รายละเอียดเหตุการณ์</label>
@@ -1149,8 +1179,8 @@ export default function IncidentsPage() {
                     </div>
                   </div>
 
-                  {/* Section 8: Injured Person Log */}
-                  <div>
+                  {/* Section 8: Injured Person Log — only show for injury-related types */}
+                  {showInjurySections && (<div>
                     <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
                       <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[11px] font-bold">IP</span>
                       INJURED PERSON LOG
@@ -1262,7 +1292,7 @@ export default function IncidentsPage() {
                     <button onClick={addInjuredPerson} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50" style={{ border: '1px dashed #fca5a5' }}>
                       <Plus size={14} /> เพิ่มผู้บาดเจ็บ
                     </button>
-                  </div>
+                  </div>)}
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
