@@ -287,8 +287,7 @@ export default function OverviewWorkspace({
         <div className="overflow-x-auto">
           <div className="flex gap-2" style={{ minWidth: '100%', height: 200 }}>
             {MONTHS.map((month, idx) => {
-              const monthKey = String(idx).padStart(2, '0');
-              const types = monthlyStacked[monthKey] || {};
+              const types = monthlyStacked[month] || {};
               const total = Object.values(types).reduce((a, b) => a + b, 0);
               const barH = maxStackedMonthly > 0 ? (total / maxStackedMonthly) * 150 : 0;
 
@@ -296,8 +295,8 @@ export default function OverviewWorkspace({
                 <div
                   key={month}
                   className="flex-1 flex flex-col justify-end items-center gap-1 cursor-pointer"
-                  onClick={() => setDashFilter((prev) => ({ ...prev, month: prev.month === monthKey ? undefined : monthKey }))}
-                  style={{ opacity: dashFilter.month && dashFilter.month !== monthKey ? 0.35 : 1 }}
+                  onClick={() => setDashFilter((prev) => ({ ...prev, month: prev.month === month ? undefined : month }))}
+                  style={{ opacity: dashFilter.month && dashFilter.month !== month ? 0.35 : 1 }}
                 >
                   <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden" style={{ height: barH > 0 ? `${barH}px` : '3px' }}>
                     {allTypes.map((type) => {
