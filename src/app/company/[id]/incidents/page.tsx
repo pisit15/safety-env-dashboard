@@ -8,7 +8,7 @@ import { COMPANIES } from '@/lib/companies';
 import {
   AlertTriangle, Plus, Search, ChevronLeft, ChevronRight, X,
   Activity, TrendingUp, TrendingDown, Shield, Users, DollarSign, FileText,
-  Eye, Edit2, Trash2, BarChart3, List, Clock,
+  Eye, Edit2, Trash2, BarChart3, List, Clock, Download, AlertCircle,
 } from 'lucide-react';
 
 // Dropdown options matching the Excel template
@@ -1677,10 +1677,27 @@ export default function IncidentsPage() {
                   categoryIncidents.some(i => i.year === y)
                 ).sort();
 
-                // Apply cross-filter from propFilter
+                // Apply cross-filter from propFilter (including special virtual fields)
                 const propFilteredIncidents = propFilter
                   ? categoryIncidents.filter(inc => {
-                      const val = (inc as Record<string, unknown>)[propFilter.field] as string || 'ไม่ระบุ';
+                      if (propFilter.field === '_status') {
+                        const st = inc.report_status || 'Draft';
+                        return st === 'Draft' || st === 'Open' || st === 'In Progress';
+                      }
+                      if (propFilter.field === '_highcost') {
+                        const tc = (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
+                        const thresh = categoryIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0) * 0.2 || 50000;
+                        return tc >= thresh;
+                      }
+                      if (propFilter.field === '_missing_type') {
+                        const t = (inc as Record<string, unknown>).property_damage_type as string || '';
+                        return !t || t === 'ไม่ระบุ';
+                      }
+                      if (propFilter.field === '_missing_cost') {
+                        return !Number(inc.direct_cost) && !Number(inc.indirect_cost);
+                      }
+                      // Generic field match (works for property_damage_type, area, agency_source, insurance_claim, production_impact, etc.)
+                      const val = (inc as Record<string, unknown>)[propFilter.field] as string || (inc[propFilter.field as keyof Incident] as string) || 'ไม่ระบุ';
                       return val === propFilter.value;
                     })
                   : categoryIncidents;
@@ -1849,14 +1866,89 @@ export default function IncidentsPage() {
                 const topAreaDriver = Object.entries(costByArea).sort((a, b) => b[1] - a[1])[0];
                 const topAreaPct = topAreaDriver && totalPropCost > 0 ? Math.round((topAreaDriver[1] / totalPropCost) * 100) : 0;
 
+                // ---- Missing data detection ----
+                const missingDmgType = categoryIncidents.filter(i => {
+                  const t = (i as Record<string, unknown>).property_damage_type as string || '';
+                  return !t || t === 'ไม่ระบุ';
+                });
+                const missingCost = categoryIncidents.filter(i =>
+                  !Number(i.direct_cost) && !Number(i.indirect_cost)
+                );
+                const openRecords = categoryIncidents.filter(i => {
+                  const st = i.report_status || 'Draft';
+                  return st === 'Draft' || st === 'Open' || st === 'In Progress';
+                });
+                const highCostThreshold = totalPropCost > 0 ? totalPropCost * 0.2 : 50000;
+                const highCostRecords = categoryIncidents.filter(i =>
+                  (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0) >= highCostThreshold
+                );
+
+                // ---- Claim status summary ----
+                const claimCounts: Record<string, number> = {};
+                categoryIncidents.forEach(inc => {
+                  const ic = (inc as Record<string, unknown>).insurance_claim as string || 'ไม่ระบุ';
+                  claimCounts[ic] = (claimCounts[ic] || 0) + 1;
+                });
+
+                // ---- Production impact summary ----
+                const impactCounts: Record<string, number> = {};
+                categoryIncidents.forEach(inc => {
+                  const pi = (inc as Record<string, unknown>).production_impact as string || 'ไม่ระบุ';
+                  impactCounts[pi] = (impactCounts[pi] || 0) + 1;
+                });
+
                 // ---- Quick filter chips ----
-                const chipFilters = [
-                  { label: 'ทั้งหมด', field: '', value: '' },
+                const chipFilters: { label: string; field: string; value: string; count?: number; color?: string }[] = [
+                  { label: 'ทั้งหมด', field: '', value: '', count: categoryIncidents.length },
+                  { label: 'Open/Draft', field: '_status', value: 'open', count: openRecords.length, color: '#d97706' },
+                  { label: 'High Cost', field: '_highcost', value: 'high', count: highCostRecords.length, color: '#dc2626' },
+                  { label: 'ไม่ระบุประเภท', field: '_missing_type', value: 'missing', count: missingDmgType.length, color: '#9333ea' },
+                  { label: 'ไม่มี Cost', field: '_missing_cost', value: 'missing', count: missingCost.length, color: '#9333ea' },
                   { label: 'เครื่องจักร/อุปกรณ์', field: 'property_damage_type', value: 'เครื่องจักร/อุปกรณ์เสียหาย' },
                   { label: 'ยานพาหนะ', field: 'property_damage_type', value: 'ยานพาหนะเสียหาย' },
                   { label: 'โครงสร้าง', field: 'property_damage_type', value: 'โครงสร้างอาคาร/ผนัง' },
                   { label: 'เพลิงไหม้', field: 'property_damage_type', value: 'เพลิงไหม้' },
                 ];
+
+                // ---- Export CSV helper ----
+                const exportCsv = () => {
+                  const rows = propFilteredIncidents.map(inc => ({
+                    incident_no: inc.incident_no,
+                    date: inc.incident_date,
+                    area: inc.area || '',
+                    agency_source: inc.agency_source || '',
+                    description: (inc.description || '').replace(/"/g, '""'),
+                    damage_type: (inc as Record<string, unknown>).property_damage_type as string || '',
+                    direct_cost: Number(inc.direct_cost) || 0,
+                    indirect_cost: Number(inc.indirect_cost) || 0,
+                    total_cost: (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0),
+                    production_impact: (inc as Record<string, unknown>).production_impact as string || '',
+                    insurance_claim: (inc as Record<string, unknown>).insurance_claim as string || '',
+                    status: inc.report_status || 'Draft',
+                  }));
+                  const headers = Object.keys(rows[0] || {});
+                  const csv = [
+                    headers.join(','),
+                    ...rows.map(r => headers.map(h => `"${String((r as Record<string, unknown>)[h] ?? '')}"`).join(',')),
+                  ].join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `property-damage-${id}-${selectedYears.join('-')}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                };
+
+                // ---- Custom filter application for special chips ----
+                const applyChipFilter = (chip: typeof chipFilters[number]) => {
+                  if (chip.field === '') { setPropFilter(null); return; }
+                  if (chip.field === '_status') { setPropFilter({ field: '_status', value: 'open' }); return; }
+                  if (chip.field === '_highcost') { setPropFilter({ field: '_highcost', value: 'high' }); return; }
+                  if (chip.field === '_missing_type') { setPropFilter({ field: '_missing_type', value: 'missing' }); return; }
+                  if (chip.field === '_missing_cost') { setPropFilter({ field: '_missing_cost', value: 'missing' }); return; }
+                  setPropFilter({ field: chip.field, value: chip.value });
+                };
 
                 return (
                   <div className="mt-2">
@@ -1894,18 +1986,28 @@ export default function IncidentsPage() {
                         <div className="flex flex-wrap gap-2 mb-5 px-1">
                           {chipFilters.map(chip => {
                             const isActive = chip.field === '' ? !propFilter : (propFilter?.field === chip.field && propFilter?.value === chip.value);
+                            const hideIfZero = chip.field.startsWith('_') && chip.count === 0;
+                            if (hideIfZero) return null;
                             return (
                               <button
                                 key={chip.label}
-                                onClick={() => chip.field === '' ? setPropFilter(null) : setPropFilter({ field: chip.field, value: chip.value })}
-                                className="px-3 py-1.5 rounded-full text-[11px] font-medium transition-all"
+                                onClick={() => applyChipFilter(chip)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all"
                                 style={{
-                                  background: isActive ? '#1e40af' : 'var(--bg-secondary)',
-                                  color: isActive ? '#fff' : 'var(--text-secondary)',
-                                  border: `1px solid ${isActive ? '#1e40af' : 'var(--border)'}`,
+                                  background: isActive ? (chip.color || '#1e40af') : 'var(--bg-secondary)',
+                                  color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
+                                  border: `1px solid ${isActive ? (chip.color || '#1e40af') : 'var(--border)'}`,
                                 }}
                               >
                                 {chip.label}
+                                {chip.count !== undefined && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0 rounded-full" style={{
+                                    background: isActive ? 'rgba(255,255,255,0.25)' : `${chip.color || '#1e40af'}15`,
+                                    color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
+                                  }}>
+                                    {chip.count}
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
@@ -1944,6 +2046,94 @@ export default function IncidentsPage() {
                                   <p className="text-[10px]" style={{ color: '#92400e' }}>มูลค่า {fmtCostShort(topAreaDriver[1])} ฿</p>
                                 </div>
                               </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Claim Status + Impact Summary */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                          {/* Claim Status */}
+                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                            <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Insurance Claim Status</h3>
+                            <div className="space-y-2">
+                              {Object.entries(claimCounts).sort((a, b) => b[1] - a[1]).map(([status, count]) => {
+                                const pct = categoryIncidents.length > 0 ? Math.round((count / categoryIncidents.length) * 100) : 0;
+                                const claimColor = status === 'เคลมสำเร็จ' ? '#16a34a' : status === 'อยู่ระหว่างเคลม' ? '#2563eb' : status === 'ไม่อนุมัติ' ? '#dc2626' : '#64748b';
+                                return (
+                                  <div key={status} className="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--bg-secondary)]"
+                                    onClick={() => setPropFilter({ field: 'insurance_claim', value: status })}
+                                    style={{ opacity: propFilter?.field === 'insurance_claim' && propFilter.value !== status ? 0.35 : 1 }}
+                                  >
+                                    <span className="text-[11px] shrink-0" style={{ width: 110, color: 'var(--text-secondary)' }}>{status}</span>
+                                    <div className="flex-1 relative rounded-full overflow-hidden" style={{ height: 8, background: 'var(--bg-secondary)' }}>
+                                      <div className="absolute left-0 top-0 bottom-0 rounded-full" style={{ width: `${Math.max(pct, count > 0 ? 5 : 0)}%`, background: claimColor }} />
+                                    </div>
+                                    <span className="text-[12px] font-bold shrink-0" style={{ color: claimColor, width: 24, textAlign: 'right' }}>{count}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Production Impact Summary */}
+                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                            <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Production Impact</h3>
+                            <div className="space-y-2">
+                              {Object.entries(impactCounts).sort((a, b) => b[1] - a[1]).map(([impact, count]) => {
+                                const pct = categoryIncidents.length > 0 ? Math.round((count / categoryIncidents.length) * 100) : 0;
+                                const isNoImpact = impact === 'ไม่มีผลกระทบ' || impact === 'ไม่ระบุ';
+                                const impactColor = isNoImpact ? '#94a3b8' : impact.includes('หยุดทั้งโรงงาน') ? '#dc2626' : impact.includes('หยุดสายผลิต') ? '#ea580c' : impact.includes('> 50%') ? '#d97706' : '#b45309';
+                                return (
+                                  <div key={impact} className="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--bg-secondary)]"
+                                    onClick={() => setPropFilter({ field: 'production_impact', value: impact })}
+                                    style={{ opacity: propFilter?.field === 'production_impact' && propFilter.value !== impact ? 0.35 : 1 }}
+                                  >
+                                    <span className="text-[11px] shrink-0" style={{ width: 140, color: 'var(--text-secondary)' }}>{impact}</span>
+                                    <div className="flex-1 relative rounded-full overflow-hidden" style={{ height: 8, background: 'var(--bg-secondary)' }}>
+                                      <div className="absolute left-0 top-0 bottom-0 rounded-full" style={{ width: `${Math.max(pct, count > 0 ? 5 : 0)}%`, background: impactColor }} />
+                                    </div>
+                                    <span className="text-[12px] font-bold shrink-0" style={{ color: impactColor, width: 24, textAlign: 'right' }}>{count}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Missing Data Warnings */}
+                        {(missingDmgType.length > 0 || missingCost.length > 0) && (
+                          <div className="rounded-xl p-4 mb-5 flex flex-wrap items-center gap-4" style={{ background: '#fefce8', border: '1px solid #fde68a' }}>
+                            <div className="flex items-center gap-2">
+                              <AlertCircle size={16} style={{ color: '#b45309' }} />
+                              <span className="text-[12px] font-semibold" style={{ color: '#92400e' }}>Data Quality</span>
+                            </div>
+                            {missingDmgType.length > 0 && (
+                              <button
+                                onClick={() => setPropFilter({ field: '_missing_type', value: 'missing' })}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all hover:shadow-sm"
+                                style={{
+                                  background: propFilter?.field === '_missing_type' ? '#9333ea' : '#fef9c3',
+                                  color: propFilter?.field === '_missing_type' ? '#fff' : '#854d0e',
+                                  border: '1px solid #fde68a',
+                                }}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#dc2626' }} />
+                                {missingDmgType.length} ไม่ระบุประเภททรัพย์สิน
+                              </button>
+                            )}
+                            {missingCost.length > 0 && (
+                              <button
+                                onClick={() => setPropFilter({ field: '_missing_cost', value: 'missing' })}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all hover:shadow-sm"
+                                style={{
+                                  background: propFilter?.field === '_missing_cost' ? '#9333ea' : '#fef9c3',
+                                  color: propFilter?.field === '_missing_cost' ? '#fff' : '#854d0e',
+                                  border: '1px solid #fde68a',
+                                }}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#dc2626' }} />
+                                {missingCost.length} ไม่มีข้อมูลค่าเสียหาย
+                              </button>
                             )}
                           </div>
                         )}
@@ -2057,9 +2247,20 @@ export default function IncidentsPage() {
 
                         {/* Property Incident List */}
                         <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                          <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                            รายการเหตุการณ์ทรัพย์สินเสียหาย ({propFilteredIncidents.length})
-                          </h3>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                              รายการเหตุการณ์ทรัพย์สินเสียหาย ({propFilteredIncidents.length})
+                            </h3>
+                            {propFilteredIncidents.length > 0 && (
+                              <button
+                                onClick={exportCsv}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:shadow-md"
+                                style={{ background: '#1e40af', color: '#fff' }}
+                              >
+                                <Download size={13} /> Export CSV
+                              </button>
+                            )}
+                          </div>
                           {propFilteredIncidents.length > 0 ? (
                             <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 400px)' }}>
                               <table className="w-full text-[12px]">
@@ -2071,9 +2272,18 @@ export default function IncidentsPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {propFilteredIncidents.slice(0, 30).map((inc) => (
-                                    <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                      <td className="py-2 px-3 font-mono font-semibold whitespace-nowrap" style={{ color: '#1e40af' }}>{inc.incident_no}</td>
+                                  {propFilteredIncidents.slice(0, 30).map((inc) => {
+                                    const rowMissingType = !((inc as Record<string, unknown>).property_damage_type as string);
+                                    const rowMissingCost = !Number(inc.direct_cost) && !Number(inc.indirect_cost);
+                                    const hasWarning = rowMissingType || rowMissingCost;
+                                    return (
+                                    <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)', background: hasWarning ? '#fffbeb05' : undefined }}>
+                                      <td className="py-2 px-3 font-mono font-semibold whitespace-nowrap" style={{ color: '#1e40af' }}>
+                                        <div className="flex items-center gap-1.5">
+                                          {hasWarning && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f59e0b' }} title={`${rowMissingType ? 'ไม่ระบุประเภท' : ''}${rowMissingType && rowMissingCost ? ' + ' : ''}${rowMissingCost ? 'ไม่มี Cost' : ''}`} />}
+                                          {inc.incident_no}
+                                        </div>
+                                      </td>
                                       <td className="py-2 px-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{inc.incident_date}</td>
                                       <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.area || '-'}</td>
                                       <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.agency_source || '-'}</td>
@@ -2116,7 +2326,8 @@ export default function IncidentsPage() {
                                         </span>
                                       </td>
                                     </tr>
-                                  ))}
+                                  );
+                                  })}
                                 </tbody>
                               </table>
                               {propFilteredIncidents.length > 30 && (
