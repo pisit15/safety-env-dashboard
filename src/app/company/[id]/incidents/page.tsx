@@ -222,8 +222,9 @@ export default function IncidentsPage() {
   const [workRelatedOnly, setWorkRelatedOnly] = useState(false);
   const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
 
-  // Multi-year TRIR/LTIFR trend data
-  const [yearlyTrend, setYearlyTrend] = useState<{ year: number; trir: number; ltifr: number }[]>([]);
+  // Multi-year TRIR/LTIFR trend — raw data for client-side computation
+  const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
+  const [trendManhours, setTrendManhours] = useState<Record<number, number>>({});
 
   // Fetch summary (handles multi-year for dashboard)
   const fetchSummary = useCallback(async () => {
@@ -345,37 +346,32 @@ export default function IncidentsPage() {
     }
   }, [viewMode, id, selectedYears]);
 
-  // Fetch multi-year TRIR/LTIFR trend
+  // Fetch multi-year raw data for TRIR/LTIFR trend (incidents + manhours for 6 years)
   useEffect(() => {
     if (viewMode !== 'dashboard') return;
     const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i); // last 6 years
+    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
 
-    Promise.all(years.map(async (y) => {
-      try {
-        const [sumRes, mhRes] = await Promise.all([
-          fetch(`/api/incidents?mode=summary&companyId=${id}&year=${y}`),
-          fetch(`/api/manhours?companyId=${id}&year=${y}`),
-        ]);
-        const sumData = await sumRes.json();
-        const mhData = await mhRes.json();
+    // Fetch all incidents for 6 years
+    Promise.all(years.map(y => fetch(`/api/incidents?companyId=${id}&year=${y}&limit=1000`).then(r => r.json())))
+      .then(results => {
+        const allInc: Incident[] = [];
+        results.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
+        setTrendIncidents(allInc);
+      })
+      .catch(() => setTrendIncidents([]));
 
-        const totalMH = (mhData.manHours || []).reduce(
-          (acc: number, r: Record<string, unknown>) => acc + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0), 0
-        );
-
-        const injuries = sumData?.summary?.totalInjuries || 0;
-        const lti = sumData?.summary?.ltiCases || 0;
-
-        return {
-          year: y,
-          trir: totalMH > 0 ? (injuries / totalMH) * 1000000 : 0,
-          ltifr: totalMH > 0 ? (lti / totalMH) * 1000000 : 0,
-        };
-      } catch {
-        return { year: y, trir: 0, ltifr: 0 };
-      }
-    })).then(setYearlyTrend);
+    // Fetch manhours for 6 years
+    Promise.all(years.map(y => fetch(`/api/manhours?companyId=${id}&year=${y}`).then(r => r.json()).then(d => ({
+      year: y,
+      total: (d.manHours || []).reduce((acc: number, r: Record<string, unknown>) => acc + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0), 0),
+    }))))
+      .then(results => {
+        const mhMap: Record<number, number> = {};
+        results.forEach(r => { mhMap[r.year] = r.total; });
+        setTrendManhours(mhMap);
+      })
+      .catch(() => setTrendManhours({}));
   }, [viewMode, id]);
 
   // Form handlers
@@ -556,7 +552,29 @@ export default function IncidentsPage() {
   const tifrContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
   const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
 
-  // Filtered dashboard incidents based on dashFilter and workRelatedOnly
+  // Compute yearlyTrend from raw data — respects workRelatedOnly toggle
+  const INJURY_TYPES_PART_TREND = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
+  const yearlyTrend = (() => {
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
+    const filtered = workRelatedOnly ? trendIncidents.filter(i => i.work_related === 'ใช่') : trendIncidents;
+    return years.map(y => {
+      const yInc = filtered.filter(i => i.year === y);
+      const injuries = yInc.filter(i => INJURY_TYPES_PART_TREND.some(p => (i.incident_type || '').includes(p))).length;
+      const lti = yInc.filter(i => {
+        const t = i.incident_type || '';
+        return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+      }).length;
+      const mh = trendManhours[y] || 0;
+      return {
+        year: y,
+        trir: mh > 0 ? (injuries / mh) * 1000000 : 0,
+        ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
+      };
+    });
+  })();
+
+  // Filtered dashboard incidents based on dashFilter
   const filteredDashIncidents = baseIncidents.filter(inc => {
     if (dashFilter.month) {
       const incMonth = inc.month;
