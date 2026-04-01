@@ -282,7 +282,7 @@ export default function Sidebar() {
                 onClick={() => {
                   if (auth.isAdmin) auth.adminLogout();
                   loggedInCompanyIds.forEach(id => auth.companyLogout(id));
-                  window.location.reload();
+                  window.location.href = '/';
                 }}
                 className="text-[10px] p-1.5 rounded-lg transition-colors"
                 style={{ color: 'var(--muted)' }}
