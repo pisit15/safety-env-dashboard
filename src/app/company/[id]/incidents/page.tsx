@@ -718,139 +718,125 @@ export default function IncidentsPage() {
                 ))}
               </div>
 
-              <button
-                onClick={openNewForm}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
-              >
-                <Plus size={16} /> บันทึกอุบัติเหตุ
-              </button>
+              {(() => {
+                const companyAuthState = auth ? (auth as unknown as { getCompanyAuth: (id: string) => { isLoggedIn: boolean } }).getCompanyAuth(id) : null;
+                const isLoggedIn = companyAuthState?.isLoggedIn || (auth as unknown as { isAdmin: boolean })?.isAdmin;
+                return (
+                  <button
+                    onClick={isLoggedIn ? openNewForm : undefined}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all"
+                    style={{
+                      background: isLoggedIn ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#d1d5db',
+                      cursor: isLoggedIn ? 'pointer' : 'not-allowed',
+                      opacity: isLoggedIn ? 1 : 0.7,
+                    }}
+                    title={isLoggedIn ? 'บันทึกอุบัติเหตุใหม่' : 'กรุณาเข้าสู่ระบบก่อนบันทึก'}
+                  >
+                    <Plus size={16} /> บันทึกอุบัติเหตุ
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
-          {/* Dashboard Filter Bar — Year Checkboxes & Work-Related Toggle */}
-          {viewMode === 'dashboard' && (
-            <div className="flex items-center gap-5 flex-wrap">
-              {/* Year Checkboxes */}
-              <div className="flex items-center gap-2.5">
-                <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
-                {[2021, 2022, 2023, 2024, 2025, 2026].map(yr => (
-                  <label key={yr} className="flex items-center gap-1 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(yr)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, yr].sort());
-                        } else {
-                          const next = selectedYears.filter(y => y !== yr);
-                          if (next.length > 0) setSelectedYears(next);
-                        }
-                      }}
-                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                      style={{ accentColor: 'var(--accent)' }}
-                    />
-                    <span className="text-[12px]" style={{ color: selectedYears.includes(yr) ? 'var(--text-primary)' : 'var(--muted)' }}>{yr}</span>
-                  </label>
-                ))}
-              </div>
+          {/* Unified Filter Bar — Year Presets + Toggle (Dashboard & List) */}
+          {(viewMode === 'dashboard' || viewMode === 'list') && (() => {
+            const currentYear = new Date().getFullYear();
+            const ALL_YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+            const presets: { label: string; years: number[] }[] = [
+              { label: 'YTD', years: [currentYear] },
+              { label: `${currentYear - 1}–${currentYear}`, years: [currentYear - 1, currentYear] },
+              { label: '3 ปีล่าสุด', years: ALL_YEARS.filter(y => y >= currentYear - 2) },
+              { label: 'ทั้งหมด', years: [...ALL_YEARS] },
+            ];
+            const isPresetActive = (p: { years: number[] }) =>
+              p.years.length === selectedYears.length && p.years.every(y => selectedYears.includes(y));
 
-              {/* Separator */}
-              <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-
-              {/* Work-Related Toggle */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setWorkRelatedOnly(!workRelatedOnly)}
-                  className="relative inline-flex items-center h-5 w-9 rounded-full transition-colors"
-                  style={{
-                    background: workRelatedOnly ? 'var(--accent)' : 'var(--border)',
-                  }}
-                >
-                  <span
-                    className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
-                    style={{
-                      transform: workRelatedOnly ? 'translateX(17px)' : 'translateX(2px)',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                    }}
-                  />
-                </button>
-                <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>
-                  เฉพาะจากการทำงาน
-                </span>
-              </div>
-
-              {/* Active filter indicator */}
-              {(dashFilter.month || dashFilter.type) && (
-                <>
-                  <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px]" style={{ color: 'var(--muted)' }}>กรอง:</span>
-                    {dashFilter.month && (
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-                        {MONTH_TH[dashFilter.month] || dashFilter.month}
-                        <button onClick={() => setDashFilter(f => ({ ...f, month: undefined }))} className="ml-1 opacity-70 hover:opacity-100">×</button>
-                      </span>
-                    )}
-                    {dashFilter.type && (
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ background: getTypeColor(dashFilter.type), color: '#fff' }}>
-                        {dashFilter.type}
-                        <button onClick={() => setDashFilter(f => ({ ...f, type: undefined }))} className="ml-1 opacity-70 hover:opacity-100">×</button>
-                      </span>
-                    )}
+            return (
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Year Presets */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold mr-0.5" style={{ color: 'var(--muted)' }}>ช่วงปี:</span>
+                  {presets.map(p => (
                     <button
-                      onClick={() => setDashFilter({})}
-                      className="text-[11px] underline"
-                      style={{ color: 'var(--muted)' }}
-                    >ล้างทั้งหมด</button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* List view filter bar — same as dashboard */}
-          {viewMode === 'list' && (
-            <div className="flex items-center gap-5 flex-wrap">
-              <div className="flex items-center gap-2.5">
-                <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
-                {[2021, 2022, 2023, 2024, 2025, 2026].map(yr => (
-                  <label key={yr} className="flex items-center gap-1 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={selectedYears.includes(yr)}
-                      onChange={e => {
-                        if (e.target.checked) {
-                          setSelectedYears([...selectedYears, yr].sort());
-                        } else {
-                          const next = selectedYears.filter(y => y !== yr);
-                          if (next.length > 0) setSelectedYears(next);
-                        }
-                        setPage(1);
+                      key={p.label}
+                      onClick={() => { setSelectedYears(p.years); setPage(1); }}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                      style={{
+                        background: isPresetActive(p) ? 'var(--accent)' : 'var(--bg-secondary)',
+                        color: isPresetActive(p) ? '#fff' : 'var(--text-secondary)',
+                        border: `1px solid ${isPresetActive(p) ? 'var(--accent)' : 'var(--border)'}`,
                       }}
-                      className="w-3.5 h-3.5 rounded cursor-pointer"
-                      style={{ accentColor: 'var(--accent)' }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Individual year toggles (compact) */}
+                <div className="flex items-center gap-1">
+                  {ALL_YEARS.map(yr => (
+                    <button
+                      key={yr}
+                      onClick={() => {
+                        const next = selectedYears.includes(yr)
+                          ? selectedYears.filter(y => y !== yr)
+                          : [...selectedYears, yr].sort();
+                        if (next.length > 0) { setSelectedYears(next); setPage(1); }
+                      }}
+                      className="w-8 h-6 rounded text-[10px] font-semibold transition-all"
+                      style={{
+                        background: selectedYears.includes(yr) ? 'var(--accent)' : 'transparent',
+                        color: selectedYears.includes(yr) ? '#fff' : 'var(--muted)',
+                        border: `1px solid ${selectedYears.includes(yr) ? 'var(--accent)' : 'var(--border)'}`,
+                      }}
+                    >
+                      {String(yr).slice(-2)}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
+                {/* Work-Related Toggle */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setWorkRelatedOnly(!workRelatedOnly); setPage(1); }}
+                    className="relative inline-flex items-center h-5 w-9 rounded-full transition-colors"
+                    style={{ background: workRelatedOnly ? 'var(--accent)' : 'var(--border)' }}
+                  >
+                    <span
+                      className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                      style={{ transform: workRelatedOnly ? 'translateX(17px)' : 'translateX(2px)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
                     />
-                    <span className="text-[12px]" style={{ color: selectedYears.includes(yr) ? 'var(--text-primary)' : 'var(--muted)' }}>{yr}</span>
-                  </label>
-                ))}
+                  </button>
+                  <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
+                </div>
+
+                {/* Active chart filter indicator */}
+                {viewMode === 'dashboard' && (dashFilter.month || dashFilter.type) && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                    <div className="flex items-center gap-2">
+                      {dashFilter.month && (
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
+                          {MONTH_TH[dashFilter.month] || dashFilter.month}
+                          <button onClick={() => setDashFilter(f => ({ ...f, month: undefined }))} className="ml-1 opacity-70 hover:opacity-100">×</button>
+                        </span>
+                      )}
+                      {dashFilter.type && (
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium" style={{ background: getTypeColor(dashFilter.type), color: '#fff' }}>
+                          {dashFilter.type}
+                          <button onClick={() => setDashFilter(f => ({ ...f, type: undefined }))} className="ml-1 opacity-70 hover:opacity-100">×</button>
+                        </span>
+                      )}
+                      <button onClick={() => setDashFilter({})} className="text-[11px] underline" style={{ color: 'var(--muted)' }}>ล้าง</button>
+                    </div>
+                  </>
+                )}
               </div>
-              <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setWorkRelatedOnly(!workRelatedOnly); setPage(1); }}
-                  className="relative inline-flex items-center h-5 w-9 rounded-full transition-colors"
-                  style={{ background: workRelatedOnly ? 'var(--accent)' : 'var(--border)' }}
-                >
-                  <span
-                    className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
-                    style={{ transform: workRelatedOnly ? 'translateX(17px)' : 'translateX(2px)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
-                  />
-                </button>
-                <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Incident Category Segmented Control */}
           {(viewMode === 'dashboard' || viewMode === 'list') && (
@@ -878,31 +864,77 @@ export default function IncidentsPage() {
 
         <div className="px-8 pb-8">
           {loading && viewMode !== 'form' ? (
-            <div className="flex items-center justify-center py-20" style={{ color: 'var(--muted)' }}>
-              <div className="animate-spin w-8 h-8 border-2 border-current border-t-transparent rounded-full mr-3" />
-              กำลังโหลดข้อมูล...
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
+              <span className="text-[13px]" style={{ color: 'var(--muted)' }}>กำลังโหลดข้อมูล...</span>
+            </div>
+          ) : viewMode === 'dashboard' && !summaryData && !loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <AlertTriangle size={32} style={{ color: 'var(--muted)' }} />
+              <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>โหลดข้อมูลไม่สำเร็จ หรือไม่มีข้อมูลสำหรับปีที่เลือก</p>
+              <button
+                onClick={() => { fetchSummary(); }}
+                className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                ลองใหม่
+              </button>
             </div>
           ) : viewMode === 'dashboard' && summaryData ? (
             /* ===================== DASHBOARD VIEW ===================== */
             <div>
-              {/* KPI Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {[
-                  { label: 'Total Incident', value: liveStats.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
-                  { label: 'TRC Cases', value: liveStats.totalInjuries, icon: Activity, color: '#f97316' },
-                  { label: 'LTI Cases', value: liveStats.ltiCases, icon: Clock, color: '#ef4444' },
-                  { label: 'Total Manhour', value: manHours.total, icon: Users, color: '#3b82f6' },
-                ].map((kpi, idx) => (
-                  <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
-                        <kpi.icon size={16} style={{ color: kpi.color }} />
+              {/* KPI Cards — adapts per category tab */}
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+                {(() => {
+                  const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
+                  const trirVal = tifrCombined !== null ? tifrCombined.toFixed(2) : '—';
+                  const ltifrVal = ltifrCombined !== null ? ltifrCombined.toFixed(2) : '—';
+
+                  type KPIItem = { label: string; value: string | number; sub?: string; icon: typeof AlertTriangle; color: string };
+                  let kpis: KPIItem[] = [];
+
+                  if (incidentCategory === 'total') {
+                    kpis = [
+                      { label: 'อุบัติการณ์ทั้งหมด', value: liveStats.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
+                      { label: 'บาดเจ็บ (TRC)', value: liveStats.totalInjuries, icon: Activity, color: '#f97316' },
+                      { label: 'หยุดงาน (LTI)', value: liveStats.ltiCases, icon: Clock, color: '#ef4444' },
+                      { label: 'TRIR', value: trirVal, sub: 'ต่อล้านชม.', icon: TrendingUp, color: '#8b5cf6' },
+                      { label: 'LTIFR', value: ltifrVal, sub: 'ต่อล้านชม.', icon: TrendingDown, color: '#ec4899' },
+                      { label: 'ค่าเสียหายรวม', value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`, icon: DollarSign, color: '#22c55e' },
+                    ];
+                  } else if (incidentCategory === 'injury') {
+                    kpis = [
+                      { label: 'บาดเจ็บทั้งหมด', value: liveStats.totalIncidents, icon: Activity, color: '#f97316' },
+                      { label: 'หยุดงาน (LTI)', value: liveStats.ltiCases, icon: Clock, color: '#ef4444' },
+                      { label: 'เสียชีวิต', value: liveStats.fatalities, icon: AlertTriangle, color: '#991b1b' },
+                      { label: 'TRIR', value: trirVal, sub: 'ต่อล้านชม.', icon: TrendingUp, color: '#8b5cf6' },
+                      { label: 'LTIFR', value: ltifrVal, sub: 'ต่อล้านชม.', icon: TrendingDown, color: '#ec4899' },
+                      { label: 'ค่าเสียหาย', value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`, icon: DollarSign, color: '#22c55e' },
+                    ];
+                  } else {
+                    kpis = [
+                      { label: 'ทรัพย์สินเสียหาย', value: liveStats.totalIncidents, icon: Shield, color: '#6366f1' },
+                      { label: 'ค่าเสียหายตรง', value: liveStats.totalDirectCost >= 1000 ? `${(liveStats.totalDirectCost / 1000).toFixed(0)}K ฿` : `${liveStats.totalDirectCost.toLocaleString()} ฿`, icon: DollarSign, color: '#ef4444' },
+                      { label: 'ค่าเสียหายอ้อม', value: liveStats.totalIndirectCost >= 1000 ? `${(liveStats.totalIndirectCost / 1000).toFixed(0)}K ฿` : `${liveStats.totalIndirectCost.toLocaleString()} ฿`, icon: DollarSign, color: '#f97316' },
+                      { label: 'ค่าเสียหายรวม', value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`, icon: DollarSign, color: '#22c55e' },
+                    ];
+                  }
+
+                  return kpis.map((kpi, idx) => (
+                    <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
+                          <kpi.icon size={14} style={{ color: kpi.color }} />
+                        </div>
+                        <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
                       </div>
+                      <p className="text-xl font-bold" style={{ color: kpi.color }}>
+                        {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
+                      </p>
+                      {kpi.sub && <p className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>{kpi.sub}</p>}
                     </div>
-                    <p className="text-2xl font-bold" style={{ color: kpi.color }}>{typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}</p>
-                    <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* TIFR / LTIFR — 3-way split + Cost (only for total tab) */}
@@ -1228,7 +1260,13 @@ export default function IncidentsPage() {
                     </table>
                   </div>
                 ) : (
-                  <p className="py-4 text-center" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลอุบัติการณ์</p>
+                  <div className="py-8 text-center">
+                    <FileText size={28} className="mx-auto mb-2" style={{ color: 'var(--muted)', opacity: 0.5 }} />
+                    <p className="text-[13px]" style={{ color: 'var(--muted)' }}>ไม่มีอุบัติการณ์ตาม filter ที่เลือก</p>
+                    {(dashFilter.month || dashFilter.type) && (
+                      <button onClick={() => setDashFilter({})} className="mt-2 text-[12px] underline" style={{ color: 'var(--accent)' }}>ล้าง filter</button>
+                    )}
+                  </div>
                 )}
               </div>
               )}
