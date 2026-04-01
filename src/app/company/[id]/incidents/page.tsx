@@ -218,34 +218,98 @@ export default function IncidentsPage() {
   const [dashFilter, setDashFilter] = useState<{ month?: string; type?: string }>({});
   const [dashIncidents, setDashIncidents] = useState<Incident[]>([]);
 
+  // Dashboard new filters: work-related and multi-year
+  const [workRelatedOnly, setWorkRelatedOnly] = useState(false);
+  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+
   // Multi-year TRIR/LTIFR trend data
   const [yearlyTrend, setYearlyTrend] = useState<{ year: number; trir: number; ltifr: number }[]>([]);
 
-  // Fetch summary
+  // Fetch summary (handles multi-year for dashboard)
   const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/incidents?mode=summary&companyId=${id}&year=${year}`);
-      const data = await res.json();
-      setSummaryData(data);
+      // For dashboard view, fetch for all selectedYears and merge
+      const yearsToFetch = viewMode === 'dashboard' ? selectedYears : [year];
+      const summaries = await Promise.all(
+        yearsToFetch.map(y => fetch(`/api/incidents?mode=summary&companyId=${id}&year=${y}`).then(r => r.json()))
+      );
+      
+      if (summaries.length === 0) {
+        setSummaryData(null);
+      } else if (summaries.length === 1) {
+        setSummaryData(summaries[0]);
+      } else {
+        // Merge multiple years
+        const merged: SummaryData = {
+          summary: {
+            totalIncidents: summaries.reduce((s, d) => s + (d.summary?.totalIncidents || 0), 0),
+            totalInjuries: summaries.reduce((s, d) => s + (d.summary?.totalInjuries || 0), 0),
+            ltiCases: summaries.reduce((s, d) => s + (d.summary?.ltiCases || 0), 0),
+            nearMisses: summaries.reduce((s, d) => s + (d.summary?.nearMisses || 0), 0),
+            propertyDamage: summaries.reduce((s, d) => s + (d.summary?.propertyDamage || 0), 0),
+            fatalities: summaries.reduce((s, d) => s + (d.summary?.fatalities || 0), 0),
+            totalDirectCost: summaries.reduce((s, d) => s + (d.summary?.totalDirectCost || 0), 0),
+            totalIndirectCost: summaries.reduce((s, d) => s + (d.summary?.totalIndirectCost || 0), 0),
+            employeeInjuries: summaries.reduce((s, d) => s + (d.summary?.employeeInjuries || 0), 0),
+            contractorInjuries: summaries.reduce((s, d) => s + (d.summary?.contractorInjuries || 0), 0),
+            employeeLti: summaries.reduce((s, d) => s + (d.summary?.employeeLti || 0), 0),
+            contractorLti: summaries.reduce((s, d) => s + (d.summary?.contractorLti || 0), 0),
+          },
+          monthlyData: {} as Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }>,
+          severityBreakdown: {} as Record<string, number>,
+          typeBreakdown: {} as Record<string, number>,
+        };
+        
+        // Merge monthly data
+        summaries.forEach(d => {
+          if (d.monthlyData) {
+            Object.entries(d.monthlyData).forEach(([month, data]: [string, any]) => {
+              if (!merged.monthlyData[month]) merged.monthlyData[month] = { injuries: 0, nearMiss: 0, propertyDamage: 0, total: 0 };
+              merged.monthlyData[month].injuries += data.injuries || 0;
+              merged.monthlyData[month].nearMiss += data.nearMiss || 0;
+              merged.monthlyData[month].propertyDamage += data.propertyDamage || 0;
+              merged.monthlyData[month].total += data.total || 0;
+            });
+          }
+          if (d.severityBreakdown) {
+            Object.entries(d.severityBreakdown).forEach(([sev, count]: [string, any]) => {
+              merged.severityBreakdown[sev] = (merged.severityBreakdown[sev] || 0) + count;
+            });
+          }
+          if (d.typeBreakdown) {
+            Object.entries(d.typeBreakdown).forEach(([type, count]: [string, any]) => {
+              merged.typeBreakdown[type] = (merged.typeBreakdown[type] || 0) + count;
+            });
+          }
+        });
+        
+        setSummaryData(merged);
+      }
     } catch { /* empty */ }
 
-    // Fetch man-hours
+    // Fetch man-hours (multi-year for dashboard)
     try {
-      const mhRes = await fetch(`/api/manhours?companyId=${id}&year=${year}`);
-      const mhData = await mhRes.json();
-      const mh = (mhData.manHours || []).reduce(
-        (acc: { employee: number; contractor: number; total: number }, r: Record<string, unknown>) => ({
-          employee: acc.employee + (Number(r.employee_manhours) || 0),
-          contractor: acc.contractor + (Number(r.contractor_manhours) || 0),
-          total: acc.total + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0),
-        }),
+      const yearsToFetch = viewMode === 'dashboard' ? selectedYears : [year];
+      const mhDataSets = await Promise.all(
+        yearsToFetch.map(y => fetch(`/api/manhours?companyId=${id}&year=${y}`).then(r => r.json()))
+      );
+      
+      const mh = mhDataSets.reduce(
+        (acc, mhData) => {
+          const rows = mhData.manHours || [];
+          return {
+            employee: acc.employee + rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.employee_manhours) || 0), 0),
+            contractor: acc.contractor + rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.contractor_manhours) || 0), 0),
+            total: acc.total + rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0), 0),
+          };
+        },
         { employee: 0, contractor: 0, total: 0 }
       );
       setManHours(mh);
     } catch { /* empty */ }
     setLoading(false);
-  }, [id, year]);
+  }, [id, year, viewMode, selectedYears]);
 
   // Fetch list
   const fetchList = useCallback(async () => {
@@ -267,15 +331,19 @@ export default function IncidentsPage() {
     else if (viewMode === 'list') fetchList();
   }, [viewMode, fetchSummary, fetchList]);
 
-  // Fetch all incidents for dashboard table
+  // Fetch all incidents for dashboard table (multi-year)
   useEffect(() => {
     if (viewMode === 'dashboard') {
-      fetch(`/api/incidents?companyId=${id}&year=${year}&limit=1000`)
-        .then(r => r.json())
-        .then(d => setDashIncidents(d.incidents || []))
+      Promise.all(
+        selectedYears.map(y => fetch(`/api/incidents?companyId=${id}&year=${y}&limit=1000`).then(r => r.json()))
+      )
+        .then(results => {
+          const allIncidents = results.flatMap(d => d.incidents || []);
+          setDashIncidents(allIncidents);
+        })
         .catch(() => setDashIncidents([]));
     }
-  }, [viewMode, id, year]);
+  }, [viewMode, id, selectedYears]);
 
   // Fetch multi-year TRIR/LTIFR trend
   useEffect(() => {
@@ -417,7 +485,7 @@ export default function IncidentsPage() {
   };
 
   // Incident type badge color
-  const getTypeBadge = (type: string) => {
+  const getTypeBadge = (type: string): { bg: string; color: string; border: string } => {
     if (type?.includes('เสียชีวิต')) return { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
     if (type?.includes('หยุดงาน')) return { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
     if (type?.includes('ทำงานอย่างจำกัด')) return { bg: '#fefce8', color: '#ca8a04', border: '#fef08a' };
@@ -445,7 +513,7 @@ export default function IncidentsPage() {
   };
   const getTypeColor = (t: string) => TYPE_COLORS[t] || '#9ca3af';
 
-  // Filtered dashboard incidents based on dashFilter
+  // Filtered dashboard incidents based on dashFilter and workRelatedOnly
   const filteredDashIncidents = dashIncidents.filter(inc => {
     if (dashFilter.month) {
       const incMonth = inc.month;
@@ -456,13 +524,17 @@ export default function IncidentsPage() {
     if (dashFilter.type) {
       if (inc.incident_type !== dashFilter.type) return false;
     }
+    if (workRelatedOnly) {
+      if (inc.work_related !== 'ใช่') return false;
+    }
     return true;
   });
 
-  // Compute monthly stacked data from dashIncidents
+  // Compute monthly stacked data from dashIncidents (respects work-related filter)
+  const incidentsForMonthly = workRelatedOnly ? filteredDashIncidents : dashIncidents;
   const monthlyStacked: Record<string, Record<string, number>> = {};
   MONTHS.forEach(m => { monthlyStacked[m] = {}; });
-  dashIncidents.forEach(inc => {
+  incidentsForMonthly.forEach(inc => {
     const raw = inc.month;
     const num = parseInt(String(raw));
     const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
@@ -483,7 +555,7 @@ export default function IncidentsPage() {
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="px-8 pt-8 pb-4">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 สถิติอุบัติเหตุ — {companyName}
@@ -493,17 +565,6 @@ export default function IncidentsPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Year selector */}
-              <select
-                value={year}
-                onChange={e => { setYear(Number(e.target.value)); setPage(1); }}
-                style={{ ...selectStyle, width: 100 }}
-              >
-                {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-
               {/* View mode tabs */}
               <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                 {[
@@ -534,6 +595,152 @@ export default function IncidentsPage() {
               </button>
             </div>
           </div>
+
+          {/* Dashboard Filter Bar — Year Checkboxes & Work-Related Toggle */}
+          {viewMode === 'dashboard' && (
+            <div className="rounded-xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-6 flex-wrap">
+                {/* Year Checkboxes */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(2021)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, 2021].sort());
+                        } else {
+                          setSelectedYears(selectedYears.filter(y => y !== 2021));
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer accent-current"
+                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2021</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(2022)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, 2022].sort());
+                        } else {
+                          setSelectedYears(selectedYears.filter(y => y !== 2022));
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2022</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(2023)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, 2023].sort());
+                        } else {
+                          setSelectedYears(selectedYears.filter(y => y !== 2023));
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2023</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(2024)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, 2024].sort());
+                        } else {
+                          setSelectedYears(selectedYears.filter(y => y !== 2024));
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2024</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(2025)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, 2025].sort());
+                        } else {
+                          setSelectedYears(selectedYears.filter(y => y !== 2025));
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2025</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(2026)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, 2026].sort());
+                        } else {
+                          setSelectedYears(selectedYears.filter(y => y !== 2026));
+                        }
+                      }}
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ color: 'var(--accent)', accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>2026</span>
+                  </label>
+                </div>
+
+                {/* Work-Related Toggle */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ตัวกรอง:</span>
+                  <button
+                    onClick={() => setWorkRelatedOnly(!workRelatedOnly)}
+                    className="relative inline-flex items-center h-6 w-11 rounded-full transition-colors"
+                    style={{
+                      background: workRelatedOnly ? 'var(--accent)' : 'var(--border)',
+                    }}
+                  >
+                    <span
+                      className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
+                      style={{
+                        transform: workRelatedOnly ? 'translateX(22px)' : 'translateX(2px)',
+                      }}
+                    />
+                  </button>
+                  <span className="text-[12px]" style={{ color: 'var(--text-primary)' }}>
+                    {workRelatedOnly ? 'เฉพาะจากการทำงาน' : 'ทั้งหมด'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* List view year selector */}
+          {viewMode === 'list' && (
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
+              <select
+                value={year}
+                onChange={e => { setYear(Number(e.target.value)); setPage(1); }}
+                style={{ ...selectStyle, width: 100 }}
+              >
+                {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="px-8 pb-8">
@@ -864,7 +1071,7 @@ export default function IncidentsPage() {
                           return (
                             <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)' }}>
                               <td className="py-2 px-3" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{inc.incident_date}</td>
-                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{inc.description || inc.incident_detail || '-'}</td>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{String(inc.description || inc.incident_detail || '-')}</td>
                               <td className="py-2 px-3">
                                 <span className="px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap" style={{ background: badge.bg, color: badge.color }}>
                                   {inc.incident_type}
