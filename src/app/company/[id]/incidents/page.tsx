@@ -905,8 +905,8 @@ export default function IncidentsPage() {
                 ))}
               </div>
 
-              {/* TIFR / LTIFR — 3-way split + Cost (hidden for injury tab) */}
-              {incidentCategory !== 'injury' && (<>
+              {/* TIFR / LTIFR — 3-way split + Cost (only for total tab) */}
+              {incidentCategory === 'total' && (<>
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   TIFR / LTIFR
@@ -1015,8 +1015,8 @@ export default function IncidentsPage() {
               </div>
               </>)}
 
-              {/* YTD TRIR / LTIFR Trend Charts (hidden for injury tab) */}
-              {incidentCategory !== 'injury' && yearlyTrend.length > 0 && (
+              {/* YTD TRIR / LTIFR Trend Charts (only for total tab) */}
+              {incidentCategory === 'total' && yearlyTrend.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {[
                   { label: 'YTD TRIR', key: 'trir' as const, color: '#3b82f6' },
@@ -1233,8 +1233,8 @@ export default function IncidentsPage() {
               </div>
               )}
 
-              {/* ===== Monthly Trend Comparison + Cumulative Charts (hidden for injury tab) ===== */}
-              {incidentCategory !== 'injury' && (() => {
+              {/* ===== Monthly Trend Comparison + Cumulative Charts (only for total tab) ===== */}
+              {incidentCategory === 'total' && (() => {
                 const YEAR_COLORS: Record<number, string> = {
                   2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
                   2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
@@ -1609,6 +1609,193 @@ export default function IncidentsPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                           {renderStackedBarChart('ลักษณะการบาดเจ็บ', 'nature_of_injury', natureData)}
                           {renderStackedBarChart('ส่วนร่างกายที่ได้รับบาดเจ็บ', 'body_part', bodyPartData)}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ===================== PROPERTY DAMAGE CHARTS (only when property tab) ===================== */}
+              {incidentCategory === 'property' && (() => {
+                const YEAR_COLORS_PROP: Record<number, string> = {
+                  2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
+                  2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
+                };
+                const propActiveYears = selectedYears.filter(y =>
+                  categoryIncidents.some(i => i.year === y)
+                ).sort();
+
+                // ---- Chart 1: Property damage type per year ----
+                const dmgTypeCounts: Record<string, Record<number, number>> = {};
+                categoryIncidents.forEach(inc => {
+                  const t = (inc as Record<string, unknown>).property_damage_type as string || 'ไม่ระบุ';
+                  const yr = inc.year;
+                  if (!dmgTypeCounts[t]) dmgTypeCounts[t] = {};
+                  dmgTypeCounts[t][yr] = (dmgTypeCounts[t][yr] || 0) + 1;
+                });
+                let dmgTypeKeys = Object.keys(dmgTypeCounts);
+                dmgTypeKeys.sort((a, b) => {
+                  const totA = Object.values(dmgTypeCounts[a]).reduce((s, v) => s + v, 0);
+                  const totB = Object.values(dmgTypeCounts[b]).reduce((s, v) => s + v, 0);
+                  return totB - totA;
+                });
+                dmgTypeKeys = dmgTypeKeys.slice(0, 12);
+
+                // ---- Chart 2: Cost per year (direct + indirect) ----
+                const costPerYear: Record<number, { direct: number; indirect: number }> = {};
+                categoryIncidents.forEach(inc => {
+                  const yr = inc.year;
+                  if (!costPerYear[yr]) costPerYear[yr] = { direct: 0, indirect: 0 };
+                  costPerYear[yr].direct += Number(inc.direct_cost) || 0;
+                  costPerYear[yr].indirect += Number(inc.indirect_cost) || 0;
+                });
+                const maxCostYear = Math.max(
+                  ...propActiveYears.map(y => (costPerYear[y]?.direct || 0) + (costPerYear[y]?.indirect || 0)),
+                  1
+                );
+                const totalCost = propActiveYears.reduce((s, y) => s + (costPerYear[y]?.direct || 0) + (costPerYear[y]?.indirect || 0), 0);
+
+                // ---- Chart 3: Incident count per year ----
+                const countPerYear: Record<number, number> = {};
+                categoryIncidents.forEach(inc => {
+                  countPerYear[inc.year] = (countPerYear[inc.year] || 0) + 1;
+                });
+                const maxCountYear = Math.max(...propActiveYears.map(y => countPerYear[y] || 0), 1);
+
+                // Stacked bar renderer for damage type
+                const maxDmgTotal = Math.max(...dmgTypeKeys.map(k => propActiveYears.reduce((s, y) => s + (dmgTypeCounts[k]?.[y] || 0), 0)), 1);
+
+                return (
+                  <div className="mt-2">
+                    {categoryIncidents.length === 0 ? (
+                      <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                        <p className="text-[13px]" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลทรัพย์สินเสียหาย สำหรับปีที่เลือก</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Legend */}
+                        <div className="flex flex-wrap items-center gap-4 mb-4 px-1">
+                          {propActiveYears.map(y => (
+                            <div key={y} className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded" style={{ background: YEAR_COLORS_PROP[y] || '#9ca3af' }} />
+                              <span className="text-[11px] font-semibold" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
+                            </div>
+                          ))}
+                          <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                            | ทรัพย์สินเสียหายทั้งหมด {categoryIncidents.length} ครั้ง
+                          </span>
+                        </div>
+
+                        {/* Row 1: Count per year + Cost per year */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                          {/* Incident count per year */}
+                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                            <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>จำนวนครั้ง — เปรียบเทียบรายปี</h3>
+                            <div className="flex items-end gap-4 justify-center" style={{ height: 170 }}>
+                              {propActiveYears.map(y => {
+                                const val = countPerYear[y] || 0;
+                                const pct = (val / maxCountYear) * 100;
+                                return (
+                                  <div key={y} className="flex flex-col items-center" style={{ flex: 1, maxWidth: 72 }}>
+                                    <span className="text-[16px] font-bold mb-1" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{val}</span>
+                                    <div className="w-full rounded-t-lg" style={{
+                                      height: `${Math.max(pct * 1.3, val > 0 ? 6 : 2)}px`,
+                                      background: YEAR_COLORS_PROP[y] || '#9ca3af',
+                                      maxHeight: 130,
+                                      opacity: val > 0 ? 1 : 0.15,
+                                    }} />
+                                    <span className="text-[12px] font-bold mt-2" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
+                                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>ครั้ง</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Cost per year (stacked direct + indirect) */}
+                          <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>มูลค่าความเสียหาย</h3>
+                              <span className="text-[12px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                                รวม {totalCost.toLocaleString()} ฿
+                              </span>
+                            </div>
+                            <div className="flex items-end gap-4 justify-center" style={{ height: 170 }}>
+                              {propActiveYears.map(y => {
+                                const d = costPerYear[y]?.direct || 0;
+                                const ind = costPerYear[y]?.indirect || 0;
+                                const total = d + ind;
+                                const pct = (total / maxCostYear) * 100;
+                                const dPct = total > 0 ? (d / total) * 100 : 0;
+                                return (
+                                  <div key={y} className="flex flex-col items-center" style={{ flex: 1, maxWidth: 72 }}>
+                                    <span className="text-[11px] font-bold mb-1" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>
+                                      {total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total.toLocaleString()}
+                                    </span>
+                                    <div className="w-full rounded-t-lg overflow-hidden flex flex-col-reverse" style={{
+                                      height: `${Math.max(pct * 1.3, total > 0 ? 6 : 2)}px`,
+                                      maxHeight: 130,
+                                      opacity: total > 0 ? 1 : 0.15,
+                                    }}>
+                                      {/* Direct cost (bottom, darker) */}
+                                      <div style={{ height: `${dPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af' }} />
+                                      {/* Indirect cost (top, lighter) */}
+                                      <div style={{ height: `${100 - dPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af', opacity: 0.4 }} />
+                                    </div>
+                                    <span className="text-[12px] font-bold mt-2" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="flex justify-center gap-4 mt-3">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-3 h-3 rounded" style={{ background: '#3b82f6' }} />
+                                <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายตรง</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-3 h-3 rounded" style={{ background: '#3b82f6', opacity: 0.4 }} />
+                                <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ค่าเสียหายอ้อม</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Chart: Property damage type (stacked horizontal bar) */}
+                        <div className="rounded-2xl p-5 mb-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                          <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>ประเภททรัพย์สินเสียหาย</h3>
+                          {dmgTypeKeys.length === 0 ? (
+                            <p className="text-[12px] py-4 text-center" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลประเภททรัพย์สิน</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {dmgTypeKeys.map(k => {
+                                const total = propActiveYears.reduce((s, y) => s + (dmgTypeCounts[k]?.[y] || 0), 0);
+                                const barPct = (total / maxDmgTotal) * 100;
+                                return (
+                                  <div key={k} className="flex items-center gap-3">
+                                    <span className="text-[11px] font-medium shrink-0 text-right" style={{ color: 'var(--text-primary)', width: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={k}>{k}</span>
+                                    <div className="flex-1 flex items-center gap-2">
+                                      <div className="flex-1 relative rounded-md overflow-hidden" style={{ height: 24, background: 'var(--bg-secondary)' }}>
+                                        <div className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden" style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%` }}>
+                                          {propActiveYears.map(y => {
+                                            const val = dmgTypeCounts[k]?.[y] || 0;
+                                            if (val === 0) return null;
+                                            const segPct = (val / total) * 100;
+                                            return (
+                                              <div key={y} className="h-full flex items-center justify-center" style={{ width: `${segPct}%`, background: YEAR_COLORS_PROP[y] || '#9ca3af', minWidth: val > 0 ? 14 : 0 }} title={`${y}: ${val}`}>
+                                                {segPct > 20 && <span className="text-[9px] font-bold text-white/80">{val}</span>}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                      <span className="text-[12px] font-bold shrink-0" style={{ color: 'var(--text-primary)', width: 26, textAlign: 'right' }}>{total}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
