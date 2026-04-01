@@ -905,6 +905,8 @@ export default function IncidentsPage() {
                           {ACTIVITIES.map(a => <option key={a} value={a}>{a}</option>)}
                         </select>
                       </div>
+                      {showInjurySections && (
+                      <>
                       <div>
                         <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ความรุนแรงจริง (Actual)</label>
                         <select value={(formData.actual_severity as string) || ''} onChange={e => updateForm('actual_severity', e.target.value)} style={selectStyle}>
@@ -919,6 +921,8 @@ export default function IncidentsPage() {
                           {POTENTIAL_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
+                      </>
+                      )}
                       {showInjurySections && (
                       <>
                       <div>
