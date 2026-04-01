@@ -33,51 +33,137 @@ const selectStyle = {
   padding: '8px 12px', fontSize: 13, color: '#1a1a1a', appearance: 'none' as const,
 };
 
+interface Incident {
+  id: string;
+  incident_no: string;
+  company_id: string;
+  incident_date: string;
+  year: number;
+  month: string;
+  incident_type: string;
+  work_related?: string;
+  person_type?: string;
+  direct_cost?: number;
+  indirect_cost?: number;
+  [key: string]: unknown;
+}
+
 export default function HQIncidentsPage() {
   const auth = useAuth();
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [selectedYears, setSelectedYears] = useState<number[]>([new Date().getFullYear()]);
+  const [workRelatedOnly, setWorkRelatedOnly] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [companyStats, setCompanyStats] = useState<Record<string, CompanyStat>>({});
+  const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
   const [manHoursByCompany, setManHoursByCompany] = useState<Record<string, { employee: number; contractor: number; total: number }>>({});
-
-  // Also fetch summary for total KPIs
-  const [totalSummary, setTotalSummary] = useState<{
-    totalIncidents: number; totalInjuries: number; ltiCases: number;
-    nearMisses: number; propertyDamage: number; fatalities: number;
-    totalDirectCost: number; totalIndirectCost: number;
-  } | null>(null);
-  const [monthlyData, setMonthlyData] = useState<Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // HQ mode
-      const hqRes = await fetch(`/api/incidents?mode=hq&year=${year}`);
-      const hqData = await hqRes.json();
-      setCompanyStats(hqData.companyStats || {});
-      setManHoursByCompany(hqData.manHoursByCompany || {});
+      // Fetch incidents and manhours for all selected years
+      const [incResults, mhResults] = await Promise.all([
+        Promise.all(selectedYears.map(y =>
+          Promise.all(COMPANIES.map(c =>
+            fetch(`/api/incidents?companyId=${c.id}&year=${y}&limit=1000`).then(r => r.json())
+          ))
+        )),
+        Promise.all(selectedYears.map(y =>
+          Promise.all(COMPANIES.map(c =>
+            fetch(`/api/manhours?companyId=${c.id}&year=${y}`).then(r => r.json()).then(d => ({
+              companyId: c.id, year: y,
+              employee: (d.manHours || []).reduce((a: number, r: Record<string, unknown>) => a + (Number(r.employee_manhours) || 0), 0),
+              contractor: (d.manHours || []).reduce((a: number, r: Record<string, unknown>) => a + (Number(r.contractor_manhours) || 0), 0),
+            }))
+          ))
+        )),
+      ]);
 
-      // Also get summary for total aggregates
-      const sumRes = await fetch(`/api/incidents?mode=summary&year=${year}`);
-      const sumData = await sumRes.json();
-      setTotalSummary(sumData.summary);
-      setMonthlyData(sumData.monthlyData || {});
+      // Merge incidents
+      const allInc: Incident[] = [];
+      incResults.forEach(yearResults => yearResults.forEach(r => { if (r.incidents) allInc.push(...r.incidents); }));
+      setAllIncidents(allInc);
+
+      // Merge manhours by company
+      const mhMap: Record<string, { employee: number; contractor: number; total: number }> = {};
+      mhResults.forEach(yearResults => yearResults.forEach(r => {
+        if (!mhMap[r.companyId]) mhMap[r.companyId] = { employee: 0, contractor: 0, total: 0 };
+        mhMap[r.companyId].employee += r.employee;
+        mhMap[r.companyId].contractor += r.contractor;
+        mhMap[r.companyId].total += r.employee + r.contractor;
+      }));
+      setManHoursByCompany(mhMap);
     } catch { /* empty */ }
     setLoading(false);
-  }, [year]);
+  }, [selectedYears]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Filtered by workRelatedOnly
+  const INJURY_TYPES_P = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
+  const baseInc = workRelatedOnly ? allIncidents.filter(i => i.work_related === 'ใช่') : allIncidents;
+
+  // Total summary computed client-side
+  const totalSummary = (() => {
+    const injuries = baseInc.filter(i => INJURY_TYPES_P.some(p => (i.incident_type || '').includes(p)));
+    const lti = baseInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; });
+    return {
+      totalIncidents: baseInc.length,
+      totalInjuries: injuries.length,
+      ltiCases: lti.length,
+      nearMisses: baseInc.filter(i => i.incident_type === 'Near Miss').length,
+      propertyDamage: baseInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย').length,
+      fatalities: baseInc.filter(i => (i.incident_type || '').includes('เสียชีวิต')).length,
+      totalDirectCost: baseInc.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0),
+      totalIndirectCost: baseInc.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0),
+    };
+  })();
+
+  // Per-company stats
+  const companyStats: Record<string, CompanyStat> = {};
+  COMPANIES.forEach(c => {
+    const cInc = baseInc.filter(i => i.company_id === c.id);
+    const injuries = cInc.filter(i => INJURY_TYPES_P.some(p => (i.incident_type || '').includes(p)));
+    const lti = cInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; });
+    const mh = manHoursByCompany[c.id];
+    if (cInc.length > 0 || (mh && mh.total > 0)) {
+      companyStats[c.id] = {
+        total: cInc.length,
+        injuries: injuries.length,
+        lti: lti.length,
+        nearMiss: cInc.filter(i => i.incident_type === 'Near Miss').length,
+        propertyDamage: cInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย').length,
+        fatality: cInc.filter(i => (i.incident_type || '').includes('เสียชีวิต')).length,
+        directCost: cInc.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0),
+        indirectCost: cInc.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0),
+        tifr: mh && mh.total > 0 ? (injuries.length / mh.total) * 1000000 : null,
+        ltifr: mh && mh.total > 0 ? (lti.length / mh.total) * 1000000 : null,
+      };
+    }
+  });
+
+  // Monthly data
+  const monthlyData: Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }> = {};
+  MONTHS.forEach(m => { monthlyData[m] = { injuries: 0, nearMiss: 0, propertyDamage: 0, total: 0 }; });
+  baseInc.forEach(inc => {
+    const num = parseInt(String(inc.month));
+    const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(inc.month);
+    if (monthlyData[m]) {
+      monthlyData[m].total++;
+      if (INJURY_TYPES_P.some(p => (inc.incident_type || '').includes(p))) monthlyData[m].injuries++;
+      if (inc.incident_type === 'Near Miss') monthlyData[m].nearMiss++;
+      if (inc.incident_type === 'ทรัพย์สินเสียหาย') monthlyData[m].propertyDamage++;
+    }
+  });
+
   // Sort companies by total incidents desc
-  const sortedCompanies = Object.entries(companyStats)
-    .sort((a, b) => b[1].total - a[1].total);
+  const sortedCompanies = Object.entries(companyStats).sort((a, b) => b[1].total - a[1].total);
 
   // Total man-hours
   const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mh.total, 0);
-  const totalTIFR = totalManHours > 0 && totalSummary ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
-  const totalLTIFR = totalManHours > 0 && totalSummary ? (totalSummary.ltiCases / totalManHours) * 1000000 : null;
+  const totalTIFR = totalManHours > 0 ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
+  const totalLTIFR = totalManHours > 0 ? (totalSummary.ltiCases / totalManHours) * 1000000 : null;
 
   const maxMonthly = Math.max(...Object.values(monthlyData).map(m => m.total), 1);
+  const yearLabel = selectedYears.length === 1 ? String(selectedYears[0]) : `${selectedYears[0]}-${selectedYears[selectedYears.length - 1]}`;
 
   if (!auth.isAdmin) {
     return (
@@ -94,22 +180,52 @@ export default function HQIncidentsPage() {
     <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="px-8 pt-8 pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                สถิติอุบัติเหตุ — HQ Overview
-              </h1>
-              <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-                Incident Statistics across all companies
-              </p>
-            </div>
-            <select value={year} onChange={e => setYear(Number(e.target.value))} style={{ ...selectStyle, width: 100 }}>
-              {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
-                <option key={y} value={y}>{y}</option>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 px-8 pt-6 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              สถิติอุบัติเหตุ — HQ Overview
+            </h1>
+          </div>
+          <div className="flex items-center gap-5 flex-wrap">
+            {/* Year Checkboxes */}
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
+              {[2021, 2022, 2023, 2024, 2025, 2026].map(yr => (
+                <label key={yr} className="flex items-center gap-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedYears.includes(yr)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setSelectedYears([...selectedYears, yr].sort());
+                      } else {
+                        const next = selectedYears.filter(y => y !== yr);
+                        if (next.length > 0) setSelectedYears(next);
+                      }
+                    }}
+                    className="w-3.5 h-3.5 rounded cursor-pointer"
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                  <span className="text-[12px]" style={{ color: selectedYears.includes(yr) ? 'var(--text-primary)' : 'var(--muted)' }}>{yr}</span>
+                </label>
               ))}
-            </select>
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            {/* Work-Related Toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWorkRelatedOnly(!workRelatedOnly)}
+                className="relative inline-flex items-center h-5 w-9 rounded-full transition-colors"
+                style={{ background: workRelatedOnly ? 'var(--accent)' : 'var(--border)' }}
+              >
+                <span
+                  className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                  style={{ transform: workRelatedOnly ? 'translateX(17px)' : 'translateX(2px)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
+                />
+              </button>
+              <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
+            </div>
           </div>
         </div>
 
@@ -119,7 +235,7 @@ export default function HQIncidentsPage() {
               <div className="animate-spin w-8 h-8 border-2 border-current border-t-transparent rounded-full mr-3" />
               กำลังโหลดข้อมูล...
             </div>
-          ) : totalSummary ? (
+          ) : (
             <div>
               {/* KPI Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
@@ -178,7 +294,7 @@ export default function HQIncidentsPage() {
               {/* Monthly Chart */}
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
-                  อุบัติการณ์รายเดือน — ทุกบริษัท ({year})
+                  อุบัติการณ์รายเดือน — ทุกบริษัท ({yearLabel})
                 </h3>
                 <div className="flex items-end gap-2" style={{ height: 180 }}>
                   {MONTHS.map(m => {
@@ -216,7 +332,7 @@ export default function HQIncidentsPage() {
               <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
                   <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    เปรียบเทียบรายบริษัท — {year}
+                    เปรียบเทียบรายบริษัท — {yearLabel}
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
@@ -255,7 +371,7 @@ export default function HQIncidentsPage() {
                       {sortedCompanies.length === 0 && (
                         <tr>
                           <td colSpan={10} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
-                            ไม่พบข้อมูลอุบัติเหตุในปี {year}
+                            ไม่พบข้อมูลอุบัติเหตุในปี {yearLabel}
                           </td>
                         </tr>
                       )}
@@ -264,8 +380,6 @@ export default function HQIncidentsPage() {
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-20" style={{ color: 'var(--muted)' }}>ไม่พบข้อมูล</div>
           )}
         </div>
       </main>

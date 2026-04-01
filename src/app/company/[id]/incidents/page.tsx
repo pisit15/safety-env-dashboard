@@ -312,20 +312,34 @@ export default function IncidentsPage() {
     setLoading(false);
   }, [id, year, viewMode, selectedYears]);
 
-  // Fetch list
+  // Fetch list (multi-year support)
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ companyId: id, year: String(year), page: String(page), limit: '20' });
-      if (searchTerm) params.set('search', searchTerm);
-      if (filterType) params.set('incidentType', filterType);
-      const res = await fetch(`/api/incidents?${params}`);
-      const data = await res.json();
-      setIncidents(data.incidents || []);
-      setTotal(data.total || 0);
+      const yearsToFetch = selectedYears.length > 0 ? selectedYears : [year];
+      const results = await Promise.all(
+        yearsToFetch.map(y => {
+          const params = new URLSearchParams({ companyId: id, year: String(y), limit: '1000' });
+          if (searchTerm) params.set('search', searchTerm);
+          if (filterType) params.set('incidentType', filterType);
+          return fetch(`/api/incidents?${params}`).then(r => r.json());
+        })
+      );
+      let allInc: Incident[] = [];
+      results.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
+      // Apply work-related filter
+      if (workRelatedOnly) {
+        allInc = allInc.filter(i => i.work_related === 'ใช่');
+      }
+      // Sort by date descending
+      allInc.sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''));
+      setTotal(allInc.length);
+      // Client-side pagination
+      const start = (page - 1) * 20;
+      setIncidents(allInc.slice(start, start + 20));
     } catch { /* empty */ }
     setLoading(false);
-  }, [id, year, page, searchTerm, filterType]);
+  }, [id, year, selectedYears, page, searchTerm, filterType, workRelatedOnly]);
 
   useEffect(() => {
     if (viewMode === 'dashboard') fetchSummary();
@@ -732,19 +746,46 @@ export default function IncidentsPage() {
             </div>
           )}
 
-          {/* List view year selector */}
+          {/* List view filter bar — same as dashboard */}
           {viewMode === 'list' && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
-              <select
-                value={year}
-                onChange={e => { setYear(Number(e.target.value)); setPage(1); }}
-                style={{ ...selectStyle, width: 100 }}
-              >
-                {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
-                  <option key={y} value={y}>{y}</option>
+            <div className="flex items-center gap-5 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ปี:</span>
+                {[2021, 2022, 2023, 2024, 2025, 2026].map(yr => (
+                  <label key={yr} className="flex items-center gap-1 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={selectedYears.includes(yr)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedYears([...selectedYears, yr].sort());
+                        } else {
+                          const next = selectedYears.filter(y => y !== yr);
+                          if (next.length > 0) setSelectedYears(next);
+                        }
+                        setPage(1);
+                      }}
+                      className="w-3.5 h-3.5 rounded cursor-pointer"
+                      style={{ accentColor: 'var(--accent)' }}
+                    />
+                    <span className="text-[12px]" style={{ color: selectedYears.includes(yr) ? 'var(--text-primary)' : 'var(--muted)' }}>{yr}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
+              <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setWorkRelatedOnly(!workRelatedOnly); setPage(1); }}
+                  className="relative inline-flex items-center h-5 w-9 rounded-full transition-colors"
+                  style={{ background: workRelatedOnly ? 'var(--accent)' : 'var(--border)' }}
+                >
+                  <span
+                    className="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                    style={{ transform: workRelatedOnly ? 'translateX(17px)' : 'translateX(2px)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}
+                  />
+                </button>
+                <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
+              </div>
             </div>
           )}
         </div>
