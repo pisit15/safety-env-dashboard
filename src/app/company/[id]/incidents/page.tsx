@@ -7,7 +7,7 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import {
   AlertTriangle, Plus, Search, ChevronLeft, ChevronRight, X,
-  Activity, TrendingUp, Shield, Users, DollarSign, FileText,
+  Activity, TrendingUp, TrendingDown, Shield, Users, DollarSign, FileText,
   Eye, Edit2, Trash2, BarChart3, List, Clock,
 } from 'lucide-react';
 
@@ -221,6 +221,7 @@ export default function IncidentsPage() {
   // Dashboard new filters: work-related and multi-year
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   const [selectedYears, setSelectedYears] = useState<number[]>([2021, 2022, 2023, 2024, 2025, 2026]);
+  const [incidentCategory, setIncidentCategory] = useState<'total' | 'injury' | 'property'>('total');
 
   // Multi-year TRIR/LTIFR trend — raw data for client-side computation
   const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
@@ -331,6 +332,13 @@ export default function IncidentsPage() {
       if (workRelatedOnly) {
         allInc = allInc.filter(i => i.work_related === 'ใช่');
       }
+      // Apply category filter
+      if (incidentCategory === 'injury') {
+        allInc = allInc.filter(i => ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (i.incident_type || '').includes(p)));
+      }
+      if (incidentCategory === 'property') {
+        allInc = allInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+      }
       // Sort by date descending
       allInc.sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''));
       setTotal(allInc.length);
@@ -339,7 +347,7 @@ export default function IncidentsPage() {
       setIncidents(allInc.slice(start, start + 20));
     } catch { /* empty */ }
     setLoading(false);
-  }, [id, year, selectedYears, page, searchTerm, filterType, workRelatedOnly]);
+  }, [id, year, selectedYears, page, searchTerm, filterType, workRelatedOnly, incidentCategory]);
 
   useEffect(() => {
     if (viewMode === 'dashboard') fetchSummary();
@@ -516,19 +524,29 @@ export default function IncidentsPage() {
   // Base incidents filtered by workRelatedOnly (for KPIs, type cards, charts)
   const baseIncidents = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
 
+  const categoryIncidents = baseIncidents.filter(inc => {
+    if (incidentCategory === 'injury') {
+      return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (inc.incident_type || '').includes(p));
+    }
+    if (incidentCategory === 'property') {
+      return inc.incident_type === 'ทรัพย์สินเสียหาย';
+    }
+    return true;
+  });
+
   // Compute live stats from baseIncidents (respects workRelatedOnly toggle)
   const liveStats = (() => {
     const INJURY_TYPES_PART = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
-    const injuryIncidents = baseIncidents.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p)));
-    const ltiIncidents = baseIncidents.filter(i => {
+    const injuryIncidents = categoryIncidents.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p)));
+    const ltiIncidents = categoryIncidents.filter(i => {
       const t = i.incident_type || '';
       return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
     });
-    const nearMisses = baseIncidents.filter(i => i.incident_type === 'Near Miss');
-    const propDamage = baseIncidents.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
-    const fatalities = baseIncidents.filter(i => (i.incident_type || '').includes('เสียชีวิต'));
-    const directCost = baseIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0);
-    const indirectCost = baseIncidents.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0);
+    const nearMisses = categoryIncidents.filter(i => i.incident_type === 'Near Miss');
+    const propDamage = categoryIncidents.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+    const fatalities = categoryIncidents.filter(i => (i.incident_type || '').includes('เสียชีวิต'));
+    const directCost = categoryIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0);
+    const indirectCost = categoryIncidents.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0);
 
     // Employee vs Contractor breakdown
     const empInj = injuryIncidents.filter(i => (i.person_type || '').includes('พนักงาน'));
@@ -538,10 +556,10 @@ export default function IncidentsPage() {
 
     // Type breakdown
     const typeBreakdown: Record<string, number> = {};
-    baseIncidents.forEach(i => { const t = i.incident_type || 'อื่นๆ'; typeBreakdown[t] = (typeBreakdown[t] || 0) + 1; });
+    categoryIncidents.forEach(i => { const t = i.incident_type || 'อื่นๆ'; typeBreakdown[t] = (typeBreakdown[t] || 0) + 1; });
 
     return {
-      totalIncidents: baseIncidents.length,
+      totalIncidents: categoryIncidents.length,
       totalInjuries: injuryIncidents.length,
       ltiCases: ltiIncidents.length,
       nearMisses: nearMisses.length,
@@ -571,8 +589,20 @@ export default function IncidentsPage() {
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
     const filtered = workRelatedOnly ? trendIncidents.filter(i => i.work_related === 'ใช่') : trendIncidents;
+    
+    // Apply category filter to trend data
+    const categoryFiltered = filtered.filter(inc => {
+      if (incidentCategory === 'injury') {
+        return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (inc.incident_type || '').includes(p));
+      }
+      if (incidentCategory === 'property') {
+        return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      }
+      return true;
+    });
+    
     return years.map(y => {
-      const yInc = filtered.filter(i => i.year === y);
+      const yInc = categoryFiltered.filter(i => i.year === y);
       const injuries = yInc.filter(i => INJURY_TYPES_PART_TREND.some(p => (i.incident_type || '').includes(p))).length;
       const lti = yInc.filter(i => {
         const t = i.incident_type || '';
@@ -588,7 +618,7 @@ export default function IncidentsPage() {
   })();
 
   // Filtered dashboard incidents based on dashFilter
-  const filteredDashIncidents = baseIncidents.filter(inc => {
+  const filteredDashIncidents = categoryIncidents.filter(inc => {
     if (dashFilter.month) {
       const incMonth = inc.month;
       const monthNum = parseInt(String(incMonth));
@@ -604,7 +634,7 @@ export default function IncidentsPage() {
   // Compute monthly stacked data from baseIncidents (respects work-related filter)
   const monthlyStacked: Record<string, Record<string, number>> = {};
   MONTHS.forEach(m => { monthlyStacked[m] = {}; });
-  baseIncidents.forEach(inc => {
+  categoryIncidents.forEach(inc => {
     const raw = inc.month;
     const num = parseInt(String(raw));
     const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
@@ -785,6 +815,29 @@ export default function IncidentsPage() {
                 </button>
                 <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
               </div>
+            </div>
+          )}
+
+          {/* Incident Category Segmented Control */}
+          {(viewMode === 'dashboard' || viewMode === 'list') && (
+            <div className="flex items-center gap-1 mt-2 p-0.5 rounded-lg" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              {[
+                { key: 'total' as const, label: 'ทั้งหมด' },
+                { key: 'injury' as const, label: 'อุบัติเหตุบาดเจ็บ' },
+                { key: 'property' as const, label: 'ทรัพย์สินเสียหาย' },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setIncidentCategory(tab.key); setPage(1); }}
+                  className="px-4 py-1.5 rounded-md text-[12px] font-medium transition-all"
+                  style={{
+                    background: incidentCategory === tab.key ? 'var(--accent)' : 'transparent',
+                    color: incidentCategory === tab.key ? '#fff' : 'var(--text-secondary)',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           )}
         </div>
