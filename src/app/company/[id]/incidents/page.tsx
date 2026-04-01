@@ -637,25 +637,43 @@ export default function IncidentsPage() {
                 </div>
               </div>
 
-              {/* Incident Type Breakdown Cards — horizontal scroll */}
+              {/* Incident Type Breakdown Cards — fixed order matching reference */}
               <div className="mb-6">
-                <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>ประเภทอุบัติการณ์</h3>
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                  {Object.entries(summaryData.typeBreakdown).map(([type, count]) => (
-                    <button
-                      key={type}
-                      onClick={() => setDashFilter({ ...dashFilter, type: dashFilter.type === type ? undefined : type })}
-                      className="flex-shrink-0 rounded-lg px-4 py-3 transition-all cursor-pointer"
-                      style={{
-                        background: dashFilter.type === type ? getTypeColor(type) : getTypeColor(type) + '20',
-                        border: `2px solid ${dashFilter.type === type ? getTypeColor(type) : getTypeColor(type) + '40'}`,
-                        color: dashFilter.type === type ? '#fff' : getTypeColor(type),
-                      }}
-                    >
-                      <div className="text-[12px] font-semibold whitespace-nowrap">{type}</div>
-                      <div className="text-[13px] font-bold">{count}</div>
-                    </button>
-                  ))}
+                  {[
+                    { type: 'Near Miss', bg: '#d1fae5', border: '#6ee7b7', text: '#065f46' },
+                    { type: 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', bg: '#ccfbf1', border: '#5eead4', text: '#115e59' },
+                    { type: 'ทรัพย์สินเสียหาย', bg: '#dbeafe', border: '#93c5fd', text: '#1e40af' },
+                    { type: 'บาดเจ็บ - ไม่หยุดงาน', bg: '#fef3c7', border: '#fcd34d', text: '#92400e' },
+                    { type: 'บาดเจ็บ - ปฐมพยาบาล (FA)', bg: '#fef3c7', border: '#fcd34d', text: '#92400e' },
+                    { type: 'บาดเจ็บ - ทำงานอย่างจำกัด', bg: '#fed7aa', border: '#fdba74', text: '#9a3412' },
+                    { type: 'บาดเจ็บ - หยุดงาน ≤ 3 วัน', bg: '#fed7aa', border: '#fb923c', text: '#9a3412' },
+                    { type: 'บาดเจ็บ - หยุดงาน > 3 วัน', bg: '#fecaca', border: '#f87171', text: '#991b1b' },
+                    { type: 'เสียชีวิต (Fatality)', bg: '#fecaca', border: '#ef4444', text: '#7f1d1d' },
+                    { type: 'เพลิงไหม้ (Fire)', bg: '#fce7f3', border: '#f9a8d4', text: '#9d174d' },
+                    { type: 'สารเคมีรั่วไหล', bg: '#f3e8ff', border: '#c4b5fd', text: '#6b21a8' },
+                    { type: 'โรคจากการทำงาน', bg: '#f1f5f9', border: '#cbd5e1', text: '#475569' },
+                    { type: 'สิ่งแวดล้อม', bg: '#ecfccb', border: '#bef264', text: '#3f6212' },
+                  ].map(({ type, bg, border, text }) => {
+                    const count = summaryData.typeBreakdown[type] || 0;
+                    const isActive = dashFilter.type === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setDashFilter({ ...dashFilter, type: isActive ? undefined : type })}
+                        className="flex-shrink-0 rounded-lg px-4 py-3 transition-all cursor-pointer min-w-[120px]"
+                        style={{
+                          background: isActive ? text : bg,
+                          border: `2px solid ${isActive ? text : border}`,
+                          color: isActive ? '#fff' : text,
+                          opacity: isActive ? 1 : (count === 0 ? 0.5 : 1),
+                        }}
+                      >
+                        <div className="text-[11px] font-semibold whitespace-nowrap">{type}</div>
+                        <div className="text-2xl font-bold mt-1">{count}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
