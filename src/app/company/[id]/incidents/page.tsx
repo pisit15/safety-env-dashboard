@@ -902,7 +902,8 @@ export default function IncidentsPage() {
                 ))}
               </div>
 
-              {/* TIFR / LTIFR — 3-way split + Cost */}
+              {/* TIFR / LTIFR — 3-way split + Cost (hidden for injury tab) */}
+              {incidentCategory !== 'injury' && (<>
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   TIFR / LTIFR
@@ -1009,9 +1010,10 @@ export default function IncidentsPage() {
                   </div>
                 </div>
               </div>
+              </>)}
 
-              {/* YTD TRIR / LTIFR Trend Charts */}
-              {yearlyTrend.length > 0 && (
+              {/* YTD TRIR / LTIFR Trend Charts (hidden for injury tab) */}
+              {incidentCategory !== 'injury' && yearlyTrend.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {[
                   { label: 'YTD TRIR', key: 'trir' as const, color: '#3b82f6' },
@@ -1130,7 +1132,8 @@ export default function IncidentsPage() {
                 </div>
               )}
 
-              {/* Monthly Stacked Bar Chart */}
+              {/* Monthly Stacked Bar Chart (hidden for injury tab) */}
+              {incidentCategory !== 'injury' && (
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   อุบัติการณ์รายเดือน — {selectedYears.length === 1 ? selectedYears[0] : selectedYears.join(', ')}
@@ -1185,6 +1188,7 @@ export default function IncidentsPage() {
                   ))}
                 </div>
               </div>
+              )}
 
               {/* Incident List Table */}
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
@@ -1224,8 +1228,8 @@ export default function IncidentsPage() {
                 )}
               </div>
 
-              {/* ===== Monthly Trend Comparison + Cumulative Charts ===== */}
-              {(() => {
+              {/* ===== Monthly Trend Comparison + Cumulative Charts (hidden for injury tab) ===== */}
+              {incidentCategory !== 'injury' && (() => {
                 const YEAR_COLORS: Record<number, string> = {
                   2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
                   2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
