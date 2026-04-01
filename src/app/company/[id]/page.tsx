@@ -21,7 +21,7 @@ import {
 const PROJECTS = [
   { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, path: '/action-plan', ready: 'hasSheet' as const },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, path: '/training', ready: true },
-  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, path: '/incidents', ready: false },
+  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, path: '/incidents', ready: true },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, path: '/safety-patrol', ready: false },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, path: '/risk', ready: false },
   { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, path: '/nearmiss', ready: false },

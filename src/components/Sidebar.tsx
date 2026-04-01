@@ -29,7 +29,7 @@ const PROJECTS = [
   { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' as const },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training', ready: true as const },
   { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true as const },
-  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: false as const },
+  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: true as const },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
   { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/nearmiss', companyPath: '/nearmiss', ready: false as const },

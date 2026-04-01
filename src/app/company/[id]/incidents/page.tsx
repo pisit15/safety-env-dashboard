@@ -1,0 +1,791 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
+import Sidebar from '@/components/Sidebar';
+import { useAuth } from '@/components/AuthContext';
+import { COMPANIES } from '@/lib/companies';
+import {
+  AlertTriangle, Plus, Search, ChevronLeft, ChevronRight, X,
+  Activity, TrendingUp, Shield, Users, DollarSign, FileText,
+  Eye, Edit2, Trash2, BarChart3, List, Clock,
+} from 'lucide-react';
+
+// Dropdown options matching the Excel template
+const INCIDENT_TYPES = [
+  'เสียชีวิต (Fatality)', 'บาดเจ็บ - หยุดงาน > 3 วัน', 'บาดเจ็บ - หยุดงาน ≤ 3 วัน',
+  'บาดเจ็บ - ทำงานอย่างจำกัด', 'บาดเจ็บ - ไม่หยุดงาน', 'บาดเจ็บ - ปฐมพยาบาล (FA)',
+  'ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล',
+  'Near Miss', 'โรคจากการทำงาน', 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', 'สิ่งแวดล้อม',
+];
+
+const ACTUAL_SEVERITIES = [
+  'S0 ไม่ได้รับบาดเจ็บ', 'S1 ปฐมพยาบาล', 'S2 รักษาโดยแพทย์',
+  'S3 ทำงานอย่างจำกัด', 'S4 อุบัติเหตุหยุดงาน', 'S5 ทุพพลภาพ', 'S6 เสียชีวิต',
+];
+
+const PERSON_TYPES = ['พนักงานประจำ', 'พนักงานสัญญาจ้าง', 'พนักงานทดลองงาน', 'ผู้รับเหมา', 'ผู้มาติดต่อ'];
+
+const CONTACT_TYPES = [
+  'กระแทก/ชนกับวัตถุหรืออุปกรณ์', 'ถูกหนีบ/ถูกกดทับ โดยเครื่องจักรหรือวัตถุ',
+  'ถูกกระแทก หรือถูกทับจากโครงสร้างที่พัง', 'วัตถุหรืออุปกรณ์ บาด/ตัด/เจาะ/ทิ่ม',
+  'ตกจากที่สูง', 'ลื่น/สะดุด/หกล้ม', 'สัมผัสสารเคมี ก๊าซพิษ',
+  'สัมผัสไฟฟ้า', 'สัมผัสของร้อน/เย็น', 'ยกของหนักเกินไป',
+  'ถูกวัตถุตก/หล่น/กระเด็นใส่', 'ยานพาหนะ/รถยก', 'อื่นๆ',
+];
+
+const AGENCY_SOURCES = [
+  'เครื่องจักร', 'เครื่องมือ (มีด , ค้อน )', 'เครื่องมือกล/ไฟฟ้า',
+  'สารเคมีและผลิตภัณฑ์เคมี', 'วัตถุ/ชิ้นส่วน', 'พื้นผิว/ทางเดิน',
+  'ยานพาหนะ', 'ไฟฟ้า', 'เศษวัสดุ ขยะ ', 'โครงสร้าง/อาคาร', 'อื่นๆ',
+];
+
+const SHIFTS = ['Day (08:00-18:00)', 'Night (20:00-08:00)', 'OT (กะกลางวัน)', 'OT (กะกลางคืน)'];
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_TH: Record<string, string> = {
+  Jan: 'ม.ค.', Feb: 'ก.พ.', Mar: 'มี.ค.', Apr: 'เม.ย.', May: 'พ.ค.', Jun: 'มิ.ย.',
+  Jul: 'ก.ค.', Aug: 'ส.ค.', Sep: 'ก.ย.', Oct: 'ต.ค.', Nov: 'พ.ย.', Dec: 'ธ.ค.',
+};
+
+interface Incident {
+  id: string;
+  incident_no: string;
+  company_id: string;
+  incident_date: string;
+  incident_time?: string;
+  year: number;
+  month: string;
+  shift?: string;
+  report_date?: string;
+  reporter?: string;
+  person_type?: string;
+  department?: string;
+  work_related?: string;
+  incident_type: string;
+  actual_severity?: string;
+  potential_severity?: string;
+  injured_count?: number;
+  contact_type?: string;
+  agency_source?: string;
+  activity?: string;
+  description?: string;
+  area?: string;
+  equipment?: string;
+  environment?: string;
+  direct_cost?: number;
+  indirect_cost?: number;
+  report_status?: string;
+  [key: string]: unknown;
+}
+
+interface SummaryData {
+  summary: {
+    totalIncidents: number;
+    totalInjuries: number;
+    ltiCases: number;
+    nearMisses: number;
+    propertyDamage: number;
+    fatalities: number;
+    totalDirectCost: number;
+    totalIndirectCost: number;
+  };
+  monthlyData: Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }>;
+  severityBreakdown: Record<string, number>;
+  typeBreakdown: Record<string, number>;
+}
+
+const inputStyle = {
+  background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 10,
+  padding: '8px 12px', fontSize: 13, width: '100%', color: '#1a1a1a',
+};
+
+const selectStyle = { ...inputStyle, appearance: 'none' as const };
+
+export default function IncidentsPage() {
+  const { id } = useParams() as { id: string };
+  const auth = useAuth();
+  const company = COMPANIES.find(c => c.id === id);
+  const companyName = company?.shortName || id.toUpperCase();
+
+  const [viewMode, setViewMode] = useState<'dashboard' | 'list' | 'form'>('dashboard');
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [loading, setLoading] = useState(true);
+
+  // Dashboard data
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+
+  // List data
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('');
+
+  // Form data
+  const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState(false);
+
+  // Man-hours data for TIFR/LTIFR
+  const [manHours, setManHours] = useState<{ employee: number; contractor: number; total: number }>({ employee: 0, contractor: 0, total: 0 });
+
+  // Fetch summary
+  const fetchSummary = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/incidents?mode=summary&companyId=${id}&year=${year}`);
+      const data = await res.json();
+      setSummaryData(data);
+    } catch { /* empty */ }
+
+    // Fetch man-hours
+    try {
+      const mhRes = await fetch(`/api/manhours?companyId=${id}&year=${year}`);
+      const mhData = await mhRes.json();
+      const mh = (mhData.manHours || []).reduce(
+        (acc: { employee: number; contractor: number; total: number }, r: Record<string, unknown>) => ({
+          employee: acc.employee + (Number(r.employee_manhours) || 0),
+          contractor: acc.contractor + (Number(r.contractor_manhours) || 0),
+          total: acc.total + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0),
+        }),
+        { employee: 0, contractor: 0, total: 0 }
+      );
+      setManHours(mh);
+    } catch { /* empty */ }
+    setLoading(false);
+  }, [id, year]);
+
+  // Fetch list
+  const fetchList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ companyId: id, year: String(year), page: String(page), limit: '20' });
+      if (searchTerm) params.set('search', searchTerm);
+      if (filterType) params.set('incidentType', filterType);
+      const res = await fetch(`/api/incidents?${params}`);
+      const data = await res.json();
+      setIncidents(data.incidents || []);
+      setTotal(data.total || 0);
+    } catch { /* empty */ }
+    setLoading(false);
+  }, [id, year, page, searchTerm, filterType]);
+
+  useEffect(() => {
+    if (viewMode === 'dashboard') fetchSummary();
+    else if (viewMode === 'list') fetchList();
+  }, [viewMode, fetchSummary, fetchList]);
+
+  // Calculate TIFR/LTIFR
+  const tifr = manHours.total > 0 && summaryData ? ((summaryData.summary.totalInjuries / manHours.total) * 1000000) : null;
+  const ltifr = manHours.total > 0 && summaryData ? ((summaryData.summary.ltiCases / manHours.total) * 1000000) : null;
+
+  // Form handlers
+  const openNewForm = () => {
+    setEditingIncident(null);
+    setFormData({
+      company_id: id,
+      incident_date: new Date().toISOString().split('T')[0],
+      incident_type: '',
+      work_related: 'ใช่',
+      report_status: 'Draft',
+    });
+    setViewMode('form');
+  };
+
+  const openEditForm = (incident: Incident) => {
+    setEditingIncident(incident);
+    setFormData({ ...incident });
+    setViewMode('form');
+  };
+
+  const handleSave = async () => {
+    if (!formData.incident_type || !formData.incident_date) {
+      alert('กรุณากรอกวันที่และประเภทอุบัติการณ์');
+      return;
+    }
+    setSaving(true);
+    try {
+      const method = editingIncident ? 'PUT' : 'POST';
+      const res = await fetch('/api/incidents', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(`Error: ${data.error}`);
+      } else {
+        setViewMode('list');
+        fetchList();
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (inc: Incident) => {
+    if (!confirm(`ต้องการลบ ${inc.incident_no}?`)) return;
+    try {
+      await fetch(`/api/incidents?id=${inc.id}`, { method: 'DELETE' });
+      fetchList();
+    } catch { /* empty */ }
+  };
+
+  const updateForm = (key: string, value: unknown) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Severity color
+  const getSevColor = (sev: string) => {
+    if (sev?.includes('S6') || sev?.includes('เสียชีวิต')) return '#ef4444';
+    if (sev?.includes('S5') || sev?.includes('S4')) return '#f97316';
+    if (sev?.includes('S3')) return '#eab308';
+    if (sev?.includes('S2')) return '#3b82f6';
+    if (sev?.includes('S1')) return '#22c55e';
+    return '#9ca3af';
+  };
+
+  // Incident type badge color
+  const getTypeBadge = (type: string) => {
+    if (type?.includes('เสียชีวิต')) return { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
+    if (type?.includes('หยุดงาน')) return { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
+    if (type?.includes('ทำงานอย่างจำกัด')) return { bg: '#fefce8', color: '#ca8a04', border: '#fef08a' };
+    if (type?.includes('ไม่หยุดงาน') || type?.includes('ปฐมพยาบาล')) return { bg: '#f0f9ff', color: '#0284c7', border: '#bae6fd' };
+    if (type === 'Near Miss') return { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe' };
+    if (type === 'ทรัพย์สินเสียหาย') return { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' };
+    return { bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' };
+  };
+
+  // Max bar value for chart
+  const maxMonthly = summaryData ? Math.max(...Object.values(summaryData.monthlyData).map(m => m.total), 1) : 1;
+
+  return (
+    <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">
+        {/* Header */}
+        <div className="px-8 pt-8 pb-4">
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                สถิติอุบัติเหตุ — {companyName}
+              </h1>
+              <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
+                Incident Statistics & Recording
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* Year selector */}
+              <select
+                value={year}
+                onChange={e => { setYear(Number(e.target.value)); setPage(1); }}
+                style={{ ...selectStyle, width: 100 }}
+              >
+                {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+
+              {/* View mode tabs */}
+              <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                {[
+                  { mode: 'dashboard' as const, icon: BarChart3, label: 'Dashboard' },
+                  { mode: 'list' as const, icon: List, label: 'รายการ' },
+                ].map(({ mode, icon: Icon, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium transition-colors"
+                    style={{
+                      background: viewMode === mode ? 'var(--accent)' : 'transparent',
+                      color: viewMode === mode ? '#fff' : 'var(--text-secondary)',
+                    }}
+                  >
+                    <Icon size={15} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={openNewForm}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all"
+                style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+              >
+                <Plus size={16} /> บันทึกอุบัติเหตุ
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-8 pb-8">
+          {loading && viewMode !== 'form' ? (
+            <div className="flex items-center justify-center py-20" style={{ color: 'var(--muted)' }}>
+              <div className="animate-spin w-8 h-8 border-2 border-current border-t-transparent rounded-full mr-3" />
+              กำลังโหลดข้อมูล...
+            </div>
+          ) : viewMode === 'dashboard' && summaryData ? (
+            /* ===================== DASHBOARD VIEW ===================== */
+            <div>
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+                {[
+                  { label: 'อุบัติการณ์ทั้งหมด', value: summaryData.summary.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
+                  { label: 'บาดเจ็บ', value: summaryData.summary.totalInjuries, icon: Activity, color: '#f97316' },
+                  { label: 'LTI Cases', value: summaryData.summary.ltiCases, icon: Clock, color: '#ef4444' },
+                  { label: 'Near Miss', value: summaryData.summary.nearMisses, icon: Shield, color: '#8b5cf6' },
+                  { label: 'ทรัพย์สินเสียหาย', value: summaryData.summary.propertyDamage, icon: DollarSign, color: '#22c55e' },
+                  { label: 'เสียชีวิต', value: summaryData.summary.fatalities, icon: Users, color: summaryData.summary.fatalities > 0 ? '#ef4444' : '#9ca3af' },
+                ].map((kpi, idx) => (
+                  <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
+                        <kpi.icon size={16} style={{ color: kpi.color }} />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* TIFR / LTIFR + Cost */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>TIFR</p>
+                  <p className="text-[10px] mb-3" style={{ color: 'var(--muted)' }}>Total Injury Frequency Rate</p>
+                  <p className="text-3xl font-bold" style={{ color: tifr !== null ? '#f97316' : 'var(--muted)' }}>
+                    {tifr !== null ? tifr.toFixed(2) : 'N/A'}
+                  </p>
+                  {tifr === null && <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>กรุณากรอก Man-hours</p>}
+                </div>
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>LTIFR</p>
+                  <p className="text-[10px] mb-3" style={{ color: 'var(--muted)' }}>Lost Time Injury Frequency Rate</p>
+                  <p className="text-3xl font-bold" style={{ color: ltifr !== null ? '#ef4444' : 'var(--muted)' }}>
+                    {ltifr !== null ? ltifr.toFixed(2) : 'N/A'}
+                  </p>
+                  {ltifr === null && <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>กรุณากรอก Man-hours</p>}
+                </div>
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>ค่าเสียหาย</p>
+                  <p className="text-[10px] mb-3" style={{ color: 'var(--muted)' }}>Direct + Indirect Cost</p>
+                  <p className="text-2xl font-bold" style={{ color: '#22c55e' }}>
+                    {(summaryData.summary.totalDirectCost + summaryData.summary.totalIndirectCost).toLocaleString()} ฿
+                  </p>
+                  <div className="flex gap-4 mt-1">
+                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>ตรง: {summaryData.summary.totalDirectCost.toLocaleString()}</span>
+                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>อ้อม: {summaryData.summary.totalIndirectCost.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Chart */}
+              <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                  อุบัติการณ์รายเดือน — {year}
+                </h3>
+                <div className="flex items-end gap-2" style={{ height: 180 }}>
+                  {MONTHS.map(m => {
+                    const d = summaryData.monthlyData[m] || { total: 0, injuries: 0, nearMiss: 0, propertyDamage: 0 };
+                    const h = d.total > 0 ? (d.total / maxMonthly) * 150 : 0;
+                    return (
+                      <div key={m} className="flex-1 flex flex-col items-center">
+                        <span className="text-[10px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{d.total || ''}</span>
+                        <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden" style={{ height: Math.max(h, 2) }}>
+                          {d.injuries > 0 && (
+                            <div style={{ height: `${(d.injuries / d.total) * 100}%`, background: '#f97316', minHeight: 2 }} />
+                          )}
+                          {d.nearMiss > 0 && (
+                            <div style={{ height: `${(d.nearMiss / d.total) * 100}%`, background: '#8b5cf6', minHeight: 2 }} />
+                          )}
+                          {d.propertyDamage > 0 && (
+                            <div style={{ height: `${(d.propertyDamage / d.total) * 100}%`, background: '#22c55e', minHeight: 2 }} />
+                          )}
+                          {d.total === 0 && <div style={{ height: 2, background: 'var(--border)' }} />}
+                        </div>
+                        <span className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>{MONTH_TH[m]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-6 mt-4 justify-center">
+                  {[
+                    { label: 'บาดเจ็บ', color: '#f97316' },
+                    { label: 'Near Miss', color: '#8b5cf6' },
+                    { label: 'ทรัพย์สิน', color: '#22c55e' },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm" style={{ background: l.color }} />
+                      <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type & Severity breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>ประเภทอุบัติการณ์</h3>
+                  <div className="space-y-2">
+                    {Object.entries(summaryData.typeBreakdown)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([type, count]) => {
+                        const badge = getTypeBadge(type);
+                        const pct = summaryData.summary.totalIncidents > 0 ? (count / summaryData.summary.totalIncidents) * 100 : 0;
+                        return (
+                          <div key={type} className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{type}</span>
+                                <span className="text-[12px] font-semibold" style={{ color: badge.color }}>{count}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: badge.color }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>ระดับความรุนแรง</h3>
+                  <div className="space-y-2">
+                    {Object.entries(summaryData.severityBreakdown)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([sev, count]) => {
+                        const color = getSevColor(sev);
+                        const pct = summaryData.summary.totalIncidents > 0 ? (count / summaryData.summary.totalIncidents) * 100 : 0;
+                        return (
+                          <div key={sev} className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{sev}</span>
+                                <span className="text-[12px] font-semibold" style={{ color }}>{count}</span>
+                              </div>
+                              <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : viewMode === 'list' ? (
+            /* ===================== LIST VIEW ===================== */
+            <div>
+              {/* Search & Filter */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+                  <input
+                    placeholder="ค้นหา Incident No, รายละเอียด, พื้นที่..."
+                    value={searchTerm}
+                    onChange={e => { setSearchTerm(e.target.value); setPage(1); }}
+                    style={{ ...inputStyle, paddingLeft: 36 }}
+                  />
+                </div>
+                <select
+                  value={filterType}
+                  onChange={e => { setFilterType(e.target.value); setPage(1); }}
+                  style={{ ...selectStyle, width: 220 }}
+                >
+                  <option value="">ทุกประเภท</option>
+                  {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <span className="text-[12px] whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+                  {total} รายการ
+                </span>
+              </div>
+
+              {/* Table */}
+              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)' }}>
+                      {['Incident No.', 'วันที่', 'ประเภท', 'ความรุนแรง', 'รายละเอียด', 'พื้นที่', 'สถานะ', ''].map(h => (
+                        <th key={h} className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)', fontSize: 11 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incidents.map((inc, idx) => {
+                      const badge = getTypeBadge(inc.incident_type);
+                      return (
+                        <tr key={inc.id} style={{ borderTop: idx > 0 ? '1px solid var(--border)' : undefined }}>
+                          <td className="px-4 py-3 font-mono font-semibold" style={{ color: 'var(--accent)' }}>{inc.incident_no}</td>
+                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                            {inc.incident_date ? new Date(inc.incident_date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
+                              {inc.incident_type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full" style={{ background: getSevColor(inc.actual_severity || '') }} />
+                              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{inc.actual_severity || '-'}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 max-w-[250px] truncate" style={{ color: 'var(--text-secondary)' }} title={inc.description || ''}>
+                            {inc.description || '-'}
+                          </td>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{inc.area || '-'}</td>
+                          <td className="px-4 py-3">
+                            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{
+                              background: inc.report_status === 'Closed' ? '#dcfce7' : inc.report_status === 'Approved' ? '#dbeafe' : '#fef3c7',
+                              color: inc.report_status === 'Closed' ? '#16a34a' : inc.report_status === 'Approved' ? '#2563eb' : '#d97706',
+                            }}>
+                              {inc.report_status || 'Draft'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => openEditForm(inc)} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }}>
+                                <Edit2 size={14} />
+                              </button>
+                              <button onClick={() => handleDelete(inc)} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#ef4444' }}>
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {incidents.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
+                          ไม่พบข้อมูลอุบัติเหตุ
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {total > 20 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg" style={{ color: 'var(--text-secondary)', opacity: page === 1 ? 0.3 : 1 }}>
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="text-[13px] px-3" style={{ color: 'var(--text-secondary)' }}>
+                    หน้า {page} / {Math.ceil(total / 20)}
+                  </span>
+                  <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / 20)} className="p-2 rounded-lg" style={{ color: 'var(--text-secondary)', opacity: page >= Math.ceil(total / 20) ? 0.3 : 1 }}>
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : viewMode === 'form' ? (
+            /* ===================== FORM VIEW ===================== */
+            <div className="max-w-4xl">
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                {/* Form Header */}
+                <div className="px-6 py-4" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-[16px] font-bold text-white">
+                        {editingIncident ? `แก้ไข ${editingIncident.incident_no}` : 'บันทึกอุบัติเหตุใหม่'}
+                      </h2>
+                      <p className="text-[12px] text-white/70 mt-0.5">{companyName}</p>
+                    </div>
+                    <button onClick={() => setViewMode('list')} className="text-white/70 hover:text-white">
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* Section 1: Identification */}
+                  <div>
+                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
+                      <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[11px] font-bold">1</span>
+                      IDENTIFICATION
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่เกิดเหตุ *</label>
+                        <input type="date" value={(formData.incident_date as string) || ''} onChange={e => updateForm('incident_date', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>เวลาเกิดเหตุ</label>
+                        <input type="time" value={(formData.incident_time as string) || ''} onChange={e => updateForm('incident_time', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กะการทำงาน</label>
+                        <select value={(formData.shift as string) || ''} onChange={e => updateForm('shift', e.target.value)} style={selectStyle}>
+                          <option value="">เลือก</option>
+                          {SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่รายงาน</label>
+                        <input type="date" value={(formData.report_date as string) || ''} onChange={e => updateForm('report_date', e.target.value)} style={inputStyle} />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ผู้รายงาน</label>
+                        <input type="text" value={(formData.reporter as string) || ''} onChange={e => updateForm('reporter', e.target.value)} style={inputStyle} placeholder="ชื่อผู้รายงาน" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Who */}
+                  <div>
+                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
+                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[11px] font-bold">2</span>
+                      WHO
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภทบุคคล</label>
+                        <select value={(formData.person_type as string) || ''} onChange={e => updateForm('person_type', e.target.value)} style={selectStyle}>
+                          <option value="">เลือก</option>
+                          {PERSON_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>แผนก</label>
+                        <input type="text" value={(formData.department as string) || ''} onChange={e => updateForm('department', e.target.value)} style={inputStyle} placeholder="แผนก" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3: What & Where */}
+                  <div>
+                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
+                      <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[11px] font-bold">3</span>
+                      WHAT & WHERE
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>อุบัติเหตุเกี่ยวกับงาน</label>
+                        <select value={(formData.work_related as string) || 'ใช่'} onChange={e => updateForm('work_related', e.target.value)} style={selectStyle}>
+                          <option value="ใช่">ใช่</option>
+                          <option value="ไม่ใช่">ไม่ใช่</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภทอุบัติการณ์ *</label>
+                        <select value={(formData.incident_type as string) || ''} onChange={e => updateForm('incident_type', e.target.value)} style={selectStyle}>
+                          <option value="">เลือก</option>
+                          {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ความรุนแรงจริง</label>
+                        <select value={(formData.actual_severity as string) || ''} onChange={e => updateForm('actual_severity', e.target.value)} style={selectStyle}>
+                          <option value="">เลือก</option>
+                          {ACTUAL_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>จำนวนผู้บาดเจ็บ</label>
+                        <input type="number" value={(formData.injured_count as number) || 0} onChange={e => updateForm('injured_count', parseInt(e.target.value) || 0)} style={inputStyle} min={0} />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>เหตุการณ์/การสัมผัส</label>
+                        <select value={(formData.contact_type as string) || ''} onChange={e => updateForm('contact_type', e.target.value)} style={selectStyle}>
+                          <option value="">เลือก</option>
+                          {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>แหล่งที่มาอุบัติเหตุ</label>
+                        <select value={(formData.agency_source as string) || ''} onChange={e => updateForm('agency_source', e.target.value)} style={selectStyle}>
+                          <option value="">เลือก</option>
+                          {AGENCY_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>รายละเอียดเหตุการณ์</label>
+                      <textarea
+                        value={(formData.description as string) || ''}
+                        onChange={e => updateForm('description', e.target.value)}
+                        style={{ ...inputStyle, minHeight: 80 }}
+                        placeholder="อธิบายรายละเอียดเหตุการณ์..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>พื้นที่เกิดเหตุ</label>
+                        <input type="text" value={(formData.area as string) || ''} onChange={e => updateForm('area', e.target.value)} style={inputStyle} placeholder="พื้นที่/โซน" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>เครื่องจักร/อุปกรณ์</label>
+                        <input type="text" value={(formData.equipment as string) || ''} onChange={e => updateForm('equipment', e.target.value)} style={inputStyle} placeholder="เครื่องจักรที่เกี่ยวข้อง" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 4: Consequence */}
+                  <div>
+                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
+                      <span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[11px] font-bold">4</span>
+                      CONSEQUENCE
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ค่าเสียหายโดยตรง (บาท)</label>
+                        <input type="number" value={(formData.direct_cost as number) || 0} onChange={e => updateForm('direct_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ค่าเสียหายทางอ้อม (บาท)</label>
+                        <input type="number" value={(formData.indirect_cost as number) || 0} onChange={e => updateForm('indirect_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 5: Status */}
+                  <div>
+                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
+                      <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[11px] font-bold">5</span>
+                      STATUS
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>สถานะรายงาน</label>
+                        <select value={(formData.report_status as string) || 'Draft'} onChange={e => updateForm('report_status', e.target.value)} style={selectStyle}>
+                          {['Draft', 'Under Review', 'Approved', 'Closed'].map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-semibold text-white"
+                      style={{ background: saving ? '#9ca3af' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+                    >
+                      {saving ? 'กำลังบันทึก...' : editingIncident ? 'อัปเดต' : 'บันทึก'}
+                    </button>
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className="px-6 py-2.5 rounded-xl text-[13px] font-medium"
+                      style={{ color: '#6b7280', background: '#f3f4f6' }}
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </main>
+    </div>
+  );
+}
