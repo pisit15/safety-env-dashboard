@@ -39,9 +39,11 @@ export async function GET(request: NextRequest) {
       const injuries = incidents.filter(i =>
         i.incident_type?.includes('บาดเจ็บ') || i.incident_type?.includes('เสียชีวิต')
       );
-      const ltiCases = incidents.filter(i =>
-        i.incident_type?.includes('หยุดงาน') || i.incident_type === 'เสียชีวิต (Fatality)'
-      );
+      const ltiCases = incidents.filter(i => {
+        const t = i.incident_type as string || '';
+        // LTI = lost time injury: หยุดงาน but NOT ไม่หยุดงาน
+        return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+      });
       const nearMisses = incidents.filter(i => i.incident_type === 'Near Miss');
       const propertyDamage = incidents.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
       const fatalities = incidents.filter(i =>
@@ -96,7 +98,8 @@ export async function GET(request: NextRequest) {
         if (!byCompany[c]) byCompany[c] = { total: 0, injuries: 0, lti: 0, nearMiss: 0, fatality: 0 };
         byCompany[c].total++;
         if ((i.incident_type as string)?.includes('บาดเจ็บ') || i.incident_type === 'เสียชีวิต (Fatality)') byCompany[c].injuries++;
-        if ((i.incident_type as string)?.includes('หยุดงาน') || i.incident_type === 'เสียชีวิต (Fatality)') byCompany[c].lti++;
+        const lt = (i.incident_type as string) || '';
+        if ((lt.includes('หยุดงาน') && !lt.includes('ไม่หยุดงาน')) || lt === 'เสียชีวิต (Fatality)') byCompany[c].lti++;
         if (i.incident_type === 'Near Miss') byCompany[c].nearMiss++;
         if (i.incident_type === 'เสียชีวิต (Fatality)' || i.actual_severity === 'S6 เสียชีวิต') byCompany[c].fatality++;
       });
@@ -179,7 +182,7 @@ export async function GET(request: NextRequest) {
 
         const type = i.incident_type as string;
         if (type?.includes('บาดเจ็บ') || type === 'เสียชีวิต (Fatality)') companyStats[c].injuries++;
-        if (type?.includes('หยุดงาน') || type === 'เสียชีวิต (Fatality)') companyStats[c].lti++;
+        if ((type?.includes('หยุดงาน') && !type?.includes('ไม่หยุดงาน')) || type === 'เสียชีวิต (Fatality)') companyStats[c].lti++;
         if (type === 'Near Miss') companyStats[c].nearMiss++;
         if (type === 'ทรัพย์สินเสียหาย') companyStats[c].propertyDamage++;
         if (type === 'เสียชีวิต (Fatality)' || i.actual_severity === 'S6 เสียชีวิต') companyStats[c].fatality++;
