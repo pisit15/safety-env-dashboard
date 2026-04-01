@@ -28,7 +28,7 @@ import {
 const PROJECTS = [
   { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' as const },
   { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training', ready: true as const },
-  { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '', companyPath: '/employees', ready: 'companyOnly' as const },
+  { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true as const },
   { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: false as const },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
@@ -128,7 +128,7 @@ export default function Sidebar() {
                 const currentCompany = companyForLinks ? COMPANIES.find(c => c.id === companyForLinks) : null;
 
                 // Resolve ready state for this company
-                const isCompanyOnly = p.ready === 'companyOnly';
+                const isCompanyOnly = (p.ready as string) === 'companyOnly';
                 const isReady = isCompanyOnly
                   ? !!currentCompanyId // Only show on company pages
                   : auth.isAdmin
