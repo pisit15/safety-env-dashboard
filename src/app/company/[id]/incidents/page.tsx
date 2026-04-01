@@ -214,6 +214,10 @@ export default function IncidentsPage() {
   // Man-hours data for TIFR/LTIFR
   const [manHours, setManHours] = useState<{ employee: number; contractor: number; total: number }>({ employee: 0, contractor: 0, total: 0 });
 
+  // Dashboard filter state (for interactive clicking)
+  const [dashFilter, setDashFilter] = useState<{ month?: string; type?: string }>({});
+  const [dashIncidents, setDashIncidents] = useState<Incident[]>([]);
+
   // Fetch summary
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -259,6 +263,16 @@ export default function IncidentsPage() {
     if (viewMode === 'dashboard') fetchSummary();
     else if (viewMode === 'list') fetchList();
   }, [viewMode, fetchSummary, fetchList]);
+
+  // Fetch all incidents for dashboard table
+  useEffect(() => {
+    if (viewMode === 'dashboard') {
+      fetch(`/api/incidents?companyId=${id}&year=${year}&limit=1000`)
+        .then(r => r.json())
+        .then(d => setDashIncidents(d.incidents || []))
+        .catch(() => setDashIncidents([]));
+    }
+  }, [viewMode, id, year]);
 
   // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only
   const s = summaryData?.summary;
@@ -377,6 +391,53 @@ export default function IncidentsPage() {
     return { bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' };
   };
 
+  // Type color map for stacked chart
+  const TYPE_COLORS: Record<string, string> = {
+    'ทรัพย์สินเสียหาย': '#3b82f6',
+    'บาดเจ็บ - ไม่หยุดงาน': '#f97316',
+    'บาดเจ็บ - หยุดงาน ≤ 3 วัน': '#eab308',
+    'บาดเจ็บ - หยุดงาน > 3 วัน': '#ef4444',
+    'บาดเจ็บ - ปฐมพยาบาล (FA)': '#06b6d4',
+    'บาดเจ็บ - ทำงานอย่างจำกัด': '#a855f7',
+    'Near Miss': '#22c55e',
+    'เสียชีวิต (Fatality)': '#991b1b',
+    'เพลิงไหม้ (Fire)': '#dc2626',
+    'สารเคมีรั่วไหล': '#d946ef',
+    'โรคจากการทำงาน': '#64748b',
+    'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน': '#14b8a6',
+    'สิ่งแวดล้อม': '#84cc16',
+  };
+  const getTypeColor = (t: string) => TYPE_COLORS[t] || '#9ca3af';
+
+  // Filtered dashboard incidents based on dashFilter
+  const filteredDashIncidents = dashIncidents.filter(inc => {
+    if (dashFilter.month) {
+      const incMonth = inc.month;
+      const monthNum = parseInt(String(incMonth));
+      const normalizedMonth = (monthNum >= 1 && monthNum <= 12) ? MONTHS[monthNum - 1] : String(incMonth);
+      if (normalizedMonth !== dashFilter.month) return false;
+    }
+    if (dashFilter.type) {
+      if (inc.incident_type !== dashFilter.type) return false;
+    }
+    return true;
+  });
+
+  // Compute monthly stacked data from dashIncidents
+  const monthlyStacked: Record<string, Record<string, number>> = {};
+  MONTHS.forEach(m => { monthlyStacked[m] = {}; });
+  dashIncidents.forEach(inc => {
+    const raw = inc.month;
+    const num = parseInt(String(raw));
+    const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
+    if (m && monthlyStacked[m] !== undefined) {
+      const t = inc.incident_type || 'อื่นๆ';
+      monthlyStacked[m][t] = (monthlyStacked[m][t] || 0) + 1;
+    }
+  });
+  const allTypes = Array.from(new Set(dashIncidents.map(i => i.incident_type || 'อื่นๆ')));
+  const maxStackedMonthly = Math.max(...MONTHS.map(m => Object.values(monthlyStacked[m]).reduce((s, v) => s + v, 0)), 1);
+
   // Max bar value for chart
   const maxMonthly = summaryData ? Math.max(...Object.values(summaryData.monthlyData).map(m => m.total), 1) : 1;
 
@@ -449,14 +510,12 @@ export default function IncidentsPage() {
             /* ===================== DASHBOARD VIEW ===================== */
             <div>
               {/* KPI Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {[
-                  { label: 'อุบัติการณ์ทั้งหมด', value: summaryData.summary.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
-                  { label: 'บาดเจ็บ', value: summaryData.summary.totalInjuries, icon: Activity, color: '#f97316' },
+                  { label: 'Total Incident', value: summaryData.summary.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
+                  { label: 'TRC Cases', value: summaryData.summary.totalInjuries, icon: Activity, color: '#f97316' },
                   { label: 'LTI Cases', value: summaryData.summary.ltiCases, icon: Clock, color: '#ef4444' },
-                  { label: 'Near Miss', value: summaryData.summary.nearMisses, icon: Shield, color: '#8b5cf6' },
-                  { label: 'ทรัพย์สินเสียหาย', value: summaryData.summary.propertyDamage, icon: DollarSign, color: '#22c55e' },
-                  { label: 'เสียชีวิต', value: summaryData.summary.fatalities, icon: Users, color: summaryData.summary.fatalities > 0 ? '#ef4444' : '#9ca3af' },
+                  { label: 'Total Manhour', value: manHours.total, icon: Users, color: '#3b82f6' },
                 ].map((kpi, idx) => (
                   <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                     <div className="flex items-center gap-2 mb-2">
@@ -464,7 +523,7 @@ export default function IncidentsPage() {
                         <kpi.icon size={16} style={{ color: kpi.color }} />
                       </div>
                     </div>
-                    <p className="text-2xl font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
+                    <p className="text-2xl font-bold" style={{ color: kpi.color }}>{typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}</p>
                     <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
                   </div>
                 ))}
@@ -578,100 +637,140 @@ export default function IncidentsPage() {
                 </div>
               </div>
 
-              {/* Monthly Chart */}
+              {/* Incident Type Breakdown Cards — horizontal scroll */}
+              <div className="mb-6">
+                <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>ประเภทอุบัติการณ์</h3>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {Object.entries(summaryData.typeBreakdown).map(([type, count]) => (
+                    <button
+                      key={type}
+                      onClick={() => setDashFilter({ ...dashFilter, type: dashFilter.type === type ? undefined : type })}
+                      className="flex-shrink-0 rounded-lg px-4 py-3 transition-all cursor-pointer"
+                      style={{
+                        background: dashFilter.type === type ? getTypeColor(type) : getTypeColor(type) + '20',
+                        border: `2px solid ${dashFilter.type === type ? getTypeColor(type) : getTypeColor(type) + '40'}`,
+                        color: dashFilter.type === type ? '#fff' : getTypeColor(type),
+                      }}
+                    >
+                      <div className="text-[12px] font-semibold whitespace-nowrap">{type}</div>
+                      <div className="text-[13px] font-bold">{count}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Active Filter Indicator */}
+              {(dashFilter.month || dashFilter.type) && (
+                <div className="mb-4 p-3 rounded-lg" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px]" style={{ color: '#166534' }}>
+                      Active Filter: {dashFilter.month && `Month: ${dashFilter.month}`} {dashFilter.type && `Type: ${dashFilter.type}`}
+                    </span>
+                    <button
+                      onClick={() => setDashFilter({})}
+                      className="text-[12px] font-semibold px-2 py-1 rounded hover:bg-white transition-colors"
+                      style={{ color: '#166534' }}
+                    >
+                      Clear Filter
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Monthly Stacked Bar Chart */}
               <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
                   อุบัติการณ์รายเดือน — {year}
                 </h3>
-                <div className="flex items-end gap-2" style={{ height: 180 }}>
+                <div className="flex items-end gap-2" style={{ height: 280 }}>
                   {MONTHS.map(m => {
-                    const d = summaryData.monthlyData[m] || { total: 0, injuries: 0, nearMiss: 0, propertyDamage: 0 };
-                    const h = d.total > 0 ? (d.total / maxMonthly) * 150 : 0;
+                    const monthData = monthlyStacked[m] || {};
+                    const monthTotal = Object.values(monthData).reduce((s, v) => s + v, 0);
+                    const barHeight = monthTotal > 0 ? (monthTotal / maxStackedMonthly) * 240 : 0;
+                    
                     return (
                       <div key={m} className="flex-1 flex flex-col items-center">
-                        <span className="text-[10px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{d.total || ''}</span>
-                        <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden" style={{ height: Math.max(h, 2) }}>
-                          {d.injuries > 0 && (
-                            <div style={{ height: `${(d.injuries / d.total) * 100}%`, background: '#f97316', minHeight: 2 }} />
-                          )}
-                          {d.nearMiss > 0 && (
-                            <div style={{ height: `${(d.nearMiss / d.total) * 100}%`, background: '#8b5cf6', minHeight: 2 }} />
-                          )}
-                          {d.propertyDamage > 0 && (
-                            <div style={{ height: `${(d.propertyDamage / d.total) * 100}%`, background: '#22c55e', minHeight: 2 }} />
-                          )}
-                          {d.total === 0 && <div style={{ height: 2, background: 'var(--border)' }} />}
+                        {monthTotal > 0 && (
+                          <span className="text-[10px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{monthTotal}</span>
+                        )}
+                        <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden" style={{ height: Math.max(barHeight, 4) }}>
+                          {allTypes.map((type, idx) => {
+                            const count = monthData[type] || 0;
+                            return count > 0 ? (
+                              <div
+                                key={`${m}-${type}`}
+                                onClick={() => setDashFilter({ month: m, type })}
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                                style={{
+                                  height: `${monthTotal > 0 ? (count / monthTotal) * 100 : 0}%`,
+                                  background: getTypeColor(type),
+                                  minHeight: 3,
+                                }}
+                              />
+                            ) : null;
+                          })}
+                          {monthTotal === 0 && <div style={{ height: 4, background: 'var(--border)' }} />}
                         </div>
                         <span className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>{MONTH_TH[m]}</span>
                       </div>
                     );
                   })}
                 </div>
-                <div className="flex gap-6 mt-4 justify-center">
-                  {[
-                    { label: 'บาดเจ็บ', color: '#f97316' },
-                    { label: 'Near Miss', color: '#8b5cf6' },
-                    { label: 'ทรัพย์สิน', color: '#22c55e' },
-                  ].map(l => (
-                    <div key={l.label} className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-sm" style={{ background: l.color }} />
-                      <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{l.label}</span>
+                <div className="flex gap-4 mt-4 justify-start flex-wrap">
+                  {allTypes.map(t => (
+                    <div key={t} className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-sm" style={{ background: getTypeColor(t) }} />
+                      <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{t}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Type & Severity breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>ประเภทอุบัติการณ์</h3>
-                  <div className="space-y-2">
-                    {Object.entries(summaryData.typeBreakdown)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([type, count]) => {
-                        const badge = getTypeBadge(type);
-                        const pct = summaryData.summary.totalIncidents > 0 ? (count / summaryData.summary.totalIncidents) * 100 : 0;
-                        return (
-                          <div key={type} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{type}</span>
-                                <span className="text-[12px] font-semibold" style={{ color: badge.color }}>{count}</span>
-                              </div>
-                              <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: badge.color }} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+              {/* Incident List Table */}
+              <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <h3 className="text-[14px] font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+                  รายการอุบัติการณ์ {filteredDashIncidents.length > 0 ? `(${filteredDashIncidents.length})` : ''}
+                </h3>
+                {filteredDashIncidents.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>#</th>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>วันที่</th>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>รายละเอียด</th>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>ประเภท</th>
+                          <th className="text-left py-2 px-3" style={{ color: 'var(--muted)' }}>ความรุนแรง</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredDashIncidents.slice(0, 20).map((inc, idx) => {
+                          const badge = getTypeBadge(inc.incident_type);
+                          const sevColor = getSevColor(inc.actual_severity || '');
+                          return (
+                            <tr key={inc.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }}>{idx + 1}</td>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-primary)' }}>{inc.incident_date}</td>
+                              <td className="py-2 px-3" style={{ color: 'var(--text-secondary)' }} title={inc.incident_no}>{inc.incident_no}</td>
+                              <td className="py-2 px-3">
+                                <span className="px-2 py-1 rounded-md text-[11px] font-medium" style={{ background: badge.bg, color: badge.color }}>
+                                  {inc.incident_type}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className="font-medium" style={{ color: sevColor }}>
+                                  {inc.actual_severity || '-'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-
-                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <h3 className="text-[14px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>ระดับความรุนแรง</h3>
-                  <div className="space-y-2">
-                    {Object.entries(summaryData.severityBreakdown)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([sev, count]) => {
-                        const color = getSevColor(sev);
-                        const pct = summaryData.summary.totalIncidents > 0 ? (count / summaryData.summary.totalIncidents) * 100 : 0;
-                        return (
-                          <div key={sev} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{sev}</span>
-                                <span className="text-[12px] font-semibold" style={{ color }}>{count}</span>
-                              </div>
-                              <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-secondary)' }}>
-                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
+                ) : (
+                  <p className="py-4 text-center" style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลอุบัติการณ์</p>
+                )}
               </div>
             </div>
           ) : viewMode === 'list' ? (
