@@ -218,6 +218,9 @@ export default function IncidentsPage() {
   const [dashFilter, setDashFilter] = useState<{ month?: string; type?: string }>({});
   const [dashIncidents, setDashIncidents] = useState<Incident[]>([]);
 
+  // Multi-year TRIR/LTIFR trend data
+  const [yearlyTrend, setYearlyTrend] = useState<{ year: number; trir: number; ltifr: number }[]>([]);
+
   // Fetch summary
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -273,6 +276,39 @@ export default function IncidentsPage() {
         .catch(() => setDashIncidents([]));
     }
   }, [viewMode, id, year]);
+
+  // Fetch multi-year TRIR/LTIFR trend
+  useEffect(() => {
+    if (viewMode !== 'dashboard') return;
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i); // last 6 years
+
+    Promise.all(years.map(async (y) => {
+      try {
+        const [sumRes, mhRes] = await Promise.all([
+          fetch(`/api/incidents?mode=summary&companyId=${id}&year=${y}`),
+          fetch(`/api/manhours?companyId=${id}&year=${y}`),
+        ]);
+        const sumData = await sumRes.json();
+        const mhData = await mhRes.json();
+
+        const totalMH = (mhData.manHours || []).reduce(
+          (acc: number, r: Record<string, unknown>) => acc + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0), 0
+        );
+
+        const injuries = sumData?.summary?.totalInjuries || 0;
+        const lti = sumData?.summary?.ltiCases || 0;
+
+        return {
+          year: y,
+          trir: totalMH > 0 ? (injuries / totalMH) * 1000000 : 0,
+          ltifr: totalMH > 0 ? (lti / totalMH) * 1000000 : 0,
+        };
+      } catch {
+        return { year: y, trir: 0, ltifr: 0 };
+      }
+    })).then(setYearlyTrend);
+  }, [viewMode, id]);
 
   // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only
   const s = summaryData?.summary;
@@ -637,9 +673,72 @@ export default function IncidentsPage() {
                 </div>
               </div>
 
+              {/* YTD TRIR / LTIFR Trend Charts */}
+              {yearlyTrend.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {[
+                  { label: 'YTD TRIR', key: 'trir' as const, color: '#3b82f6' },
+                  { label: 'YTD LTIFR', key: 'ltifr' as const, color: '#3b82f6' },
+                ].map(chart => {
+                  const values = yearlyTrend.map(d => d[chart.key]);
+                  const maxVal = Math.max(...values, 1);
+                  const chartW = 400;
+                  const chartH = 150;
+                  const padX = 30;
+                  const padY = 25;
+                  const padBottom = 25;
+                  const plotW = chartW - padX * 2;
+                  const plotH = chartH - padY - padBottom;
+                  const points = yearlyTrend.map((d, i) => ({
+                    x: padX + (i / Math.max(yearlyTrend.length - 1, 1)) * plotW,
+                    y: padY + plotH - (d[chart.key] / maxVal) * plotH,
+                    val: d[chart.key],
+                    year: d.year,
+                  }));
+                  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+                  const areaPath = linePath + ` L${points[points.length - 1].x},${padY + plotH} L${points[0].x},${padY + plotH} Z`;
+
+                  return (
+                    <div key={chart.key} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-4 h-[2px]" style={{ background: chart.color }} />
+                        <span className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{chart.label}</span>
+                      </div>
+                      <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ height: 160 }}>
+                        {/* Grid lines */}
+                        {[0, 0.25, 0.5, 0.75, 1].map(pct => {
+                          const gy = padY + plotH - pct * plotH;
+                          return <line key={pct} x1={padX} y1={gy} x2={chartW - padX} y2={gy} stroke="var(--border)" strokeWidth="0.5" />;
+                        })}
+                        {/* Y axis labels */}
+                        {[0, 0.5, 1].map(pct => {
+                          const gy = padY + plotH - pct * plotH;
+                          return <text key={pct} x={padX - 4} y={gy + 3} textAnchor="end" fontSize="9" fill="var(--muted)">{(maxVal * pct).toFixed(0)}</text>;
+                        })}
+                        {/* Area fill */}
+                        <path d={areaPath} fill={chart.color} fillOpacity="0.08" />
+                        {/* Line */}
+                        <path d={linePath} fill="none" stroke={chart.color} strokeWidth="2" />
+                        {/* Points and labels */}
+                        {points.map((p, i) => (
+                          <g key={i}>
+                            <circle cx={p.x} cy={p.y} r="3.5" fill="#fff" stroke={chart.color} strokeWidth="2" />
+                            <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize="10" fontWeight="600" fill={chart.color}>
+                              {p.val > 0 ? p.val.toFixed(2) : '0'}
+                            </text>
+                            <text x={p.x} y={chartH - 6} textAnchor="middle" fontSize="9" fill="var(--muted)">{p.year}</text>
+                          </g>
+                        ))}
+                      </svg>
+                    </div>
+                  );
+                })}
+              </div>
+              )}
+
               {/* Incident Type Breakdown Cards — fixed order matching reference */}
               <div className="mb-6">
-                <div className="flex gap-2 overflow-x-auto pb-2">
+                <div className="grid grid-cols-4 lg:grid-cols-7 gap-2">
                   {[
                     { type: 'Near Miss', bg: '#d1fae5', border: '#6ee7b7', text: '#065f46' },
                     { type: 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', bg: '#ccfbf1', border: '#5eead4', text: '#115e59' },
@@ -661,7 +760,7 @@ export default function IncidentsPage() {
                       <button
                         key={type}
                         onClick={() => setDashFilter({ ...dashFilter, type: isActive ? undefined : type })}
-                        className="flex-shrink-0 rounded-lg px-4 py-3 transition-all cursor-pointer min-w-[120px]"
+                        className="rounded-lg px-3 py-3 transition-all cursor-pointer text-center"
                         style={{
                           background: isActive ? text : bg,
                           border: `2px solid ${isActive ? text : border}`,
