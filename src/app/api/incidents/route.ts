@@ -54,8 +54,19 @@ export async function GET(request: NextRequest) {
       const monthlyData: Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }> = {};
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       months.forEach(m => { monthlyData[m] = { injuries: 0, nearMiss: 0, propertyDamage: 0, total: 0 }; });
+      // Normalize month: support both number ("1"-"12") and text ("Jan"-"Dec")
+      const normalizeMonth = (raw: unknown): string | null => {
+        if (!raw) return null;
+        const s = String(raw).trim();
+        // If it's already a valid month name
+        if (months.includes(s)) return s;
+        // If it's a number (1-12), convert to month name
+        const num = parseInt(s);
+        if (num >= 1 && num <= 12) return months[num - 1];
+        return null;
+      };
       incidents.forEach((i: Record<string, unknown>) => {
-        const m = i.month as string;
+        const m = normalizeMonth(i.month);
         if (m && monthlyData[m]) {
           monthlyData[m].total++;
           if ((i.incident_type as string)?.includes('บาดเจ็บ') || i.incident_type === 'เสียชีวิต (Fatality)') monthlyData[m].injuries++;
