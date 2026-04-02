@@ -52,7 +52,7 @@ export default function IncidentsPage() {
   // Form data — simplified
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
 
-  // Man-hours data for TIFR/LTIFR
+  // Man-hours data for TRIR/LTIFR
   const [manHours, setManHours] = useState<{ employee: number; contractor: number; total: number }>({ employee: 0, contractor: 0, total: 0 });
 
   // Dashboard filter state (for interactive clicking)
@@ -292,7 +292,7 @@ export default function IncidentsPage() {
       .catch(() => setTrendManhours({}));
   }, [viewMode, id]);
 
-  // Fetch injured persons data — needed for Employee/Contractor breakdown in all tabs (Overview uses it for TIFR/LTIFR)
+  // Fetch injured persons data — needed for Employee/Contractor breakdown in all tabs (Overview uses it for TRIR/LTIFR)
   useEffect(() => {
     if (viewMode !== 'dashboard' || selectedYears.length === 0) {
       return;
@@ -403,12 +403,12 @@ export default function IncidentsPage() {
     };
   })();
 
-  // Calculate TIFR/LTIFR — Combined, Employee-only, Contractor-only (uses liveStats for toggle support)
-  const tifrCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
+  // Calculate TRIR/LTIFR — Combined, Employee-only, Contractor-only (uses liveStats for toggle support)
+  const trirCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
   const ltifrCombined = manHours.total > 0 ? (liveStats.ltiCases / manHours.total) * 1000000 : null;
-  const tifrEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
+  const trirEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
   const ltifrEmployee = manHours.employee > 0 ? (liveStats.employeeLti / manHours.employee) * 1000000 : null;
-  const tifrContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
+  const trirContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
   const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
 
   // Compute yearlyTrend from raw data — respects workRelatedOnly toggle
@@ -577,11 +577,11 @@ export default function IncidentsPage() {
                   liveStats={liveStats}
                   manHours={manHours}
                   selectedYears={selectedYears}
-                  tifrCombined={tifrCombined}
+                  trirCombined={trirCombined}
                   ltifrCombined={ltifrCombined}
-                  tifrEmployee={tifrEmployee}
+                  trirEmployee={trirEmployee}
                   ltifrEmployee={ltifrEmployee}
-                  tifrContractor={tifrContractor}
+                  trirContractor={trirContractor}
                   ltifrContractor={ltifrContractor}
                   trendIncidents={trendIncidents}
                   trendManhours={trendManhours}
@@ -600,7 +600,7 @@ export default function IncidentsPage() {
                 <InjuryWorkspace
                   categoryIncidents={categoryIncidents}
                   liveStats={liveStats}
-                  tifrCombined={tifrCombined}
+                  trirCombined={trirCombined}
                   ltifrCombined={ltifrCombined}
                   injuredPersonsData={injuredPersonsData}
                   injuredIncidentMap={injuredIncidentMap}

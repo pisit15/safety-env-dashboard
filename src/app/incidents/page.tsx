@@ -24,7 +24,7 @@ interface CompanyStat {
   fatality: number;
   directCost: number;
   indirectCost: number;
-  tifr: number | null;
+  trir: number | null;
   ltifr: number | null;
 }
 
@@ -152,7 +152,7 @@ export default function HQIncidentsPage() {
         fatality: cInc.filter(i => (i.incident_type || '').includes('เสียชีวิต')).length,
         directCost: cInc.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0),
         indirectCost: cInc.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0),
-        tifr: mh && mh.total > 0 ? (injuries.length / mh.total) * 1000000 : null,
+        trir: mh && mh.total > 0 ? (injuries.length / mh.total) * 1000000 : null,
         ltifr: mh && mh.total > 0 ? (lti.length / mh.total) * 1000000 : null,
       };
     }
@@ -221,13 +221,13 @@ export default function HQIncidentsPage() {
     if (tableFilter === 'lti') return s.lti > 0;
     if (tableFilter === 'highRate') return top3LtifrIds.has(cId);
     if (tableFilter === 'highCost') return (s.directCost + s.indirectCost) > 0;
-    if (tableFilter === 'noMH') return s.tifr === null && s.total > 0;
+    if (tableFilter === 'noMH') return s.trir === null && s.total > 0;
     return true;
   });
 
   // Total man-hours
   const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mh.total, 0);
-  const totalTIFR = totalManHours > 0 ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
+  const totalTRIR = totalManHours > 0 ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
   const totalLTIFR = totalManHours > 0 ? (totalSummary.ltiCases / totalManHours) * 1000000 : null;
 
   const maxMonthly = Math.max(...Object.values(monthlyData).map(m => m.total), 1);
@@ -260,7 +260,7 @@ export default function HQIncidentsPage() {
   const noMHCompanies = sortedCompanies.filter(([cId, s]) => s.total > 0 && (!manHoursByCompany[cId] || manHoursByCompany[cId].total === 0));
   if (noMHCompanies.length > 0) {
     const names = noMHCompanies.map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ');
-    alerts.push({ icon: '⚠️', label: `ไม่มี man-hours (${noMHCompanies.length} บริษัท)`, detail: `${names} — TIFR/LTIFR คำนวณไม่ได้`, severity: 'warning', filterKey: 'noMH' });
+    alerts.push({ icon: '⚠️', label: `ไม่มี man-hours (${noMHCompanies.length} บริษัท)`, detail: `${names} — TRIR/LTIFR คำนวณไม่ได้`, severity: 'warning', filterKey: 'noMH' });
   }
   // 5. Highest cost company
   const costSorted = sortedCompanies
@@ -488,12 +488,12 @@ export default function HQIncidentsPage() {
               )}
 
               {/* ═══ Wave A: Reordered KPI Cards — Severity Priority ═══ */}
-              {/* Fatality → LTI → TIFR → LTIFR → ค่าเสียหาย → Near Miss */}
+              {/* Fatality → LTI → TRIR → LTIFR → ค่าเสียหาย → Near Miss */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style={{ marginTop: alerts.length > 0 ? 0 : 16 }}>
                 {[
                   { label: 'เสียชีวิต', value: totalSummary.fatalities, icon: Users, color: totalSummary.fatalities > 0 ? '#ef4444' : '#9ca3af', emphasis: totalSummary.fatalities > 0, trend: prevSummary ? trendBadge(totalSummary.fatalities, prevSummary.fatalities) : null, subtitle: undefined as string | undefined },
                   { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: '#ef4444', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null, subtitle: undefined as string | undefined },
-                  { label: 'TIFR', value: totalTIFR !== null ? totalTIFR.toFixed(2) : 'N/A', icon: Activity, color: totalTIFR !== null ? '#f97316' : '#9ca3af', emphasis: false, trend: null, subtitle: totalTIFR === null ? 'ไม่มี man-hours' : `MH: ${totalManHours.toLocaleString()}` },
+                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', icon: Activity, color: totalTRIR !== null ? '#f97316' : '#9ca3af', emphasis: false, trend: null, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${totalManHours.toLocaleString()}` },
                   { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', icon: BarChart3, color: totalLTIFR !== null ? '#ef4444' : '#9ca3af', emphasis: false, trend: null, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
                   { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#22c55e', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null, subtitle: undefined as string | undefined },
                   { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null, subtitle: undefined as string | undefined },
@@ -567,7 +567,7 @@ export default function HQIncidentsPage() {
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)' }}>
-                        {['', 'บริษัท', 'รวม', 'บาดเจ็บ', 'LTI', 'Near Miss', 'ทรัพย์สิน', 'เสียชีวิต', 'TIFR', 'LTIFR', 'ค่าเสียหาย', ...(hasPrevYear ? ['Δ ปีก่อน'] : [])].map(h => (
+                        {['', 'บริษัท', 'รวม', 'บาดเจ็บ', 'LTI', 'Near Miss', 'ทรัพย์สิน', 'เสียชีวิต', 'TRIR', 'LTIFR', 'ค่าเสียหาย', ...(hasPrevYear ? ['Δ ปีก่อน'] : [])].map(h => (
                           <th key={h} className="text-left px-3 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--muted)', fontSize: 11 }}>{h}</th>
                         ))}
                       </tr>
@@ -577,7 +577,7 @@ export default function HQIncidentsPage() {
                         const companyName = COMPANIES.find(c => c.id === companyId)?.shortName || companyId.toUpperCase();
                         const hasFatality = stats.fatality > 0;
                         const isTopLtifr = top3LtifrIds.has(companyId);
-                        const noManHours = stats.tifr === null && stats.total > 0;
+                        const noManHours = stats.trir === null && stats.total > 0;
                         // Row highlight logic
                         const rowBg = hasFatality ? '#fef2f2' : isTopLtifr ? '#fefce8' : noManHours ? '#fff7ed' : undefined;
                         const rowBorder = hasFatality ? '#fca5a5' : isTopLtifr ? '#fde68a' : noManHours ? '#fed7aa' : 'var(--border)';
@@ -610,8 +610,8 @@ export default function HQIncidentsPage() {
                             <td className="px-3 py-3" style={{ color: '#8b5cf6' }}>{stats.nearMiss}</td>
                             <td className="px-3 py-3" style={{ color: '#22c55e' }}>{stats.propertyDamage}</td>
                             <td className="px-3 py-3 font-bold" style={{ color: hasFatality ? '#ef4444' : 'var(--muted)' }}>{stats.fatality}</td>
-                            <td className="px-3 py-3 font-mono" style={{ color: stats.tifr !== null ? '#f97316' : 'var(--muted)' }}>
-                              {stats.tifr !== null ? stats.tifr.toFixed(2) : (
+                            <td className="px-3 py-3 font-mono" style={{ color: stats.trir !== null ? '#f97316' : 'var(--muted)' }}>
+                              {stats.trir !== null ? stats.trir.toFixed(2) : (
                                 <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
                               )}
                             </td>

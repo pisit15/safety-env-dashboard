@@ -33,7 +33,7 @@ const INJ_SEVERITIES = [
 interface InjuryWorkspaceProps {
   categoryIncidents: Incident[];
   liveStats: LiveStats;
-  tifrCombined: number | null;
+  trirCombined: number | null;
   ltifrCombined: number | null;
   injuredPersonsData: InjuredPerson[];
   injuredIncidentMap: Record<string, { year: number; work_related: string; incident_type: string }>;
@@ -47,7 +47,7 @@ interface InjuryWorkspaceProps {
 export default function InjuryWorkspace({
   categoryIncidents,
   liveStats,
-  tifrCombined,
+  trirCombined,
   ltifrCombined,
   injuredPersonsData,
   injuredIncidentMap,
@@ -84,7 +84,7 @@ export default function InjuryWorkspace({
       {/* ═══ KPI Section — Incident vs Person metrics clearly separated ═══ */}
       {(() => {
         const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
-        const trirVal = tifrCombined !== null ? tifrCombined.toFixed(2) : '—';
+        const trirVal = trirCombined !== null ? trirCombined.toFixed(2) : '—';
         const ltifrVal = ltifrCombined !== null ? ltifrCombined.toFixed(2) : '—';
 
         // Count persons from injuredPersonsData (for person-based metrics)

@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
 
       const incidents = data || [];
 
-      // Get man-hours for TIFR/LTIFR
+      // Get man-hours for TRIR/LTIFR
       let mhQuery = supabase.from('man_hours').select('*');
       if (year) mhQuery = mhQuery.eq('year', parseInt(year));
 
@@ -167,14 +167,14 @@ export async function GET(request: NextRequest) {
       const companyStats: Record<string, {
         total: number; injuries: number; lti: number; nearMiss: number;
         propertyDamage: number; fatality: number; directCost: number; indirectCost: number;
-        tifr: number | null; ltifr: number | null;
+        trir: number | null; ltifr: number | null;
       }> = {};
 
       incidents.forEach((i: Record<string, unknown>) => {
         const c = (i.company_id as string) || 'unknown';
         if (!companyStats[c]) companyStats[c] = {
           total: 0, injuries: 0, lti: 0, nearMiss: 0, propertyDamage: 0, fatality: 0,
-          directCost: 0, indirectCost: 0, tifr: null, ltifr: null,
+          directCost: 0, indirectCost: 0, trir: null, ltifr: null,
         };
         companyStats[c].total++;
         companyStats[c].directCost += Number(i.direct_cost) || 0;
@@ -188,11 +188,11 @@ export async function GET(request: NextRequest) {
         if (type === 'เสียชีวิต (Fatality)' || i.actual_severity === 'S6 เสียชีวิต') companyStats[c].fatality++;
       });
 
-      // Calculate TIFR & LTIFR
+      // Calculate TRIR & LTIFR
       Object.keys(companyStats).forEach(c => {
         const mh = manHoursByCompany[c];
         if (mh && mh.total > 0) {
-          companyStats[c].tifr = (companyStats[c].injuries / mh.total) * 1000000;
+          companyStats[c].trir = (companyStats[c].injuries / mh.total) * 1000000;
           companyStats[c].ltifr = (companyStats[c].lti / mh.total) * 1000000;
         }
       });

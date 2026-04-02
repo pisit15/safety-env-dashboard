@@ -10,11 +10,11 @@ interface OverviewWorkspaceProps {
   liveStats: LiveStats;
   manHours: ManHours;
   selectedYears: number[];
-  tifrCombined: number | null;
+  trirCombined: number | null;
   ltifrCombined: number | null;
-  tifrEmployee: number | null;
+  trirEmployee: number | null;
   ltifrEmployee: number | null;
-  tifrContractor: number | null;
+  trirContractor: number | null;
   ltifrContractor: number | null;
   trendIncidents: Incident[];
   trendManhours: Record<number, number>;
@@ -35,11 +35,11 @@ export default function OverviewWorkspace({
   liveStats,
   manHours,
   selectedYears,
-  tifrCombined,
+  trirCombined,
   ltifrCombined,
-  tifrEmployee,
+  trirEmployee,
   ltifrEmployee,
-  tifrContractor,
+  trirContractor,
   ltifrContractor,
   trendIncidents,
   trendManhours,
@@ -87,7 +87,7 @@ export default function OverviewWorkspace({
 
   // KPI data
   const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
-  const trirVal = tifrCombined !== null ? tifrCombined.toFixed(2) : '—';
+  const trirVal = trirCombined !== null ? trirCombined.toFixed(2) : '—';
   const ltifrVal = ltifrCombined !== null ? ltifrCombined.toFixed(2) : '—';
 
   type KPIItem = { label: string; value: string | number; sub?: string; icon: typeof AlertTriangle; color: string };
@@ -173,20 +173,20 @@ export default function OverviewWorkspace({
         })}
       </div>
 
-      {/* TIFR/LTIFR 3-way split */}
+      {/* TRIR/LTIFR 3-way split */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         {[
-          { title: 'Employee', tifr: tifrEmployee, ltifr: ltifrEmployee, color: '#3b82f6' },
-          { title: 'Contractor', tifr: tifrContractor, ltifr: ltifrContractor, color: '#f97316' },
-          { title: 'Combined', tifr: tifrCombined, ltifr: ltifrCombined, color: '#8b5cf6' },
+          { title: 'Employee', trir: trirEmployee, ltifr: ltifrEmployee, color: '#3b82f6' },
+          { title: 'Contractor', trir: trirContractor, ltifr: ltifrContractor, color: '#f97316' },
+          { title: 'Combined', trir: trirCombined, ltifr: ltifrCombined, color: '#8b5cf6' },
         ].map((item) => (
           <div key={item.title} className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
             <p className="text-[12px] font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>{item.title}</p>
             <div className="flex items-end gap-6">
               <div>
-                <p className="text-[10px]" style={{ color: 'var(--muted)' }}>TIFR</p>
+                <p className="text-[10px]" style={{ color: 'var(--muted)' }}>TRIR</p>
                 <p className="text-[22px] font-bold" style={{ color: item.color }}>
-                  {item.tifr !== null ? item.tifr.toFixed(2) : '—'}
+                  {item.trir !== null ? item.trir.toFixed(2) : '—'}
                 </p>
               </div>
               <div>

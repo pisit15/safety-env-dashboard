@@ -163,7 +163,7 @@ export default function ManHoursPage() {
                 ชั่วโมงการทำงาน — {companyName}
               </h1>
               <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>
-                Man-hours สำหรับคำนวณ TIFR / LTIFR
+                Man-hours สำหรับคำนวณ TRIR / LTIFR
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -197,7 +197,7 @@ export default function ManHoursPage() {
               { label: 'Man-hours พนักงาน', value: totals.empHours.toLocaleString(), sub: `${totals.empCount} คน (เฉลี่ย)`, icon: Users, color: '#3b82f6' },
               { label: 'Man-hours ผู้รับเหมา', value: totals.conHours.toLocaleString(), sub: `${totals.conCount} คน (เฉลี่ย)`, icon: HardHat, color: '#f97316' },
               { label: 'Man-hours รวม', value: totalManHours.toLocaleString(), sub: 'พนักงาน + ผู้รับเหมา', icon: Clock, color: '#6366f1' },
-              { label: 'TIFR Factor', value: totalManHours > 0 ? '1,000,000' : 'N/A', sub: totalManHours > 0 ? `÷ ${totalManHours.toLocaleString()} hrs` : 'กรอกข้อมูลก่อน', icon: Calculator, color: '#22c55e' },
+              { label: 'TRIR Factor', value: totalManHours > 0 ? '1,000,000' : 'N/A', sub: totalManHours > 0 ? `÷ ${totalManHours.toLocaleString()} hrs` : 'กรอกข้อมูลก่อน', icon: Calculator, color: '#22c55e' },
             ].map((kpi, idx) => (
               <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -319,14 +319,14 @@ export default function ManHoursPage() {
                 </table>
               </div>
 
-              {/* TIFR/LTIFR Formula Info */}
+              {/* TRIR/LTIFR Formula Info */}
               <div className="px-5 py-4" style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
                 <p className="text-[12px] font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                   สูตรการคำนวณ
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="text-[11px] p-3 rounded-lg" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                    <span className="font-semibold" style={{ color: '#f97316' }}>TIFR</span>
+                    <span className="font-semibold" style={{ color: '#f97316' }}>TRIR</span>
                     <span style={{ color: 'var(--muted)' }}> = (Total Recordable Injuries × 1,000,000) ÷ Total Man-hours</span>
                   </div>
                   <div className="text-[11px] p-3 rounded-lg" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
@@ -335,7 +335,7 @@ export default function ManHoursPage() {
                   </div>
                 </div>
                 <p className="text-[10px] mt-2" style={{ color: 'var(--muted)' }}>
-                  * สามารถดู TIFR/LTIFR ได้ที่หน้า สถิติอุบัติเหตุ → Dashboard (แยก พนักงาน / ผู้รับเหมา / รวม)
+                  * สามารถดู TRIR/LTIFR ได้ที่หน้า สถิติอุบัติเหตุ → Dashboard (แยก พนักงาน / ผู้รับเหมา / รวม)
                 </p>
               </div>
             </div>
