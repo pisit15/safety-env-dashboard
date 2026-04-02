@@ -184,6 +184,57 @@ export default function CompanyTraining() {
   // Feature 7: Attendee sub-panel (separated from main modal)
   const [showAttendeePanel, setShowAttendeePanel] = useState(false);
 
+  // Feature 8: Collapsible task queue groups
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['done', 'muted']));
+  const toggleGroupCollapse = (key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // Feature 9: Quick status change from task queue (without opening modal)
+  const [quickChangingPlanId, setQuickChangingPlanId] = useState<string | null>(null);
+  const handleQuickStatusChange = async (plan: TrainingPlan, newStatus: string) => {
+    setQuickChangingPlanId(plan.id);
+    try {
+      const session = plan.training_sessions?.[0];
+      const res = await fetch('/api/training/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          company_id: companyId,
+          status: newStatus,
+          scheduled_date_start: session?.scheduled_date_start || null,
+          scheduled_date_end: session?.scheduled_date_end || null,
+          actual_cost: session?.actual_cost || 0,
+          actual_participants: session?.actual_participants || 0,
+          hours_per_course: plan.hours_per_course,
+          total_man_hours: session?.total_man_hours || 0,
+          note: session?.note || '',
+          updated_by: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
+          postponed_to_month: session?.postponed_to_month || undefined,
+          original_planned_month: session?.original_planned_month || undefined,
+          instructor_name: session?.instructor_name || null,
+          training_location: session?.training_location || null,
+          training_method: session?.training_method || null,
+          dsd_submitted: session?.dsd_submitted || false,
+          dsd_approved: session?.dsd_approved || false,
+          dsd_not_submitting: session?.dsd_not_submitting || false,
+          actual_hours: session?.actual_hours || 0,
+          dsd_report_submitted: session?.dsd_report_submitted || false,
+          photos_submitted: session?.photos_submitted || false,
+          signin_sheet_submitted: session?.signin_sheet_submitted || false,
+          dsd_approved_headcount: session?.dsd_approved_headcount || 0,
+        }),
+      });
+      if (res.ok) await fetchPlans();
+    } catch (e) { console.error(e); }
+    setQuickChangingPlanId(null);
+  };
+
   // Feature 6: Show/hide inactive plans
   const [showHiddenPlans, setShowHiddenPlans] = useState(false);
   const [togglingPlanId, setTogglingPlanId] = useState<string | null>(null);
@@ -918,8 +969,17 @@ export default function CompanyTraining() {
     if (isHidden) return { label: 'นำออกจากแผน', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
     if (status === 'cancelled') return { label: 'ยกเลิกแล้ว', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
     if (status === 'completed') {
-      // Check if post-training docs are pending
-      if (plan.dsd_eligible !== false && !session?.dsd_report_submitted) return { label: 'รอส่งเอกสาร รง.1', urgency: 'warning', ctaLabel: 'ปิดเอกสาร' };
+      // Check DSD post-training deadline (critical if overdue)
+      if (plan.dsd_eligible !== false && !session?.dsd_report_submitted && session?.scheduled_date_end) {
+        const dEnd = new Date(session.scheduled_date_end);
+        const deadline60 = new Date(dEnd.getTime() + 60 * 24 * 60 * 60 * 1000);
+        const jan15 = new Date(selectedYear + 1, 0, 15);
+        const deadline = deadline60 < jan15 ? deadline60 : jan15;
+        const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysLeft <= 0) return { label: 'เลยกำหนดส่ง รง.1!', urgency: 'critical', ctaLabel: 'ปิดเอกสาร' };
+        if (daysLeft <= 14) return { label: `ส่ง รง.1 อีก ${daysLeft} วัน`, urgency: 'warning', ctaLabel: 'ปิดเอกสาร' };
+        return { label: 'รอส่งเอกสาร รง.1', urgency: 'warning', ctaLabel: 'ปิดเอกสาร' };
+      }
       const attCount = session?.training_attendees?.[0]?.count || session?.actual_participants || 0;
       if (attCount === 0) return { label: 'รอบันทึกผู้เข้าอบรม', urgency: 'warning', ctaLabel: 'บันทึกผล' };
       if (!session?.actual_cost && session?.actual_cost !== 0) return { label: 'รอบันทึกค่าใช้จ่าย', urgency: 'info', ctaLabel: 'บันทึกผล' };
@@ -1535,6 +1595,34 @@ export default function CompanyTraining() {
           );
         })()}
 
+        {/* Progress Summary + Status Chips */}
+        {!loading && filteredPlans.length > 0 && (() => {
+          const doneCount = filteredPlans.filter(p => getNextAction(p).urgency === 'done').length;
+          const actionCount = filteredPlans.filter(p => ['critical', 'warning'].includes(getNextAction(p).urgency)).length;
+          const pct = filteredPlans.length > 0 ? Math.round((doneCount / filteredPlans.length) * 100) : 0;
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, padding: '10px 16px', borderRadius: 10, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+              {/* Progress bar */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    ความคืบหน้า: {doneCount}/{filteredPlans.length} เสร็จสมบูรณ์
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: pct >= 80 ? '#16a34a' : pct >= 50 ? '#f59e0b' : 'var(--text-secondary)' }}>{pct}%</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 3, background: pct >= 80 ? '#16a34a' : pct >= 50 ? '#f59e0b' : 'var(--accent)', width: `${pct}%`, transition: 'width 0.5s ease' }} />
+                </div>
+              </div>
+              {actionCount > 0 && (
+                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: '#fef2f2', color: '#dc2626', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  ต้องดำเนินการ {actionCount} รายการ
+                </span>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Status Quick-Filter Chips */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
           {[
@@ -1583,122 +1671,179 @@ export default function CompanyTraining() {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {TASK_GROUPS.map(group => {
               const groupPlans = filteredPlans.filter(group.filter);
               if (groupPlans.length === 0) return null;
+              const isCollapsed = collapsedGroups.has(group.key);
+              const groupBudget = groupPlans.reduce((s, p) => s + (p.budget || 0), 0);
               return (
                 <div key={group.key}>
-                  {/* Group Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '0 4px' }}>
+                  {/* Group Header — clickable to collapse */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isCollapsed ? 0 : 8, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', userSelect: 'none', transition: 'background 0.15s' }}
+                    onClick={() => toggleGroupCollapse(group.key)}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <span style={{ transition: 'transform 0.2s', transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)', color: 'var(--text-secondary)', display: 'flex' }}>
+                      <ChevronRight size={14} />
+                    </span>
                     <span style={{ fontSize: 14 }}>{group.icon}</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{group.title}</span>
                     <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 10, background: URGENCY_COLORS[group.key].bg, color: URGENCY_COLORS[group.key].color, fontWeight: 600 }}>
                       {groupPlans.length}
                     </span>
+                    {groupBudget > 0 && (
+                      <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+                        งบ {groupBudget.toLocaleString()} ฿
+                      </span>
+                    )}
                   </div>
-                  {/* Course Cards */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {groupPlans.map(plan => {
-                      const session = getSession(plan);
-                      const status = session?.status || 'planned';
-                      const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
-                      const action = getNextAction(plan);
-                      const urgColors = URGENCY_COLORS[action.urgency];
-                      const effMonth = getEffectiveMonth(plan);
-                      const attCount = session?.training_attendees?.[0]?.count || session?.actual_participants || 0;
-                      const isInHouse = plan.in_house_external?.toLowerCase().includes('in');
-                      return (
-                        <div
-                          key={plan.id}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                            borderRadius: 10, border: `1px solid ${urgColors.border}`,
-                            background: 'var(--card-solid)', cursor: 'pointer',
-                            transition: 'all 0.15s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'var(--card-solid)'; e.currentTarget.style.boxShadow = 'none'; }}
-                          onClick={() => isLoggedIn ? openPlanModal(plan) : setShowLoginDialog(true)}
-                        >
-                          {/* Left: Status dot */}
-                          <div style={{
-                            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                            background: cfg.color, boxShadow: `0 0 0 3px ${cfg.bg}`,
-                          }} />
+                  {/* Course Cards — collapsible */}
+                  {!isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {groupPlans.map(plan => {
+                        const session = getSession(plan);
+                        const status = session?.status || 'planned';
+                        const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
+                        const action = getNextAction(plan);
+                        const urgColors = URGENCY_COLORS[action.urgency];
+                        const effMonth = getEffectiveMonth(plan);
+                        const attCount = session?.training_attendees?.[0]?.count || session?.actual_participants || 0;
+                        const isInHouse = plan.in_house_external?.toLowerCase().includes('in');
+                        const isQuickChanging = quickChangingPlanId === plan.id;
+                        return (
+                          <div
+                            key={plan.id}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                              borderRadius: 10, border: `1px solid ${urgColors.border}`,
+                              background: 'var(--card-solid)', cursor: 'pointer',
+                              transition: 'all 0.15s', opacity: isQuickChanging ? 0.5 : 1,
+                            }}
+                            onMouseEnter={e => { if (!isQuickChanging) { e.currentTarget.style.background = 'var(--bg-secondary)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; } }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--card-solid)'; e.currentTarget.style.boxShadow = 'none'; }}
+                            onClick={() => !isQuickChanging && (isLoggedIn ? openPlanModal(plan) : setShowLoginDialog(true))}
+                          >
+                            {/* Left: Status dot */}
+                            <div style={{
+                              width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                              background: cfg.color, boxShadow: `0 0 0 3px ${cfg.bg}`,
+                            }} />
 
-                          {/* Middle: Course info */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{plan.course_name}</span>
-                              {plan.dsd_eligible !== false && (
-                                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, flexShrink: 0 }}>DSD</span>
-                              )}
-                              <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: isInHouse ? '#dbeafe' : '#f3e8ff', color: isInHouse ? '#1d4ed8' : '#7c3aed', fontWeight: 600, flexShrink: 0 }}>
-                                {isInHouse ? 'In-House' : 'External'}
-                              </span>
+                            {/* Middle: Course info */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{plan.course_name}</span>
+                                {plan.dsd_eligible !== false && (
+                                  <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, flexShrink: 0 }}>DSD</span>
+                                )}
+                                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: isInHouse ? '#dbeafe' : '#f3e8ff', color: isInHouse ? '#1d4ed8' : '#7c3aed', fontWeight: 600, flexShrink: 0 }}>
+                                  {isInHouse ? 'In-House' : 'External'}
+                                </span>
+                              </div>
+                              {/* Info chips row */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-secondary)' }}>
+                                <span>{cfg.icon} {cfg.label}</span>
+                                <span style={{ color: 'var(--border)' }}>•</span>
+                                <span>{effMonth ? `${MONTH_LABELS[effMonth - 1]} ${selectedYear}` : 'ยังไม่กำหนดเดือน'}</span>
+                                {session?.scheduled_date_start && (
+                                  <>
+                                    <span style={{ color: 'var(--border)' }}>•</span>
+                                    <span>📅 {formatDate(session.scheduled_date_start)}</span>
+                                  </>
+                                )}
+                                <span style={{ color: 'var(--border)' }}>•</span>
+                                <span>{plan.hours_per_course || '?'} ชม.</span>
+                                {attCount > 0 && (
+                                  <>
+                                    <span style={{ color: 'var(--border)' }}>•</span>
+                                    <span>👥 {attCount} คน</span>
+                                  </>
+                                )}
+                                {!attCount && plan.planned_participants > 0 && (
+                                  <>
+                                    <span style={{ color: 'var(--border)' }}>•</span>
+                                    <span style={{ opacity: 0.6 }}>แผน {plan.planned_participants} คน</span>
+                                  </>
+                                )}
+                                {session?.original_planned_month && session?.postponed_to_month && (
+                                  <>
+                                    <span style={{ color: 'var(--border)' }}>•</span>
+                                    <span style={{ color: '#b45309' }}>เลื่อนจาก {MONTH_LABELS[session.original_planned_month - 1]} → {MONTH_LABELS[session.postponed_to_month - 1]}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            {/* Info chips row */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-secondary)' }}>
-                              <span>{cfg.icon} {cfg.label}</span>
-                              <span style={{ color: 'var(--border)' }}>•</span>
-                              <span>{effMonth ? `${MONTH_LABELS[effMonth - 1]} ${selectedYear}` : 'ยังไม่กำหนดเดือน'}</span>
-                              {session?.scheduled_date_start && (
-                                <>
-                                  <span style={{ color: 'var(--border)' }}>•</span>
-                                  <span>📅 {formatDate(session.scheduled_date_start)}</span>
-                                </>
-                              )}
-                              <span style={{ color: 'var(--border)' }}>•</span>
-                              <span>{plan.hours_per_course || '?'} ชม.</span>
-                              {attCount > 0 && (
-                                <>
-                                  <span style={{ color: 'var(--border)' }}>•</span>
-                                  <span>👥 {attCount} คน</span>
-                                </>
-                              )}
-                              {!attCount && plan.planned_participants > 0 && (
-                                <>
-                                  <span style={{ color: 'var(--border)' }}>•</span>
-                                  <span style={{ opacity: 0.6 }}>แผน {plan.planned_participants} คน</span>
-                                </>
-                              )}
-                              {session?.original_planned_month && session?.postponed_to_month && (
-                                <>
-                                  <span style={{ color: 'var(--border)' }}>•</span>
-                                  <span style={{ color: '#b45309' }}>เลื่อนจาก {MONTH_LABELS[session.original_planned_month - 1]} → {MONTH_LABELS[session.postponed_to_month - 1]}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
 
-                          {/* Right: Next action badge + CTA */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                            <span style={{
-                              fontSize: 10, padding: '3px 10px', borderRadius: 6, fontWeight: 700,
-                              background: urgColors.bg, color: urgColors.color, border: `1px solid ${urgColors.border}`,
-                              whiteSpace: 'nowrap',
-                            }}>
-                              {action.label}
-                            </span>
-                            <button
-                              onClick={e => { e.stopPropagation(); isLoggedIn ? openPlanModal(plan) : setShowLoginDialog(true); }}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px',
-                                borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                background: action.urgency === 'critical' ? '#dc2626' : action.urgency === 'done' || action.urgency === 'muted' ? 'var(--bg-secondary)' : 'var(--accent)',
-                                color: action.urgency === 'done' || action.urgency === 'muted' ? 'var(--text-secondary)' : '#fff',
-                                transition: 'all 0.15s',
+                            {/* Right: Badge + Quick action + CTA */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <span style={{
+                                fontSize: 10, padding: '3px 10px', borderRadius: 6, fontWeight: 700,
+                                background: urgColors.bg, color: urgColors.color, border: `1px solid ${urgColors.border}`,
                                 whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {action.ctaLabel} <ChevronRight size={13} />
-                            </button>
+                              }}>
+                                {action.label}
+                              </span>
+                              {/* Inline quick action: mark scheduled as completed */}
+                              {isLoggedIn && status === 'scheduled' && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleQuickStatusChange(plan, 'completed'); }}
+                                  title="เปลี่ยนเป็น อบรมแล้ว"
+                                  style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 10px', borderRadius: 6, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#16a34a', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                >
+                                  <CheckCircle size={12} /> อบรมแล้ว
+                                </button>
+                              )}
+                              {/* Inline quick action: assign month for planned without month */}
+                              {isLoggedIn && status === 'planned' && !effMonth && (
+                                (() => {
+                                  if (editingMonthPlanId === plan.id) {
+                                    return (
+                                      <select
+                                        autoFocus
+                                        defaultValue=""
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => { if (e.target.value) handleUpdatePlannedMonth(plan.id, Number(e.target.value)); }}
+                                        onBlur={() => setEditingMonthPlanId(null)}
+                                        style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--bg)', cursor: 'pointer' }}
+                                      >
+                                        <option value="">เลือกเดือน...</option>
+                                        {MONTH_LABELS.map((label, mi) => (
+                                          <option key={mi} value={mi + 1}>{label}</option>
+                                        ))}
+                                      </select>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setEditingMonthPlanId(plan.id); }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 10px', borderRadius: 6, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                    >
+                                      <Calendar size={11} /> กำหนดเดือน
+                                    </button>
+                                  );
+                                })()
+                              )}
+                              <button
+                                onClick={e => { e.stopPropagation(); isLoggedIn ? openPlanModal(plan) : setShowLoginDialog(true); }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px',
+                                  borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                  background: action.urgency === 'critical' ? '#dc2626' : action.urgency === 'done' || action.urgency === 'muted' ? 'var(--bg-secondary)' : 'var(--accent)',
+                                  color: action.urgency === 'done' || action.urgency === 'muted' ? 'var(--text-secondary)' : '#fff',
+                                  transition: 'all 0.15s', whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {action.ctaLabel} <ChevronRight size={13} />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
