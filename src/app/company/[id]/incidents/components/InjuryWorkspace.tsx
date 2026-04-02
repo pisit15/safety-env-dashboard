@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Activity,
   Clock,
@@ -16,6 +16,8 @@ import {
   Info,
   ArrowUpRight,
   ArrowDownRight,
+  Layers,
+  BarChart3,
 } from 'lucide-react';
 import { Incident, InjuredPerson, LiveStats, getTypeBadge, getSevColor } from '../types';
 
@@ -58,6 +60,7 @@ export default function InjuryWorkspace({
   const [tableShowCount, setTableShowCount] = useState(15);
   const [hoveredBar, setHoveredBar] = useState<{ chart: string; key: string } | null>(null);
   const [hoveredLostDay, setHoveredLostDay] = useState<number | null>(null);
+  const [compareMode, setCompareMode] = useState<'stacked' | 'latest'>('stacked');
 
   const toggleChart = (chartField: string) => {
     setExpandedCharts(prev => {
@@ -215,17 +218,21 @@ export default function InjuryWorkspace({
           return { keys, counts };
         };
 
-        // ---- Clickable stacked horizontal bar chart (with hover, expand/collapse, transitions) ----
+        // ---- Clickable stacked horizontal bar chart (with hover, expand/collapse, transitions, compare mode) ----
         const COLLAPSED_LIMIT = 6;
+        const latestYear = activeYears.length > 0 ? activeYears[activeYears.length - 1] : null;
+        const displayYears = compareMode === 'latest' && latestYear ? [latestYear] : activeYears;
 
         const renderStackedBarChart = (
           title: string,
           chartField: string,
-          data: { keys: string[]; counts: Record<string, Record<number, number>> }
+          data: { keys: string[]; counts: Record<string, Record<number, number>> },
+          options?: { wideLabel?: boolean }
         ) => {
           const { keys: allKeys, counts } = data;
           if (allKeys.length === 0) return null;
 
+          const wideLabel = options?.wideLabel || false;
           const isExpanded = expandedCharts.has(chartField);
           const keys = allKeys.length > COLLAPSED_LIMIT && !isExpanded
             ? allKeys.slice(0, COLLAPSED_LIMIT)
@@ -233,9 +240,10 @@ export default function InjuryWorkspace({
           const hiddenCount = allKeys.length - COLLAPSED_LIMIT;
 
           const maxTotal = Math.max(
-            ...allKeys.map(k => activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0)),
+            ...allKeys.map(k => displayYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0)),
             1
           );
+          const grandTotal = allKeys.reduce((s, k) => s + displayYears.reduce((s2, y) => s2 + (counts[k]?.[y] || 0), 0), 0);
           const isThisChartFiltered = injuryFilter?.field === chartField;
           const isHoveringThisChart = hoveredBar?.chart === chartField;
 
@@ -266,14 +274,71 @@ export default function InjuryWorkspace({
                   </span>
                 )}
               </div>
-              <div className="space-y-1.5">
+              <div className={wideLabel ? 'space-y-2.5' : 'space-y-1.5'}>
                 {keys.map(k => {
-                  const total = activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0);
+                  const total = displayYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0);
                   const barPct = (total / maxTotal) * 100;
+                  const pctOfAll = grandTotal > 0 ? ((total / grandTotal) * 100).toFixed(0) : '0';
                   const isActive = isThisChartFiltered && injuryFilter?.value === k;
                   const isDimmed = isThisChartFiltered && !isActive;
                   const isRowHovered = isHoveringThisChart && hoveredBar?.key === k;
 
+                  if (wideLabel) {
+                    // Wide-label layout: label on top, bar below (full width)
+                    return (
+                      <div
+                        key={k}
+                        className="rounded-lg px-2 py-1.5 transition-all"
+                        style={{
+                          cursor: 'pointer',
+                          opacity: isDimmed ? 0.3 : 1,
+                          background: isActive ? 'var(--bg-secondary)' : isRowHovered ? 'var(--bg-secondary)' : 'transparent',
+                          transition: 'opacity 0.2s, background 0.15s',
+                        }}
+                        onClick={() => {
+                          if (isActive) setInjuryFilter(null);
+                          else setInjuryFilter({ field: chartField, value: k });
+                        }}
+                        onMouseEnter={() => setHoveredBar({ chart: chartField, key: k })}
+                        onMouseLeave={() => setHoveredBar(null)}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span
+                            className="text-[11px] font-medium"
+                            style={{ color: isRowHovered ? 'var(--accent)' : 'var(--text-primary)', transition: 'color 0.15s' }}
+                          >
+                            {k}
+                          </span>
+                          <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                            {total} <span className="text-[8px]">({pctOfAll}%)</span>
+                          </span>
+                        </div>
+                        <div className="relative rounded-md overflow-hidden" style={{ height: isRowHovered ? 24 : 20, background: 'var(--bg-secondary)', transition: 'height 0.15s' }}>
+                          <div
+                            className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden"
+                            style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%`, transition: 'width 0.4s ease' }}
+                          >
+                            {displayYears.map(y => {
+                              const val = counts[k]?.[y] || 0;
+                              if (val === 0) return null;
+                              const segPct = (val / total) * 100;
+                              return (
+                                <div
+                                  key={y}
+                                  className="h-full flex items-center justify-center"
+                                  style={{ width: `${segPct}%`, background: YEAR_COLORS_INJ[y] || '#9ca3af', minWidth: val > 0 ? 14 : 0, transition: 'width 0.3s ease' }}
+                                >
+                                  {segPct > 15 && <span className="text-[9px] font-bold text-white/80">{val}</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Standard side-label layout
                   return (
                     <div
                       key={k}
@@ -314,7 +379,7 @@ export default function InjuryWorkspace({
                             className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden"
                             style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%`, transition: 'width 0.4s ease' }}
                           >
-                            {activeYears.map(y => {
+                            {displayYears.map(y => {
                               const val = counts[k]?.[y] || 0;
                               if (val === 0) return null;
                               const segPct = (val / total) * 100;
@@ -337,6 +402,9 @@ export default function InjuryWorkspace({
                             })}
                           </div>
                         </div>
+                        <span className="text-[10px] shrink-0" style={{ color: 'var(--muted)', width: 32, textAlign: 'right' }}>
+                          {pctOfAll}%
+                        </span>
                         <span
                           className="text-[12px] font-bold shrink-0"
                           style={{ color: 'var(--text-primary)', width: 26, textAlign: 'right' }}
@@ -344,10 +412,10 @@ export default function InjuryWorkspace({
                           {total}
                         </span>
                         {/* Hover tooltip showing year breakdown */}
-                        {isRowHovered && activeYears.length > 1 && (
+                        {isRowHovered && displayYears.length > 1 && (
                           <div className="absolute right-0 -top-8 z-20 px-2.5 py-1.5 rounded-lg shadow-lg flex items-center gap-2"
                             style={{ background: '#1e293b', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-                            {activeYears.map(y => {
+                            {displayYears.map(y => {
                               const val = counts[k]?.[y] || 0;
                               return (
                                 <span key={y} className="flex items-center gap-1 text-[9px]" style={{ color: '#e2e8f0' }}>
@@ -695,7 +763,7 @@ export default function InjuryWorkspace({
                   <div style={{ width: 1, height: 18, background: 'var(--border)' }} />
 
                   {/* Year legend */}
-                  {activeYears.map(y => (
+                  {displayYears.map(y => (
                     <div key={y} className="flex items-center gap-1">
                       <div className="w-2.5 h-2.5 rounded" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
                       <span className="text-[10px] font-semibold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
@@ -705,6 +773,23 @@ export default function InjuryWorkspace({
                   <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
                     {filteredPersons.length}/{allFilteredPersons.length} คน
                   </span>
+
+                  {/* Compare mode toggle */}
+                  {activeYears.length > 1 && (
+                    <button
+                      onClick={() => setCompareMode(prev => prev === 'stacked' ? 'latest' : 'stacked')}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:shadow-sm"
+                      style={{
+                        background: compareMode === 'latest' ? 'var(--accent)' : 'var(--card-solid)',
+                        color: compareMode === 'latest' ? '#fff' : 'var(--text-secondary)',
+                        border: `1px solid ${compareMode === 'latest' ? 'var(--accent)' : 'var(--border)'}`,
+                      }}
+                      title={compareMode === 'stacked' ? 'สลับเป็นปีล่าสุดเท่านั้น' : 'สลับเป็นเทียบหลายปี'}
+                    >
+                      {compareMode === 'stacked' ? <Layers size={10} /> : <BarChart3 size={10} />}
+                      {compareMode === 'stacked' ? 'เทียบปี' : `${latestYear} เท่านั้น`}
+                    </button>
+                  )}
 
                   {/* Active chart filter chip */}
                   {injuryFilter && (
@@ -811,14 +896,10 @@ export default function InjuryWorkspace({
                   {renderStackedBarChart('ระดับการบาดเจ็บ', 'injury_severity', severityData)}
                 </div>
 
-                {/* Row 2: Nature + Body part */}
+                {/* Row 2: Nature + Body part (wide-label layout for long taxonomy) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-                  {renderStackedBarChart('ลักษณะการบาดเจ็บ', 'nature_of_injury', natureData)}
-                  {renderStackedBarChart(
-                    'ส่วนร่างกายที่ได้รับบาดเจ็บ',
-                    'body_part',
-                    bodyPartData
-                  )}
+                  {renderStackedBarChart('ลักษณะการบาดเจ็บ', 'nature_of_injury', natureData, { wideLabel: true })}
+                  {renderStackedBarChart('ส่วนร่างกายที่ได้รับบาดเจ็บ', 'body_part', bodyPartData, { wideLabel: true })}
                 </div>
 
                 {/* Row 3: Person Type + Department */}
