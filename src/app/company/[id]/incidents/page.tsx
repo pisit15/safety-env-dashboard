@@ -613,6 +613,8 @@ export default function IncidentsPage() {
               openEditForm={openEditForm}
               handleDelete={handleDelete}
               allIncidentsForExport={categoryIncidents}
+              companyId={id}
+              onImported={() => { fetchList(); fetchSummary(); }}
             />
           ) : viewMode === 'form' ? (
             /* ===================== FORM VIEW — Use IncidentForm Component ===================== */
