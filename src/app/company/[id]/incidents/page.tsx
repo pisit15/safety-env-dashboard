@@ -18,6 +18,7 @@ import PropertyDamageWorkspace from './components/PropertyDamageWorkspace';
 import IncidentDrawer from './components/IncidentDrawer';
 import IncidentForm from './components/IncidentForm';
 import IncidentListView from './components/IncidentListView';
+import CorrectiveActionWorkspace from './components/CorrectiveActionWorkspace';
 import {
   INCIDENT_TYPES,
   MONTHS,
@@ -594,6 +595,12 @@ export default function IncidentsPage() {
                   liveStats={liveStats}
                   propFilter={propFilter}
                   setPropFilter={setPropFilter}
+                  openDrawer={openDrawer}
+                />
+              )}
+              {incidentCategory === 'actions' && (
+                <CorrectiveActionWorkspace
+                  baseIncidents={baseIncidents}
                   openDrawer={openDrawer}
                 />
               )}

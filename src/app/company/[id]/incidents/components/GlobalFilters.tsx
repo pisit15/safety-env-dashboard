@@ -131,6 +131,7 @@ export default function GlobalFilters({
           { key: 'overview' as IncidentCategory, label: 'Overview' },
           { key: 'injury' as IncidentCategory, label: 'อุบัติเหตุบาดเจ็บ' },
           { key: 'property' as IncidentCategory, label: 'Property Damage' },
+          { key: 'actions' as IncidentCategory, label: 'Corrective Actions' },
         ]).map(tab => (
           <button
             key={tab.key}
