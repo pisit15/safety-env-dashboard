@@ -30,8 +30,12 @@ function recalcSummaryWithOverrides(
     return act.monthStatuses?.[monthKey] || 'not_planned';
   };
 
+  // Phase B: Current month index for overdue calculation
+  const currentMonthIdx = new Date().getMonth();
+
   // Recalculate monthly progress — track ALL statuses per month
   let totalDone = 0, totalNotStarted = 0, totalPostponed = 0, totalCancelled = 0, totalNotApplicable = 0, totalPlanned = 0;
+  let overdueCount = 0; // Phase B: overdue tracking
 
   const monthlyProgress: MonthlyProgress[] = MONTH_KEYS.map((key, idx) => {
     let planned = 0;
@@ -39,6 +43,7 @@ function recalcSummaryWithOverrides(
     let notApplicableCount = 0;
     let postponedCount = 0;
     let cancelledCount = 0;
+    let overdueInMonth = 0; // Phase B
 
     activities.forEach(act => {
       const status = getEffective(act, key);
@@ -53,6 +58,9 @@ function recalcSummaryWithOverrides(
         postponedCount++;
       } else if (status === 'cancelled') {
         cancelledCount++;
+      } else if (idx < currentMonthIdx) {
+        // Phase B: month passed but not completed = overdue
+        overdueInMonth++;
       }
       // else: planned, overdue → counted in notStarted below
     });
@@ -65,6 +73,7 @@ function recalcSummaryWithOverrides(
     totalNotApplicable += notApplicableCount;
     totalPostponed += postponedCount;
     totalCancelled += cancelledCount;
+    overdueCount += overdueInMonth; // Phase B
 
     return {
       month: key,
@@ -74,6 +83,7 @@ function recalcSummaryWithOverrides(
       pctComplete: planned > 0 ? Math.round((completed / planned) * 1000) / 10 : 0,
       doneCount,
       notApplicableCount,
+      overdueCount: overdueInMonth, // Phase B
     };
   });
 
@@ -97,6 +107,7 @@ function recalcSummaryWithOverrides(
     notApplicable: totalNotApplicable,
     pctDone,
     monthlyProgress,
+    overdueCount, // Phase B
   };
 }
 
@@ -166,7 +177,7 @@ export async function GET(request: Request) {
       companyName: c.name,
       shortName: c.shortName,
       total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0, notApplicable: 0,
-      budget: 0, pctDone: 0,
+      budget: 0, pctDone: 0, overdueCount: 0,
     }));
 
     const all = [...summaries, ...placeholders];
@@ -200,6 +211,26 @@ export async function GET(request: Request) {
     const totalActs = all.reduce((s, c) => s + c.total, 0);
     const totalDoneAll = all.reduce((s, c) => s + c.done, 0);
     const totalNAAll = all.reduce((s, c) => s + (c.notApplicable || 0), 0);
+    const totalOverdue = all.reduce((s, c) => s + (c.overdueCount || 0), 0);
+
+    // Phase B: Fetch priority breakdown from activity_metadata
+    let priorityBreakdown = { critical: 0, high: 0, medium: 0, low: 0 };
+    try {
+      const { data: metadataRows, error: metaError } = await sb
+        .from('activity_metadata')
+        .select('priority')
+        .eq('plan_type', planType)
+        .eq('year', year);
+      if (!metaError && metadataRows) {
+        metadataRows.forEach((r: any) => {
+          const p = r.priority as keyof typeof priorityBreakdown;
+          if (p in priorityBreakdown) priorityBreakdown[p]++;
+        });
+      }
+    } catch {
+      // activity_metadata table might not exist yet — ignore
+    }
+
     const data: DashboardData = {
       companies: all,
       totalActivities: totalActs,
@@ -214,6 +245,8 @@ export async function GET(request: Request) {
         ? Math.round(((totalDoneAll + totalNAAll) / totalActs) * 1000) / 10
         : 0,
       monthlyProgress,
+      totalOverdue,
+      priorityBreakdown,
     };
 
     return NextResponse.json(data);

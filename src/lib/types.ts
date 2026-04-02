@@ -71,6 +71,30 @@ export interface CompanySummary {
   enviBudget?: number;
   pctDone: number;
   monthlyProgress?: MonthlyProgress[];
+  // Phase B: overdue count (activities past plan month but incomplete)
+  overdueCount?: number;
+}
+
+// Phase B: Activity metadata overlay (stored in Supabase)
+export type ActivityCategory =
+  | 'training' | 'inspection' | 'audit' | 'ppe' | 'emergency_drill'
+  | 'risk_assessment' | 'permit' | 'compliance' | 'monitoring'
+  | 'reporting' | 'waste' | 'emission' | 'water' | 'other';
+
+export type ActivityPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface ActivityMetadata {
+  id?: number;
+  company_id: string;
+  plan_type: string;
+  activity_no: string;
+  year: number;
+  category: ActivityCategory;
+  priority: ActivityPriority;
+  due_date?: string;
+  notes?: string;
+  updated_by?: string;
+  updated_at?: string;
 }
 
 export interface DashboardData {
@@ -84,6 +108,14 @@ export interface DashboardData {
   totalBudget: number;
   overallPct: number;
   monthlyProgress: MonthlyProgress[];
+  // Phase B: aggregate overdue + priority breakdown
+  totalOverdue?: number;
+  priorityBreakdown?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
 }
 
 export type PlanType = 'safety' | 'environment';

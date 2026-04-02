@@ -91,7 +91,7 @@ export default function HQOverview() {
         const companyMap = new Map<string, any>();
         // First pass: safety companies
         s.companies.forEach(c => {
-          companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, safetyBudget: c.budget, enviBudget: 0 });
+          companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, overdueCount: c.overdueCount || 0, safetyBudget: c.budget, enviBudget: 0 });
         });
         // Second pass: envi companies — merge into existing or create new
         e.companies.forEach(c => {
@@ -105,9 +105,10 @@ export default function HQOverview() {
             existing.notApplicable += (c.notApplicable || 0);
             existing.budget += c.budget;
             existing.enviBudget = c.budget;
+            existing.overdueCount = (existing.overdueCount || 0) + (c.overdueCount || 0);
             existing.pctDone = existing.total > 0 ? Math.round(((existing.done + existing.notApplicable) / existing.total) * 1000) / 10 : 0;
           } else {
-            companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, safetyBudget: 0, enviBudget: c.budget });
+            companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, overdueCount: c.overdueCount || 0, safetyBudget: 0, enviBudget: c.budget });
           }
         });
         const mergedCompanies = Array.from(companyMap.values());
@@ -142,6 +143,13 @@ export default function HQOverview() {
           // % = (done + N/A) / total → ยกประโยชน์ให้
           overallPct: totalActs > 0 ? Math.round(((totalDone + totalNA) / totalActs) * 1000) / 10 : 0,
           monthlyProgress,
+          totalOverdue: (s.totalOverdue || 0) + (e.totalOverdue || 0),
+          priorityBreakdown: {
+            critical: (s.priorityBreakdown?.critical || 0) + (e.priorityBreakdown?.critical || 0),
+            high: (s.priorityBreakdown?.high || 0) + (e.priorityBreakdown?.high || 0),
+            medium: (s.priorityBreakdown?.medium || 0) + (e.priorityBreakdown?.medium || 0),
+            low: (s.priorityBreakdown?.low || 0) + (e.priorityBreakdown?.low || 0),
+          },
         });
         setLoading(false);
       }).catch(() => setLoading(false));
@@ -332,8 +340,13 @@ export default function HQOverview() {
   }, [filtered]);
 
   // Phase A: Overdue estimate — months that passed but activities not completed
+  // Phase B: Use server-computed overdue count (falls back to client estimate)
   const overdueEstimate = useMemo(() => {
-    if (!data || !data.monthlyProgress) return 0;
+    if (!data) return 0;
+    // Use server-computed totalOverdue if available
+    if (data.totalOverdue !== undefined && data.totalOverdue > 0) return data.totalOverdue;
+    // Fallback: estimate from monthlyProgress
+    if (!data.monthlyProgress) return 0;
     let overdue = 0;
     data.monthlyProgress.forEach((mp, idx) => {
       if (idx < currentMonthIdx && mp.planned > 0) {
@@ -767,6 +780,18 @@ export default function HQOverview() {
               />
             </div>
           )}
+
+          {/* Phase B: Priority breakdown indicator */}
+          {data.priorityBreakdown && (data.priorityBreakdown.critical > 0 || data.priorityBreakdown.high > 0) && (
+            <div style={{ display: 'flex' }}>
+              <KPICard
+                label="Critical / High Priority"
+                value={`${data.priorityBreakdown.critical}C / ${data.priorityBreakdown.high}H`}
+                color="#ff453a"
+                subtext={`จากทั้งหมด ${(data.priorityBreakdown.critical + data.priorityBreakdown.high + data.priorityBreakdown.medium + data.priorityBreakdown.low) || '-'} ที่ระบุ Priority`}
+              />
+            </div>
+          )}
         </div>
 
         {/* Monthly Progress Chart with Wave 3.11 toggle */}
@@ -886,6 +911,103 @@ export default function HQOverview() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Phase B: Timeline Heatmap — All Companies */}
+        <div className="glass-card p-6 mb-6 animate-fade-in-up" style={{ opacity: 0, animationDelay: '0.25s' }}>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+              <span className="w-0.5 h-4 rounded-full" style={{ background: planConfig.accentColor }}></span>
+              {planType === 'environment' ? 'Compliance Calendar — สถานะรายเดือนทุกบริษัท' : planType === 'safety' ? 'Safety Timeline — สถานะรายเดือนทุกบริษัท' : 'Timeline — สถานะรายเดือนทุกบริษัท'}
+            </h3>
+            <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--muted)' }}>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#34c759' }}></span> ≥80%</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff9500' }}></span> 40-79%</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff453a' }}></span> {'<40%'}</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}></span> ไม่มีแผน</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff453a', border: '2px solid #ffd60a' }}></span> Overdue</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="inline-block min-w-full">
+              {/* Header */}
+              <div className="flex" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="w-32 px-2 py-2 text-[11px] font-semibold text-right" style={{ color: 'var(--text-secondary)' }}>บริษัท</div>
+                {MONTH_KEYS_ARR.map((name, i) => (
+                  <div key={i} className="flex-1 min-w-[52px] text-center px-1 py-2 text-[10px] font-medium" style={{
+                    color: i === currentMonthIdx ? '#ff9500' : 'var(--muted)',
+                    fontWeight: i === currentMonthIdx ? 700 : 500,
+                  }}>
+                    {name}
+                    {i === currentMonthIdx && <div className="w-1 h-1 rounded-full mx-auto mt-0.5" style={{ background: '#ff9500' }}></div>}
+                  </div>
+                ))}
+                <div className="w-16 text-center px-1 py-2 text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Overdue</div>
+              </div>
+
+              {/* Data rows — all companies with activities */}
+              {(filtered?.companies || [])
+                .filter((c: any) => c.total > 0)
+                .sort((a: any, b: any) => (a.pctDone || 0) - (b.pctDone || 0))
+                .map((company: any) => {
+                  const compOverdue = company.overdueCount || 0;
+                  // Compute per-company overdue from monthlyProgress if not available
+                  let perCompanyOverdue = compOverdue;
+                  if (!compOverdue && company.monthlyProgress) {
+                    company.monthlyProgress.forEach((mp: any, idx: number) => {
+                      if (idx < currentMonthIdx && mp.planned > 0) {
+                        const inc = mp.planned - mp.completed;
+                        if (inc > 0) perCompanyOverdue += inc;
+                      }
+                    });
+                  }
+                  return (
+                    <div key={company.companyId} className="flex transition-colors" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <div className="w-32 px-2 py-2.5 text-[10px] font-semibold text-right truncate" style={{ color: 'var(--text-primary)' }} title={company.companyName}>
+                        {company.shortName || company.companyName}
+                      </div>
+                      {MONTH_KEYS_ARR.map((_: string, i: number) => {
+                        const mp = (company.monthlyProgress || [])[i];
+                        const pct = mp ? mp.pctComplete : 0;
+                        const hasPlanned = mp && mp.planned > 0;
+                        const isPast = i < currentMonthIdx;
+                        const isCurrent = i === currentMonthIdx;
+                        const isOverdue = isPast && hasPlanned && pct < 100;
+
+                        let bgColor = 'transparent';
+                        let textColor = 'var(--muted)';
+                        if (hasPlanned) {
+                          if (pct >= 80) { bgColor = '#34c759'; textColor = '#fff'; }
+                          else if (pct >= 40) { bgColor = '#ff9500'; textColor = '#fff'; }
+                          else { bgColor = '#ff453a'; textColor = '#fff'; }
+                        }
+
+                        return (
+                          <div
+                            key={i}
+                            className="flex-1 min-w-[52px] px-1 py-2.5 text-center text-[9px] font-semibold relative"
+                            style={{
+                              background: bgColor,
+                              color: textColor,
+                              border: isOverdue ? '2px solid #ffd60a' : isCurrent ? '2px solid rgba(255,149,0,0.4)' : '1px solid var(--border)',
+                            }}
+                            title={hasPlanned ? `${mp.completed}/${mp.planned} (${pct}%)${isOverdue ? ' — OVERDUE' : ''}` : 'ไม่มีแผน'}
+                          >
+                            {hasPlanned ? `${pct}%` : '-'}
+                          </div>
+                        );
+                      })}
+                      <div className="w-16 px-1 py-2.5 text-center text-[10px] font-bold" style={{
+                        color: perCompanyOverdue > 0 ? '#ff453a' : 'var(--muted)',
+                        background: perCompanyOverdue > 0 ? 'rgba(255,69,58,0.08)' : 'transparent',
+                      }}>
+                        {perCompanyOverdue > 0 ? perCompanyOverdue : '-'}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
         </div>
 
         {/* Charts Row */}
@@ -1114,6 +1236,7 @@ export default function HQOverview() {
                   </th>
                   <th className="text-center">ยกเลิก</th>
                   <th className="text-center">N/A</th>
+                  <th className="text-center" style={{ color: '#ff453a' }}>Overdue</th>
                   <th
                     className="text-center cursor-pointer hover:opacity-70 transition-opacity"
                     onClick={() => {
@@ -1196,6 +1319,20 @@ export default function HQOverview() {
                       <td className="text-center" style={{ color: '#5ac8fa' }}>{c.postponed || '-'}</td>
                       <td className="text-center" style={{ color: '#ff3b30' }}>{c.cancelled || '-'}</td>
                       <td className="text-center" style={{ color: 'var(--muted)' }}>{c.notApplicable || '-'}</td>
+                      <td className="text-center" style={{ color: (c.overdueCount || 0) > 0 ? '#ff453a' : 'var(--muted)', fontWeight: (c.overdueCount || 0) > 0 ? 600 : 400 }}>
+                        {(() => {
+                          let oc = c.overdueCount || 0;
+                          if (!oc && c.monthlyProgress) {
+                            c.monthlyProgress.forEach((mp: any, idx: number) => {
+                              if (idx < currentMonthIdx && mp.planned > 0) {
+                                const inc = mp.planned - mp.completed;
+                                if (inc > 0) oc += inc;
+                              }
+                            });
+                          }
+                          return oc > 0 ? oc : '-';
+                        })()}
+                      </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-16 h-[5px] rounded-full" style={{ background: 'var(--border)' }}>
