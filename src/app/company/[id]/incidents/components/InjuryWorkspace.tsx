@@ -18,6 +18,10 @@ import {
   ArrowDownRight,
   Layers,
   BarChart3,
+  Eye,
+  Users,
+  FileText,
+  RotateCcw,
 } from 'lucide-react';
 import { Incident, InjuredPerson, LiveStats, getTypeBadge, getSevColor } from '../types';
 
@@ -60,7 +64,7 @@ export default function InjuryWorkspace({
   const [tableShowCount, setTableShowCount] = useState(15);
   const [hoveredBar, setHoveredBar] = useState<{ chart: string; key: string } | null>(null);
   const [hoveredLostDay, setHoveredLostDay] = useState<number | null>(null);
-  const [compareMode, setCompareMode] = useState<'stacked' | 'latest'>('stacked');
+  const [compareMode, setCompareMode] = useState<'stacked' | 'latest'>('latest');
 
   const toggleChart = (chartField: string) => {
     setExpandedCharts(prev => {
@@ -77,69 +81,87 @@ export default function InjuryWorkspace({
 
   return (
     <>
-      {/* KPI Cards - Injury Variant with subtitles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
-        {(() => {
-          const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
-          const trirVal = tifrCombined !== null ? tifrCombined.toFixed(2) : '—';
-          const ltifrVal = ltifrCombined !== null ? ltifrCombined.toFixed(2) : '—';
+      {/* ═══ KPI Section — Incident vs Person metrics clearly separated ═══ */}
+      {(() => {
+        const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
+        const trirVal = tifrCombined !== null ? tifrCombined.toFixed(2) : '—';
+        const ltifrVal = ltifrCombined !== null ? ltifrCombined.toFixed(2) : '—';
 
-          type KPIItem = {
-            label: string;
-            value: string | number;
-            sub?: string;
-            formula?: string;
-            icon: typeof AlertTriangle;
-            color: string;
-          };
+        // Count persons from injuredPersonsData (for person-based metrics)
+        const personCountFiltered = injuredPersonsData.filter(p => {
+          const incInfo = injuredIncidentMap[p.incident_no];
+          if (!incInfo) return false;
+          if (!selectedYears.includes(incInfo.year)) return false;
+          if (workRelatedOnly && incInfo.work_related !== 'ใช่') return false;
+          const t = incInfo.incident_type || '';
+          return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p2 => t.includes(p2));
+        });
+        const personTotal = personCountFiltered.length;
+        const personLtiTotal = personCountFiltered.filter(p => p.is_lti === 'ใช่').length;
+        const personTotalLostDays = personCountFiltered.reduce((s, p) => s + (Number(p.lost_work_days) || 0), 0);
 
-          const kpis: KPIItem[] = [
-            { label: 'บาดเจ็บทั้งหมด', value: liveStats.totalIncidents, sub: 'เคสทั้งหมด', icon: Activity, color: '#f97316' },
-            { label: 'หยุดงาน (LTI)', value: liveStats.ltiCases, sub: 'Lost Time Injury', icon: Clock, color: '#ef4444' },
-            { label: 'เสียชีวิต', value: liveStats.fatalities, sub: 'Fatality cases', icon: AlertTriangle, color: '#991b1b' },
-            { label: 'TRIR', value: trirVal, sub: 'ต่อ 1,000,000 man-hours', formula: '(Injuries × 1M) ÷ Total Hours', icon: TrendingUp, color: '#8b5cf6' },
-            { label: 'LTIFR', value: ltifrVal, sub: 'ต่อ 1,000,000 man-hours', formula: '(LTI × 1M) ÷ Total Hours', icon: TrendingDown, color: '#ec4899' },
-            {
-              label: 'ค่าเสียหาย',
-              value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`,
-              sub: 'ค่าใช้จ่ายตรง + ค่าใช้จ่ายอ้อม',
-              icon: DollarSign,
-              color: '#22c55e',
-            },
-          ];
+        type KPIItem = {
+          label: string;
+          value: string | number;
+          sub: string;
+          formula?: string;
+          icon: typeof AlertTriangle;
+          color: string;
+        };
 
-          return kpis.map((kpi, idx) => (
-            <div
-              key={idx}
-              className="rounded-2xl p-4 relative group"
-              style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}
-              onMouseEnter={() => kpi.formula ? setShowTriageTooltip(kpi.label) : undefined}
-              onMouseLeave={() => setShowTriageTooltip(null)}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
-                  <kpi.icon size={14} style={{ color: kpi.color }} />
+        const primaryKpis: KPIItem[] = [
+          { label: 'จำนวนเหตุบาดเจ็บ', value: liveStats.totalIncidents, sub: 'เหตุการณ์ (incidents)', icon: FileText, color: '#f97316' },
+          { label: 'จำนวนผู้บาดเจ็บ', value: personTotal, sub: 'คน (injured persons)', icon: Users, color: '#3b82f6' },
+          { label: 'LTI / Fatal', value: `${personLtiTotal} / ${liveStats.fatalities}`, sub: 'หยุดงาน / เสียชีวิต', icon: AlertTriangle, color: '#ef4444' },
+          { label: 'วันหยุดงานรวม', value: personTotalLostDays.toLocaleString(), sub: 'วัน (lost work days)', icon: Clock, color: '#dc2626' },
+          { label: 'TRIR', value: trirVal, sub: 'ต่อ 1,000,000 ชม.ทำงาน', formula: '(Injuries × 1M) ÷ Total Hours', icon: TrendingUp, color: '#8b5cf6' },
+          { label: 'LTIFR', value: ltifrVal, sub: 'ต่อ 1,000,000 ชม.ทำงาน', formula: '(LTI × 1M) ÷ Total Hours', icon: TrendingDown, color: '#ec4899' },
+        ];
+
+        return (
+          <>
+            {/* Primary KPIs — 6 cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+              {primaryKpis.map((kpi, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-2xl p-4 relative group"
+                  style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}
+                  onMouseEnter={() => kpi.formula ? setShowTriageTooltip(kpi.label) : undefined}
+                  onMouseLeave={() => setShowTriageTooltip(null)}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
+                      <kpi.icon size={14} style={{ color: kpi.color }} />
+                    </div>
+                    <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
+                    {kpi.formula && <Info size={10} style={{ color: 'var(--muted)', cursor: 'help' }} />}
+                  </div>
+                  <p className="text-xl font-bold" style={{ color: kpi.color }}>
+                    {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
+                  </p>
+                  <p className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>{kpi.sub}</p>
+                  {kpi.formula && showTriageTooltip === kpi.label && (
+                    <div className="absolute left-0 top-full mt-1 z-20 px-3 py-2 rounded-lg shadow-lg text-[10px]"
+                      style={{ background: '#1e293b', color: '#e2e8f0', whiteSpace: 'nowrap' }}>
+                      {kpi.formula}
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
-                {kpi.formula && (
-                  <Info size={10} style={{ color: 'var(--muted)', cursor: 'help' }} />
-                )}
-              </div>
-              <p className="text-xl font-bold" style={{ color: kpi.color }}>
-                {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
-              </p>
-              {kpi.sub && <p className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>{kpi.sub}</p>}
-              {/* Tooltip for formula */}
-              {kpi.formula && showTriageTooltip === kpi.label && (
-                <div className="absolute left-0 top-full mt-1 z-20 px-3 py-2 rounded-lg shadow-lg text-[10px]"
-                  style={{ background: '#1e293b', color: '#e2e8f0', whiteSpace: 'nowrap' }}>
-                  {kpi.formula}
-                </div>
-              )}
+              ))}
             </div>
-          ));
-        })()}
-      </div>
+            {/* Secondary: Cost — smaller row */}
+            <div className="flex items-center gap-3 mb-5 px-2 py-2 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <DollarSign size={14} style={{ color: '#22c55e' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>ค่าเสียหายรวม</span>
+              <span className="text-[13px] font-bold" style={{ color: '#22c55e' }}>
+                {totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`}
+              </span>
+              <span className="text-[9px]" style={{ color: 'var(--muted)' }}>(ค่าใช้จ่ายตรง {liveStats.totalDirectCost.toLocaleString()} + อ้อม {liveStats.totalIndirectCost.toLocaleString()} ฿)</span>
+            </div>
+          </>
+        );
+      })()}
 
       {/* INJURY-SPECIFIC CHARTS */}
       {(() => {
@@ -269,8 +291,8 @@ export default function InjuryWorkspace({
                     {injuryFilter?.value} <X size={10} />
                   </button>
                 ) : (
-                  <span className="flex items-center gap-1 text-[9px]" style={{ color: 'var(--muted)' }}>
-                    <Filter size={9} /> คลิกเพื่อกรอง
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium" style={{ color: 'var(--accent)', background: 'var(--bg-secondary)' }}>
+                    <Filter size={10} /> คลิกแท่งเพื่อกรอง
                   </span>
                 )}
               </div>
@@ -727,85 +749,98 @@ export default function InjuryWorkspace({
               </div>
             ) : (
               <>
-                {/* ═══ Active Filter Bar (consolidated) ═══ */}
-                <div className="flex flex-wrap items-center gap-2 mb-4 px-1 py-2 rounded-lg"
-                  style={{ background: injuryFilter ? 'var(--bg-secondary)' : 'transparent', border: injuryFilter ? '1px solid var(--border)' : 'none' }}>
-                  {/* Quick Filter Chips */}
-                  {chipFilters.map(chip => {
-                    const isActive = chip.field === '' ? !injuryFilter : (injuryFilter?.field === chip.field && injuryFilter?.value === chip.value);
-                    if (chip.field !== '' && chip.count === 0) return null;
-                    return (
+                {/* ═══ Filter Summary Bar — all active filters + master reset ═══ */}
+                <div className="rounded-xl px-3 py-2.5 mb-4" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  {/* Row 1: Filter status + count + controls */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Result count — prominent */}
+                    <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                      กำลังแสดง {filteredPersons.length} คน
+                      {filteredPersons.length !== allFilteredPersons.length && (
+                        <span className="font-normal" style={{ color: 'var(--muted)' }}> จาก {allFilteredPersons.length} คน</span>
+                      )}
+                    </span>
+
+                    <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+
+                    {/* Quick Filter Chips */}
+                    {chipFilters.map(chip => {
+                      const isActive = chip.field === '' ? !injuryFilter : (injuryFilter?.field === chip.field && injuryFilter?.value === chip.value);
+                      if (chip.field !== '' && chip.count === 0) return null;
+                      return (
+                        <button
+                          key={chip.label}
+                          onClick={() => {
+                            if (chip.field === '') { setInjuryFilter(null); return; }
+                            if (isActive) { setInjuryFilter(null); return; }
+                            setInjuryFilter({ field: chip.field, value: chip.value });
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all"
+                          style={{
+                            background: isActive ? (chip.color || 'var(--accent)') : 'var(--card-solid)',
+                            color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
+                            border: `1px solid ${isActive ? (chip.color || 'var(--accent)') : 'var(--border)'}`,
+                          }}
+                        >
+                          {chip.label}
+                          <span className="text-[10px] font-bold px-1.5 py-0 rounded-full" style={{
+                            background: isActive ? 'rgba(255,255,255,0.25)' : `${chip.color || 'var(--accent)'}15`,
+                            color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
+                          }}>
+                            {chip.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+
+                    {/* Year legend */}
+                    {displayYears.map(y => (
+                      <div key={y} className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
+                      </div>
+                    ))}
+
+                    {/* Compare mode toggle */}
+                    {activeYears.length > 1 && (
                       <button
-                        key={chip.label}
-                        onClick={() => {
-                          if (chip.field === '') { setInjuryFilter(null); return; }
-                          if (isActive) { setInjuryFilter(null); return; }
-                          setInjuryFilter({ field: chip.field, value: chip.value });
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all"
+                        onClick={() => setCompareMode(prev => prev === 'stacked' ? 'latest' : 'stacked')}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all hover:shadow-sm"
                         style={{
-                          background: isActive ? (chip.color || 'var(--accent)') : 'var(--card-solid)',
-                          color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
-                          border: `1px solid ${isActive ? (chip.color || 'var(--accent)') : 'var(--border)'}`,
+                          background: compareMode === 'stacked' ? 'var(--accent)' : 'var(--card-solid)',
+                          color: compareMode === 'stacked' ? '#fff' : 'var(--text-secondary)',
+                          border: `1px solid ${compareMode === 'stacked' ? 'var(--accent)' : 'var(--border)'}`,
                         }}
                       >
-                        {chip.label}
-                        <span className="text-[10px] font-bold px-1.5 py-0 rounded-full" style={{
-                          background: isActive ? 'rgba(255,255,255,0.25)' : `${chip.color || 'var(--accent)'}15`,
-                          color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
-                        }}>
-                          {chip.count}
-                        </span>
+                        {compareMode === 'stacked' ? <Layers size={10} /> : <BarChart3 size={10} />}
+                        {compareMode === 'stacked' ? 'เทียบทุกปี' : `เฉพาะ ${latestYear}`}
                       </button>
-                    );
-                  })}
+                    )}
 
-                  <div style={{ width: 1, height: 18, background: 'var(--border)' }} />
-
-                  {/* Year legend */}
-                  {displayYears.map(y => (
-                    <div key={y} className="flex items-center gap-1">
-                      <div className="w-2.5 h-2.5 rounded" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
-                      <span className="text-[10px] font-semibold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
-                    </div>
-                  ))}
-
-                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
-                    {filteredPersons.length}/{allFilteredPersons.length} คน
-                  </span>
-
-                  {/* Compare mode toggle */}
-                  {activeYears.length > 1 && (
-                    <button
-                      onClick={() => setCompareMode(prev => prev === 'stacked' ? 'latest' : 'stacked')}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:shadow-sm"
-                      style={{
-                        background: compareMode === 'latest' ? 'var(--accent)' : 'var(--card-solid)',
-                        color: compareMode === 'latest' ? '#fff' : 'var(--text-secondary)',
-                        border: `1px solid ${compareMode === 'latest' ? 'var(--accent)' : 'var(--border)'}`,
-                      }}
-                      title={compareMode === 'stacked' ? 'สลับเป็นปีล่าสุดเท่านั้น' : 'สลับเป็นเทียบหลายปี'}
-                    >
-                      {compareMode === 'stacked' ? <Layers size={10} /> : <BarChart3 size={10} />}
-                      {compareMode === 'stacked' ? 'เทียบปี' : `${latestYear} เท่านั้น`}
-                    </button>
-                  )}
-
-                  {/* Active chart filter chip */}
-                  {injuryFilter && (
-                    <button
-                      onClick={() => setInjuryFilter(null)}
-                      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:shadow-md ml-auto"
-                      style={{ background: 'var(--accent)', color: '#fff' }}
-                    >
-                      <Filter size={10} />
-                      {FIELD_LABELS[injuryFilter.field] || injuryFilter.field}: {injuryFilter.value}
-                      <X size={12} />
-                    </button>
-                  )}
+                    {/* Active chart filter chip — large */}
+                    {injuryFilter && (
+                      <div className="flex items-center gap-2 ml-auto">
+                        <span className="px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5"
+                          style={{ background: 'var(--accent)', color: '#fff' }}>
+                          <Filter size={10} />
+                          {FIELD_LABELS[injuryFilter.field] || injuryFilter.field}: {injuryFilter.value}
+                          <button onClick={() => setInjuryFilter(null)} className="ml-1 hover:opacity-70"><X size={12} /></button>
+                        </span>
+                        <button
+                          onClick={() => setInjuryFilter(null)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all hover:shadow-sm"
+                          style={{ color: '#ef4444', background: '#fef2f2', border: '1px solid #fca5a5' }}
+                        >
+                          <RotateCcw size={10} /> ล้างตัวกรองทั้งหมด
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Row 1: LTI + Lost days */}
+                {/* ═══ Trend Row: LTI + Lost days ═══ */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                   {renderStackedBarChart('หยุดงานหรือไม่', 'is_lti', ltiData)}
 
@@ -891,21 +926,24 @@ export default function InjuryWorkspace({
                   </div>
                 </div>
 
-                {/* Chart 3: Injury severity */}
+                {/* ═══ Where to Focus — 3 priority charts ═══ */}
                 <div className="mb-5">
-                  {renderStackedBarChart('ระดับการบาดเจ็บ', 'injury_severity', severityData)}
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <div className="w-1 h-5 rounded-full" style={{ background: 'var(--accent)' }} />
+                    <h2 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>จุดที่ต้องโฟกัส</h2>
+                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>— คลิกแท่งกราฟเพื่อกรองข้อมูลทั้งหน้า</span>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    {renderStackedBarChart('ระดับการบาดเจ็บ', 'injury_severity', severityData)}
+                    {renderStackedBarChart('ส่วนร่างกาย', 'body_part', bodyPartData, { wideLabel: true })}
+                    {renderStackedBarChart('แผนก/หน่วยงาน', 'department', deptFromIncidents)}
+                  </div>
                 </div>
 
-                {/* Row 2: Nature + Body part (wide-label layout for long taxonomy) */}
+                {/* ═══ Detail Charts — Nature + Person Type ═══ */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                   {renderStackedBarChart('ลักษณะการบาดเจ็บ', 'nature_of_injury', natureData, { wideLabel: true })}
-                  {renderStackedBarChart('ส่วนร่างกายที่ได้รับบาดเจ็บ', 'body_part', bodyPartData, { wideLabel: true })}
-                </div>
-
-                {/* Row 3: Person Type + Department */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                   {renderStackedBarChart('ประเภทบุคคล', 'person_type', personTypeData)}
-                  {renderStackedBarChart('แผนก/หน่วยงาน', 'department', deptFromIncidents)}
                 </div>
 
                 {/* ═══ ENHANCED Records Table — sortable + paginated ═══ */}
@@ -936,15 +974,16 @@ export default function InjuryWorkspace({
                   const displayed = enriched.slice(0, tableShowCount);
 
                   const columns: { key: string; label: string; sortable: boolean }[] = [
-                    { key: 'date', label: 'Date', sortable: true },
-                    { key: 'type', label: 'Type', sortable: false },
-                    { key: 'severity', label: 'Severity', sortable: true },
-                    { key: 'dept', label: 'Department', sortable: true },
-                    { key: 'person', label: 'Person', sortable: false },
-                    { key: 'injured', label: 'Injured', sortable: true },
-                    { key: 'bodyPart', label: 'Body Part', sortable: false },
-                    { key: 'lostDays', label: 'Lost Days', sortable: true },
+                    { key: 'date', label: 'วันที่', sortable: true },
+                    { key: 'type', label: 'ประเภท', sortable: false },
+                    { key: 'severity', label: 'ความรุนแรง', sortable: true },
+                    { key: 'dept', label: 'แผนก', sortable: true },
+                    { key: 'person', label: 'ประเภทบุคคล', sortable: false },
+                    { key: 'injured', label: 'ผู้บาดเจ็บ', sortable: true },
+                    { key: 'bodyPart', label: 'ส่วนร่างกาย', sortable: false },
+                    { key: 'lostDays', label: 'วันหยุดงาน', sortable: true },
                     { key: 'lti', label: 'LTI', sortable: true },
+                    { key: 'action', label: '', sortable: false },
                   ];
 
                   const SortIcon = ({ col }: { col: string }) => {
@@ -955,9 +994,15 @@ export default function InjuryWorkspace({
                   return (
                     <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                          รายการอุบัติเหตุบาดเจ็บ ({filteredIncForTable.length})
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-5 rounded-full" style={{ background: 'var(--accent)' }} />
+                          <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                            รายการตรวจสอบ
+                          </h3>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                            {filteredIncForTable.length} รายการ
+                          </span>
+                        </div>
                         {injuryFilter && (
                           <button onClick={() => setInjuryFilter(null)} className="text-[11px] underline" style={{ color: 'var(--accent)' }}>
                             ล้างตัวกรอง
@@ -1033,6 +1078,9 @@ export default function InjuryWorkspace({
                                     ) : (
                                       <span className="text-[10px]" style={{ color: 'var(--muted)' }}>—</span>
                                     )}
+                                  </td>
+                                  <td style={{ padding: '7px 4px', textAlign: 'center' }}>
+                                    <Eye size={13} style={{ color: 'var(--accent)', opacity: 0.6 }} />
                                   </td>
                                 </tr>
                               );
