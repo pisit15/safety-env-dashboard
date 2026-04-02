@@ -71,6 +71,8 @@ export default function HQIncidentsPage() {
   const [showAdvancedYears, setShowAdvancedYears] = useState(false);
   // Wave C: chart toggle
   const [chartMode, setChartMode] = useState<'all' | 'byCompany'>('all');
+  // Table filter from alert clicks
+  const [tableFilter, setTableFilter] = useState<'all' | 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH'>('all');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -194,15 +196,34 @@ export default function HQIncidentsPage() {
     1
   );
 
-  // Sort companies by total incidents desc
-  const sortedCompanies = Object.entries(companyStats).sort((a, b) => b[1].total - a[1].total);
+  // Sort companies by risk score (fatality first, then LTI, then LTIFR, then total)
+  const getRiskScore = (s: CompanyStat): number => {
+    let score = 0;
+    score += s.fatality * 100000;
+    score += s.lti * 10000;
+    score += (s.ltifr || 0) * 100;
+    score += s.total;
+    return score;
+  };
+  const sortedCompanies = Object.entries(companyStats).sort((a, b) => getRiskScore(b[1]) - getRiskScore(a[1]));
 
-  // Wave B: Top 3 LTIFR for table highlights
+  // Top 3 LTIFR for table highlights
   const ltifrValues = sortedCompanies
     .map(([id, s]) => ({ id, ltifr: s.ltifr }))
     .filter(x => x.ltifr !== null && x.ltifr! > 0)
     .sort((a, b) => (b.ltifr || 0) - (a.ltifr || 0));
   const top3LtifrIds = new Set(ltifrValues.slice(0, 3).map(x => x.id));
+
+  // Filter table by alert selection
+  const filteredCompanies = sortedCompanies.filter(([cId, s]) => {
+    if (tableFilter === 'all') return true;
+    if (tableFilter === 'fatality') return s.fatality > 0;
+    if (tableFilter === 'lti') return s.lti > 0;
+    if (tableFilter === 'highRate') return top3LtifrIds.has(cId);
+    if (tableFilter === 'highCost') return (s.directCost + s.indirectCost) > 0;
+    if (tableFilter === 'noMH') return s.tifr === null && s.total > 0;
+    return true;
+  });
 
   // Total man-hours
   const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mh.total, 0);
@@ -212,31 +233,36 @@ export default function HQIncidentsPage() {
   const maxMonthly = Math.max(...Object.values(monthlyData).map(m => m.total), 1);
   const yearLabel = selectedYears.length === 1 ? String(selectedYears[0]) : `${selectedYears[0]}-${selectedYears[selectedYears.length - 1]}`;
 
-  // Wave A: "ต้องดูวันนี้" alerts
-  const alerts: { icon: string; label: string; detail: string; severity: 'critical' | 'warning' | 'info'; companyId?: string }[] = [];
+  // "ต้องดูวันนี้" alerts — with table filter key
+  type AlertFilterKey = 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH';
+  const alerts: { icon: string; label: string; detail: string; severity: 'critical' | 'warning' | 'info'; companyId?: string; filterKey: AlertFilterKey }[] = [];
 
   // 1. Fatality > 0
-  sortedCompanies.forEach(([cId, s]) => {
-    if (s.fatality > 0) {
-      const name = COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase();
-      alerts.push({ icon: '💀', label: `มีผู้เสียชีวิต ${s.fatality} ราย`, detail: name, severity: 'critical', companyId: cId });
-    }
-  });
-  // 2. Highest LTI
+  const fatalCompanies = sortedCompanies.filter(([, s]) => s.fatality > 0);
+  if (fatalCompanies.length > 0) {
+    const totalFatal = fatalCompanies.reduce((s, [, st]) => s + st.fatality, 0);
+    const names = fatalCompanies.map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ');
+    alerts.push({ icon: '💀', label: `มีผู้เสียชีวิต ${totalFatal} ราย`, detail: names, severity: 'critical', filterKey: 'fatality' });
+  }
+  // 2. Companies with LTI > 0
+  const ltiCompanies = sortedCompanies.filter(([, s]) => s.lti > 0);
+  if (ltiCompanies.length > 0) {
+    const totalLti = ltiCompanies.reduce((s, [, st]) => s + st.lti, 0);
+    alerts.push({ icon: '🏥', label: `LTI ${totalLti} ราย (${ltiCompanies.length} บริษัท)`, detail: ltiCompanies.slice(0, 3).map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ') + (ltiCompanies.length > 3 ? ` +${ltiCompanies.length - 3}` : ''), severity: 'critical', filterKey: 'lti' });
+  }
+  // 3. Highest LTIFR
   if (ltifrValues.length > 0 && ltifrValues[0].ltifr! > 0) {
     const topId = ltifrValues[0].id;
     const name = COMPANIES.find(c => c.id === topId)?.shortName || topId.toUpperCase();
-    alerts.push({ icon: '🔺', label: `LTIFR สูงสุด: ${ltifrValues[0].ltifr!.toFixed(2)}`, detail: name, severity: 'warning', companyId: topId });
+    alerts.push({ icon: '🔺', label: `LTIFR สูงสุด: ${ltifrValues[0].ltifr!.toFixed(2)}`, detail: name, severity: 'warning', filterKey: 'highRate' });
   }
-  // 3. No man-hours but has incidents
-  sortedCompanies.forEach(([cId, s]) => {
-    const mh = manHoursByCompany[cId];
-    if (s.total > 0 && (!mh || mh.total === 0)) {
-      const name = COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase();
-      alerts.push({ icon: '⚠️', label: 'ไม่มี man-hours แต่มีอุบัติเหตุ', detail: `${name} (${s.total} เหตุ) — TIFR/LTIFR คำนวณไม่ได้`, severity: 'warning', companyId: cId });
-    }
-  });
-  // 4. Highest cost company
+  // 4. No man-hours but has incidents
+  const noMHCompanies = sortedCompanies.filter(([cId, s]) => s.total > 0 && (!manHoursByCompany[cId] || manHoursByCompany[cId].total === 0));
+  if (noMHCompanies.length > 0) {
+    const names = noMHCompanies.map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ');
+    alerts.push({ icon: '⚠️', label: `ไม่มี man-hours (${noMHCompanies.length} บริษัท)`, detail: `${names} — TIFR/LTIFR คำนวณไม่ได้`, severity: 'warning', filterKey: 'noMH' });
+  }
+  // 5. Highest cost company
   const costSorted = sortedCompanies
     .map(([cId, s]) => ({ cId, cost: s.directCost + s.indirectCost }))
     .filter(x => x.cost > 0)
@@ -244,7 +270,7 @@ export default function HQIncidentsPage() {
   if (costSorted.length > 0) {
     const top = costSorted[0];
     const name = COMPANIES.find(c => c.id === top.cId)?.shortName || top.cId.toUpperCase();
-    alerts.push({ icon: '💰', label: `ค่าเสียหายสูงสุด: ${top.cost.toLocaleString()} ฿`, detail: name, severity: 'info', companyId: top.cId });
+    alerts.push({ icon: '💰', label: `ค่าเสียหายสูงสุด: ${top.cost.toLocaleString()} ฿`, detail: name, severity: 'info', filterKey: 'highCost' });
   }
 
   // Wave B: Previous year data for trend comparison
@@ -265,6 +291,23 @@ export default function HQIncidentsPage() {
       totalCost: pInc.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0),
     };
   })() : null;
+
+  // Per-company previous year stats for delta comparison
+  const prevCompanyStats: Record<string, { total: number; lti: number; cost: number }> = {};
+  if (hasPrevYear) {
+    const pInc = workRelatedOnly ? prevYearInc.filter(i => i.work_related === 'ใช่') : prevYearInc;
+    COMPANIES.forEach(c => {
+      const cInc = pInc.filter(i => i.company_id === c.id);
+      if (cInc.length > 0) {
+        const lti = cInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; });
+        prevCompanyStats[c.id] = {
+          total: cInc.length,
+          lti: lti.length,
+          cost: cInc.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0),
+        };
+      }
+    });
+  }
 
   // Helper: year preset match check
   const isPresetActive = (preset: number[]) => {
@@ -403,34 +446,44 @@ export default function HQIncidentsPage() {
             <div>
               {/* ═══ Wave A: "ต้องดูวันนี้" Alert Section ═══ */}
               {alerts.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10, marginBottom: 16, marginTop: 16 }}>
-                  {alerts.map((alert, idx) => {
-                    const severityStyle = {
-                      critical: { bg: '#fef2f2', border: '#fca5a5', color: '#991b1b' },
-                      warning: { bg: '#fefce8', border: '#fde68a', color: '#92400e' },
-                      info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' },
-                    }[alert.severity];
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                          borderRadius: 10, background: severityStyle.bg, border: `1px solid ${severityStyle.border}`,
-                          cursor: alert.companyId ? 'pointer' : 'default',
-                        }}
-                        onClick={() => { if (alert.companyId) window.open(`/company/${alert.companyId}/incidents`, '_blank'); }}
-                      >
-                        <span style={{ fontSize: 18, flexShrink: 0 }}>{alert.icon}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: severityStyle.color }}>{alert.label}</div>
-                          <div style={{ fontSize: 11, color: severityStyle.color, opacity: 0.8 }}>{alert.detail}</div>
+                <div style={{ marginBottom: 16, marginTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle size={14} style={{ color: '#dc2626' }} /> ต้องดูวันนี้
+                    {tableFilter !== 'all' && (
+                      <button onClick={() => setTableFilter('all')} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer', marginLeft: 8 }}>
+                        ล้าง filter ตาราง
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+                    {alerts.map((alert, idx) => {
+                      const severityStyle = {
+                        critical: { bg: '#fef2f2', border: '#fca5a5', color: '#991b1b' },
+                        warning: { bg: '#fefce8', border: '#fde68a', color: '#92400e' },
+                        info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' },
+                      }[alert.severity];
+                      const isActive = tableFilter === alert.filterKey;
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                            borderRadius: 10, background: isActive ? severityStyle.color : severityStyle.bg,
+                            border: `2px solid ${isActive ? severityStyle.color : severityStyle.border}`,
+                            cursor: 'pointer', transition: 'all 0.15s',
+                          }}
+                          onClick={() => setTableFilter(isActive ? 'all' : alert.filterKey)}
+                        >
+                          <span style={{ fontSize: 18, flexShrink: 0 }}>{alert.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? '#fff' : severityStyle.color }}>{alert.label}</div>
+                            <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : severityStyle.color, opacity: isActive ? 1 : 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.detail}</div>
+                          </div>
+                          <ChevronRight size={14} style={{ color: isActive ? '#fff' : severityStyle.color, opacity: 0.5, flexShrink: 0 }} />
                         </div>
-                        {alert.companyId && (
-                          <ChevronRight size={14} style={{ color: severityStyle.color, opacity: 0.5, flexShrink: 0 }} />
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -438,12 +491,12 @@ export default function HQIncidentsPage() {
               {/* Fatality → LTI → TIFR → LTIFR → ค่าเสียหาย → Near Miss */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style={{ marginTop: alerts.length > 0 ? 0 : 16 }}>
                 {[
-                  { label: 'เสียชีวิต', value: totalSummary.fatalities, icon: Users, color: totalSummary.fatalities > 0 ? '#ef4444' : '#9ca3af', emphasis: totalSummary.fatalities > 0, trend: prevSummary ? trendBadge(totalSummary.fatalities, prevSummary.fatalities) : null },
-                  { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: '#ef4444', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null },
-                  { label: 'TIFR', value: totalTIFR !== null ? totalTIFR.toFixed(2) : 'N/A', icon: Activity, color: totalTIFR !== null ? '#f97316' : '#9ca3af', emphasis: false, trend: null },
-                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', icon: BarChart3, color: totalLTIFR !== null ? '#ef4444' : '#9ca3af', emphasis: false, trend: null },
-                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#22c55e', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null },
-                  { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null },
+                  { label: 'เสียชีวิต', value: totalSummary.fatalities, icon: Users, color: totalSummary.fatalities > 0 ? '#ef4444' : '#9ca3af', emphasis: totalSummary.fatalities > 0, trend: prevSummary ? trendBadge(totalSummary.fatalities, prevSummary.fatalities) : null, subtitle: undefined as string | undefined },
+                  { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: '#ef4444', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null, subtitle: undefined as string | undefined },
+                  { label: 'TIFR', value: totalTIFR !== null ? totalTIFR.toFixed(2) : 'N/A', icon: Activity, color: totalTIFR !== null ? '#f97316' : '#9ca3af', emphasis: false, trend: null, subtitle: totalTIFR === null ? 'ไม่มี man-hours' : `MH: ${totalManHours.toLocaleString()}` },
+                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', icon: BarChart3, color: totalLTIFR !== null ? '#ef4444' : '#9ca3af', emphasis: false, trend: null, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
+                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#22c55e', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null, subtitle: undefined as string | undefined },
+                  { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null, subtitle: undefined as string | undefined },
                 ].map((kpi, idx) => (
                   <div key={idx} className="rounded-2xl p-4" style={{
                     background: kpi.emphasis ? '#fef2f2' : 'var(--card-solid)',
@@ -460,6 +513,9 @@ export default function HQIncidentsPage() {
                       <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
                       {kpi.trend}
                     </div>
+                    {kpi.subtitle && (
+                      <p className="text-[9px] mt-1" style={{ color: 'var(--muted)', opacity: 0.7 }}>{kpi.subtitle}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -487,24 +543,37 @@ export default function HQIncidentsPage() {
                 </div>
               </div>
 
-              {/* ═══ Wave B+C: Company Comparison Table — Moved Up ═══ */}
+              {/* ═══ Company Comparison Table — Triage-First ═══ */}
               <div className="rounded-2xl overflow-hidden mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
                     เปรียบเทียบรายบริษัท — {yearLabel}
+                    {tableFilter !== 'all' && (
+                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', fontWeight: 600 }}>
+                        {tableFilter === 'fatality' ? 'มีผู้เสียชีวิต' : tableFilter === 'lti' ? 'มี LTI' : tableFilter === 'highRate' ? 'Rate สูง' : tableFilter === 'highCost' ? 'ค่าเสียหาย' : 'ไม่มี MH'}
+                      </span>
+                    )}
                   </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: 'var(--muted)' }}>เรียงตาม Risk Score</span>
+                    {tableFilter !== 'all' && (
+                      <button onClick={() => setTableFilter('all')} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer' }}>
+                        แสดงทั้งหมด
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)' }}>
-                        {['', 'บริษัท', 'รวม', 'บาดเจ็บ', 'LTI', 'Near Miss', 'ทรัพย์สิน', 'เสียชีวิต', 'TIFR', 'LTIFR', 'ค่าเสียหาย'].map(h => (
+                        {['', 'บริษัท', 'รวม', 'บาดเจ็บ', 'LTI', 'Near Miss', 'ทรัพย์สิน', 'เสียชีวิต', 'TIFR', 'LTIFR', 'ค่าเสียหาย', ...(hasPrevYear ? ['Δ ปีก่อน'] : [])].map(h => (
                           <th key={h} className="text-left px-3 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--muted)', fontSize: 11 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedCompanies.map(([companyId, stats], idx) => {
+                      {filteredCompanies.map(([companyId, stats], idx) => {
                         const companyName = COMPANIES.find(c => c.id === companyId)?.shortName || companyId.toUpperCase();
                         const hasFatality = stats.fatality > 0;
                         const isTopLtifr = top3LtifrIds.has(companyId);
@@ -514,6 +583,10 @@ export default function HQIncidentsPage() {
                         const rowBorder = hasFatality ? '#fca5a5' : isTopLtifr ? '#fde68a' : noManHours ? '#fed7aa' : 'var(--border)';
                         // Risk indicator
                         const riskDot = hasFatality ? '🔴' : isTopLtifr ? '🟡' : noManHours ? '🟠' : '';
+                        // Per-company delta
+                        const prev = prevCompanyStats[companyId];
+                        const deltaTotal = prev ? stats.total - prev.total : null;
+                        const deltaLti = prev ? stats.lti - prev.lti : null;
                         return (
                           <tr
                             key={companyId}
@@ -538,22 +611,44 @@ export default function HQIncidentsPage() {
                             <td className="px-3 py-3" style={{ color: '#22c55e' }}>{stats.propertyDamage}</td>
                             <td className="px-3 py-3 font-bold" style={{ color: hasFatality ? '#ef4444' : 'var(--muted)' }}>{stats.fatality}</td>
                             <td className="px-3 py-3 font-mono" style={{ color: stats.tifr !== null ? '#f97316' : 'var(--muted)' }}>
-                              {stats.tifr !== null ? stats.tifr.toFixed(2) : 'N/A'}
+                              {stats.tifr !== null ? stats.tifr.toFixed(2) : (
+                                <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
+                              )}
                             </td>
                             <td className="px-3 py-3 font-mono" style={{ color: stats.ltifr !== null ? (isTopLtifr ? '#dc2626' : '#ef4444') : 'var(--muted)', fontWeight: isTopLtifr ? 700 : undefined }}>
-                              {stats.ltifr !== null ? stats.ltifr.toFixed(2) : 'N/A'}
+                              {stats.ltifr !== null ? stats.ltifr.toFixed(2) : (
+                                <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
+                              )}
                               {isTopLtifr && <span style={{ fontSize: 9, marginLeft: 3 }}>▲</span>}
                             </td>
                             <td className="px-3 py-3 text-right" style={{ color: 'var(--text-secondary)' }}>
                               {(stats.directCost + stats.indirectCost).toLocaleString()}
                             </td>
+                            {hasPrevYear && (
+                              <td className="px-3 py-3" style={{ fontSize: 10 }}>
+                                {prev ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <span style={{ color: deltaTotal !== null && deltaTotal > 0 ? '#dc2626' : deltaTotal !== null && deltaTotal < 0 ? '#16a34a' : 'var(--muted)', fontWeight: 600 }}>
+                                      {deltaTotal !== null ? (deltaTotal > 0 ? `+${deltaTotal}` : deltaTotal === 0 ? '=' : `${deltaTotal}`) : '-'} เหตุ
+                                    </span>
+                                    {deltaLti !== null && deltaLti !== 0 && (
+                                      <span style={{ color: deltaLti > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                                        {deltaLti > 0 ? `+${deltaLti}` : `${deltaLti}`} LTI
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลปีก่อน</span>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
-                      {sortedCompanies.length === 0 && (
+                      {filteredCompanies.length === 0 && (
                         <tr>
-                          <td colSpan={11} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
-                            ไม่พบข้อมูลอุบัติเหตุในปี {yearLabel}
+                          <td colSpan={hasPrevYear ? 12 : 11} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
+                            {tableFilter !== 'all' ? 'ไม่มีบริษัทตรงกับเงื่อนไข' : `ไม่พบข้อมูลอุบัติเหตุในปี ${yearLabel}`}
                           </td>
                         </tr>
                       )}
@@ -561,11 +656,12 @@ export default function HQIncidentsPage() {
                   </table>
                 </div>
                 {/* Table legend */}
-                {sortedCompanies.length > 0 && (
-                  <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 10, color: 'var(--muted)' }}>
+                {filteredCompanies.length > 0 && (
+                  <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 10, color: 'var(--muted)', flexWrap: 'wrap' }}>
                     <span>🔴 มีผู้เสียชีวิต</span>
                     <span>🟡 LTIFR สูงสุด 3 อันดับ</span>
                     <span>🟠 ไม่มี man-hours</span>
+                    <span>N/A = ไม่มีข้อมูล man-hours</span>
                     <span style={{ marginLeft: 'auto', opacity: 0.7 }}>คลิก row เพื่อดูรายละเอียดบริษัท</span>
                   </div>
                 )}
