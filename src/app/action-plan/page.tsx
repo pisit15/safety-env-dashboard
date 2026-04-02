@@ -357,6 +357,116 @@ export default function HQOverview() {
     return overdue;
   }, [data, currentMonthIdx]);
 
+  const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const monthFullNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  const currentMonth = monthNames[currentMonthIdx];
+  const planTypeLabel = planType === 'total' ? 'แผนงานรวม' : planType === 'safety' ? 'แผนงานความปลอดภัย' : 'แผนงานสิ่งแวดล้อม';
+
+  // Phase A: Context-specific config per planType
+  // IMPORTANT: This useMemo MUST be before any early returns to satisfy React Rules of Hooks
+  const planConfig = useMemo(() => {
+    if (planType === 'safety') {
+      return {
+        headline: `Safety Master Plan ${selectedYear}`,
+        subtitle: 'ติดตามแผนความปลอดภัย — ลดความเสี่ยง ป้องกันอุบัติเหตุ',
+        accentColor: '#ff6b35',
+        accentBg: 'rgba(255,107,53,0.15)',
+        kpi: {
+          total: 'กิจกรรมความปลอดภัย',
+          done: 'ดำเนินการแล้ว',
+          pctClose: '% ปิดงาน Safety',
+          notStarted: 'ยังไม่เริ่ม (ความเสี่ยง)',
+          postponed: 'เลื่อน (ต้องติดตาม)',
+          cancelled: 'ยกเลิก',
+          na: 'ไม่เข้าเงื่อนไข',
+          pctReal: '% ทำเสร็จจริง',
+          budget: 'งบ Safety',
+        },
+        alert: {
+          lowPct: '⚠️ ความเสี่ยงสูง — % สำเร็จต่ำ',
+          highNotStarted: '🔴 งาน Safety ยังไม่เริ่ม',
+          highPostponed: '⏳ งาน Safety เลื่อนออก',
+          highBudget: '💰 งบ Safety สูงสุด',
+          sectionTitle: 'ต้องเฝ้าระวัง — Safety',
+        },
+        rankingTitle: 'Ranking % สำเร็จ — Safety',
+        pieTitle: 'สัดส่วนสถานะ Safety',
+        budgetTitle: 'งบประมาณ Safety รายบริษัท (บาท)',
+        overdueLabel: 'Overdue (เกินกำหนด)',
+      };
+    } else if (planType === 'environment') {
+      return {
+        headline: `Environment Master Plan ${selectedYear}`,
+        subtitle: 'ติดตามแผนสิ่งแวดล้อม — compliance, ใบอนุญาต, การรายงาน',
+        accentColor: '#34c759',
+        accentBg: 'rgba(52,199,89,0.15)',
+        kpi: {
+          total: 'กิจกรรมสิ่งแวดล้อม',
+          done: 'ดำเนินการแล้ว',
+          pctClose: '% ปิดงาน Envi',
+          notStarted: 'ยังไม่เริ่ม (compliance risk)',
+          postponed: 'เลื่อน (ติดตาม)',
+          cancelled: 'ยกเลิก',
+          na: 'ไม่เข้าเงื่อนไข',
+          pctReal: '% ทำเสร็จจริง',
+          budget: 'งบ Envi',
+        },
+        alert: {
+          lowPct: '📋 Compliance risk — % สำเร็จต่ำ',
+          highNotStarted: '🟢 งาน Envi ยังไม่เริ่ม',
+          highPostponed: '📅 งาน Envi เลื่อนออก',
+          highBudget: '💰 งบ Envi สูงสุด',
+          sectionTitle: 'ต้องติดตาม — Environment',
+        },
+        rankingTitle: 'Ranking % สำเร็จ — Environment',
+        pieTitle: 'สัดส่วนสถานะ Envi',
+        budgetTitle: 'งบประมาณ Envi รายบริษัท (บาท)',
+        overdueLabel: 'Overdue (เกินกำหนด)',
+      };
+    } else {
+      return {
+        headline: `HQ Overview — แผนงานรวม ${selectedYear}`,
+        subtitle: 'ภาพรวมกลุ่ม — Safety + Environment',
+        accentColor: 'var(--accent)',
+        accentBg: 'rgba(10,132,255,0.15)',
+        kpi: {
+          total: 'กิจกรรมทั้งหมด',
+          done: 'เสร็จแล้ว',
+          pctClose: '% ปิดงาน',
+          notStarted: 'ยังไม่เริ่ม',
+          postponed: 'เลื่อน',
+          cancelled: 'ยกเลิก',
+          na: 'ไม่เข้าเงื่อนไข',
+          pctReal: '% ทำเสร็จจริง',
+          budget: 'งบประมาณรวม',
+        },
+        alert: {
+          lowPct: '🔴 % สำเร็จต่ำสุด',
+          highNotStarted: '🟠 ยังไม่เริ่มมากสุด',
+          highPostponed: '🔵 เลื่อนมากสุด',
+          highBudget: '💰 งบสูงสุด',
+          sectionTitle: 'ต้องติดตาม',
+        },
+        rankingTitle: 'Ranking % สำเร็จ รายบริษัท',
+        pieTitle: 'สัดส่วนสถานะกิจกรรม',
+        budgetTitle: 'งบประมาณรายบริษัท (บาท)',
+        overdueLabel: 'Overdue (เกินกำหนด)',
+      };
+    }
+  }, [planType, selectedYear]);
+
+  // Helper function: Get time range label
+  const getTimeRangeLabel = () => {
+    if (timeRange === 'year') return 'ทั้งปี';
+    if (timeRange === 'ytd') return `ถึง ${monthNames[currentMonthIdx]} (YTD)`;
+    const idx = MONTH_KEYS_ARR.indexOf(timeRange);
+    if (idx >= 0) return monthFullNames[idx];
+    return 'ไม่ระบุ';
+  };
+
+  // Wave 1.1: Check if any filter is non-default
+  const isFilterNonDefault = planType !== 'total' || selectedYear !== DEFAULT_YEAR || timeRange !== 'year';
+
   // ── Admin Login Gate ──
   if (!auth.isAdmin) {
     return (
@@ -415,118 +525,6 @@ export default function HQOverview() {
       </div>
     );
   }
-
-  const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const monthFullNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-  const currentMonth = monthNames[currentMonthIdx];
-  const planTypeLabel = planType === 'total' ? 'แผนงานรวม' : planType === 'safety' ? 'แผนงานความปลอดภัย' : 'แผนงานสิ่งแวดล้อม';
-
-  // Phase A: Context-specific config per planType
-  const planConfig = useMemo(() => {
-    if (planType === 'safety') {
-      return {
-        headline: `Safety Master Plan ${selectedYear}`,
-        subtitle: 'ติดตามแผนความปลอดภัย — ลดความเสี่ยง ป้องกันอุบัติเหตุ',
-        accentColor: '#ff6b35',       // orange-red
-        accentBg: 'rgba(255,107,53,0.15)',
-        kpi: {
-          total: 'กิจกรรมความปลอดภัย',
-          done: 'ดำเนินการแล้ว',
-          pctClose: '% ปิดงาน Safety',
-          notStarted: 'ยังไม่เริ่ม (ความเสี่ยง)',
-          postponed: 'เลื่อน (ต้องติดตาม)',
-          cancelled: 'ยกเลิก',
-          na: 'ไม่เข้าเงื่อนไข',
-          pctReal: '% ทำเสร็จจริง',
-          budget: 'งบ Safety',
-        },
-        alert: {
-          lowPct: '⚠️ ความเสี่ยงสูง — % สำเร็จต่ำ',
-          highNotStarted: '🔴 งาน Safety ยังไม่เริ่ม',
-          highPostponed: '⏳ งาน Safety เลื่อนออก',
-          highBudget: '💰 งบ Safety สูงสุด',
-          sectionTitle: 'ต้องเฝ้าระวัง — Safety',
-        },
-        tabActiveStyle: { background: '#ff6b35', color: '#ffffff', boxShadow: '0 4px 20px rgba(255,107,53,0.4), 0 0 0 1px rgba(255,107,53,0.3)' },
-        rankingTitle: 'Ranking % สำเร็จ — Safety',
-        pieTitle: 'สัดส่วนสถานะ Safety',
-        budgetTitle: 'งบประมาณ Safety รายบริษัท (บาท)',
-        overdueLabel: 'Overdue (เกินกำหนด)',
-      };
-    } else if (planType === 'environment') {
-      return {
-        headline: `Environment Master Plan ${selectedYear}`,
-        subtitle: 'ติดตามแผนสิ่งแวดล้อม — compliance, ใบอนุญาต, การรายงาน',
-        accentColor: '#34c759',       // green
-        accentBg: 'rgba(52,199,89,0.15)',
-        kpi: {
-          total: 'กิจกรรมสิ่งแวดล้อม',
-          done: 'ดำเนินการแล้ว',
-          pctClose: '% ปิดงาน Envi',
-          notStarted: 'ยังไม่เริ่ม (compliance risk)',
-          postponed: 'เลื่อน (ติดตาม)',
-          cancelled: 'ยกเลิก',
-          na: 'ไม่เข้าเงื่อนไข',
-          pctReal: '% ทำเสร็จจริง',
-          budget: 'งบ Envi',
-        },
-        alert: {
-          lowPct: '📋 Compliance risk — % สำเร็จต่ำ',
-          highNotStarted: '🟢 งาน Envi ยังไม่เริ่ม',
-          highPostponed: '📅 งาน Envi เลื่อนออก',
-          highBudget: '💰 งบ Envi สูงสุด',
-          sectionTitle: 'ต้องติดตาม — Environment',
-        },
-        tabActiveStyle: { background: '#34c759', color: '#ffffff', boxShadow: '0 4px 20px rgba(52,199,89,0.4), 0 0 0 1px rgba(52,199,89,0.3)' },
-        rankingTitle: 'Ranking % สำเร็จ — Environment',
-        pieTitle: 'สัดส่วนสถานะ Envi',
-        budgetTitle: 'งบประมาณ Envi รายบริษัท (บาท)',
-        overdueLabel: 'Overdue (เกินกำหนด)',
-      };
-    } else {
-      return {
-        headline: `HQ Overview — แผนงานรวม ${selectedYear}`,
-        subtitle: 'ภาพรวมกลุ่ม — Safety + Environment',
-        accentColor: 'var(--accent)',  // blue
-        accentBg: 'rgba(10,132,255,0.15)',
-        kpi: {
-          total: 'กิจกรรมทั้งหมด',
-          done: 'เสร็จแล้ว',
-          pctClose: '% ปิดงาน',
-          notStarted: 'ยังไม่เริ่ม',
-          postponed: 'เลื่อน',
-          cancelled: 'ยกเลิก',
-          na: 'ไม่เข้าเงื่อนไข',
-          pctReal: '% ทำเสร็จจริง',
-          budget: 'งบประมาณรวม',
-        },
-        alert: {
-          lowPct: '🔴 % สำเร็จต่ำสุด',
-          highNotStarted: '🟠 ยังไม่เริ่มมากสุด',
-          highPostponed: '🔵 เลื่อนมากสุด',
-          highBudget: '💰 งบสูงสุด',
-          sectionTitle: 'ต้องติดตาม',
-        },
-        tabActiveStyle: { background: 'var(--accent)', color: '#ffffff', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' },
-        rankingTitle: 'Ranking % สำเร็จ รายบริษัท',
-        pieTitle: 'สัดส่วนสถานะกิจกรรม',
-        budgetTitle: 'งบประมาณรายบริษัท (บาท)',
-        overdueLabel: 'Overdue (เกินกำหนด)',
-      };
-    }
-  }, [planType, selectedYear]);
-
-  // Helper function: Get time range label
-  const getTimeRangeLabel = () => {
-    if (timeRange === 'year') return 'ทั้งปี';
-    if (timeRange === 'ytd') return `ถึง ${monthNames[currentMonthIdx]} (YTD)`;
-    const idx = MONTH_KEYS_ARR.indexOf(timeRange);
-    if (idx >= 0) return monthFullNames[idx];
-    return 'ไม่ระบุ';
-  };
-
-  // Wave 1.1: Check if any filter is non-default
-  const isFilterNonDefault = planType !== 'total' || selectedYear !== DEFAULT_YEAR || timeRange !== 'year';
 
   return (
     <div className="flex min-h-screen">
