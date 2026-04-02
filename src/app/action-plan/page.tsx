@@ -65,6 +65,9 @@ export default function HQOverview() {
   // Wave 3.11: Monthly chart toggle
   const [monthlyChartMode, setMonthlyChartMode] = useState<'hq' | 'top5'>('hq');
 
+  // Phase A: Ranking chart toggle
+  const [rankingMode, setRankingMode] = useState<'pctDone' | 'notStarted' | 'budget'>('pctDone');
+
   // Persist planType, timeRange, and selectedYear to localStorage
   useEffect(() => {
     localStorage.setItem('hq_planType', planType);
@@ -328,6 +331,19 @@ export default function HQOverview() {
       .slice(0, 5);
   }, [filtered]);
 
+  // Phase A: Overdue estimate — months that passed but activities not completed
+  const overdueEstimate = useMemo(() => {
+    if (!data || !data.monthlyProgress) return 0;
+    let overdue = 0;
+    data.monthlyProgress.forEach((mp, idx) => {
+      if (idx < currentMonthIdx && mp.planned > 0) {
+        const incomplete = mp.planned - mp.completed;
+        if (incomplete > 0) overdue += incomplete;
+      }
+    });
+    return overdue;
+  }, [data, currentMonthIdx]);
+
   // ── Admin Login Gate ──
   if (!auth.isAdmin) {
     return (
@@ -392,6 +408,101 @@ export default function HQOverview() {
   const currentMonth = monthNames[currentMonthIdx];
   const planTypeLabel = planType === 'total' ? 'แผนงานรวม' : planType === 'safety' ? 'แผนงานความปลอดภัย' : 'แผนงานสิ่งแวดล้อม';
 
+  // Phase A: Context-specific config per planType
+  const planConfig = useMemo(() => {
+    if (planType === 'safety') {
+      return {
+        headline: `Safety Master Plan ${selectedYear}`,
+        subtitle: 'ติดตามแผนความปลอดภัย — ลดความเสี่ยง ป้องกันอุบัติเหตุ',
+        accentColor: '#ff6b35',       // orange-red
+        accentBg: 'rgba(255,107,53,0.15)',
+        kpi: {
+          total: 'กิจกรรมความปลอดภัย',
+          done: 'ดำเนินการแล้ว',
+          pctClose: '% ปิดงาน Safety',
+          notStarted: 'ยังไม่เริ่ม (ความเสี่ยง)',
+          postponed: 'เลื่อน (ต้องติดตาม)',
+          cancelled: 'ยกเลิก',
+          na: 'ไม่เข้าเงื่อนไข',
+          pctReal: '% ทำเสร็จจริง',
+          budget: 'งบ Safety',
+        },
+        alert: {
+          lowPct: '⚠️ ความเสี่ยงสูง — % สำเร็จต่ำ',
+          highNotStarted: '🔴 งาน Safety ยังไม่เริ่ม',
+          highPostponed: '⏳ งาน Safety เลื่อนออก',
+          highBudget: '💰 งบ Safety สูงสุด',
+          sectionTitle: 'ต้องเฝ้าระวัง — Safety',
+        },
+        tabActiveStyle: { background: '#ff6b35', color: '#ffffff', boxShadow: '0 4px 20px rgba(255,107,53,0.4), 0 0 0 1px rgba(255,107,53,0.3)' },
+        rankingTitle: 'Ranking % สำเร็จ — Safety',
+        pieTitle: 'สัดส่วนสถานะ Safety',
+        budgetTitle: 'งบประมาณ Safety รายบริษัท (บาท)',
+        overdueLabel: 'Overdue (เกินกำหนด)',
+      };
+    } else if (planType === 'environment') {
+      return {
+        headline: `Environment Master Plan ${selectedYear}`,
+        subtitle: 'ติดตามแผนสิ่งแวดล้อม — compliance, ใบอนุญาต, การรายงาน',
+        accentColor: '#34c759',       // green
+        accentBg: 'rgba(52,199,89,0.15)',
+        kpi: {
+          total: 'กิจกรรมสิ่งแวดล้อม',
+          done: 'ดำเนินการแล้ว',
+          pctClose: '% ปิดงาน Envi',
+          notStarted: 'ยังไม่เริ่ม (compliance risk)',
+          postponed: 'เลื่อน (ติดตาม)',
+          cancelled: 'ยกเลิก',
+          na: 'ไม่เข้าเงื่อนไข',
+          pctReal: '% ทำเสร็จจริง',
+          budget: 'งบ Envi',
+        },
+        alert: {
+          lowPct: '📋 Compliance risk — % สำเร็จต่ำ',
+          highNotStarted: '🟢 งาน Envi ยังไม่เริ่ม',
+          highPostponed: '📅 งาน Envi เลื่อนออก',
+          highBudget: '💰 งบ Envi สูงสุด',
+          sectionTitle: 'ต้องติดตาม — Environment',
+        },
+        tabActiveStyle: { background: '#34c759', color: '#ffffff', boxShadow: '0 4px 20px rgba(52,199,89,0.4), 0 0 0 1px rgba(52,199,89,0.3)' },
+        rankingTitle: 'Ranking % สำเร็จ — Environment',
+        pieTitle: 'สัดส่วนสถานะ Envi',
+        budgetTitle: 'งบประมาณ Envi รายบริษัท (บาท)',
+        overdueLabel: 'Overdue (เกินกำหนด)',
+      };
+    } else {
+      return {
+        headline: `HQ Overview — แผนงานรวม ${selectedYear}`,
+        subtitle: 'ภาพรวมกลุ่ม — Safety + Environment',
+        accentColor: 'var(--accent)',  // blue
+        accentBg: 'rgba(10,132,255,0.15)',
+        kpi: {
+          total: 'กิจกรรมทั้งหมด',
+          done: 'เสร็จแล้ว',
+          pctClose: '% ปิดงาน',
+          notStarted: 'ยังไม่เริ่ม',
+          postponed: 'เลื่อน',
+          cancelled: 'ยกเลิก',
+          na: 'ไม่เข้าเงื่อนไข',
+          pctReal: '% ทำเสร็จจริง',
+          budget: 'งบประมาณรวม',
+        },
+        alert: {
+          lowPct: '🔴 % สำเร็จต่ำสุด',
+          highNotStarted: '🟠 ยังไม่เริ่มมากสุด',
+          highPostponed: '🔵 เลื่อนมากสุด',
+          highBudget: '💰 งบสูงสุด',
+          sectionTitle: 'ต้องติดตาม',
+        },
+        tabActiveStyle: { background: 'var(--accent)', color: '#ffffff', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' },
+        rankingTitle: 'Ranking % สำเร็จ รายบริษัท',
+        pieTitle: 'สัดส่วนสถานะกิจกรรม',
+        budgetTitle: 'งบประมาณรายบริษัท (บาท)',
+        overdueLabel: 'Overdue (เกินกำหนด)',
+      };
+    }
+  }, [planType, selectedYear]);
+
   // Helper function: Get time range label
   const getTimeRangeLabel = () => {
     if (timeRange === 'year') return 'ทั้งปี';
@@ -419,10 +530,10 @@ export default function HQOverview() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8 animate-fade-in-up">
           <div>
             <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              HQ Overview — {planTypeLabel} {selectedYear}
+              {planConfig.headline}
             </h1>
             <p className="text-[13px] mt-1.5" style={{ color: 'var(--muted)' }}>
-              ภาพรวมกลุ่ม — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} {selectedYear}
+              {planConfig.subtitle} — {data.companies.length} บริษัท | ข้อมูล ณ {currentMonth} {selectedYear}
               {loading && <span className="ml-2 animate-pulse" style={{ color: 'var(--accent)' }}>กำลังอัปเดต...</span>}
               <span className="ml-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px]" style={{ background: 'rgba(48,209,88,0.15)', color: '#30d158' }}>
                 ✓ {auth.adminName}
@@ -469,7 +580,7 @@ export default function HQOverview() {
               onClick={() => setPlanType('safety')}
               className="px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5"
               style={planType === 'safety'
-                ? { background: 'var(--accent)', color: '#ffffff', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' }
+                ? { background: '#ff6b35', color: '#ffffff', boxShadow: '0 4px 20px rgba(255,107,53,0.4), 0 0 0 1px rgba(255,107,53,0.3)' }
                 : { color: 'var(--muted)' }}
             >
               <Shield size={14} /> Safety Plan
@@ -478,7 +589,7 @@ export default function HQOverview() {
               onClick={() => setPlanType('environment')}
               className="px-5 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-200 flex items-center gap-1.5"
               style={planType === 'environment'
-                ? { background: 'var(--accent)', color: '#ffffff', boxShadow: '0 4px 20px rgba(10, 132, 255, 0.4), 0 0 0 1px rgba(10, 132, 255, 0.3)' }
+                ? { background: '#34c759', color: '#ffffff', boxShadow: '0 4px 20px rgba(52,199,89,0.4), 0 0 0 1px rgba(52,199,89,0.3)' }
                 : { color: 'var(--muted)' }}
             >
               <Leaf size={14} /> Envi Plan
@@ -568,14 +679,14 @@ export default function HQOverview() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5 animate-fade-in-up" style={{ animationDelay: '0.1s', alignItems: 'stretch' }}>
           {/* Total */}
           <KPICard
-            label="กิจกรรมทั้งหมด"
+            label={planConfig.kpi.total}
             value={filtered!.totalActivities}
           />
 
           {/* Completed with progress */}
           <div style={{ display: 'flex' }}>
             <KPICard
-              label="เสร็จแล้ว"
+              label={planConfig.kpi.done}
               value={filtered!.totalDone}
               color="#30d158"
               progress={filtered!.totalActivities > 0 ? (filtered!.totalDone / filtered!.totalActivities * 100) : 0}
@@ -585,7 +696,7 @@ export default function HQOverview() {
           {/* Overall % (done + NA) / total */}
           <div style={{ display: 'flex' }}>
             <KPICard
-              label="% ปิดงาน"
+              label={planConfig.kpi.pctClose}
               value={`${filtered!.overallPct}%`}
               color="#30d158"
               subtext={`รวม ${filtered!.totalNotApplicable || 0} รายการ N/A`}
@@ -595,9 +706,9 @@ export default function HQOverview() {
           {/* Not Started */}
           <div style={{ display: 'flex' }}>
             <KPICard
-              label="ยังไม่เริ่ม"
+              label={planConfig.kpi.notStarted}
               value={filtered!.totalNotStarted}
-              color="#ff9f0a"
+              color={planType === 'safety' ? '#ff453a' : planType === 'environment' ? '#ff9f0a' : '#ff9f0a'}
             />
           </div>
         </div>
@@ -606,21 +717,21 @@ export default function HQOverview() {
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8 animate-fade-in-up" style={{ animationDelay: '0.15s', alignItems: 'stretch' }}>
           {/* Postponed */}
           <KPICard
-            label="เลื่อน"
+            label={planConfig.kpi.postponed}
             value={filtered!.totalPostponed}
             color="#5ac8fa"
           />
 
           {/* Cancelled */}
           <KPICard
-            label="ยกเลิก"
+            label={planConfig.kpi.cancelled}
             value={filtered!.totalCancelled}
             color="#ff453a"
           />
 
           {/* Not Applicable */}
           <KPICard
-            label="ไม่เข้าเงื่อนไข"
+            label={planConfig.kpi.na}
             value={filtered!.totalNotApplicable || 0}
             color="#8e8e93"
           />
@@ -628,7 +739,7 @@ export default function HQOverview() {
           {/* Actual % (done only, NOT including NA) */}
           <div style={{ display: 'flex' }}>
             <KPICard
-              label="% ทำเสร็จจริง"
+              label={planConfig.kpi.pctReal}
               value={filtered!.totalActivities > 0 ? `${Math.round((filtered!.totalDone / filtered!.totalActivities) * 1000) / 10}%` : '-'}
               color="#5ac8fa"
               subtext="ไม่รวม N/A"
@@ -638,12 +749,24 @@ export default function HQOverview() {
           {/* Budget */}
           <div style={{ display: 'flex' }}>
             <KPICard
-              label="งบประมาณรวม"
+              label={planConfig.kpi.budget}
               value={data.totalBudget > 0 ? `${(data.totalBudget / 1000000).toFixed(2)}M` : '-'}
               color="#5ac8fa"
               subtext="บาท"
             />
           </div>
+
+          {/* Overdue */}
+          {overdueEstimate > 0 && (
+            <div style={{ display: 'flex' }}>
+              <KPICard
+                label={planConfig.overdueLabel}
+                value={overdueEstimate}
+                color={planType === 'safety' ? '#ff453a' : '#ff9f0a'}
+                subtext={`กิจกรรมเกินกำหนดเดือน`}
+              />
+            </div>
+          )}
         </div>
 
         {/* Monthly Progress Chart with Wave 3.11 toggle */}
@@ -768,18 +891,29 @@ export default function HQOverview() {
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
           <div className="lg:col-span-3 glass-card p-6">
-            <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-              <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
-              Ranking % สำเร็จ รายบริษัท
-            </h3>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: planConfig.accentColor }}></span>
+                {planConfig.rankingTitle}
+              </h3>
+              <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                <button onClick={() => setRankingMode('pctDone')} className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all" style={rankingMode === 'pctDone' ? { background: planConfig.accentColor, color: '#fff' } : { color: 'var(--muted)' }}>% สำเร็จ</button>
+                <button onClick={() => setRankingMode('notStarted')} className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all" style={rankingMode === 'notStarted' ? { background: planConfig.accentColor, color: '#fff' } : { color: 'var(--muted)' }}>งานค้าง</button>
+                <button onClick={() => setRankingMode('budget')} className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all" style={rankingMode === 'budget' ? { background: planConfig.accentColor, color: '#fff' } : { color: 'var(--muted)' }}>งบประมาณ</button>
+              </div>
+            </div>
             <div style={{ height: 420 }}>
-              <RankingChart companies={filtered!.companies} />
+              <RankingChart companies={
+                rankingMode === 'pctDone' ? filtered!.companies :
+                rankingMode === 'notStarted' ? [...filtered!.companies].sort((a: any, b: any) => (b.notStarted || 0) - (a.notStarted || 0)) :
+                [...filtered!.companies].sort((a: any, b: any) => (b.budget || 0) - (a.budget || 0))
+              } />
             </div>
           </div>
           <div className="lg:col-span-2 glass-card p-6">
             <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-              <span className="w-0.5 h-4 rounded-full" style={{ background: '#34c759' }}></span>
-              สัดส่วนสถานะกิจกรรม
+              <span className="w-0.5 h-4 rounded-full" style={{ background: planConfig.accentColor }}></span>
+              {planConfig.pieTitle}
             </h3>
             <div style={{ height: 320 }}>
               <StatusPieChart
@@ -798,7 +932,7 @@ export default function HQOverview() {
           <div className="mb-6">
             <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
               <AlertTriangle size={14} style={{ color: '#ff453a' }} />
-              ต้องติดตาม
+              {planConfig.alert.sectionTitle}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {alertData.lowPctCompany && (
@@ -811,7 +945,7 @@ export default function HQOverview() {
                   }}
                 >
                   <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#ff3b30' }}>
-                    <span>🔴</span> % สำเร็จต่ำสุด
+                    {planConfig.alert.lowPct}
                   </div>
                   <div className="text-[12px] font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
                     {alertData.lowPctCompany.companyName}
@@ -832,7 +966,7 @@ export default function HQOverview() {
                   }}
                 >
                   <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#ff9f0a' }}>
-                    <span>🟠</span> ยังไม่เริ่มมากสุด
+                    {planConfig.alert.highNotStarted}
                   </div>
                   <div className="text-[12px] font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
                     {alertData.highNotStartedCompany.companyName}
@@ -853,7 +987,7 @@ export default function HQOverview() {
                   }}
                 >
                   <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#5ac8fa' }}>
-                    <span>🔵</span> เลื่อนมากสุด
+                    {planConfig.alert.highPostponed}
                   </div>
                   <div className="text-[12px] font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
                     {alertData.highPostponedCompany.companyName}
@@ -874,7 +1008,7 @@ export default function HQOverview() {
                   }}
                 >
                   <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#ffd60a' }}>
-                    <span>💰</span> งบสูงสุด
+                    {planConfig.alert.highBudget}
                   </div>
                   <div className="text-[12px] font-semibold mt-1" style={{ color: 'var(--text-primary)' }}>
                     {alertData.highBudgetCompany.companyName}
@@ -1111,7 +1245,7 @@ export default function HQOverview() {
         <div className="glass-card p-6">
           <h3 className="text-[13px] font-semibold mb-5 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
             <span className="w-0.5 h-4 rounded-full" style={{ background: '#ffd60a' }}></span>
-            งบประมาณรายบริษัท (บาท)
+            {planConfig.budgetTitle}
             {planType === 'total' && (
               <span className="ml-2 text-[11px] font-normal inline-flex items-center gap-1" style={{ color: 'var(--muted)' }}>
                 <Info size={11} /> แยก Safety (🟠) และ Environment (🟢)
