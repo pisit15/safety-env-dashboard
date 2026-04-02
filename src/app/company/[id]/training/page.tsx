@@ -961,11 +961,18 @@ export default function CompanyTraining() {
 
   // ═══ Task Queue Helpers ═══
   // Determine next action for each course → drives badge + CTA label
-  const getNextAction = (plan: TrainingPlan): { label: string; urgency: 'critical' | 'warning' | 'info' | 'done' | 'muted'; ctaLabel: string } => {
+  const getNextAction = (plan: TrainingPlan): { label: string; urgency: 'critical' | 'warning' | 'info' | 'done' | 'muted'; ctaLabel: string; costBadge?: { label: string; color: string; bg: string } } => {
     const session = plan.training_sessions?.[0];
     const status = session?.status || 'planned';
     const effMonth = getEffectiveMonth(plan);
     const isHidden = plan.is_active === false;
+    // Budget helper
+    const budget = plan.budget || 0;
+    const actual = session?.actual_cost || 0;
+    const costOverBudget = budget > 0 && actual > budget;
+    const costNearLimit = budget > 0 && actual > 0 && !costOverBudget && Math.round((actual / budget) * 100) >= 85;
+    const costBadgeOverBudget = costOverBudget ? { label: 'เกินงบ', color: '#dc2626', bg: '#fef2f2' } : undefined;
+    const costBadgeNear = costNearLimit ? { label: `ใช้งบ ${Math.round((actual / budget) * 100)}%`, color: '#b45309', bg: '#fefce8' } : undefined;
     if (isHidden) return { label: 'นำออกจากแผน', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
     if (status === 'cancelled') return { label: 'ยกเลิกแล้ว', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
     if (status === 'completed') {
@@ -976,14 +983,16 @@ export default function CompanyTraining() {
         const jan15 = new Date(selectedYear + 1, 0, 15);
         const deadline = deadline60 < jan15 ? deadline60 : jan15;
         const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysLeft <= 0) return { label: 'เลยกำหนดส่ง รง.1!', urgency: 'critical', ctaLabel: 'ปิดเอกสาร' };
-        if (daysLeft <= 14) return { label: `ส่ง รง.1 อีก ${daysLeft} วัน`, urgency: 'warning', ctaLabel: 'ปิดเอกสาร' };
-        return { label: 'รอส่งเอกสาร รง.1', urgency: 'warning', ctaLabel: 'ปิดเอกสาร' };
+        if (daysLeft <= 0) return { label: 'เลยกำหนดส่ง รง.1!', urgency: 'critical', ctaLabel: 'ปิดเอกสาร', costBadge: costBadgeOverBudget || costBadgeNear };
+        if (daysLeft <= 14) return { label: `ส่ง รง.1 อีก ${daysLeft} วัน`, urgency: 'warning', ctaLabel: 'ปิดเอกสาร', costBadge: costBadgeOverBudget || costBadgeNear };
+        return { label: 'รอส่งเอกสาร รง.1', urgency: 'warning', ctaLabel: 'ปิดเอกสาร', costBadge: costBadgeOverBudget || costBadgeNear };
       }
       const attCount = session?.training_attendees?.[0]?.count || session?.actual_participants || 0;
-      if (attCount === 0) return { label: 'รอบันทึกผู้เข้าอบรม', urgency: 'warning', ctaLabel: 'บันทึกผล' };
+      if (attCount === 0) return { label: 'รอบันทึกผู้เข้าอบรม', urgency: 'warning', ctaLabel: 'บันทึกผล', costBadge: costBadgeOverBudget || costBadgeNear };
       if (!session?.actual_cost && session?.actual_cost !== 0) return { label: 'รอบันทึกค่าใช้จ่าย', urgency: 'info', ctaLabel: 'บันทึกผล' };
-      return { label: 'เสร็จสมบูรณ์', urgency: 'done', ctaLabel: 'ดูรายละเอียด' };
+      // Completed with cost = 0 — show noCostRecorded badge
+      if (actual === 0 && budget > 0) return { label: 'เสร็จสมบูรณ์', urgency: 'done', ctaLabel: 'ดูรายละเอียด', costBadge: { label: 'ยังไม่บันทึกค่าใช้จ่าย', color: '#c2410c', bg: '#fff7ed' } };
+      return { label: 'เสร็จสมบูรณ์', urgency: 'done', ctaLabel: 'ดูรายละเอียด', costBadge: costBadgeOverBudget || costBadgeNear };
     }
     if (status === 'postponed') return { label: 'เลื่อน — รอกำหนดใหม่', urgency: 'warning', ctaLabel: 'กำหนดวัน' };
     if (status === 'scheduled') {
@@ -1677,6 +1686,9 @@ export default function CompanyTraining() {
               if (groupPlans.length === 0) return null;
               const isCollapsed = collapsedGroups.has(group.key);
               const groupBudget = groupPlans.reduce((s, p) => s + (p.budget || 0), 0);
+              const groupActual = groupPlans.reduce((s, p) => s + (p.training_sessions?.[0]?.actual_cost || 0), 0);
+              const groupVariance = groupBudget - groupActual;
+              const groupOverBudget = groupActual > 0 && groupBudget > 0 && groupActual > groupBudget;
               return (
                 <div key={group.key}>
                   {/* Group Header — clickable to collapse */}
@@ -1695,9 +1707,22 @@ export default function CompanyTraining() {
                       {groupPlans.length}
                     </span>
                     {groupBudget > 0 && (
-                      <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginLeft: 'auto' }}>
-                        งบ {groupBudget.toLocaleString()} ฿
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', fontSize: 10 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          งบ {groupBudget.toLocaleString()} ฿
+                        </span>
+                        {groupActual > 0 && (
+                          <>
+                            <span style={{ color: 'var(--border)' }}>→</span>
+                            <span style={{ fontWeight: 600, color: groupOverBudget ? '#dc2626' : '#16a34a' }}>
+                              ใช้จริง {groupActual.toLocaleString()} ฿
+                            </span>
+                            <span style={{ fontWeight: 600, color: groupOverBudget ? '#dc2626' : '#16a34a' }}>
+                              ({groupOverBudget ? '+' : 'เหลือ '}{groupOverBudget ? (groupActual - groupBudget).toLocaleString() : groupVariance.toLocaleString()})
+                            </span>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                   {/* Course Cards — collapsible */}
@@ -1775,6 +1800,58 @@ export default function CompanyTraining() {
                                   </>
                                 )}
                               </div>
+                              {/* Budget vs Actual Cost */}
+                              {(() => {
+                                const budget = plan.budget || 0;
+                                const actual = session?.actual_cost || 0;
+                                const isCompleted = status === 'completed';
+                                const hasActual = isCompleted && actual > 0;
+                                const overBudget = hasActual && budget > 0 && actual > budget;
+                                const pctUsed = budget > 0 ? Math.round((actual / budget) * 100) : 0;
+                                const nearLimit = hasActual && budget > 0 && pctUsed >= 85 && !overBudget;
+                                const noCostRecorded = isCompleted && actual === 0;
+                                if (budget <= 0 && !noCostRecorded) return null;
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 11 }}>
+                                    <DollarSign size={11} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                                    {budget > 0 && (
+                                      <span style={{ color: 'var(--text-secondary)' }}>
+                                        งบ {budget.toLocaleString()}
+                                      </span>
+                                    )}
+                                    {hasActual && budget > 0 && (
+                                      <>
+                                        <span style={{ color: 'var(--border)' }}>→</span>
+                                        <span style={{ fontWeight: 600, color: overBudget ? '#dc2626' : nearLimit ? '#b45309' : '#16a34a' }}>
+                                          จ่ายจริง {actual.toLocaleString()}
+                                        </span>
+                                        <span style={{ color: overBudget ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                                          ({overBudget ? '+' : '-'}{Math.abs(actual - budget).toLocaleString()})
+                                        </span>
+                                      </>
+                                    )}
+                                    {hasActual && budget === 0 && (
+                                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                        จ่ายจริง {actual.toLocaleString()}
+                                      </span>
+                                    )}
+                                    {!isCompleted && budget > 0 && (
+                                      <span style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
+                                        (ยังไม่อบรม)
+                                      </span>
+                                    )}
+                                    {overBudget && (
+                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', fontWeight: 700 }}>เกินงบ</span>
+                                    )}
+                                    {nearLimit && (
+                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fefce8', color: '#b45309', fontWeight: 700 }}>ใช้งบ {pctUsed}%</span>
+                                    )}
+                                    {noCostRecorded && (
+                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>ยังไม่บันทึกค่าใช้จ่าย</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Right: Badge + Quick action + CTA */}
@@ -1786,6 +1863,16 @@ export default function CompanyTraining() {
                               }}>
                                 {action.label}
                               </span>
+                              {/* Cost badge */}
+                              {action.costBadge && (
+                                <span style={{
+                                  fontSize: 9, padding: '2px 7px', borderRadius: 4, fontWeight: 700,
+                                  background: action.costBadge.bg, color: action.costBadge.color,
+                                  whiteSpace: 'nowrap',
+                                }}>
+                                  {action.costBadge.label}
+                                </span>
+                              )}
                               {/* Inline quick action: mark scheduled as completed */}
                               {isLoggedIn && status === 'scheduled' && (
                                 <button
@@ -1900,6 +1987,78 @@ export default function CompanyTraining() {
 
               {/* Modal Body — Status-Driven */}
               <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+
+                {/* Cost Summary Card — always visible */}
+                {(() => {
+                  const budget = selectedPlan.budget || 0;
+                  const actual = modalActualCost || 0;
+                  const session = selectedPlan.training_sessions?.[0];
+                  const currentStatus = session?.status || 'planned';
+                  const isCompleted = currentStatus === 'completed';
+                  const pctUsed = budget > 0 ? Math.round((actual / budget) * 100) : 0;
+                  const overBudget = actual > 0 && budget > 0 && actual > budget;
+                  const noCostRecorded = isCompleted && actual === 0;
+                  if (budget <= 0 && !noCostRecorded) return null;
+                  return (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 16,
+                      background: overBudget ? '#fef2f2' : noCostRecorded ? '#fff7ed' : 'var(--bg-secondary)',
+                      border: `1px solid ${overBudget ? '#fca5a5' : noCostRecorded ? '#fed7aa' : 'var(--border)'}`,
+                    }}>
+                      <DollarSign size={16} style={{ color: overBudget ? '#dc2626' : noCostRecorded ? '#c2410c' : 'var(--text-secondary)', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {budget > 0 && (
+                            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                              งบ <strong style={{ color: 'var(--text-primary)' }}>{budget.toLocaleString()} ฿</strong>
+                            </span>
+                          )}
+                          {actual > 0 && budget > 0 && (
+                            <>
+                              <span style={{ color: 'var(--border)' }}>→</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: overBudget ? '#dc2626' : '#16a34a' }}>
+                                จ่ายจริง {actual.toLocaleString()} ฿
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: overBudget ? '#dc2626' : '#16a34a' }}>
+                                ({overBudget ? `เกิน +${(actual - budget).toLocaleString()}` : `เหลือ ${(budget - actual).toLocaleString()}`})
+                              </span>
+                            </>
+                          )}
+                          {actual > 0 && budget === 0 && (
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+                              จ่ายจริง {actual.toLocaleString()} ฿
+                            </span>
+                          )}
+                          {noCostRecorded && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#c2410c' }}>
+                              ⚠ อบรมแล้วแต่ยังไม่บันทึกค่าใช้จ่ายจริง
+                            </span>
+                          )}
+                          {!isCompleted && budget > 0 && actual === 0 && (
+                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>(baseline — ยังไม่มีค่าใช้จ่ายจริง)</span>
+                          )}
+                        </div>
+                        {budget > 0 && actual > 0 && (
+                          <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', borderRadius: 2, width: `${Math.min(pctUsed, 100)}%`,
+                              background: overBudget ? '#dc2626' : pctUsed >= 85 ? '#f59e0b' : '#16a34a',
+                              transition: 'width 0.3s ease',
+                            }} />
+                          </div>
+                        )}
+                      </div>
+                      {budget > 0 && actual > 0 && (
+                        <span style={{
+                          fontSize: 13, fontWeight: 700, flexShrink: 0,
+                          color: overBudget ? '#dc2626' : pctUsed >= 85 ? '#b45309' : '#16a34a',
+                        }}>
+                          {pctUsed}%
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Step 1: Status Selection — always visible */}
                 <label style={labelStyle}>สถานะ</label>
