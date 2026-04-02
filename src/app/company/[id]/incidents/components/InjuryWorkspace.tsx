@@ -9,6 +9,9 @@ import {
   TrendingDown,
   DollarSign,
   X,
+  ChevronRight,
+  Filter,
+  Info,
 } from 'lucide-react';
 import { Incident, InjuredPerson, LiveStats, getTypeBadge, getSevColor } from '../types';
 
@@ -44,10 +47,12 @@ export default function InjuryWorkspace({
   setInjuryFilter,
   openDrawer,
 }: InjuryWorkspaceProps) {
+  const [showTriageTooltip, setShowTriageTooltip] = useState<string | null>(null);
+
   return (
     <>
-      {/* KPI Cards - Injury Variant */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+      {/* KPI Cards - Injury Variant with subtitles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
         {(() => {
           const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
           const trirVal = tifrCombined !== null ? tifrCombined.toFixed(2) : '—';
@@ -57,36 +62,54 @@ export default function InjuryWorkspace({
             label: string;
             value: string | number;
             sub?: string;
+            formula?: string;
             icon: typeof AlertTriangle;
             color: string;
           };
 
           const kpis: KPIItem[] = [
-            { label: 'บาดเจ็บทั้งหมด', value: liveStats.totalIncidents, icon: Activity, color: '#f97316' },
-            { label: 'หยุดงาน (LTI)', value: liveStats.ltiCases, icon: Clock, color: '#ef4444' },
-            { label: 'เสียชีวิต', value: liveStats.fatalities, icon: AlertTriangle, color: '#991b1b' },
-            { label: 'TRIR', value: trirVal, sub: 'ต่อล้านชม.', icon: TrendingUp, color: '#8b5cf6' },
-            { label: 'LTIFR', value: ltifrVal, sub: 'ต่อล้านชม.', icon: TrendingDown, color: '#ec4899' },
+            { label: 'บาดเจ็บทั้งหมด', value: liveStats.totalIncidents, sub: 'เคสทั้งหมด', icon: Activity, color: '#f97316' },
+            { label: 'หยุดงาน (LTI)', value: liveStats.ltiCases, sub: 'Lost Time Injury', icon: Clock, color: '#ef4444' },
+            { label: 'เสียชีวิต', value: liveStats.fatalities, sub: 'Fatality cases', icon: AlertTriangle, color: '#991b1b' },
+            { label: 'TRIR', value: trirVal, sub: 'ต่อ 1,000,000 man-hours', formula: '(Injuries × 1M) ÷ Total Hours', icon: TrendingUp, color: '#8b5cf6' },
+            { label: 'LTIFR', value: ltifrVal, sub: 'ต่อ 1,000,000 man-hours', formula: '(LTI × 1M) ÷ Total Hours', icon: TrendingDown, color: '#ec4899' },
             {
               label: 'ค่าเสียหาย',
               value: totalCost >= 1000 ? `${(totalCost / 1000).toFixed(0)}K ฿` : `${totalCost.toLocaleString()} ฿`,
+              sub: 'ค่าใช้จ่ายตรง + ค่าใช้จ่ายอ้อม',
               icon: DollarSign,
               color: '#22c55e',
             },
           ];
 
           return kpis.map((kpi, idx) => (
-            <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+            <div
+              key={idx}
+              className="rounded-2xl p-4 relative group"
+              style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}
+              onMouseEnter={() => kpi.formula ? setShowTriageTooltip(kpi.label) : undefined}
+              onMouseLeave={() => setShowTriageTooltip(null)}
+            >
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
                   <kpi.icon size={14} style={{ color: kpi.color }} />
                 </div>
                 <p className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
+                {kpi.formula && (
+                  <Info size={10} style={{ color: 'var(--muted)', cursor: 'help' }} />
+                )}
               </div>
               <p className="text-xl font-bold" style={{ color: kpi.color }}>
                 {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
               </p>
               {kpi.sub && <p className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>{kpi.sub}</p>}
+              {/* Tooltip for formula */}
+              {kpi.formula && showTriageTooltip === kpi.label && (
+                <div className="absolute left-0 top-full mt-1 z-20 px-3 py-2 rounded-lg shadow-lg text-[10px]"
+                  style={{ background: '#1e293b', color: '#e2e8f0', whiteSpace: 'nowrap' }}>
+                  {kpi.formula}
+                </div>
+              )}
             </div>
           ));
         })()}
@@ -134,6 +157,8 @@ export default function InjuryWorkspace({
           injury_severity: 'ระดับการบาดเจ็บ',
           nature_of_injury: 'ลักษณะการบาดเจ็บ',
           body_part: 'ส่วนร่างกาย',
+          department: 'แผนก',
+          person_type: 'ประเภทบุคคล',
         };
 
         // Helper: group persons by a field per year
@@ -167,7 +192,7 @@ export default function InjuryWorkspace({
           return { keys, counts };
         };
 
-        // ---- Clickable stacked horizontal bar chart ----
+        // ---- Clickable stacked horizontal bar chart (with hover affordance) ----
         const renderStackedBarChart = (
           title: string,
           chartField: string,
@@ -189,11 +214,11 @@ export default function InjuryWorkspace({
                 border: isThisChartFiltered ? '2px solid var(--accent)' : '1px solid var(--border)',
               }}
             >
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-1">
                 <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>
                   {title}
                 </h3>
-                {isThisChartFiltered && (
+                {isThisChartFiltered ? (
                   <button
                     onClick={() => setInjuryFilter(null)}
                     className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors hover:opacity-80"
@@ -201,6 +226,10 @@ export default function InjuryWorkspace({
                   >
                     {injuryFilter?.value} <X size={10} />
                   </button>
+                ) : (
+                  <span className="flex items-center gap-1 text-[9px]" style={{ color: 'var(--muted)' }}>
+                    <Filter size={9} /> คลิกเพื่อกรอง
+                  </span>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -213,7 +242,7 @@ export default function InjuryWorkspace({
                   return (
                     <div
                       key={k}
-                      className="flex items-center gap-3 rounded-lg px-2 py-1 transition-all"
+                      className="flex items-center gap-3 rounded-lg px-2 py-1 transition-all hover:bg-[var(--bg-secondary)]"
                       style={{
                         cursor: 'pointer',
                         opacity: isDimmed ? 0.3 : 1,
@@ -231,7 +260,7 @@ export default function InjuryWorkspace({
                         className="text-[11px] font-medium shrink-0 text-right"
                         style={{
                           color: 'var(--text-primary)',
-                          width: 130,
+                          width: 140,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
@@ -327,7 +356,6 @@ export default function InjuryWorkspace({
         const deptFromIncidents = (() => {
           const src = injuryFilter && injuryFilter.field !== 'department'
             ? categoryIncidents.filter(inc => {
-                // Apply current filter to incidents
                 if (injuryFilter.field === 'is_lti') {
                   const t = inc.incident_type || '';
                   const isLti = (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
@@ -379,7 +407,6 @@ export default function InjuryWorkspace({
               if (injuryFilter.field === 'department') {
                 return (inc.department || 'ไม่ระบุ') === injuryFilter.value;
               }
-              // For person-level filters, check if incident has matching injured person
               const persons = injuredPersonsData.filter(p => p.incident_no === inc.incident_no);
               return persons.some(p => {
                 const val = (p[injuryFilter.field as keyof InjuredPerson] as string) || 'ไม่ระบุ';
@@ -388,21 +415,185 @@ export default function InjuryWorkspace({
             })
           : categoryIncidents;
 
+        // ═══ TRIAGE DATA: Build "ต้องตรวจทันที" ═══
+        // 1. Recent serious cases (LTI/Fatal, sorted by date desc)
+        const seriousCases = categoryIncidents
+          .filter(inc => {
+            const t = inc.incident_type || '';
+            return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t.includes('เสียชีวิต') || (inc.actual_severity || '').includes('Major');
+          })
+          .sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''))
+          .slice(0, 5);
+
+        // 2. Incidents missing injured person data
+        const incidentNosWithPersons = new Set(injuredPersonsData.map(p => p.incident_no));
+        const missingPersonData = categoryIncidents
+          .filter(inc => !incidentNosWithPersons.has(inc.incident_no))
+          .slice(0, 5);
+
+        // 3. Top lost-days cases
+        const personLostDays = injuredPersonsData
+          .filter(p => {
+            const incInfo = injuredIncidentMap[p.incident_no];
+            return incInfo && selectedYears.includes(incInfo.year) && (Number(p.lost_work_days) || 0) > 0;
+          })
+          .sort((a, b) => (Number(b.lost_work_days) || 0) - (Number(a.lost_work_days) || 0))
+          .slice(0, 5);
+
+        const hasTriageData = seriousCases.length > 0 || missingPersonData.length > 0 || personLostDays.length > 0;
+
         return (
           <div className="mt-2">
+            {/* ═══ "ต้องตรวจทันที" Triage Section ═══ */}
+            {hasTriageData && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-5">
+                {/* Serious cases */}
+                {seriousCases.length > 0 && (
+                  <div className="rounded-xl p-4" style={{ background: '#fef2f2', border: '1px solid #fca5a5' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle size={14} style={{ color: '#dc2626' }} />
+                      <span className="text-[12px] font-bold" style={{ color: '#991b1b' }}>
+                        เคสรุนแรงล่าสุด ({seriousCases.length})
+                      </span>
+                    </div>
+                    {seriousCases.map((inc, i) => {
+                      const t = inc.incident_type || '';
+                      const isFatal = t.includes('เสียชีวิต');
+                      const persons = injuredPersonsData.filter(p => p.incident_no === inc.incident_no);
+                      const maxDays = Math.max(...persons.map(p => Number(p.lost_work_days) || 0), 0);
+                      return (
+                        <div key={i} onClick={() => openDrawer(inc)}
+                          className="flex items-center gap-2 py-2 rounded-lg px-2 mb-1 transition-colors hover:bg-red-100"
+                          style={{ cursor: 'pointer', borderBottom: i < seriousCases.length - 1 ? '1px solid #fecaca' : 'none' }}>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
+                            background: isFatal ? '#991b1b' : '#dc2626', color: '#fff',
+                          }}>
+                            {isFatal ? 'FATAL' : 'LTI'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-medium truncate" style={{ color: '#7f1d1d' }}>
+                              {inc.incident_date} — {inc.department || 'ไม่ระบุแผนก'}
+                            </div>
+                            <div className="text-[10px] truncate" style={{ color: '#991b1b' }}>
+                              {inc.description || inc.incident_type}
+                            </div>
+                          </div>
+                          {maxDays > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                              style={{ background: '#fecaca', color: '#991b1b' }}>
+                              {maxDays} วัน
+                            </span>
+                          )}
+                          <ChevronRight size={12} style={{ color: '#dc2626', flexShrink: 0 }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Missing person data */}
+                {missingPersonData.length > 0 && (
+                  <div className="rounded-xl p-4" style={{ background: '#fffbeb', border: '1px solid #fbbf24' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle size={14} style={{ color: '#d97706' }} />
+                      <span className="text-[12px] font-bold" style={{ color: '#92400e' }}>
+                        ยังไม่กรอกผู้บาดเจ็บ ({missingPersonData.length})
+                      </span>
+                    </div>
+                    {missingPersonData.map((inc, i) => (
+                      <div key={i} onClick={() => openDrawer(inc)}
+                        className="flex items-center gap-2 py-2 rounded-lg px-2 mb-1 transition-colors hover:bg-amber-100"
+                        style={{ cursor: 'pointer', borderBottom: i < missingPersonData.length - 1 ? '1px solid #fde68a' : 'none' }}>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[11px] font-medium truncate" style={{ color: '#78350f' }}>
+                            {inc.incident_no} — {inc.incident_date}
+                          </div>
+                          <div className="text-[10px] truncate" style={{ color: '#92400e' }}>
+                            {inc.incident_type} • {inc.department || '-'}
+                          </div>
+                        </div>
+                        <ChevronRight size={12} style={{ color: '#d97706', flexShrink: 0 }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Top lost days */}
+                {personLostDays.length > 0 && (
+                  <div className="rounded-xl p-4" style={{ background: '#f0f9ff', border: '1px solid #93c5fd' }}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock size={14} style={{ color: '#2563eb' }} />
+                      <span className="text-[12px] font-bold" style={{ color: '#1e40af' }}>
+                        วันหยุดงานสูงสุด
+                      </span>
+                    </div>
+                    {personLostDays.map((p, i) => {
+                      const inc = categoryIncidents.find(inc2 => inc2.incident_no === p.incident_no);
+                      return (
+                        <div key={i}
+                          onClick={() => inc && openDrawer(inc)}
+                          className="flex items-center gap-2 py-2 rounded-lg px-2 mb-1 transition-colors hover:bg-blue-100"
+                          style={{ cursor: inc ? 'pointer' : 'default', borderBottom: i < personLostDays.length - 1 ? '1px solid #bfdbfe' : 'none' }}>
+                          <span className="text-[14px] font-extrabold shrink-0" style={{ color: '#1d4ed8', width: 36, textAlign: 'right' }}>
+                            {Number(p.lost_work_days)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] font-medium truncate" style={{ color: '#1e3a5f' }}>
+                              {p.incident_no} — {p.body_part || 'ไม่ระบุส่วนร่างกาย'}
+                            </div>
+                            <div className="text-[10px] truncate" style={{ color: '#3b82f6' }}>
+                              {p.nature_of_injury || p.injury_severity || '-'}
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-semibold shrink-0" style={{ color: '#6b7280' }}>วัน</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {allFilteredPersons.length === 0 ? (
+              /* ═══ ACTIONABLE EMPTY STATE ═══ */
               <div
                 className="rounded-2xl p-8 text-center"
                 style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}
               >
-                <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
+                <div className="text-[32px] mb-3 opacity-40">📊</div>
+                <p className="text-[14px] font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
                   ไม่มีข้อมูลผู้บาดเจ็บ สำหรับปีที่เลือก
                 </p>
+                <p className="text-[12px] mb-4" style={{ color: 'var(--muted)' }}>
+                  ลองเปลี่ยนปี หรือตรวจสอบว่า incident ถูกบันทึกข้อมูลผู้บาดเจ็บ (Injured Person) ครบหรือไม่
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  {injuryFilter && (
+                    <button
+                      onClick={() => setInjuryFilter(null)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all hover:shadow-md"
+                      style={{ background: 'var(--accent)', color: '#fff' }}
+                    >
+                      <X size={12} /> ล้างตัวกรอง
+                    </button>
+                  )}
+                  {missingPersonData.length > 0 && (
+                    <button
+                      onClick={() => missingPersonData[0] && openDrawer(missingPersonData[0])}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all hover:shadow-md"
+                      style={{ background: '#f59e0b', color: '#fff' }}
+                    >
+                      <AlertTriangle size={12} /> ดู incident ที่ยังไม่กรอกผู้บาดเจ็บ
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <>
-                {/* Quick Filter Chips */}
-                <div className="flex flex-wrap gap-2 mb-4 px-1">
+                {/* ═══ Active Filter Bar (consolidated) ═══ */}
+                <div className="flex flex-wrap items-center gap-2 mb-4 px-1 py-2 rounded-lg"
+                  style={{ background: injuryFilter ? 'var(--bg-secondary)' : 'transparent', border: injuryFilter ? '1px solid var(--border)' : 'none' }}>
+                  {/* Quick Filter Chips */}
                   {chipFilters.map(chip => {
                     const isActive = chip.field === '' ? !injuryFilter : (injuryFilter?.field === chip.field && injuryFilter?.value === chip.value);
                     if (chip.field !== '' && chip.count === 0) return null;
@@ -416,7 +607,7 @@ export default function InjuryWorkspace({
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all"
                         style={{
-                          background: isActive ? (chip.color || 'var(--accent)') : 'var(--bg-secondary)',
+                          background: isActive ? (chip.color || 'var(--accent)') : 'var(--card-solid)',
                           color: isActive ? '#fff' : (chip.color || 'var(--text-secondary)'),
                           border: `1px solid ${isActive ? (chip.color || 'var(--accent)') : 'var(--border)'}`,
                         }}
@@ -431,41 +622,32 @@ export default function InjuryWorkspace({
                       </button>
                     );
                   })}
-                </div>
 
-                {/* Top bar: Legend + Filter indicator */}
-                <div className="flex flex-wrap items-center gap-4 mb-4 px-1">
+                  <div style={{ width: 1, height: 18, background: 'var(--border)' }} />
+
+                  {/* Year legend */}
                   {activeYears.map(y => (
-                    <div key={y} className="flex items-center gap-1.5">
-                      <div
-                        className="w-3 h-3 rounded"
-                        style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }}
-                      />
-                      <span
-                        className="text-[11px] font-semibold"
-                        style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}
-                      >
-                        {y}
-                      </span>
+                    <div key={y} className="flex items-center gap-1">
+                      <div className="w-2.5 h-2.5 rounded" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
+                      <span className="text-[10px] font-semibold" style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}>{y}</span>
                     </div>
                   ))}
-                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                    | แสดง {filteredPersons.length} จาก {allFilteredPersons.length} คน
+
+                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    {filteredPersons.length}/{allFilteredPersons.length} คน
                   </span>
+
+                  {/* Active chart filter chip */}
                   {injuryFilter && (
                     <button
                       onClick={() => setInjuryFilter(null)}
-                      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:shadow-md"
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:shadow-md ml-auto"
                       style={{ background: 'var(--accent)', color: '#fff' }}
                     >
+                      <Filter size={10} />
                       {FIELD_LABELS[injuryFilter.field] || injuryFilter.field}: {injuryFilter.value}
                       <X size={12} />
                     </button>
-                  )}
-                  {!injuryFilter && (
-                    <span className="text-[10px] italic" style={{ color: 'var(--muted)' }}>
-                      คลิกที่แท่งกราฟเพื่อกรองข้อมูล
-                    </span>
                   )}
                 </div>
 
@@ -544,19 +726,28 @@ export default function InjuryWorkspace({
                   {renderStackedBarChart('แผนก/หน่วยงาน', 'department', deptFromIncidents)}
                 </div>
 
-                {/* Records Table */}
+                {/* ═══ ENHANCED Records Table with triage columns ═══ */}
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>
                       รายการอุบัติเหตุบาดเจ็บ ({filteredIncForTable.length})
                     </h3>
+                    {injuryFilter && (
+                      <button
+                        onClick={() => setInjuryFilter(null)}
+                        className="text-[11px] underline"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        ล้างตัวกรอง
+                      </button>
+                    )}
                   </div>
                   <div className="overflow-x-auto" style={{ borderRadius: 8, border: '1px solid var(--border)' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                          {['Date', 'Type', 'Severity', 'Person', 'Department', 'LTI'].map(h => (
-                            <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
+                          {['Date', 'Type', 'Severity', 'Department', 'Person', 'Injured', 'Body Part', 'Lost Days', 'LTI'].map(h => (
+                            <th key={h} style={{ padding: '8px 8px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -565,31 +756,50 @@ export default function InjuryWorkspace({
                           const badge = getTypeBadge(inc.incident_type);
                           const t = inc.incident_type || '';
                           const isLti = (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+                          // Get injured person data for this incident
+                          const persons = injuredPersonsData.filter(p => p.incident_no === inc.incident_no);
+                          const topPerson = persons[0];
+                          const totalDays = persons.reduce((s, p) => s + (Number(p.lost_work_days) || 0), 0);
+                          const isMissingPerson = persons.length === 0;
                           return (
                             <tr
                               key={idx}
                               onClick={() => openDrawer(inc)}
-                              style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                              style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: isMissingPerson ? '#fffbeb' : 'transparent' }}
                               className="hover:bg-[var(--bg-secondary)] transition-colors"
                             >
-                              <td style={{ padding: '8px 10px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                              <td style={{ padding: '7px 8px', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontSize: 11 }}>
                                 {inc.incident_date}
                               </td>
-                              <td style={{ padding: '8px 10px' }}>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-medium" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
+                              <td style={{ padding: '7px 8px' }}>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
                                   {inc.incident_type}
                                 </span>
                               </td>
-                              <td style={{ padding: '8px 10px' }}>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ backgroundColor: getSevColor(inc.actual_severity || ''), color: '#fff' }}>
+                              <td style={{ padding: '7px 8px' }}>
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold" style={{ backgroundColor: getSevColor(inc.actual_severity || ''), color: '#fff' }}>
                                   {inc.actual_severity || '—'}
                                 </span>
                               </td>
-                              <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{inc.person_type || '—'}</td>
-                              <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{inc.department || '—'}</td>
-                              <td style={{ padding: '8px 10px' }}>
+                              <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{inc.department || '—'}</td>
+                              <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{inc.person_type || '—'}</td>
+                              <td style={{ padding: '7px 8px', fontSize: 11 }}>
+                                {isMissingPerson ? (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>ยังไม่กรอก</span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-primary)' }}>{persons.length} คน</span>
+                                )}
+                              </td>
+                              <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 10, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                title={topPerson?.body_part || ''}>
+                                {topPerson?.body_part || '—'}
+                              </td>
+                              <td style={{ padding: '7px 8px', fontWeight: totalDays > 0 ? 700 : 400, color: totalDays > 0 ? '#dc2626' : 'var(--muted)', fontSize: 11 }}>
+                                {totalDays > 0 ? totalDays : '—'}
+                              </td>
+                              <td style={{ padding: '7px 8px' }}>
                                 {isLti ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#fef2f2', color: '#dc2626' }}>LTI</span>
+                                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: '#fef2f2', color: '#dc2626' }}>LTI</span>
                                 ) : (
                                   <span className="text-[10px]" style={{ color: 'var(--muted)' }}>—</span>
                                 )}
