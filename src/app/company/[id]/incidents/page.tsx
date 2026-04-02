@@ -292,9 +292,9 @@ export default function IncidentsPage() {
       .catch(() => setTrendManhours({}));
   }, [viewMode, id]);
 
-  // Fetch injured persons data when in injury category
+  // Fetch injured persons data — needed for Employee/Contractor breakdown in all tabs (Overview uses it for TIFR/LTIFR)
   useEffect(() => {
-    if (viewMode !== 'dashboard' || incidentCategory !== 'injury' || selectedYears.length === 0) {
+    if (viewMode !== 'dashboard' || selectedYears.length === 0) {
       return;
     }
     fetch(`/api/incidents/injured-bulk?company_id=${id}&years=${selectedYears.join(',')}`)
@@ -307,7 +307,7 @@ export default function IncidentsPage() {
         setInjuredPersonsData([]);
         setInjuredIncidentMap({});
       });
-  }, [viewMode, id, incidentCategory, selectedYears]);
+  }, [viewMode, id, selectedYears]);
 
   // Form handlers — simplified
   const openNewForm = () => {
@@ -355,10 +355,32 @@ export default function IncidentsPage() {
     const indirectCost = categoryIncidents.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0);
 
     // Employee vs Contractor breakdown
-    const empInj = injuryIncidents.filter(i => (i.person_type || '').includes('พนักงาน'));
-    const conInj = injuryIncidents.filter(i => (i.person_type || '').includes('ผู้รับเหมา'));
-    const empLti = ltiIncidents.filter(i => (i.person_type || '').includes('พนักงาน'));
-    const conLti = ltiIncidents.filter(i => (i.person_type || '').includes('ผู้รับเหมา'));
+    // Strategy: use injured_persons data (person-level) as primary source for person_type
+    // because 1 incident can involve multiple person types, and incident-level person_type is often null.
+    // Fallback to incident-level person_type only when injured_persons data is unavailable.
+    const incidentPersonTypes = new Map<string, Set<string>>();
+    injuredPersonsData.forEach(p => {
+      const pt = (p.person_type || '').trim();
+      if (pt && p.incident_no) {
+        if (!incidentPersonTypes.has(p.incident_no)) incidentPersonTypes.set(p.incident_no, new Set());
+        incidentPersonTypes.get(p.incident_no)!.add(pt);
+      }
+    });
+
+    const hasPersonType = (inc: Incident, keyword: string): boolean => {
+      // Check injured_persons first (more reliable, person-level)
+      const personTypes = incidentPersonTypes.get(inc.incident_no);
+      if (personTypes && personTypes.size > 0) {
+        return Array.from(personTypes).some(pt => pt.includes(keyword));
+      }
+      // Fallback to incident-level person_type
+      return (inc.person_type || '').includes(keyword);
+    };
+
+    const empInj = injuryIncidents.filter(i => hasPersonType(i, 'พนักงาน'));
+    const conInj = injuryIncidents.filter(i => hasPersonType(i, 'ผู้รับเหมา'));
+    const empLti = ltiIncidents.filter(i => hasPersonType(i, 'พนักงาน'));
+    const conLti = ltiIncidents.filter(i => hasPersonType(i, 'ผู้รับเหมา'));
 
     // Type breakdown
     const typeBreakdown: Record<string, number> = {};
