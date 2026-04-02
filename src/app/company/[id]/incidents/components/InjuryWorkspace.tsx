@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Activity,
   Clock,
@@ -10,8 +10,12 @@ import {
   DollarSign,
   X,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Filter,
   Info,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 import { Incident, InjuredPerson, LiveStats, getTypeBadge, getSevColor } from '../types';
 
@@ -48,6 +52,25 @@ export default function InjuryWorkspace({
   openDrawer,
 }: InjuryWorkspaceProps) {
   const [showTriageTooltip, setShowTriageTooltip] = useState<string | null>(null);
+  const [expandedCharts, setExpandedCharts] = useState<Set<string>>(new Set());
+  const [tableSortKey, setTableSortKey] = useState<string>('date');
+  const [tableSortAsc, setTableSortAsc] = useState(false);
+  const [tableShowCount, setTableShowCount] = useState(15);
+  const [hoveredBar, setHoveredBar] = useState<{ chart: string; key: string } | null>(null);
+  const [hoveredLostDay, setHoveredLostDay] = useState<number | null>(null);
+
+  const toggleChart = (chartField: string) => {
+    setExpandedCharts(prev => {
+      const next = new Set(prev);
+      if (next.has(chartField)) next.delete(chartField); else next.add(chartField);
+      return next;
+    });
+  };
+
+  const toggleSort = (key: string) => {
+    if (tableSortKey === key) setTableSortAsc(!tableSortAsc);
+    else { setTableSortKey(key); setTableSortAsc(key === 'date'); }
+  };
 
   return (
     <>
@@ -192,19 +215,29 @@ export default function InjuryWorkspace({
           return { keys, counts };
         };
 
-        // ---- Clickable stacked horizontal bar chart (with hover affordance) ----
+        // ---- Clickable stacked horizontal bar chart (with hover, expand/collapse, transitions) ----
+        const COLLAPSED_LIMIT = 6;
+
         const renderStackedBarChart = (
           title: string,
           chartField: string,
           data: { keys: string[]; counts: Record<string, Record<number, number>> }
         ) => {
-          const { keys, counts } = data;
-          if (keys.length === 0) return null;
+          const { keys: allKeys, counts } = data;
+          if (allKeys.length === 0) return null;
+
+          const isExpanded = expandedCharts.has(chartField);
+          const keys = allKeys.length > COLLAPSED_LIMIT && !isExpanded
+            ? allKeys.slice(0, COLLAPSED_LIMIT)
+            : allKeys;
+          const hiddenCount = allKeys.length - COLLAPSED_LIMIT;
+
           const maxTotal = Math.max(
-            ...keys.map(k => activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0)),
+            ...allKeys.map(k => activeYears.reduce((s, y) => s + (counts[k]?.[y] || 0), 0)),
             1
           );
           const isThisChartFiltered = injuryFilter?.field === chartField;
+          const isHoveringThisChart = hoveredBar?.chart === chartField;
 
           return (
             <div
@@ -212,6 +245,7 @@ export default function InjuryWorkspace({
               style={{
                 background: 'var(--card-solid)',
                 border: isThisChartFiltered ? '2px solid var(--accent)' : '1px solid var(--border)',
+                transition: 'border-color 0.2s',
               }}
             >
               <div className="flex items-center justify-between mb-1">
@@ -238,45 +272,47 @@ export default function InjuryWorkspace({
                   const barPct = (total / maxTotal) * 100;
                   const isActive = isThisChartFiltered && injuryFilter?.value === k;
                   const isDimmed = isThisChartFiltered && !isActive;
+                  const isRowHovered = isHoveringThisChart && hoveredBar?.key === k;
 
                   return (
                     <div
                       key={k}
-                      className="flex items-center gap-3 rounded-lg px-2 py-1 transition-all hover:bg-[var(--bg-secondary)]"
+                      className="flex items-center gap-3 rounded-lg px-2 py-1 transition-all"
                       style={{
                         cursor: 'pointer',
                         opacity: isDimmed ? 0.3 : 1,
-                        background: isActive ? 'var(--bg-secondary)' : 'transparent',
+                        background: isActive ? 'var(--bg-secondary)' : isRowHovered ? 'var(--bg-secondary)' : 'transparent',
+                        transition: 'opacity 0.2s, background 0.15s',
                       }}
                       onClick={() => {
-                        if (isActive) {
-                          setInjuryFilter(null);
-                        } else {
-                          setInjuryFilter({ field: chartField, value: k });
-                        }
+                        if (isActive) setInjuryFilter(null);
+                        else setInjuryFilter({ field: chartField, value: k });
                       }}
+                      onMouseEnter={() => setHoveredBar({ chart: chartField, key: k })}
+                      onMouseLeave={() => setHoveredBar(null)}
                     >
                       <span
                         className="text-[11px] font-medium shrink-0 text-right"
                         style={{
-                          color: 'var(--text-primary)',
+                          color: isRowHovered ? 'var(--accent)' : 'var(--text-primary)',
                           width: 140,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
+                          transition: 'color 0.15s',
                         }}
                         title={k}
                       >
                         {k}
                       </span>
-                      <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2 relative">
                         <div
                           className="flex-1 relative rounded-md overflow-hidden"
-                          style={{ height: 22, background: 'var(--bg-secondary)' }}
+                          style={{ height: isRowHovered ? 26 : 22, background: 'var(--bg-secondary)', transition: 'height 0.15s' }}
                         >
                           <div
                             className="absolute left-0 top-0 bottom-0 flex rounded-md overflow-hidden"
-                            style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%` }}
+                            style={{ width: `${Math.max(barPct, total > 0 ? 3 : 0)}%`, transition: 'width 0.4s ease' }}
                           >
                             {activeYears.map(y => {
                               const val = counts[k]?.[y] || 0;
@@ -290,8 +326,8 @@ export default function InjuryWorkspace({
                                     width: `${segPct}%`,
                                     background: YEAR_COLORS_INJ[y] || '#9ca3af',
                                     minWidth: val > 0 ? 14 : 0,
+                                    transition: 'width 0.3s ease',
                                   }}
-                                  title={`${y}: ${val}`}
                                 >
                                   {segPct > 20 && (
                                     <span className="text-[9px] font-bold text-white/80">{val}</span>
@@ -307,11 +343,44 @@ export default function InjuryWorkspace({
                         >
                           {total}
                         </span>
+                        {/* Hover tooltip showing year breakdown */}
+                        {isRowHovered && activeYears.length > 1 && (
+                          <div className="absolute right-0 -top-8 z-20 px-2.5 py-1.5 rounded-lg shadow-lg flex items-center gap-2"
+                            style={{ background: '#1e293b', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                            {activeYears.map(y => {
+                              const val = counts[k]?.[y] || 0;
+                              return (
+                                <span key={y} className="flex items-center gap-1 text-[9px]" style={{ color: '#e2e8f0' }}>
+                                  <span className="w-1.5 h-1.5 rounded-sm" style={{ background: YEAR_COLORS_INJ[y] || '#9ca3af' }} />
+                                  {y}: <b>{val}</b>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {/* Expand / Collapse toggle */}
+              {allKeys.length > COLLAPSED_LIMIT && (
+                <button
+                  onClick={() => toggleChart(chartField)}
+                  className="flex items-center gap-1 mt-2 px-3 py-1 rounded-lg text-[10px] font-medium transition-all hover:bg-[var(--bg-secondary)]"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp size={12} /> ย่อ
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={12} /> แสดงเพิ่ม {hiddenCount} รายการ
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           );
         };
@@ -655,7 +724,7 @@ export default function InjuryWorkspace({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
                   {renderStackedBarChart('หยุดงานหรือไม่', 'is_lti', ltiData)}
 
-                  {/* Chart 2: Lost work days — vertical bar */}
+                  {/* Chart 2: Lost work days — vertical bar with YoY comparison */}
                   <div
                     className="rounded-2xl p-5"
                     style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}
@@ -672,24 +741,49 @@ export default function InjuryWorkspace({
                       </span>
                     </div>
                     <div className="flex items-end gap-4 justify-center" style={{ height: 170 }}>
-                      {activeYears.map(y => {
+                      {activeYears.map((y, yi) => {
                         const val = lostDaysData[y] || 0;
                         const pct = maxLostDays > 0 ? (val / maxLostDays) * 100 : 0;
+                        const prevYear = activeYears[yi - 1];
+                        const prevVal = prevYear ? (lostDaysData[prevYear] || 0) : null;
+                        const diff = prevVal !== null && prevVal > 0 ? ((val - prevVal) / prevVal) * 100 : null;
+                        const isHovered = hoveredLostDay === y;
                         return (
-                          <div key={y} className="flex flex-col items-center" style={{ flex: 1, maxWidth: 72 }}>
+                          <div
+                            key={y}
+                            className="flex flex-col items-center relative"
+                            style={{ flex: 1, maxWidth: 72 }}
+                            onMouseEnter={() => setHoveredLostDay(y)}
+                            onMouseLeave={() => setHoveredLostDay(null)}
+                          >
                             <span
                               className="text-[14px] font-bold mb-1"
                               style={{ color: YEAR_COLORS_INJ[y] || '#9ca3af' }}
                             >
-                              {val}
+                              {val.toLocaleString()}
                             </span>
+                            {/* YoY comparison arrow */}
+                            {diff !== null && (
+                              <div className="flex items-center gap-0.5 mb-1">
+                                {diff > 0 ? (
+                                  <ArrowUpRight size={10} style={{ color: '#ef4444' }} />
+                                ) : diff < 0 ? (
+                                  <ArrowDownRight size={10} style={{ color: '#22c55e' }} />
+                                ) : null}
+                                <span className="text-[8px] font-bold" style={{ color: diff > 0 ? '#ef4444' : diff < 0 ? '#22c55e' : 'var(--muted)' }}>
+                                  {diff > 0 ? '+' : ''}{diff.toFixed(0)}%
+                                </span>
+                              </div>
+                            )}
                             <div
                               className="w-full rounded-t-lg"
                               style={{
                                 height: `${Math.max(pct * 1.3, val > 0 ? 6 : 2)}px`,
                                 background: YEAR_COLORS_INJ[y] || '#9ca3af',
                                 maxHeight: 130,
-                                opacity: val > 0 ? 1 : 0.15,
+                                opacity: val > 0 ? (isHovered ? 1 : 0.85) : 0.15,
+                                transition: 'height 0.4s ease, opacity 0.2s',
+                                transform: isHovered ? 'scaleX(1.08)' : 'scaleX(1)',
                               }}
                             />
                             <span
@@ -698,6 +792,13 @@ export default function InjuryWorkspace({
                             >
                               {y}
                             </span>
+                            {/* Hover tooltip */}
+                            {isHovered && (
+                              <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20 px-2 py-1 rounded shadow-lg text-[9px] font-semibold"
+                                style={{ background: '#1e293b', color: '#e2e8f0', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                                {val.toLocaleString()} วัน
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -726,96 +827,169 @@ export default function InjuryWorkspace({
                   {renderStackedBarChart('แผนก/หน่วยงาน', 'department', deptFromIncidents)}
                 </div>
 
-                {/* ═══ ENHANCED Records Table with triage columns ═══ */}
-                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                      รายการอุบัติเหตุบาดเจ็บ ({filteredIncForTable.length})
-                    </h3>
-                    {injuryFilter && (
-                      <button
-                        onClick={() => setInjuryFilter(null)}
-                        className="text-[11px] underline"
-                        style={{ color: 'var(--accent)' }}
-                      >
-                        ล้างตัวกรอง
-                      </button>
-                    )}
-                  </div>
-                  <div className="overflow-x-auto" style={{ borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                          {['Date', 'Type', 'Severity', 'Department', 'Person', 'Injured', 'Body Part', 'Lost Days', 'LTI'].map(h => (
-                            <th key={h} style={{ padding: '8px 8px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredIncForTable.slice(0, 30).map((inc, idx) => {
-                          const badge = getTypeBadge(inc.incident_type);
-                          const t = inc.incident_type || '';
-                          const isLti = (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
-                          // Get injured person data for this incident
-                          const persons = injuredPersonsData.filter(p => p.incident_no === inc.incident_no);
-                          const topPerson = persons[0];
-                          const totalDays = persons.reduce((s, p) => s + (Number(p.lost_work_days) || 0), 0);
-                          const isMissingPerson = persons.length === 0;
-                          return (
-                            <tr
-                              key={idx}
-                              onClick={() => openDrawer(inc)}
-                              style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: isMissingPerson ? '#fffbeb' : 'transparent' }}
-                              className="hover:bg-[var(--bg-secondary)] transition-colors"
-                            >
-                              <td style={{ padding: '7px 8px', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontSize: 11 }}>
-                                {inc.incident_date}
-                              </td>
-                              <td style={{ padding: '7px 8px' }}>
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-medium" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
-                                  {inc.incident_type}
-                                </span>
-                              </td>
-                              <td style={{ padding: '7px 8px' }}>
-                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold" style={{ backgroundColor: getSevColor(inc.actual_severity || ''), color: '#fff' }}>
-                                  {inc.actual_severity || '—'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{inc.department || '—'}</td>
-                              <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{inc.person_type || '—'}</td>
-                              <td style={{ padding: '7px 8px', fontSize: 11 }}>
-                                {isMissingPerson ? (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>ยังไม่กรอก</span>
-                                ) : (
-                                  <span style={{ color: 'var(--text-primary)' }}>{persons.length} คน</span>
-                                )}
-                              </td>
-                              <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 10, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                title={topPerson?.body_part || ''}>
-                                {topPerson?.body_part || '—'}
-                              </td>
-                              <td style={{ padding: '7px 8px', fontWeight: totalDays > 0 ? 700 : 400, color: totalDays > 0 ? '#dc2626' : 'var(--muted)', fontSize: 11 }}>
-                                {totalDays > 0 ? totalDays : '—'}
-                              </td>
-                              <td style={{ padding: '7px 8px' }}>
-                                {isLti ? (
-                                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: '#fef2f2', color: '#dc2626' }}>LTI</span>
-                                ) : (
-                                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>—</span>
-                                )}
-                              </td>
+                {/* ═══ ENHANCED Records Table — sortable + paginated ═══ */}
+                {(() => {
+                  // Enrich & sort
+                  const enriched = filteredIncForTable.map(inc => {
+                    const t = inc.incident_type || '';
+                    const isLti = (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+                    const persons = injuredPersonsData.filter(p => p.incident_no === inc.incident_no);
+                    const totalDays = persons.reduce((s, p) => s + (Number(p.lost_work_days) || 0), 0);
+                    return { inc, isLti, persons, totalDays, isMissingPerson: persons.length === 0 };
+                  });
+
+                  enriched.sort((a, b) => {
+                    let cmp = 0;
+                    switch (tableSortKey) {
+                      case 'date': cmp = (a.inc.incident_date || '').localeCompare(b.inc.incident_date || ''); break;
+                      case 'severity': cmp = (a.inc.actual_severity || '').localeCompare(b.inc.actual_severity || ''); break;
+                      case 'dept': cmp = (a.inc.department || '').localeCompare(b.inc.department || ''); break;
+                      case 'lostDays': cmp = a.totalDays - b.totalDays; break;
+                      case 'lti': cmp = (a.isLti ? 1 : 0) - (b.isLti ? 1 : 0); break;
+                      case 'injured': cmp = a.persons.length - b.persons.length; break;
+                      default: cmp = 0;
+                    }
+                    return tableSortAsc ? cmp : -cmp;
+                  });
+
+                  const displayed = enriched.slice(0, tableShowCount);
+
+                  const columns: { key: string; label: string; sortable: boolean }[] = [
+                    { key: 'date', label: 'Date', sortable: true },
+                    { key: 'type', label: 'Type', sortable: false },
+                    { key: 'severity', label: 'Severity', sortable: true },
+                    { key: 'dept', label: 'Department', sortable: true },
+                    { key: 'person', label: 'Person', sortable: false },
+                    { key: 'injured', label: 'Injured', sortable: true },
+                    { key: 'bodyPart', label: 'Body Part', sortable: false },
+                    { key: 'lostDays', label: 'Lost Days', sortable: true },
+                    { key: 'lti', label: 'LTI', sortable: true },
+                  ];
+
+                  const SortIcon = ({ col }: { col: string }) => {
+                    if (tableSortKey !== col) return <ChevronDown size={8} style={{ opacity: 0.3 }} />;
+                    return tableSortAsc ? <ChevronUp size={9} style={{ color: 'var(--accent)' }} /> : <ChevronDown size={9} style={{ color: 'var(--accent)' }} />;
+                  };
+
+                  return (
+                    <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                          รายการอุบัติเหตุบาดเจ็บ ({filteredIncForTable.length})
+                        </h3>
+                        {injuryFilter && (
+                          <button onClick={() => setInjuryFilter(null)} className="text-[11px] underline" style={{ color: 'var(--accent)' }}>
+                            ล้างตัวกรอง
+                          </button>
+                        )}
+                      </div>
+                      <div className="overflow-x-auto" style={{ borderRadius: 8, border: '1px solid var(--border)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
+                              {columns.map(col => (
+                                <th
+                                  key={col.key}
+                                  onClick={() => col.sortable && toggleSort(col.key)}
+                                  style={{
+                                    padding: '8px 8px', textAlign: 'left', fontSize: 10, fontWeight: 600,
+                                    color: tableSortKey === col.key ? 'var(--accent)' : 'var(--text-secondary)',
+                                    whiteSpace: 'nowrap', cursor: col.sortable ? 'pointer' : 'default',
+                                    userSelect: 'none',
+                                  }}
+                                >
+                                  <span className="inline-flex items-center gap-0.5">
+                                    {col.label}
+                                    {col.sortable && <SortIcon col={col.key} />}
+                                  </span>
+                                </th>
+                              ))}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {filteredIncForTable.length > 30 && (
-                    <p className="text-[10px] mt-2 px-1" style={{ color: 'var(--muted)' }}>
-                      แสดง 30 จาก {filteredIncForTable.length} รายการ
-                    </p>
-                  )}
-                </div>
+                          </thead>
+                          <tbody>
+                            {displayed.map(({ inc, isLti, persons, totalDays, isMissingPerson }, idx) => {
+                              const badge = getTypeBadge(inc.incident_type);
+                              const topPerson = persons[0];
+                              return (
+                                <tr
+                                  key={idx}
+                                  onClick={() => openDrawer(inc)}
+                                  style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: isMissingPerson ? '#fffbeb' : 'transparent' }}
+                                  className="hover:bg-[var(--bg-secondary)] transition-colors"
+                                >
+                                  <td style={{ padding: '7px 8px', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontSize: 11 }}>
+                                    {inc.incident_date}
+                                  </td>
+                                  <td style={{ padding: '7px 8px' }}>
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-medium" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
+                                      {inc.incident_type}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '7px 8px' }}>
+                                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold" style={{ backgroundColor: getSevColor(inc.actual_severity || ''), color: '#fff' }}>
+                                      {inc.actual_severity || '—'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{inc.department || '—'}</td>
+                                  <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{inc.person_type || '—'}</td>
+                                  <td style={{ padding: '7px 8px', fontSize: 11 }}>
+                                    {isMissingPerson ? (
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>ยังไม่กรอก</span>
+                                    ) : (
+                                      <span style={{ color: 'var(--text-primary)' }}>{persons.length} คน</span>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: '7px 8px', color: 'var(--text-secondary)', fontSize: 10, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    title={topPerson?.body_part || ''}>
+                                    {topPerson?.body_part || '—'}
+                                  </td>
+                                  <td style={{ padding: '7px 8px', fontWeight: totalDays > 0 ? 700 : 400, color: totalDays > 0 ? '#dc2626' : 'var(--muted)', fontSize: 11 }}>
+                                    {totalDays > 0 ? totalDays : '—'}
+                                  </td>
+                                  <td style={{ padding: '7px 8px' }}>
+                                    {isLti ? (
+                                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: '#fef2f2', color: '#dc2626' }}>LTI</span>
+                                    ) : (
+                                      <span className="text-[10px]" style={{ color: 'var(--muted)' }}>—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* Pagination: load more */}
+                      {filteredIncForTable.length > tableShowCount ? (
+                        <div className="flex items-center justify-between mt-3 px-1">
+                          <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                            แสดง {Math.min(tableShowCount, filteredIncForTable.length)} จาก {filteredIncForTable.length} รายการ
+                          </p>
+                          <button
+                            onClick={() => setTableShowCount(prev => prev + 15)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:shadow-md"
+                            style={{ background: 'var(--bg-secondary)', color: 'var(--accent)', border: '1px solid var(--border)' }}
+                          >
+                            <ChevronDown size={12} /> แสดงเพิ่ม
+                          </button>
+                        </div>
+                      ) : filteredIncForTable.length > 15 ? (
+                        <div className="flex items-center justify-between mt-3 px-1">
+                          <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                            แสดงทั้งหมด {filteredIncForTable.length} รายการ
+                          </p>
+                          <button
+                            onClick={() => setTableShowCount(15)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:shadow-md"
+                            style={{ color: 'var(--muted)' }}
+                          >
+                            <ChevronUp size={12} /> ย่อ
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
