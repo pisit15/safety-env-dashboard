@@ -102,6 +102,7 @@ export default function CompanyTraining() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [timeRange, setTimeRange] = useState<string>('year');
   const [viewMode, setViewMode] = useState<'overview' | 'update'>('overview');
+  const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const currentMonthIdx = new Date().getMonth();
 
   // Modal form state
@@ -966,114 +967,115 @@ export default function CompanyTraining() {
           </p>
         </div>
 
-        {/* Year selector + View Mode Toggle (right-aligned) */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              value={selectedYear}
-              onChange={e => setSelectedYear(Number(e.target.value))}
-              style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}
-            >
-              {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+        {/* ═══ Unified Control Bar ═══ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap', padding: '8px 12px', borderRadius: 10, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+          {/* Year */}
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}
+          >
+            {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
 
-            {viewMode === 'update' && (
-              <>
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                  style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
-                  <option value="all">ทั้งหมด</option>
-                  <option value="planned">ยังไม่กำหนดวัน</option>
-                  <option value="scheduled">กำหนดวันแล้ว</option>
-                  <option value="completed">อบรมแล้ว</option>
-                  <option value="cancelled">ยกเลิก</option>
-                  <option value="postponed">เลื่อน</option>
-                </select>
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
-                {auth.isAdmin && (
-                  <button onClick={() => setShowImportModal(true)}
-                    style={{ padding: '6px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Upload size={14} /> นำเข้าแผนอบรม (Excel)
-                  </button>
-                )}
-
-                {hiddenCount > 0 && (
-                  <button onClick={() => setShowHiddenPlans(!showHiddenPlans)}
-                    style={{ padding: '6px 14px', borderRadius: 6, border: `1px solid ${showHiddenPlans ? '#f59e0b' : 'var(--border)'}`, background: showHiddenPlans ? '#fef3c7' : 'var(--card-solid)', color: showHiddenPlans ? '#92400e' : 'var(--text-secondary)', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {showHiddenPlans ? <EyeOff size={13} /> : <Eye size={13} />}
-                    {showHiddenPlans ? `ซ่อน (${hiddenCount})` : `ที่ซ่อน (${hiddenCount})`}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* View mode toggle — right side */}
-          <div style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+          {/* View mode toggle */}
+          <div style={{ display: 'flex', padding: 2, borderRadius: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
             {[
               { key: 'overview' as const, label: '📊 ภาพรวม' },
-              { key: 'update' as const, label: '📝 อัปเดตข้อมูล' },
+              { key: 'update' as const, label: '📝 อัปเดต' },
             ].map(opt => (
               <button
                 key={opt.key}
-                onClick={() => setViewMode(opt.key)}
+                onClick={() => { setViewMode(opt.key); setActiveKpi(null); }}
                 style={{
-                  padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  padding: '4px 14px', borderRadius: 5, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   background: viewMode === opt.key ? 'var(--accent)' : 'transparent',
                   color: viewMode === opt.key ? '#fff' : 'var(--text-secondary)',
                   transition: 'all 0.2s',
-                  display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
                 {opt.label}
               </button>
             ))}
           </div>
-        </div>
 
-        {/* Time Range Selector — both modes */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
-            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>ช่วงเวลา:</span>
-            <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-              {[
-                { key: 'year', label: 'ทั้งปี' },
-                { key: 'ytd', label: `ถึง ${MONTH_LABELS[currentMonthIdx]} (YTD)` },
-              ].map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setTimeRange(opt.key)}
-                  style={{
-                    padding: '4px 12px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                    background: timeRange === opt.key ? 'var(--accent)' : 'transparent',
-                    color: timeRange === opt.key ? '#fff' : 'var(--text-secondary)',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <select
-              value={MONTH_KEYS.includes(timeRange) ? timeRange : ''}
-              onChange={(e) => e.target.value && setTimeRange(e.target.value)}
-              style={{
-                padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--text-secondary)',
-                border: '1px solid var(--border)', outline: 'none',
-              }}
-            >
-              <option value="" disabled>เลือกเดือน...</option>
-              {MONTH_LABELS.map((name, i) => (
-                <option key={MONTH_KEYS[i]} value={MONTH_KEYS[i]}>{name}</option>
-              ))}
-            </select>
-            {timeRange !== 'year' && (
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
-                {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
-              </span>
-            )}
+          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
+          {/* Time range */}
+          <Calendar size={13} style={{ color: 'var(--text-secondary)' }} />
+          <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            {[
+              { key: 'year', label: 'ทั้งปี' },
+              { key: 'ytd', label: `YTD (${MONTH_LABELS[currentMonthIdx]})` },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setTimeRange(opt.key)}
+                style={{
+                  padding: '4px 10px', borderRadius: 5, border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  background: timeRange === opt.key ? 'var(--accent)' : 'transparent',
+                  color: timeRange === opt.key ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
+          <select
+            value={MONTH_KEYS.includes(timeRange) ? timeRange : ''}
+            onChange={(e) => e.target.value && setTimeRange(e.target.value)}
+            style={{
+              padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-secondary)',
+              color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--text-secondary)',
+              border: '1px solid var(--border)', outline: 'none',
+            }}
+          >
+            <option value="" disabled>เดือน...</option>
+            {MONTH_LABELS.map((name, i) => (
+              <option key={MONTH_KEYS[i]} value={MONTH_KEYS[i]}>{name}</option>
+            ))}
+          </select>
+          {timeRange !== 'year' && (
+            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
+              {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]}
+            </span>
+          )}
+
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Update mode specific controls */}
+          {viewMode === 'update' && (
+            <>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 12 }}>
+                <option value="all">ทั้งหมด</option>
+                <option value="planned">ยังไม่กำหนดวัน</option>
+                <option value="scheduled">กำหนดวันแล้ว</option>
+                <option value="completed">อบรมแล้ว</option>
+                <option value="cancelled">ยกเลิก</option>
+                <option value="postponed">เลื่อน</option>
+              </select>
+              {auth.isAdmin && (
+                <button onClick={() => setShowImportModal(true)}
+                  style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Upload size={13} /> นำเข้า Excel
+                </button>
+              )}
+              {hiddenCount > 0 && (
+                <button onClick={() => setShowHiddenPlans(!showHiddenPlans)}
+                  style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${showHiddenPlans ? '#f59e0b' : 'var(--border)'}`, background: showHiddenPlans ? '#fef3c7' : 'var(--bg-secondary)', color: showHiddenPlans ? '#92400e' : 'var(--text-secondary)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {showHiddenPlans ? <EyeOff size={12} /> : <Eye size={12} />}
+                  {showHiddenPlans ? `ซ่อน (${hiddenCount})` : `ซ่อนอยู่ (${hiddenCount})`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
 
         {/* ===== OVERVIEW MODE ===== */}
         {viewMode === 'overview' && (
@@ -1093,15 +1095,180 @@ export default function CompanyTraining() {
           </div>
         )}
 
-        {/* KPI Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
-          <StatCard icon="📚" label="หลักสูตรทั้งหมด" value={totalCourses} />
-          <StatCard icon="✅" label="อบรมแล้ว" value={completedCourses} color="var(--success)" />
-          <StatCard icon="📅" label="กำหนดวันแล้ว" value={scheduledCourses} color="var(--info)" />
-          <StatCard icon="⏳" label="รอดำเนินการ" value={pendingCourses} color="var(--warning)" />
-          <StatCard icon="💰" label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`} />
-          <StatCard icon="💳" label="ค่าใช้จ่ายจริง" value={`${(totalActual / 1000).toFixed(0)}K`} color={totalActual > totalBudget ? 'var(--danger)' : 'var(--success)'} />
+        {/* KPI Cards — clickable to filter */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
+          <StatCard icon="📚" label="หลักสูตรทั้งหมด" value={totalCourses}
+            subtitle={`${overallPct}% สำเร็จ`}
+            active={activeKpi === 'all'} onClick={() => setActiveKpi(activeKpi === 'all' ? null : 'all')} />
+          <StatCard icon="✅" label="อบรมแล้ว" value={completedCourses} color="var(--success)"
+            subtitle={totalCourses > 0 ? `${Math.round((completedCourses/totalCourses)*100)}% ของแผน` : undefined}
+            active={activeKpi === 'completed'} onClick={() => setActiveKpi(activeKpi === 'completed' ? null : 'completed')} />
+          <StatCard icon="📅" label="กำหนดวันแล้ว" value={scheduledCourses} color="var(--info)"
+            active={activeKpi === 'scheduled'} onClick={() => setActiveKpi(activeKpi === 'scheduled' ? null : 'scheduled')} />
+          <StatCard icon="⏳" label="รอดำเนินการ" value={pendingCourses} color="var(--warning)"
+            subtitle={pendingCourses > 0 ? 'คลิกดูรายชื่อ' : undefined}
+            active={activeKpi === 'planned'} onClick={() => setActiveKpi(activeKpi === 'planned' ? null : 'planned')} />
+          <StatCard icon="💰" label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`}
+            subtitle={`ใช้ไป ${totalBudget > 0 ? Math.round((totalActual/totalBudget)*100) : 0}%`} />
+          <StatCard icon="💳" label="ค่าใช้จ่ายจริง" value={`${(totalActual / 1000).toFixed(0)}K`}
+            color={totalActual > totalBudget ? 'var(--danger)' : 'var(--success)'}
+            subtitle={totalActual > totalBudget ? '⚠ เกินงบ' : `เหลือ ${((totalBudget - totalActual) / 1000).toFixed(0)}K`} />
         </div>
+
+        {/* KPI drill-down list — shows when a KPI card is clicked */}
+        {activeKpi && (() => {
+          const kpiPlans = timeFilteredPlans.filter(p => {
+            if (activeKpi === 'all') return true;
+            const status = p.training_sessions?.[0]?.status || 'planned';
+            return status === activeKpi;
+          });
+          const kpiLabel = activeKpi === 'all' ? 'ทั้งหมด' : activeKpi === 'completed' ? 'อบรมแล้ว' : activeKpi === 'scheduled' ? 'กำหนดวันแล้ว' : 'รอดำเนินการ';
+          return (
+            <div style={{ background: 'var(--card-solid)', borderRadius: 10, border: '1px solid var(--border)', padding: '14px 18px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  📋 {kpiLabel} ({kpiPlans.length} หลักสูตร)
+                </div>
+                <button onClick={() => setActiveKpi(null)} style={{ padding: '3px 10px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer' }}>
+                  ✕ ปิด
+                </button>
+              </div>
+              {kpiPlans.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่มีรายการ</div>
+              ) : (
+                <div style={{ maxHeight: 250, overflowY: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)' }}>#</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)' }}>ชื่อหลักสูตร</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)' }}>เดือน</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)' }}>สถานะ</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)' }}>วันอบรม</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kpiPlans.map((plan, i) => {
+                        const session = plan.training_sessions?.[0];
+                        const status = session?.status || 'planned';
+                        const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
+                        const effMonth = session?.postponed_to_month || plan.planned_month;
+                        return (
+                          <tr key={plan.id} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                            onClick={() => { openPlanModal(plan); }}>
+                            <td style={{ padding: '6px 10px', color: 'var(--text-secondary)' }}>{i + 1}</td>
+                            <td style={{ padding: '6px 10px', fontWeight: 500 }}>{plan.course_name}</td>
+                            <td style={{ padding: '6px 10px', textAlign: 'center' }}>{effMonth ? MONTH_LABELS[effMonth - 1] : '-'}</td>
+                            <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 8, background: cfg.bg, color: cfg.color, fontWeight: 600 }}>
+                                {cfg.icon} {cfg.label}
+                              </span>
+                            </td>
+                            <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: 11 }}>{session?.scheduled_date_start ? formatDate(session.scheduled_date_start) : '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ═══ "ต้องทำวันนี้" Action Items Section ═══ */}
+        {(() => {
+          // 1. Courses needing date assignment (planned month is this or next month, no date)
+          const needDates = plans.filter(p => {
+            const s = p.training_sessions?.[0];
+            if (s?.status === 'completed' || s?.status === 'cancelled') return false;
+            const effMonth = getEffectiveMonth(p);
+            if (!effMonth) return true; // no month at all
+            return !s?.scheduled_date_start && effMonth >= currentMonthIdx + 1 && effMonth <= currentMonthIdx + 3;
+          });
+          // 2. Upcoming training (within next 30 days)
+          const upcoming = plans.filter(p => {
+            const s = p.training_sessions?.[0];
+            if (!s?.scheduled_date_start || s.status === 'completed' || s.status === 'cancelled') return false;
+            const diff = (new Date(s.scheduled_date_start).getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+            return diff >= 0 && diff <= 30;
+          }).sort((a, b) => new Date(a.training_sessions[0].scheduled_date_start!).getTime() - new Date(b.training_sessions[0].scheduled_date_start!).getTime());
+          // 3. Pending DSD documents (completed but missing docs)
+          const pendingDocs = plans.filter(p => {
+            const s = p.training_sessions?.[0];
+            if (s?.status !== 'completed' || p.dsd_eligible === false) return false;
+            return !s?.photos_submitted || !s?.signin_sheet_submitted || !s?.dsd_report_submitted;
+          });
+
+          const hasActions = needDates.length > 0 || upcoming.length > 0 || pendingDocs.length > 0;
+          if (!hasActions) return null;
+
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
+              {/* Need dates */}
+              {needDates.length > 0 && (
+                <div style={{ background: '#fffbeb', borderRadius: 10, border: '1px solid #fbbf24', padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle size={14} /> ยังไม่กำหนดวัน ({needDates.length})
+                  </div>
+                  {needDates.slice(0, 5).map(p => (
+                    <div key={p.id} onClick={() => openPlanModal(p)} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: 'pointer', background: '#fef3c7', color: '#78350f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.course_name}</span>
+                      <span style={{ fontSize: 10, color: '#92400e', flexShrink: 0, marginLeft: 8 }}>
+                        {p.planned_month ? MONTH_LABELS[p.planned_month - 1] : 'ไม่มีเดือน'}
+                      </span>
+                    </div>
+                  ))}
+                  {needDates.length > 5 && <div style={{ fontSize: 11, color: '#92400e', marginTop: 4 }}>...อีก {needDates.length - 5} หลักสูตร</div>}
+                </div>
+              )}
+
+              {/* Upcoming training */}
+              {upcoming.length > 0 && (
+                <div style={{ background: '#eff6ff', borderRadius: 10, border: '1px solid #93c5fd', padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1e40af', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Calendar size={14} /> อบรมเร็วๆ นี้ ({upcoming.length})
+                  </div>
+                  {upcoming.slice(0, 5).map(p => {
+                    const s = p.training_sessions[0];
+                    const daysLeft = Math.ceil((new Date(s.scheduled_date_start!).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <div key={p.id} onClick={() => openPlanModal(p)} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: 'pointer', background: '#dbeafe', color: '#1e3a5f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.course_name}</span>
+                        <span style={{ fontSize: 10, flexShrink: 0, marginLeft: 8, fontWeight: 700, color: daysLeft <= 7 ? '#dc2626' : '#2563eb' }}>
+                          {daysLeft === 0 ? 'วันนี้!' : `อีก ${daysLeft} วัน`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Pending DSD docs */}
+              {pendingDocs.length > 0 && (
+                <div style={{ background: '#fef2f2', borderRadius: 10, border: '1px solid #fca5a5', padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#991b1b', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={14} /> เอกสารค้างส่ง ({pendingDocs.length})
+                  </div>
+                  {pendingDocs.slice(0, 5).map(p => {
+                    const s = p.training_sessions[0];
+                    const missing: string[] = [];
+                    if (!s?.photos_submitted) missing.push('ภาพถ่าย');
+                    if (!s?.signin_sheet_submitted) missing.push('ใบเซ็นชื่อ');
+                    if (!s?.dsd_report_submitted) missing.push('รง.1');
+                    return (
+                      <div key={p.id} onClick={() => openPlanModal(p)} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: 'pointer', background: '#fee2e2', color: '#7f1d1d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.course_name}</span>
+                        <span style={{ fontSize: 10, flexShrink: 0, marginLeft: 8, color: '#dc2626' }}>ขาด: {missing.join(', ')}</span>
+                      </div>
+                    );
+                  })}
+                  {pendingDocs.length > 5 && <div style={{ fontSize: 11, color: '#991b1b', marginTop: 4 }}>...อีก {pendingDocs.length - 5} หลักสูตร</div>}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Monthly Chart */}
         {plans.length > 0 && (
@@ -1116,7 +1283,7 @@ export default function CompanyTraining() {
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: overallPct >= 80 ? 'var(--success)' : overallPct >= 50 ? 'var(--warning)' : 'var(--danger)' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: overallPct === 0 ? 'var(--muted)' : overallPct >= 80 ? 'var(--success)' : overallPct >= 50 ? 'var(--warning)' : '#fb923c' }}>
                   {overallPct}%
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ความสำเร็จรวม</div>
@@ -1128,11 +1295,24 @@ export default function CompanyTraining() {
               {monthlyChartData.map((d, i) => {
                 const currentMonth = new Date().getMonth() + 1;
                 const isPast = d.month <= currentMonth;
+                const isCurrent = d.month === currentMonth;
                 const barHeight = maxPlanned > 0 ? (d.planned / maxPlanned) * 130 : 0;
                 const completedHeight = d.planned > 0 ? (d.completed / d.planned) * barHeight : 0;
                 const scheduledHeight = d.planned > 0 ? (d.scheduled / d.planned) * barHeight : 0;
+                // Determine bar background: past with no completion = amber warning, not red
+                const barBg = isPast && d.planned > 0 && d.completed === 0 && d.scheduled === 0
+                  ? '#fef3c7'  // amber/warning instead of red
+                  : isPast && d.planned > 0
+                    ? '#fee2e2'
+                    : 'var(--bg-secondary)';
                 return (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div key={i} style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    padding: isCurrent ? '4px 0' : 0,
+                    background: isCurrent ? 'rgba(0,122,255,0.06)' : 'transparent',
+                    borderRadius: isCurrent ? 6 : 0,
+                    border: isCurrent ? '1px dashed var(--accent)' : 'none',
+                  }}>
                     {/* Count label */}
                     {d.planned > 0 && (
                       <div style={{ fontSize: 10, fontWeight: 600, color: d.completed === d.planned && d.planned > 0 ? 'var(--success)' : 'var(--text-secondary)' }}>
@@ -1140,7 +1320,7 @@ export default function CompanyTraining() {
                       </div>
                     )}
                     {/* Stacked bar */}
-                    <div style={{ width: '100%', height: barHeight || 2, borderRadius: 4, position: 'relative', overflow: 'hidden', background: isPast ? '#fee2e2' : 'var(--bg-secondary)' }}>
+                    <div style={{ width: '80%', height: barHeight || 2, borderRadius: 4, position: 'relative', overflow: 'hidden', background: barBg }}>
                       {/* Scheduled (blue) */}
                       {scheduledHeight > 0 && (
                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: scheduledHeight, background: '#93c5fd', borderRadius: '0 0 4px 4px' }} />
@@ -1151,8 +1331,8 @@ export default function CompanyTraining() {
                       )}
                     </div>
                     {/* Month label */}
-                    <div style={{ fontSize: 10, color: d.month === currentMonth ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: d.month === currentMonth ? 700 : 400 }}>
-                      {d.label}
+                    <div style={{ fontSize: 10, color: isCurrent ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: isCurrent ? 800 : 400 }}>
+                      {isCurrent ? `▶ ${d.label}` : d.label}
                     </div>
                   </div>
                 );
@@ -1160,12 +1340,15 @@ export default function CompanyTraining() {
             </div>
 
             {/* Legend */}
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> อบรมแล้ว
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', display: 'inline-block' }} /> กำหนดวันแล้ว
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fef3c7', display: 'inline-block' }} /> ยังไม่มีความคืบหน้า
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fee2e2', display: 'inline-block' }} /> เลยกำหนด
@@ -1181,15 +1364,78 @@ export default function CompanyTraining() {
               <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 40 }}>
                 {monthlyChartData.map((d, i) => {
                   const h = (d.cumPct / 100) * 36;
-                  const color = d.cumPct >= 80 ? '#4ade80' : d.cumPct >= 50 ? '#fbbf24' : '#f87171';
+                  // 0% = neutral gray, not red; only use red for below 50% with actual plans
+                  const color = d.cumPct === 0 && d.planned === 0 ? 'var(--bg-secondary)'
+                    : d.cumPct === 0 ? '#d1d5db'  // neutral gray for 0%
+                    : d.cumPct >= 80 ? '#4ade80' : d.cumPct >= 50 ? '#fbbf24' : '#fb923c';
                   return (
                     <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       {d.cumPct > 0 && <div style={{ fontSize: 9, fontWeight: 600, color, marginBottom: 2 }}>{d.cumPct}%</div>}
-                      <div style={{ width: '80%', height: Math.max(h, 2), borderRadius: 2, background: d.planned === 0 && d.completed === 0 ? 'var(--bg-secondary)' : color }} />
+                      {d.cumPct === 0 && d.planned > 0 && <div style={{ fontSize: 9, fontWeight: 600, color: '#9ca3af', marginBottom: 2 }}>0%</div>}
+                      <div style={{ width: '80%', height: Math.max(h, 2), borderRadius: 2, background: color }} />
                     </div>
                   );
                 })}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Lower Section: Category Breakdown + DSD Summary ═══ */}
+        {plans.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginBottom: 20 }}>
+            {/* Category Breakdown */}
+            <div style={{ background: 'var(--card-solid)', borderRadius: 10, border: '1px solid var(--border)', padding: '16px 20px' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>📂 สรุปตามหมวดหมู่</h3>
+              {(() => {
+                const cats: Record<string, { total: number; completed: number }> = {};
+                timeFilteredPlans.forEach(p => {
+                  const cat = p.category || 'ไม่ระบุ';
+                  if (!cats[cat]) cats[cat] = { total: 0, completed: 0 };
+                  cats[cat].total++;
+                  if (p.training_sessions?.[0]?.status === 'completed') cats[cat].completed++;
+                });
+                const sorted = Object.entries(cats).sort((a, b) => b[1].total - a[1].total);
+                return sorted.map(([cat, v]) => {
+                  const pct = v.total > 0 ? Math.round((v.completed / v.total) * 100) : 0;
+                  return (
+                    <div key={cat} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{cat}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>{v.completed}/{v.total} ({pct}%)</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 3, background: pct >= 80 ? '#4ade80' : pct >= 50 ? '#fbbf24' : pct === 0 ? '#d1d5db' : '#fb923c', width: `${pct}%`, transition: 'width 0.4s' }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* DSD Document Status */}
+            <div style={{ background: 'var(--card-solid)', borderRadius: 10, border: '1px solid var(--border)', padding: '16px 20px' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>📋 สถานะเอกสาร DSD</h3>
+              {(() => {
+                const dsdPlans = timeFilteredPlans.filter(p => p.dsd_eligible !== false);
+                const preSubmitted = dsdPlans.filter(p => p.training_sessions?.[0]?.dsd_submitted).length;
+                const preApproved = dsdPlans.filter(p => p.training_sessions?.[0]?.dsd_approved).length;
+                const postSubmitted = dsdPlans.filter(p => p.training_sessions?.[0]?.dsd_report_submitted).length;
+                const completedDsd = dsdPlans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
+                const items = [
+                  { label: 'หลักสูตร DSD ทั้งหมด', value: dsdPlans.length, color: 'var(--text-primary)' },
+                  { label: 'ยื่นแบบแจ้งแล้ว (ยป.1/ยป.3)', value: preSubmitted, color: '#3b82f6' },
+                  { label: 'ได้รับอนุมัติแล้ว', value: preApproved, color: '#16a34a' },
+                  { label: 'อบรมเสร็จแล้ว', value: completedDsd, color: '#f59e0b' },
+                  { label: 'ส่ง รง.1 แล้ว', value: postSubmitted, color: '#16a34a' },
+                ];
+                return items.map(item => (
+                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: item.color }}>{item.value}</span>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         )}
@@ -2055,11 +2301,23 @@ function formatDate(d: string): string {
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
-function StatCard({ icon, label, value, color }: { icon: string; label: string; value: string | number; color?: string }) {
+function StatCard({ icon, label, value, color, onClick, active, subtitle }: { icon: string; label: string; value: string | number; color?: string; onClick?: () => void; active?: boolean; subtitle?: string }) {
   return (
-    <div style={{ background: 'var(--card-solid)', borderRadius: 8, padding: '12px 16px', border: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{icon} {label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)' }}>{value}</div>
+    <div
+      onClick={onClick}
+      style={{
+        background: active ? 'var(--accent)' : 'var(--card-solid)',
+        borderRadius: 10, padding: '14px 16px',
+        border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.2s',
+        transform: active ? 'scale(1.02)' : 'none',
+        boxShadow: active ? '0 4px 12px rgba(0,122,255,0.2)' : 'none',
+      }}
+    >
+      <div style={{ fontSize: 11, color: active ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginBottom: 4 }}>{icon} {label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: active ? '#fff' : (color || 'var(--text-primary)') }}>{value}</div>
+      {subtitle && <div style={{ fontSize: 10, color: active ? 'rgba(255,255,255,0.7)' : 'var(--muted)', marginTop: 2 }}>{subtitle}</div>}
     </div>
   );
 }
