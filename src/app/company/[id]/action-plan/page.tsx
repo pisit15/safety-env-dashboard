@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
@@ -891,6 +891,193 @@ export default function CompanyDrilldown() {
     setSubmittingRequest(false);
   };
 
+  // ── Tab personality config — MUST be before early returns (React Rules of Hooks) ──
+  const planConfig = useMemo(() => {
+    if (planType === 'safety') {
+      return {
+        headline: `Safety Action Plan ${selectedYear}`,
+        subtitle: 'ขับเคลื่อนงานลดความเสี่ยง — ติดตาม ปิดงาน ป้องกันอุบัติเหตุ',
+        accentColor: '#ff6b35',
+        accentBg: 'rgba(255,107,53,0.15)',
+        kpi: { total: 'กิจกรรม Safety', done: 'ปิดงานแล้ว', notStarted: 'ยังไม่เริ่ม (เสี่ยง)', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
+        quickFilters: [
+          { key: 'thisMonth', label: `เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '📅' },
+          { key: 'overdue', label: 'เกินกำหนด', icon: '🔴' },
+          { key: 'notStarted', label: 'ยังไม่เริ่ม', icon: '⏳' },
+        ],
+        defaultSort: 'overdue-first' as const,
+        chartTitle: '📅 Safety Timeline — ความก้าวหน้ารายเดือน',
+        tableTitle: 'รายละเอียดกิจกรรม Safety',
+        emptyIcon: '🛡️',
+        filterSummaryLabel: 'Safety',
+      };
+    } else if (planType === 'environment') {
+      return {
+        headline: `Environment Action Plan ${selectedYear}`,
+        subtitle: 'ควบคุม compliance — ติดตามใบอนุญาต รายงาน หลักฐาน',
+        accentColor: '#34c759',
+        accentBg: 'rgba(52,199,89,0.15)',
+        kpi: { total: 'กิจกรรม Envi', done: 'ปิดงานแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
+        quickFilters: [
+          { key: 'thisMonth', label: `ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, icon: '📋' },
+          { key: 'overdue', label: 'เกินกำหนด', icon: '🔴' },
+          { key: 'noEvidence', label: 'ยังไม่แนบหลักฐาน', icon: '📎' },
+        ],
+        defaultSort: 'due-this-month' as const,
+        chartTitle: '📋 Compliance Calendar — สถานะรายเดือน',
+        tableTitle: 'รายละเอียดกิจกรรม Environment',
+        emptyIcon: '🌿',
+        filterSummaryLabel: 'Environment',
+      };
+    } else {
+      return {
+        headline: `ภาพรวมแผนงาน ${selectedYear}`,
+        subtitle: 'บริหารจัดลำดับระหว่าง Safety + Environment',
+        accentColor: 'var(--accent)',
+        accentBg: 'rgba(10,132,255,0.15)',
+        kpi: { total: 'กิจกรรมรวม', done: 'เสร็จแล้ว', notStarted: 'ยังไม่เริ่ม', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบรวม' },
+        quickFilters: [] as { key: string; label: string; icon: string }[],
+        defaultSort: 'default' as const,
+        chartTitle: '📊 Timeline — ความก้าวหน้ารายเดือน',
+        tableTitle: 'รายละเอียดกิจกรรมทั้งหมด',
+        emptyIcon: '📊',
+        filterSummaryLabel: 'Total',
+      };
+    }
+  }, [planType, selectedYear, currentMonthIdx]);
+
+  // Quick filter state
+  const [quickFilter, setQuickFilter] = useState<string>('none');
+
+  // Compute overdue/thisMonth/noEvidence counts for quick filters
+  const quickFilterCounts = useMemo(() => {
+    let overdueCount = 0;
+    let thisMonthCount = 0;
+    let noEvidenceCount = 0;
+    const curMK = MONTH_KEYS[currentMonthIdx];
+    activities.forEach(act => {
+      const curStatus = getEffectiveStatus(act, curMK);
+      if (curStatus !== 'not_planned' && curStatus !== 'done' && curStatus !== 'not_applicable' && curStatus !== 'cancelled') {
+        thisMonthCount++;
+      }
+      // Check overdue: any past month with planned but not done
+      MONTH_KEYS.forEach((mk, idx) => {
+        if (idx < currentMonthIdx) {
+          const st = getEffectiveStatus(act, mk);
+          if (st === 'overdue' || (st === 'planned' && idx < currentMonthIdx)) {
+            overdueCount++;
+          }
+        }
+      });
+      // No evidence: has done status but no attachment
+      const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+      const hasDoneMonth = MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'done');
+      const hasAnyAttachment = MONTH_KEYS.some(mk => (attachmentCounts[`${prefix}${act.no}:${mk}`] || 0) > 0);
+      if (hasDoneMonth && !hasAnyAttachment) noEvidenceCount++;
+    });
+    return { overdue: overdueCount, thisMonth: thisMonthCount, noEvidence: noEvidenceCount };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides, currentMonthIdx, attachmentCounts]);
+
+  // Enhanced filtered activities with quick filter + default sort per tab
+  const enhancedFilteredActivities = useMemo(() => {
+    let list = [...filteredActivities];
+
+    // Apply quick filter
+    if (quickFilter === 'thisMonth') {
+      const curMK = MONTH_KEYS[currentMonthIdx];
+      list = list.filter(act => {
+        const st = getEffectiveStatus(act, curMK);
+        return st !== 'not_planned';
+      });
+    } else if (quickFilter === 'overdue') {
+      list = list.filter(act => {
+        return MONTH_KEYS.some((mk, idx) => {
+          if (idx >= currentMonthIdx) return false;
+          const st = getEffectiveStatus(act, mk);
+          return st === 'overdue' || st === 'planned';
+        });
+      });
+    } else if (quickFilter === 'notStarted') {
+      list = list.filter(act => act.status === 'not_started');
+    } else if (quickFilter === 'noEvidence') {
+      list = list.filter(act => {
+        const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+        const hasDoneMonth = MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'done');
+        const hasAnyAttachment = MONTH_KEYS.some(mk => (attachmentCounts[`${prefix}${act.no}:${mk}`] || 0) > 0);
+        return hasDoneMonth && !hasAnyAttachment;
+      });
+    }
+
+    // Default sort per tab
+    if (planConfig.defaultSort === 'overdue-first') {
+      list.sort((a, b) => {
+        // Count overdue months
+        const aOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(a, mk))).length;
+        const bOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(b, mk))).length;
+        if (bOverdue !== aOverdue) return bOverdue - aOverdue;
+        // Then not started
+        const aNotStarted = a.status === 'not_started' ? 1 : 0;
+        const bNotStarted = b.status === 'not_started' ? 1 : 0;
+        return bNotStarted - aNotStarted;
+      });
+    } else if (planConfig.defaultSort === 'due-this-month') {
+      const curMK = MONTH_KEYS[currentMonthIdx];
+      list.sort((a, b) => {
+        const aDue = getEffectiveStatus(a, curMK) !== 'not_planned' && getEffectiveStatus(a, curMK) !== 'done' ? 1 : 0;
+        const bDue = getEffectiveStatus(b, curMK) !== 'not_planned' && getEffectiveStatus(b, curMK) !== 'done' ? 1 : 0;
+        if (bDue !== aDue) return bDue - aDue;
+        // Then overdue
+        const aOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(a, mk))).length;
+        const bOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(b, mk))).length;
+        return bOverdue - aOverdue;
+      });
+    }
+
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredActivities, quickFilter, planConfig.defaultSort, currentMonthIdx, overrides, attachmentCounts]);
+
+  // Cross-plan stats for Total tab attention section
+  const crossPlanStats = useMemo(() => {
+    if (planType !== 'total') return null;
+    const safetyActs = activities.filter((a: any) => a._planTag === 'S');
+    const enviActs = activities.filter((a: any) => a._planTag === 'E');
+    const countOpen = (acts: Activity[]) => {
+      let open = 0;
+      acts.forEach(act => {
+        const hasOpenMonth = MONTH_KEYS.some((mk, idx) => {
+          if (idx > currentMonthIdx) return false;
+          const st = getEffectiveStatus(act, mk);
+          return st !== 'not_planned' && st !== 'done' && st !== 'not_applicable' && st !== 'cancelled';
+        });
+        if (hasOpenMonth) open++;
+      });
+      return open;
+    };
+    const countOverdue = (acts: Activity[]) => {
+      let count = 0;
+      acts.forEach(act => {
+        MONTH_KEYS.forEach((mk, idx) => {
+          if (idx < currentMonthIdx) {
+            const st = getEffectiveStatus(act, mk);
+            if (st === 'overdue' || st === 'planned') count++;
+          }
+        });
+      });
+      return count;
+    };
+    return {
+      safetyOpen: countOpen(safetyActs),
+      enviOpen: countOpen(enviActs),
+      safetyOverdue: countOverdue(safetyActs),
+      enviOverdue: countOverdue(enviActs),
+      safetyTotal: safetyActs.length,
+      enviTotal: enviActs.length,
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides, planType, currentMonthIdx]);
+
   // ── View Gate: require login to see company data ──
   if (!isLoggedIn && !auth.isAdmin) {
     return (
@@ -953,9 +1140,14 @@ export default function CompanyDrilldown() {
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            <Search size={16} className="inline mr-1" /> {companyName} — {planType === 'total' ? 'ภาพรวมแผนงาน' : `แผนงาน${planType === 'safety' ? 'ความปลอดภัย' : 'สิ่งแวดล้อม'}`} {selectedYear}
-          </h1>
+          <div>
+            <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+              {companyName} — {planConfig.headline}
+            </h1>
+            <p className="text-[12px] mt-1" style={{ color: 'var(--muted)' }}>
+              {planConfig.subtitle}
+            </p>
+          </div>
           <div className="flex gap-2 items-center flex-wrap">
             {/* Auth indicator */}
             {isLoggedIn ? (
@@ -980,7 +1172,7 @@ export default function CompanyDrilldown() {
             </button>
             <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
               <button
-                onClick={() => setPlanType('total')}
+                onClick={() => { setPlanType('total'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'total'
                   ? { background: 'var(--accent)', color: '#ffffff' }
@@ -989,19 +1181,19 @@ export default function CompanyDrilldown() {
                 <BarChart3 size={14} className="inline mr-1" /> Total
               </button>
               <button
-                onClick={() => setPlanType('safety')}
+                onClick={() => { setPlanType('safety'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'safety'
-                  ? { background: 'var(--accent)', color: '#ffffff' }
+                  ? { background: '#ff6b35', color: '#ffffff', boxShadow: '0 2px 10px rgba(255,107,53,0.3)' }
                   : { color: 'var(--muted)' }}
               >
                 <Shield size={14} className="inline mr-1" /> Safety
               </button>
               <button
-                onClick={() => setPlanType('environment')}
+                onClick={() => { setPlanType('environment'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'environment'
-                  ? { background: 'var(--accent)', color: '#ffffff' }
+                  ? { background: '#34c759', color: '#ffffff', boxShadow: '0 2px 10px rgba(52,199,89,0.3)' }
                   : { color: 'var(--muted)' }}
               >
                 <Leaf size={14} className="inline mr-1" /> Environment
@@ -1085,24 +1277,115 @@ export default function CompanyDrilldown() {
           </div>
         ) : (
           <>
-            {/* KPI Cards — use effectiveSummary which includes override data */}
-            <div className="grid grid-cols-2 lg:grid-cols-7 gap-4 mb-6 animate-fade-in-up">
-              <KPICard label="กิจกรรมทั้งหมด" value={effectiveSummary?.total || 0} />
-              <KPICard label="เสร็จแล้ว" value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${effectiveSummary?.pctDone || 0}%`} />
-              <KPICard label="ยังไม่เริ่ม" value={effectiveSummary?.notStarted || 0} color="var(--warning)" />
-              <KPICard label="เลื่อน" value={effectiveSummary?.postponed || 0} color="var(--info)" />
-              <KPICard label="ยกเลิก" value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
-              <KPICard label="ไม่เข้าเงื่อนไข" value={effectiveSummary?.notApplicable || 0} color="var(--muted)" />
-              <KPICard label="งบประมาณ" value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext="บาท" />
+            {/* Filter Summary Bar */}
+            <div className="px-4 py-2.5 rounded-lg mb-5 flex items-center justify-between animate-fade-in-up" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                <span style={{ color: 'var(--muted)' }}>กำลังดู:</span>
+                <span className="inline-flex items-center gap-1.5 ml-2">
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: planConfig.accentBg, color: planConfig.accentColor }}>
+                    {planConfig.filterSummaryLabel}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,149,0,0.2)', color: '#ff9500' }}>
+                    {selectedYear}
+                  </span>
+                  {timeRange !== 'year' && (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(88,86,214,0.2)', color: '#5856d6' }}>
+                      {timeRange === 'ytd' ? `ถึง ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]}
+                    </span>
+                  )}
+                  {quickFilter !== 'none' && (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,59,48,0.15)', color: '#ff3b30' }}>
+                      {planConfig.quickFilters.find(f => f.key === quickFilter)?.label || quickFilter}
+                    </span>
+                  )}
+                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                    {enhancedFilteredActivities.length} กิจกรรม
+                  </span>
+                </span>
+              </span>
             </div>
+
+            {/* KPI Cards — use effectiveSummary which includes override data */}
+            {planType === 'total' && crossPlanStats ? (
+              /* Total tab: cross-plan KPIs */
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5 animate-fade-in-up">
+                <KPICard label={planConfig.kpi.total} value={effectiveSummary?.total || 0} />
+                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${effectiveSummary?.pctDone || 0}%`} />
+                <KPICard label="Safety ยังเปิด" value={crossPlanStats.safetyOpen} color="#ff6b35" subtext={`จาก ${crossPlanStats.safetyTotal} กิจกรรม`} />
+                <KPICard label="Envi ยังเปิด" value={crossPlanStats.enviOpen} color="#34c759" subtext={`จาก ${crossPlanStats.enviTotal} กิจกรรม`} />
+                <KPICard label="Overdue รวม" value={(crossPlanStats.safetyOverdue + crossPlanStats.enviOverdue)} color="var(--danger)" subtext={`S:${crossPlanStats.safetyOverdue} / E:${crossPlanStats.enviOverdue}`} />
+                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext={effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
+              </div>
+            ) : (
+              /* Safety / Environment KPIs */
+              <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mb-5 animate-fade-in-up">
+                <KPICard label={planConfig.kpi.total} value={effectiveSummary?.total || 0} />
+                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${effectiveSummary?.pctDone || 0}%`} />
+                <KPICard label={planConfig.kpi.notStarted} value={effectiveSummary?.notStarted || 0} color={planType === 'safety' ? 'var(--danger)' : 'var(--warning)'} />
+                <KPICard label={planConfig.kpi.postponed} value={effectiveSummary?.postponed || 0} color="var(--info)" />
+                <KPICard label={planConfig.kpi.cancelled} value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
+                <KPICard label={planConfig.kpi.na} value={effectiveSummary?.notApplicable || 0} color="var(--muted)" />
+                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={planConfig.accentColor} subtext="บาท" />
+              </div>
+            )}
+
+            {/* Total tab: Attention section — ต้องติดตามก่อน */}
+            {planType === 'total' && crossPlanStats && (crossPlanStats.safetyOverdue > 0 || crossPlanStats.enviOverdue > 0) && (
+              <div className="mb-5 animate-fade-in-up">
+                <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  <AlertTriangle size={14} style={{ color: '#ff453a' }} />
+                  ต้องติดตามก่อน
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {crossPlanStats.safetyOverdue > 0 && (
+                    <div className="p-3.5 rounded-lg" style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.25)' }}>
+                      <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#ff6b35' }}>
+                        <Shield size={12} /> งานค้าง Safety
+                      </div>
+                      <div className="text-[20px] font-bold mt-1" style={{ color: '#ff6b35' }}>{crossPlanStats.safetyOverdue}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>เดือน-กิจกรรมที่เกินกำหนด</div>
+                    </div>
+                  )}
+                  {crossPlanStats.enviOverdue > 0 && (
+                    <div className="p-3.5 rounded-lg" style={{ background: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.25)' }}>
+                      <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#34c759' }}>
+                        <Leaf size={12} /> งานค้าง Environment
+                      </div>
+                      <div className="text-[20px] font-bold mt-1" style={{ color: '#34c759' }}>{crossPlanStats.enviOverdue}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>เดือน-กิจกรรมที่เกินกำหนด</div>
+                    </div>
+                  )}
+                  {/* Month clash indicator */}
+                  {(() => {
+                    const curMK = MONTH_KEYS[currentMonthIdx];
+                    const safetyThisMonth = activities.filter((a: any) => a._planTag === 'S' && getEffectiveStatus(a, curMK) !== 'not_planned' && getEffectiveStatus(a, curMK) !== 'done' && getEffectiveStatus(a, curMK) !== 'not_applicable').length;
+                    const enviThisMonth = activities.filter((a: any) => a._planTag === 'E' && getEffectiveStatus(a, curMK) !== 'not_planned' && getEffectiveStatus(a, curMK) !== 'done' && getEffectiveStatus(a, curMK) !== 'not_applicable').length;
+                    if (safetyThisMonth > 0 && enviThisMonth > 0) {
+                      return (
+                        <div className="p-3.5 rounded-lg" style={{ background: 'rgba(88,86,214,0.08)', border: '1px solid rgba(88,86,214,0.25)' }}>
+                          <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#5856d6' }}>
+                            <Calendar size={12} /> สองแผนชนกัน {MONTH_LABELS[currentMonthIdx]}
+                          </div>
+                          <div className="text-[12px] font-bold mt-1" style={{ color: '#5856d6' }}>
+                            S:{safetyThisMonth} + E:{enviThisMonth}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>กิจกรรมที่ยังเปิดเดือนนี้</div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
 
             {/* Budget + Responsible moved to bottom — Total mode only */}
 
             {/* Monthly Progress */}
             {effectiveMonthlyProgress && effectiveMonthlyProgress.length > 0 && (
               <div className="glass-card rounded-xl p-5 mb-6 animate-fade-in-up">
-                <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
-                  📅 ติดตามความก้าวหน้ารายเดือน
+                <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
+                  {planConfig.chartTitle}
                 </h3>
                 <div style={{ height: 250 }}>
                   <MonthlyProgressChart monthlyProgress={effectiveMonthlyProgress} />
@@ -1138,8 +1421,32 @@ export default function CompanyDrilldown() {
               </div>
             )}
 
-            {/* Status Filter Tabs — hide in Total mode */}
-            {planType !== 'total' && <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
+            {/* Quick Filters per tab */}
+            {planConfig.quickFilters.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3 animate-fade-in-up">
+                <span className="text-[11px] font-medium self-center mr-1" style={{ color: 'var(--muted)' }}>โฟกัส:</span>
+                {planConfig.quickFilters.map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setQuickFilter(quickFilter === f.key ? 'none' : f.key)}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                    style={{
+                      background: quickFilter === f.key ? planConfig.accentBg : 'var(--bg-tertiary)',
+                      color: quickFilter === f.key ? planConfig.accentColor : 'var(--text-secondary)',
+                      border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
+                    }}
+                  >
+                    {f.icon} {f.label}
+                    <span className="ml-1 opacity-70">
+                      ({f.key === 'overdue' ? quickFilterCounts.overdue : f.key === 'thisMonth' ? quickFilterCounts.thisMonth : f.key === 'notStarted' ? statusCounts.not_started : f.key === 'noEvidence' ? quickFilterCounts.noEvidence : 0})
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Status Filter Tabs */}
+            <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
               {[
                 { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)' },
                 { key: 'done', label: '✅ เสร็จแล้ว', color: 'var(--success)' },
@@ -1153,29 +1460,25 @@ export default function CompanyDrilldown() {
                   onClick={() => setStatusFilter(f.key)}
                   className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: statusFilter === f.key ? 'var(--accent)' : 'var(--bg-tertiary)',
+                    background: statusFilter === f.key ? planConfig.accentColor : 'var(--bg-tertiary)',
                     color: statusFilter === f.key ? '#ffffff' : f.color,
-                    border: `1px solid ${statusFilter === f.key ? 'var(--accent)' : 'var(--border)'}`
+                    border: `1px solid ${statusFilter === f.key ? planConfig.accentColor : 'var(--border)'}`
                   }}
                 >
-                  <span>
-                    {f.label}
-                  </span>
-                  <span style={{ marginLeft: '0.375rem', color: 'var(--text-secondary)' }}>
+                  <span>{f.label}</span>
+                  <span style={{ marginLeft: '0.375rem', opacity: 0.7 }}>
                     ({statusCounts[f.key as keyof typeof statusCounts]})
                   </span>
                 </button>
               ))}
-            </div>}
+            </div>
 
-            {/* Activity Table — hide in Total mode */}
-            {planType !== 'total' && <>
             {/* Activity Table */}
             <div className="glass-card rounded-xl p-5 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
-                    รายละเอียดกิจกรรม ({filteredActivities.length} รายการ)
+                  <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
+                    รายละเอียดกิจกรรม ({enhancedFilteredActivities.length} รายการ)
                   </h3>
                   {/* Filter by month */}
                   <div className="flex items-center gap-1.5">
@@ -1204,12 +1507,15 @@ export default function CompanyDrilldown() {
                   <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'var(--warning)' }}></span> แก้ไขจาก Dashboard</span>
                 </div>
               </div>
-              {filteredActivities.length > 0 ? (
+              {enhancedFilteredActivities.length > 0 ? (
                 <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                   <table className="apple-table w-full text-[13px]">
                     <thead className="sticky top-0 z-10">
                       <tr style={{ borderBottom: `1px solid var(--border)` }}>
                         <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ลำดับ</th>
+                        {planType === 'total' && (
+                          <th className="text-center py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>แผน</th>
+                        )}
                         <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
                         <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ผู้รับผิดชอบ</th>
                         {MONTH_LABELS.map((m, idx) => (
@@ -1218,7 +1524,7 @@ export default function CompanyDrilldown() {
                             className="text-center py-3 px-1 font-semibold text-[10px]"
                             style={{
                               color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
-                              background: idx === currentMonthIdx ? 'var(--accent)' : 'transparent',
+                              background: idx === currentMonthIdx ? planConfig.accentColor : 'transparent',
                               borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0'
                             }}
                           >
@@ -1228,9 +1534,22 @@ export default function CompanyDrilldown() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredActivities.map((act, i) => (
-                        <tr key={i} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
+                      {enhancedFilteredActivities.map((act, i) => (
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
+                          {planType === 'total' && (
+                            <td className="py-2.5 px-2 text-center">
+                              <span
+                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+                                style={{
+                                  background: (act as any)._planTag === 'S' ? 'rgba(255,107,53,0.15)' : 'rgba(52,199,89,0.15)',
+                                  color: (act as any)._planTag === 'S' ? '#ff6b35' : '#34c759',
+                                }}
+                              >
+                                {(act as any)._planTag === 'S' ? 'S' : 'E'}
+                              </span>
+                            </td>
+                          )}
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
                             {act.activity}
                             {/* Show postponed badge if any month has postponed_to_month */}
@@ -1290,8 +1609,9 @@ export default function CompanyDrilldown() {
                             };
                             const cfg = statusConfig[effectiveStatus];
 
-                            const attCount = attachmentCounts[`${act.no}:${k}`] || 0;
-                            const hasNote = !!noteOverrides[`${act.no}:${k}`];
+                            const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                            const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
+                            const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
 
                             return (
                               <td
@@ -1308,10 +1628,22 @@ export default function CompanyDrilldown() {
                               >
                                 <span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>
                                 {attCount > 0 && (
-                                  <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} title={`${attCount} ไฟล์แนบ`}></span>
+                                  <span
+                                    className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1"
+                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                    title={`${attCount} ไฟล์แนบ`}
+                                  >
+                                    {attCount}
+                                  </span>
                                 )}
                                 {hasNote && (
-                                  <span className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full" style={{ background: '#ff9500' }} title="มีหมายเหตุ"></span>
+                                  <span
+                                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none"
+                                    style={{ background: '#ff9500', color: '#fff' }}
+                                    title="มีหมายเหตุ"
+                                  >
+                                    ✎
+                                  </span>
                                 )}
                               </td>
                             );
@@ -1329,7 +1661,6 @@ export default function CompanyDrilldown() {
                 </div>
               )}
             </div>
-            </>}
           </>
         )}
 
