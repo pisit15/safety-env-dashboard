@@ -181,6 +181,9 @@ export default function CompanyTraining() {
   const [editingMonthPlanId, setEditingMonthPlanId] = useState<string | null>(null);
   const [loadingChanges, setLoadingChanges] = useState(false);
 
+  // Feature 7: Attendee sub-panel (separated from main modal)
+  const [showAttendeePanel, setShowAttendeePanel] = useState(false);
+
   // Feature 6: Show/hide inactive plans
   const [showHiddenPlans, setShowHiddenPlans] = useState(false);
   const [togglingPlanId, setTogglingPlanId] = useState<string | null>(null);
@@ -267,6 +270,7 @@ export default function CompanyTraining() {
     setModalSigninSubmitted(session?.signin_sheet_submitted || false);
     setModalDsdHeadcount(session?.dsd_approved_headcount || 0);
     setShowModal(true);
+    setShowAttendeePanel(false);
     if (session?.id) fetchAttendees(session.id);
     else setAttendees([]);
     // Load employee list for attendee checklist
@@ -1704,27 +1708,32 @@ export default function CompanyTraining() {
           </>
         )}
 
-        {/* Detail Modal */}
+        {/* ═══ Detail Modal — Status-Driven Form ═══ */}
         {showModal && selectedPlan && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 40, overflowY: 'auto' }}>
-            <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 700, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
               {/* Modal Header */}
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-secondary)', borderRadius: '16px 16px 0 0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text-primary)', flex: 1 }}>
-                    {selectedPlan.course_name}
-                  </h2>
-                  {selectedPlan.dsd_eligible !== false && (
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>
-                      ส่งกรมพัฒน์ได้
-                    </span>
-                  )}
+                  <div style={{ flex: 1 }}>
+                    <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                      {selectedPlan.course_name}
+                    </h2>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {selectedPlan.dsd_eligible !== false && (
+                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>DSD</span>
+                      )}
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {selectedPlan.category} • {selectedPlan.in_house_external} • {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนดเดือน'} {selectedYear}
+                        • {selectedPlan.hours_per_course} ชม. • งบ {selectedPlan.budget?.toLocaleString()} ฿
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowModal(false)} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                    <X size={18} />
+                  </button>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.5 }}>
-                  {selectedPlan.category} • {selectedPlan.in_house_external} • {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนดเดือน'} {selectedYear}
-                  • {selectedPlan.hours_per_course} ชม. • งบ {selectedPlan.budget?.toLocaleString()} ฿
-                </div>
-                {/* DSD deadline warnings */}
+                {/* DSD pre-training deadline warning */}
                 {selectedPlan.dsd_eligible !== false && modalDateStart && !modalDsdSubmitted && (() => {
                   const isInHouse = selectedPlan.in_house_external?.toLowerCase().includes('in');
                   const daysRequired = isInHouse ? 60 : 15;
@@ -1744,31 +1753,230 @@ export default function CompanyTraining() {
                 })()}
               </div>
 
-              {/* Modal Body */}
-              <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+              {/* Modal Body — Status-Driven */}
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
 
-                {/* ═══════════════ SECTION 1: การวางแผน ═══════════════ */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>📋</div>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>การวางแผน</h3>
+                {/* Step 1: Status Selection — always visible */}
+                <label style={labelStyle}>สถานะ</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 20 }}>
+                  {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                    <button key={key} onClick={() => setModalStatus(key)}
+                      style={{ padding: '7px 4px', borderRadius: 8, border: modalStatus === key ? `2px solid ${cfg.color}` : '1px solid var(--border)',
+                        background: modalStatus === key ? cfg.bg : 'transparent', color: cfg.color, fontSize: 11, cursor: 'pointer', fontWeight: modalStatus === key ? 700 : 400,
+                        transition: 'all 0.15s' }}>
+                      {cfg.icon} {cfg.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ─── STATUS: planned ─── */}
+                {modalStatus === 'planned' && (
+                  <div style={{ background: '#f9fafb', borderRadius: 10, padding: 16, border: '1px solid var(--border)', marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center' }}>
+                      <span style={{ fontSize: 20, display: 'block', marginBottom: 6 }}>📋</span>
+                      หลักสูตรนี้ยังไม่กำหนดวัน — เปลี่ยนสถานะเป็น <strong>&quot;กำหนดวันแล้ว&quot;</strong> เพื่อเริ่มวางแผน
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <label style={labelStyle}>หมายเหตุ</label>
+                      <textarea value={modalNote} onChange={e => setModalNote(e.target.value)}
+                        rows={2} placeholder="บันทึกเพิ่มเติม (ถ้ามี)" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </div>
                   </div>
+                )}
 
-                  {/* Status */}
-                  <label style={labelStyle}>สถานะ</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 16 }}>
-                    {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                      <button key={key} onClick={() => setModalStatus(key)}
-                        style={{ padding: '6px 4px', borderRadius: 6, border: modalStatus === key ? `2px solid ${cfg.color}` : '1px solid var(--border)',
-                          background: modalStatus === key ? cfg.bg : 'transparent', color: cfg.color, fontSize: 11, cursor: 'pointer', fontWeight: modalStatus === key ? 700 : 400 }}>
-                        {cfg.icon} {cfg.label}
-                      </button>
-                    ))}
+                {/* ─── STATUS: scheduled ─── */}
+                {modalStatus === 'scheduled' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={labelStyle}>วันเริ่มอบรม</label>
+                        <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วันสิ้นสุด</label>
+                        <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>ชื่อวิทยากร</label>
+                      <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)} placeholder="ระบุชื่อวิทยากร" style={inputStyle} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={labelStyle}>สถานที่อบรม</label>
+                        <input value={modalLocation} onChange={e => setModalLocation(e.target.value)} placeholder="ระบุสถานที่" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วิธีการสอน</label>
+                        <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
+                          <option value="">-- เลือก --</option>
+                          <option value="lecture">บรรยาย</option>
+                          <option value="group_activity">กิจกรรมกลุ่ม</option>
+                          <option value="workshop">ฝึกปฏิบัติ</option>
+                          <option value="elearning">E-Learning</option>
+                          <option value="onsite">On-site Training</option>
+                          <option value="mixed">ผสมผสาน</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>หมายเหตุ</label>
+                      <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="บันทึกเพิ่มเติม" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </div>
                   </div>
+                )}
 
-                  {/* Postponed month selector */}
-                  {modalStatus === 'postponed' && (
-                    <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                {/* ─── STATUS: completed ─── */}
+                {modalStatus === 'completed' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
+                    {/* Post-training deadline warning */}
+                    {selectedPlan.dsd_eligible !== false && modalDateEnd && !modalDsdReportSubmitted && (() => {
+                      const dEnd = new Date(modalDateEnd);
+                      const deadline60 = new Date(dEnd.getTime() + 60 * 24 * 60 * 60 * 1000);
+                      const jan15 = new Date(selectedYear + 1, 0, 15);
+                      const deadline = deadline60 < jan15 ? deadline60 : jan15;
+                      const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                      if (daysLeft <= 30) {
+                        return (
+                          <div style={{ background: daysLeft <= 0 ? '#fef2f2' : '#fefce8', border: `1px solid ${daysLeft <= 0 ? '#dc2626' : '#ca8a04'}`, borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
+                            <strong style={{ color: daysLeft <= 0 ? '#dc2626' : '#ca8a04' }}>
+                              {daysLeft <= 0 ? '⚠️ เลยกำหนดส่ง รง.1!' : `⏰ เหลือ ${daysLeft} วัน`}
+                            </strong>{' '}
+                            ส่ง รง.1 ภายใน 60 วันหลังอบรม (ไม่เกิน 15 ม.ค. {selectedYear + 1})
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* Dates (editable even after completion for corrections) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={labelStyle}>วันเริ่มอบรม</label>
+                        <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วันสิ้นสุด</label>
+                        <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
+                      </div>
+                    </div>
+
+                    {/* Instructor/Location/Method */}
+                    <div>
+                      <label style={labelStyle}>ชื่อวิทยากร</label>
+                      <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)} placeholder="ระบุชื่อวิทยากร" style={inputStyle} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={labelStyle}>สถานที่อบรม</label>
+                        <input value={modalLocation} onChange={e => setModalLocation(e.target.value)} placeholder="ระบุสถานที่" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วิธีการสอน</label>
+                        <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
+                          <option value="">-- เลือก --</option>
+                          <option value="lecture">บรรยาย</option>
+                          <option value="group_activity">กิจกรรมกลุ่ม</option>
+                          <option value="workshop">ฝึกปฏิบัติ</option>
+                          <option value="elearning">E-Learning</option>
+                          <option value="onsite">On-site Training</option>
+                          <option value="mixed">ผสมผสาน</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Actual Cost & Hours */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
+                        <input type="number" value={modalActualCost || ''} placeholder="ใส่ตัวเลข" onChange={e => setModalActualCost(e.target.value === '' ? 0 : Number(e.target.value))} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>ชั่วโมงอบรมจริง</label>
+                        <input type="number" value={modalActualHours || ''} placeholder="ใส่ตัวเลข" onChange={e => setModalActualHours(e.target.value === '' ? 0 : Number(e.target.value))} style={inputStyle} />
+                      </div>
+                    </div>
+
+                    {/* Attendees — summary card with open button */}
+                    <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 16px', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>👥 ผู้เข้าอบรม</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                            เลือกแล้ว <strong style={{ color: '#16a34a' }}>{attendees.length}</strong> คน
+                            {selectedPlan.planned_participants > 0 && <span> จากแผน {selectedPlan.planned_participants} คน</span>}
+                          </div>
+                        </div>
+                        <button onClick={() => setShowAttendeePanel(true)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <Users size={13} /> จัดการรายชื่อ <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* DSD Documents */}
+                    {selectedPlan.dsd_eligible !== false && (
+                      <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📋 เอกสาร DSD (รง.1)</div>
+                          {auth.isAdmin && (
+                            <button onClick={() => { setShowDsdToggleModal(true); setDsdToggleCourseName(selectedPlan.course_name); setDsdToggleValue(!selectedPlan.dsd_eligible); }}
+                              style={{ padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Eye size={10} /> {selectedPlan?.dsd_eligible ? 'เปิด' : 'ปิด'}
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <input type="checkbox" checked={modalPhotosSubmitted} onChange={e => setModalPhotosSubmitted(e.target.checked)} style={{ marginTop: 3 }} />
+                            <div style={{ flex: 1 }}>
+                              <label style={{ fontSize: 12, cursor: 'pointer' }}>ส่งภาพถ่ายระหว่างอบรม</label>
+                              <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, cursor: 'pointer' }}>
+                                <Upload size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                <input type="file" accept="image/*" multiple onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'photos')} style={{ cursor: 'pointer' }} disabled={uploading} />
+                              </label>
+                              {photoFiles.id === selectedPlan.training_sessions?.[0]?.id && photoFiles.urls.length > 0 && (
+                                <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                  {photoFiles.urls.map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'underline' }}>ไฟล์ {i + 1}</a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <input type="checkbox" checked={modalSigninSubmitted} onChange={e => setModalSigninSubmitted(e.target.checked)} style={{ marginTop: 3 }} />
+                            <div style={{ flex: 1 }}>
+                              <label style={{ fontSize: 12, cursor: 'pointer' }}>ส่งใบเซ็นชื่อลงทะเบียน</label>
+                              <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, cursor: 'pointer' }}>
+                                <Upload size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                <input type="file" accept=".pdf,.jpg,.png" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'signin')} style={{ cursor: 'pointer' }} disabled={uploading} />
+                              </label>
+                              {signinFiles.id === selectedPlan.training_sessions?.[0]?.id && signinFiles.urls.length > 0 && (
+                                <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                  {signinFiles.urls.map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'underline' }}>ไฟล์ {i + 1}</a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Note */}
+                    <div>
+                      <label style={labelStyle}>หมายเหตุ</label>
+                      <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="บันทึกเพิ่มเติม" style={{ ...inputStyle, resize: 'vertical' }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── STATUS: postponed ─── */}
+                {modalStatus === 'postponed' && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
                       <label style={{ ...labelStyle, color: '#92400e' }}>เลื่อนไปเดือนไหน? *</label>
                       <select value={modalPostponedMonth || ''} onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
                         style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}>
@@ -1783,369 +1991,226 @@ export default function CompanyTraining() {
                         </div>
                       )}
                     </div>
-                  )}
+                    <label style={labelStyle}>เหตุผลที่เลื่อน</label>
+                    <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="ระบุเหตุผล..." style={{ ...inputStyle, resize: 'vertical' }} />
+                  </div>
+                )}
 
-                  {/* Dates — only show when status is not 'planned' */}
-                  {modalStatus !== 'planned' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                      <div>
-                        <label style={labelStyle}>วันเริ่มอบรม</label>
-                        <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>วันสิ้นสุด</label>
-                        <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Instructor & Location & Method — show when scheduled or completed */}
-                  {(modalStatus === 'scheduled' || modalStatus === 'completed') && (
-                    <>
-                      <label style={labelStyle}>ชื่อวิทยากร</label>
-                      <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)}
-                        placeholder="ระบุชื่อวิทยากร"
-                        style={{ ...inputStyle, marginBottom: 12 }} />
-
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                        <div>
-                          <label style={labelStyle}>สถานที่อบรม</label>
-                          <input value={modalLocation} onChange={e => setModalLocation(e.target.value)}
-                            placeholder="ระบุสถานที่" style={inputStyle} />
-                        </div>
-                        <div>
-                          <label style={labelStyle}>วิธีการสอน</label>
-                          <select value={modalMethod} onChange={e => setModalMethod(e.target.value)} style={inputStyle}>
-                            <option value="">-- เลือก --</option>
-                            <option value="lecture">บรรยาย</option>
-                            <option value="group_activity">กิจกรรมกลุ่ม</option>
-                            <option value="workshop">ฝึกปฏิบัติ</option>
-                            <option value="elearning">E-Learning</option>
-                            <option value="onsite">On-site Training</option>
-                            <option value="mixed">ผสมผสาน</option>
-                          </select>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Note */}
-                  <label style={labelStyle}>หมายเหตุ</label>
-                  <textarea value={modalNote} onChange={e => setModalNote(e.target.value)}
-                    rows={2} style={{ ...inputStyle, marginBottom: 16, resize: 'vertical' }} />
-                </div>
-
-                {/* Save button (shared) */}
-                <button onClick={handleSaveSession} disabled={saving}
-                  style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, marginBottom: 20, opacity: saving ? 0.6 : 1, boxShadow: '0 2px 8px rgba(0,122,255,0.3)' }}>
-                  {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
-                </button>
-
-                {/* ═══════════════ SECTION 3: หลังอบรม — ผลการอบรม ═══════════════ */}
-                <div style={{ borderTop: '2px solid var(--border)', paddingTop: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: modalStatus === 'completed' ? '#dcfce7' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
-                      {modalStatus === 'completed' ? '✅' : '📝'}
-                    </div>
-                    <div>
-                      <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: modalStatus === 'completed' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>หลังอบรม — ผลการอบรม</h3>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                        {modalStatus === 'completed'
-                          ? 'บันทึกค่าใช้จ่ายจริง ชั่วโมงจริง รายชื่อผู้เข้าอบรม และเอกสารส่งกรมพัฒน์ฯ (รง.1)'
-                          : 'เปลี่ยนสถานะเป็น "อบรมแล้ว" เพื่อกรอกข้อมูล'}
-                      </div>
+                {/* ─── STATUS: cancelled ─── */}
+                {modalStatus === 'cancelled' && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px' }}>
+                      <label style={{ ...labelStyle, color: '#dc2626' }}>เหตุผลที่ยกเลิก</label>
+                      <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="ระบุเหตุผล..." style={{ ...inputStyle, resize: 'vertical', borderColor: '#fca5a5' }} />
                     </div>
                   </div>
-
-                  {modalStatus !== 'completed' && (
-                    <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '16px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13, border: '1px dashed var(--border)' }}>
-                      <div style={{ fontSize: 24, marginBottom: 6, opacity: 0.4 }}>🔒</div>
-                      เปลี่ยนสถานะเป็น <strong>&quot;อบรมแล้ว&quot;</strong> เพื่อบันทึกผลการอบรม
-                    </div>
-                  )}
-
-                  {modalStatus === 'completed' && (
-                    <>
-                      {/* Post-training deadline warning */}
-                      {selectedPlan.dsd_eligible !== false && modalDateEnd && !modalDsdReportSubmitted && (() => {
-                        const dEnd = new Date(modalDateEnd);
-                        const deadline60 = new Date(dEnd.getTime() + 60 * 24 * 60 * 60 * 1000);
-                        const jan15 = new Date(selectedYear + 1, 0, 15);
-                        const deadline = deadline60 < jan15 ? deadline60 : jan15;
-                        const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                        if (daysLeft <= 30) {
-                          return (
-                            <div style={{ background: daysLeft <= 0 ? '#fef2f2' : '#fefce8', border: `1px solid ${daysLeft <= 0 ? '#dc2626' : '#ca8a04'}`, borderRadius: 6, padding: '6px 10px', marginBottom: 16, fontSize: 11 }}>
-                              <strong style={{ color: daysLeft <= 0 ? '#dc2626' : '#ca8a04' }}>
-                                {daysLeft <= 0 ? '⚠️ เลยกำหนดส่ง รง.1!' : `⏰ เหลือ ${daysLeft} วัน`}
-                              </strong>{' '}
-                              ส่ง รง.1 ภายใน 60 วันหลังอบรม (ไม่เกิน 15 ม.ค. {selectedYear + 1})
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-
-                      {/* Actual Cost & Hours */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                        <div>
-                          <label style={labelStyle}>ค่าใช้จ่ายจริง (฿)</label>
-                          <input type="number" value={modalActualCost || ''} placeholder="ใส่ตัวเลขเท่านั้น" onChange={e => setModalActualCost(e.target.value === '' ? 0 : Number(e.target.value))} style={inputStyle} />
-                        </div>
-                        <div>
-                          <label style={labelStyle}>ชั่วโมงอบรมของหลักสูตร</label>
-                          <input type="number" value={modalActualHours || ''} placeholder="ใส่ตัวเลขเท่านั้น" onChange={e => setModalActualHours(e.target.value === '' ? 0 : Number(e.target.value))} style={inputStyle} />
-                        </div>
-                      </div>
-                      {/* DSD post-training documents checklist */}
-                      {selectedPlan.dsd_eligible !== false && (
-                        <>
-                          {/* Main document section with toggle */}
-                          <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, marginBottom: 16, border: '1px solid var(--border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📋 เอกสารส่งกรมพัฒนาฝีมือแรงงาน (รง.1)</div>
-                              {auth.isAdmin && (
-                                <button
-                                  onClick={() => {
-                                    setShowDsdToggleModal(true);
-                                    setDsdToggleCourseName(selectedPlan.course_name);
-                                    setDsdToggleValue(!selectedPlan.dsd_eligible);
-                                  }}
-                                  style={{
-                                    padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)',
-                                    background: 'var(--bg-secondary)', color: 'var(--accent)', fontSize: 10,
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                                  }}
-                                >
-                                  <Eye size={10} /> {selectedPlan?.dsd_eligible ? 'เปิด' : 'ปิด'}
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <input type="checkbox" checked={modalPhotosSubmitted} onChange={e => setModalPhotosSubmitted(e.target.checked)} style={{ marginTop: 3 }} />
-                                <div style={{ flex: 1 }}>
-                                  <label style={{ fontSize: 12, cursor: 'pointer' }}>ส่งภาพถ่ายระหว่างอบรม (ภาพหมู่ + กิจกรรม)</label>
-                                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, cursor: 'pointer' }}>
-                                    <Upload size={11} style={{ display: 'inline', marginRight: 4 }} />
-                                    <input type="file" accept="image/*" multiple onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'photos')} style={{ cursor: 'pointer' }} disabled={uploading} />
-                                  </label>
-                                  {photoFiles.id === selectedPlan.training_sessions?.[0]?.id && photoFiles.urls.length > 0 && (
-                                    <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                      {photoFiles.urls.map((url, i) => (
-                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'underline' }}>
-                                          ไฟล์ {i + 1}
-                                        </a>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <input type="checkbox" checked={modalSigninSubmitted} onChange={e => setModalSigninSubmitted(e.target.checked)} style={{ marginTop: 3 }} />
-                                <div style={{ flex: 1 }}>
-                                  <label style={{ fontSize: 12, cursor: 'pointer' }}>ส่งใบเซ็นชื่อลงทะเบียน</label>
-                                  <label style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, cursor: 'pointer' }}>
-                                    <Upload size={11} style={{ display: 'inline', marginRight: 4 }} />
-                                    <input type="file" accept=".pdf,.jpg,.png" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'signin')} style={{ cursor: 'pointer' }} disabled={uploading} />
-                                  </label>
-                                  {signinFiles.id === selectedPlan.training_sessions?.[0]?.id && signinFiles.urls.length > 0 && (
-                                    <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                      {signinFiles.urls.map((url, i) => (
-                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--accent)', textDecoration: 'underline' }}>
-                                          ไฟล์ {i + 1}
-                                        </a>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-
-
-                        </>
-                      )}
-
-                      {/* Attendees Section — Unified Checkbox List */}
-                      <div style={{ marginTop: 4 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                            👥 ผู้เข้าอบรม <span style={{ color: 'var(--success)', fontWeight: 700 }}>({attendees.length} คน)</span>
-                          </h4>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <label style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Upload size={11} /> นำเข้ารายชื่อ Excel
-                              <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
-                            </label>
-                            <button onClick={() => setShowManualEntry(!showManualEntry)}
-                              style={{ padding: '4px 10px', borderRadius: 4, border: `1px solid ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <Plus size={11} /> เพิ่มพนักงานใหม่
-                            </button>
-                          </div>
-                        </div>
-                        <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
-                          ✓ ติ๊กเลือกพนักงานที่เข้าอบรม — เอาติ๊กออกเพื่อลบออก
-                        </p>
-
-                        {/* Manual entry form */}
-                        {showManualEntry && (
-                          <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 10, border: '1px solid var(--border)', marginBottom: 8 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>เพิ่มพนักงานใหม่เข้าระบบ</div>
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                              <input placeholder="รหัสพนักงาน" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                              <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                              <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                              <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                              <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
-                              <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
-                                style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff', whiteSpace: 'nowrap' }}>
-                                {manualSaving ? '...' : '✓ เพิ่ม'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Filters */}
-                        {(() => {
-                          const departments = Array.from(new Set(companyEmployees.map(e => e.department).filter(Boolean))).sort();
-                          const positions = Array.from(new Set(
-                            companyEmployees.filter(e => !bulkFilterDept || e.department === bulkFilterDept).map(e => e.position).filter(Boolean)
-                          )).sort();
-
-                          // Build attendee lookup: emp_code → attendee record
-                          const attendeeByCode = new Map<string, Attendee>();
-                          const attendeeByName = new Map<string, Attendee>();
-                          attendees.forEach(a => {
-                            if (a.emp_code) attendeeByCode.set(a.emp_code, a);
-                            attendeeByName.set(`${a.first_name}_${a.last_name}`, a);
-                          });
-
-                          const findAttendeeFor = (emp: typeof companyEmployees[0]): Attendee | undefined => {
-                            if (emp.emp_code && attendeeByCode.has(emp.emp_code)) return attendeeByCode.get(emp.emp_code);
-                            return attendeeByName.get(`${emp.first_name}_${emp.last_name}`);
-                          };
-
-                          const filteredEmps = companyEmployees.filter(emp => {
-                            if (bulkFilterDept && emp.department !== bulkFilterDept) return false;
-                            if (bulkFilterPos && emp.position !== bulkFilterPos) return false;
-                            if (empSearch.trim()) {
-                              const q = empSearch.toLowerCase();
-                              if (!(emp.first_name || '').toLowerCase().includes(q) &&
-                                  !(emp.last_name || '').toLowerCase().includes(q) &&
-                                  !(emp.emp_code || '').toLowerCase().includes(q)) return false;
-                            }
-                            return true;
-                          });
-
-                          // Sort: attendees first, then alphabetical
-                          const sorted = [...filteredEmps].sort((a, b) => {
-                            const aIsAtt = findAttendeeFor(a) ? 1 : 0;
-                            const bIsAtt = findAttendeeFor(b) ? 1 : 0;
-                            if (aIsAtt !== bIsAtt) return bIsAtt - aIsAtt;
-                            return (a.first_name || '').localeCompare(b.first_name || '');
-                          });
-
-                          return (
-                          <>
-                            {companyEmployees.length > 0 && (
-                              <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                                <select value={bulkFilterDept} onChange={e => { setBulkFilterDept(e.target.value); setBulkFilterPos(''); }}
-                                  style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 120px', minWidth: 100 }}>
-                                  <option value="">ทุกแผนก</option>
-                                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                                <select value={bulkFilterPos} onChange={e => setBulkFilterPos(e.target.value)}
-                                  style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 120px', minWidth: 100 }}>
-                                  <option value="">ทุกตำแหน่ง</option>
-                                  {positions.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                                <input placeholder="🔍 ค้นหาชื่อ/รหัส..." value={empSearch} onChange={e => setEmpSearch(e.target.value)}
-                                  style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 150px', minWidth: 120 }} />
-                              </div>
-                            )}
-
-                            {/* Employee checklist */}
-                            {companyEmployees.length === 0 && employeesLoaded ? (
-                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>
-                                ยังไม่มีรายชื่อพนักงาน — กด &quot;นำเข้ารายชื่อ Excel&quot; หรือ &quot;เพิ่มพนักงานใหม่&quot; ด้านบน
-                              </div>
-                            ) : companyEmployees.length === 0 && !employeesLoaded ? (
-                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลดรายชื่อพนักงาน...</div>
-                            ) : loadingAttendees ? (
-                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
-                            ) : sorted.length === 0 ? (
-                              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่พบพนักงานตามเงื่อนไข</div>
-                            ) : (
-                              <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6 }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                                  <thead>
-                                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
-                                      <th style={{ padding: '6px 8px', width: 32 }}></th>
-                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
-                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ชื่อ-สกุล</th>
-                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ตำแหน่ง</th>
-                                      <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>แผนก</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {sorted.map((emp, idx) => {
-                                      const att = findAttendeeFor(emp);
-                                      const isAttendee = !!att;
-                                      const empK = `${emp.emp_code}_${emp.first_name}_${emp.last_name}`;
-                                      const isToggling = togglingEmp.has(empK);
-                                      return (
-                                        <tr key={idx} style={{
-                                          borderBottom: '1px solid var(--border)',
-                                          background: isAttendee ? '#f0fdf4' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
-                                          cursor: isToggling ? 'wait' : 'pointer',
-                                          opacity: isToggling ? 0.5 : 1,
-                                          transition: 'background 0.15s',
-                                        }}
-                                        onClick={() => {
-                                          if (isToggling) return;
-                                          handleToggleAttendee(emp, isAttendee, att?.id);
-                                        }}>
-                                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                                            <input type="checkbox" checked={isAttendee} readOnly style={{ cursor: 'pointer', accentColor: '#16a34a' }} />
-                                          </td>
-                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.emp_code || '-'}</td>
-                                          <td style={{ padding: '4px 8px', fontWeight: isAttendee ? 600 : 400 }}>
-                                            {emp.first_name} {emp.last_name}
-                                            {isAttendee && <span style={{ marginLeft: 6, fontSize: 9, color: '#16a34a', fontWeight: 700 }}>✓</span>}
-                                          </td>
-                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.position || '-'}</td>
-                                          <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.department || '-'}</td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
-                              พนักงานทั้งหมด {filteredEmps.length} คน • เข้าอบรม <b style={{ color: '#16a34a' }}>{attendees.length}</b> คน
-                            </div>
-                          </>
-                          );
-                        })()}
-                      {/* Save post-training button */}
-                      <button onClick={handleSaveSession} disabled={saving}
-                        style={{ width: '100%', padding: '10px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: saving ? 0.6 : 1, marginTop: 12 }}>
-                        {saving ? 'กำลังบันทึก...' : '💾 บันทึกผลการอบรม'}
-                      </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
               </div>
 
-              {/* Modal Footer */}
-              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0, textAlign: 'right' }}>
+              {/* Modal Footer — Contextual Save Button */}
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 10, alignItems: 'center' }}>
+                {/* Attendees shortcut for scheduled status */}
+                {modalStatus === 'scheduled' && (
+                  <button onClick={() => setShowAttendeePanel(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
+                    <Users size={13} /> ผู้เข้าอบรม ({attendees.length})
+                  </button>
+                )}
+                <div style={{ flex: 1 }} />
                 <button onClick={() => setShowModal(false)}
-                  style={{ padding: '8px 24px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>
+                  style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>
                   ปิด
+                </button>
+                <button onClick={handleSaveSession} disabled={saving}
+                  style={{
+                    padding: '8px 24px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                    opacity: saving ? 0.6 : 1, transition: 'all 0.15s',
+                    background: modalStatus === 'completed' ? '#16a34a' : modalStatus === 'cancelled' ? '#dc2626' : modalStatus === 'postponed' ? '#f59e0b' : 'var(--accent)',
+                    color: '#fff',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  }}>
+                  {saving ? 'กำลังบันทึก...' : (
+                    modalStatus === 'planned' ? '💾 บันทึก' :
+                    modalStatus === 'scheduled' ? '💾 บันทึกกำหนดการ' :
+                    modalStatus === 'completed' ? '💾 บันทึกผลอบรม' :
+                    modalStatus === 'postponed' ? '💾 บันทึกการเลื่อน' :
+                    modalStatus === 'cancelled' ? '💾 บันทึกการยกเลิก' :
+                    '💾 บันทึก'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Attendee Sub-Panel (Drawer) ═══ */}
+        {showAttendeePanel && selectedPlan && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', justifyContent: 'flex-end' }}
+            onClick={() => setShowAttendeePanel(false)}>
+            <div style={{ background: 'var(--card-solid)', width: '95%', maxWidth: 520, height: '100%', display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 30px rgba(0,0,0,0.15)' }}
+              onClick={e => e.stopPropagation()}>
+              {/* Panel Header */}
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <div>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>👥 จัดการผู้เข้าอบรม</h3>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {selectedPlan.course_name} • เลือกแล้ว <strong style={{ color: '#16a34a' }}>{attendees.length}</strong> คน
+                  </div>
+                </div>
+                <button onClick={() => setShowAttendeePanel(false)} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Panel Actions */}
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexWrap: 'wrap', flexShrink: 0 }}>
+                <label style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Upload size={11} /> นำเข้า Excel
+                  <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
+                </label>
+                <button onClick={() => setShowManualEntry(!showManualEntry)}
+                  style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Plus size={11} /> เพิ่มพนักงานใหม่
+                </button>
+              </div>
+
+              {/* Panel Body */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+                {/* Manual entry */}
+                {showManualEntry && (
+                  <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 10, border: '1px solid var(--border)', marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>เพิ่มพนักงานใหม่เข้าระบบ</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                      <input placeholder="รหัส" value={manualEmp.emp_code} onChange={e => setManualEmp(p => ({ ...p, emp_code: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 80px', minWidth: 60 }} />
+                      <input placeholder="ชื่อ *" value={manualEmp.first_name} onChange={e => setManualEmp(p => ({ ...p, first_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                      <input placeholder="นามสกุล" value={manualEmp.last_name} onChange={e => setManualEmp(p => ({ ...p, last_name: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 100px', minWidth: 80 }} />
+                      <input placeholder="ตำแหน่ง" value={manualEmp.position} onChange={e => setManualEmp(p => ({ ...p, position: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 80px', minWidth: 60 }} />
+                      <input placeholder="แผนก" value={manualEmp.department} onChange={e => setManualEmp(p => ({ ...p, department: e.target.value }))} style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 80px', minWidth: 60 }} />
+                      <button onClick={handleManualAddEmployee} disabled={manualSaving || !manualEmp.first_name.trim()}
+                        style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, fontWeight: 600, cursor: manualEmp.first_name.trim() ? 'pointer' : 'not-allowed', background: manualEmp.first_name.trim() ? 'var(--success)' : 'var(--border)', color: '#fff', whiteSpace: 'nowrap' }}>
+                        {manualSaving ? '...' : '✓ เพิ่ม'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Filters */}
+                {(() => {
+                  const departments = Array.from(new Set(companyEmployees.map(e => e.department).filter(Boolean))).sort();
+                  const positions = Array.from(new Set(
+                    companyEmployees.filter(e => !bulkFilterDept || e.department === bulkFilterDept).map(e => e.position).filter(Boolean)
+                  )).sort();
+                  const attendeeByCode = new Map<string, Attendee>();
+                  const attendeeByName = new Map<string, Attendee>();
+                  attendees.forEach(a => {
+                    if (a.emp_code) attendeeByCode.set(a.emp_code, a);
+                    attendeeByName.set(`${a.first_name}_${a.last_name}`, a);
+                  });
+                  const findAttendeeFor = (emp: typeof companyEmployees[0]): Attendee | undefined => {
+                    if (emp.emp_code && attendeeByCode.has(emp.emp_code)) return attendeeByCode.get(emp.emp_code);
+                    return attendeeByName.get(`${emp.first_name}_${emp.last_name}`);
+                  };
+                  const filteredEmps = companyEmployees.filter(emp => {
+                    if (bulkFilterDept && emp.department !== bulkFilterDept) return false;
+                    if (bulkFilterPos && emp.position !== bulkFilterPos) return false;
+                    if (empSearch.trim()) {
+                      const q = empSearch.toLowerCase();
+                      if (!(emp.first_name || '').toLowerCase().includes(q) && !(emp.last_name || '').toLowerCase().includes(q) && !(emp.emp_code || '').toLowerCase().includes(q)) return false;
+                    }
+                    return true;
+                  });
+                  const sorted = [...filteredEmps].sort((a, b) => {
+                    const aIsAtt = findAttendeeFor(a) ? 1 : 0;
+                    const bIsAtt = findAttendeeFor(b) ? 1 : 0;
+                    if (aIsAtt !== bIsAtt) return bIsAtt - aIsAtt;
+                    return (a.first_name || '').localeCompare(b.first_name || '');
+                  });
+
+                  return (
+                    <>
+                      {companyEmployees.length > 0 && (
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                          <select value={bulkFilterDept} onChange={e => { setBulkFilterDept(e.target.value); setBulkFilterPos(''); }}
+                            style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 120px', minWidth: 100 }}>
+                            <option value="">ทุกแผนก</option>
+                            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                          <select value={bulkFilterPos} onChange={e => setBulkFilterPos(e.target.value)}
+                            style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 120px', minWidth: 100 }}>
+                            <option value="">ทุกตำแหน่ง</option>
+                            {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                          <input placeholder="🔍 ค้นหาชื่อ/รหัส..." value={empSearch} onChange={e => setEmpSearch(e.target.value)}
+                            style={{ ...inputStyle, fontSize: 11, padding: '5px 8px', flex: '1 1 150px', minWidth: 120 }} />
+                        </div>
+                      )}
+
+                      {companyEmployees.length === 0 && employeesLoaded ? (
+                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>
+                          ยังไม่มีรายชื่อพนักงาน — กด &quot;นำเข้า Excel&quot; หรือ &quot;เพิ่มพนักงานใหม่&quot;
+                        </div>
+                      ) : companyEmployees.length === 0 && !employeesLoaded ? (
+                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลดรายชื่อพนักงาน...</div>
+                      ) : loadingAttendees ? (
+                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
+                      ) : sorted.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่พบพนักงานตามเงื่อนไข</div>
+                      ) : (
+                        <div style={{ border: '1px solid var(--border)', borderRadius: 6 }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                            <thead>
+                              <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                <th style={{ padding: '6px 8px', width: 32 }}></th>
+                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ชื่อ-สกุล</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ตำแหน่ง</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>แผนก</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sorted.map((emp, idx) => {
+                                const att = findAttendeeFor(emp);
+                                const isAttendee = !!att;
+                                const empK = `${emp.emp_code}_${emp.first_name}_${emp.last_name}`;
+                                const isToggling = togglingEmp.has(empK);
+                                return (
+                                  <tr key={idx} style={{
+                                    borderBottom: '1px solid var(--border)',
+                                    background: isAttendee ? '#f0fdf4' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
+                                    cursor: isToggling ? 'wait' : 'pointer', opacity: isToggling ? 0.5 : 1, transition: 'background 0.15s',
+                                  }}
+                                  onClick={() => { if (!isToggling) handleToggleAttendee(emp, isAttendee, att?.id); }}>
+                                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                      <input type="checkbox" checked={isAttendee} readOnly style={{ cursor: 'pointer', accentColor: '#16a34a' }} />
+                                    </td>
+                                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.emp_code || '-'}</td>
+                                    <td style={{ padding: '4px 8px', fontWeight: isAttendee ? 600 : 400 }}>
+                                      {emp.first_name} {emp.last_name}
+                                      {isAttendee && <span style={{ marginLeft: 6, fontSize: 9, color: '#16a34a', fontWeight: 700 }}>✓</span>}
+                                    </td>
+                                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.position || '-'}</td>
+                                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.department || '-'}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
+                        พนักงาน {filteredEmps.length} คน • เข้าอบรม <b style={{ color: '#16a34a' }}>{attendees.length}</b> คน
+                        {selectedPlan.planned_participants > 0 && <span> • แผน {selectedPlan.planned_participants} คน</span>}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Panel Footer */}
+              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0, textAlign: 'right' }}>
+                <button onClick={() => setShowAttendeePanel(false)}
+                  style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  เสร็จสิ้น ({attendees.length} คน)
                 </button>
               </div>
             </div>
