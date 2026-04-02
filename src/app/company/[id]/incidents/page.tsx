@@ -11,188 +11,23 @@ import {
   Eye, Edit2, Trash2, BarChart3, List, Clock, Download, AlertCircle,
 } from 'lucide-react';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
-import { buildLiveStats } from './types';
+import { buildLiveStats, getSevColor, getTypeBadge, getTypeColor } from './types';
+import type { Incident, SummaryData, InjuredPerson } from './types';
 import GlobalFilters from './components/GlobalFilters';
 import OverviewWorkspace from './components/OverviewWorkspace';
 import InjuryWorkspace from './components/InjuryWorkspace';
 import PropertyDamageWorkspace from './components/PropertyDamageWorkspace';
 import IncidentDrawer from './components/IncidentDrawer';
-
-// Dropdown options matching the Excel template
-const INCIDENT_TYPES = [
-  'เสียชีวิต (Fatality)', 'บาดเจ็บ - หยุดงาน > 3 วัน', 'บาดเจ็บ - หยุดงาน ≤ 3 วัน',
-  'บาดเจ็บ - ทำงานอย่างจำกัด', 'บาดเจ็บ - ไม่หยุดงาน',
-  'ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล',
-  'Near Miss', 'โรคจากการทำงาน', 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', 'สิ่งแวดล้อม',
-];
-
-const ACTUAL_SEVERITIES = [
-  'S0 ไม่ได้รับบาดเจ็บ', 'S1 ปฐมพยาบาล', 'S2 รักษาโดยแพทย์',
-  'S3 ทำงานอย่างจำกัด', 'S4 อุบัติเหตุหยุดงาน', 'S5 ทุพพลภาพ', 'S6 เสียชีวิต',
-];
-
-const PERSON_TYPES = ['พนักงานประจำ', 'พนักงานสัญญาจ้าง', 'พนักงานทดลองงาน', 'ผู้รับเหมา', 'ผู้รับเหมาช่วง', 'พนักงานชั่วคราว/รายวัน', 'นักศึกษาฝึกงาน', 'ผู้เยี่ยมชม', 'อื่นๆ'];
-
-const POTENTIAL_SEVERITIES = [
-  'P0 ไม่มีศักยภาพรุนแรงกว่านี้', 'P1 อาจถึง ปฐมพยาบาล', 'P2 อาจถึง รักษาโดยแพทย์',
-  'P3 อาจถึง หยุดงาน', 'P4 อาจถึง ทุพพลภาพถาวร', 'P5 อาจถึง เสียชีวิต', 'P6 อาจถึง เสียชีวิตหลายคน',
-];
-
-const ACTIVITIES = [
-  'ปฏิบัติงานปกติ', 'ซ่อมบำรุง', 'ทำความสะอาด', 'ตั้งเครื่อง/ปรับเครื่อง',
-  'เปลี่ยนผลัด/ส่งงาน', 'ขนย้ายวัสดุ/ยกของ', 'ขับรถ/ใช้ยานพาหนะ',
-  'ทดสอบ/ตรวจสอบ', 'ติดตั้ง/ก่อสร้าง', 'รื้อถอน', 'Rework/แก้ไขงาน',
-  'พักผ่อน', 'เดินทาง', 'เดิน/เคลื่อนที่', 'อื่นๆ',
-];
-
-const ENVIRONMENTS = [
-  'ปกติ', 'แสงสว่างไม่เพียงพอ', 'เสียงดัง', 'อุณหภูมิสูง', 'อุณหภูมิต่ำ',
-  'พื้นเปียก/ลื่น', 'ฝุ่น/ควัน/ไอระเหย', 'พื้นที่คับแคบ', 'สภาพอากาศเลว/ฝนตก',
-  'อากาศถ่ายเทไม่ดี', 'ที่สูง', 'มีสิ่งกีดขวาง', 'อื่นๆ',
-];
-
-const PROP_DMG_TYPES = [
-  'เครื่องจักร/อุปกรณ์เสียหาย', 'โครงสร้างอาคาร/ผนัง', 'ยานพาหนะเสียหาย',
-  'ผลิตภัณฑ์/วัตถุดิบ', 'ระบบไฟฟ้า/ควบคุม', 'ระบบท่อ/วาล์วรั่ว',
-  'สารเคมีรั่วไหล', 'เพลิงไหม้', 'ระเบิด', 'Safety/Interlock ขัดข้อง', 'อื่นๆ',
-];
-
-const PROD_IMPACTS = [
-  'ไม่มีผลกระทบ', 'ลดกำลังผลิต < 25%', 'ลดกำลังผลิต 25-50%',
-  'ลดกำลังผลิต > 50%', 'หยุดสายผลิต', 'หยุดทั้งโรงงาน',
-];
-
-const INSUR_CLAIMS = ['ไม่ต้องเคลม', 'อยู่ระหว่างเคลม', 'เคลมสำเร็จ', 'ไม่อนุมัติ'];
-
-const INV_LEVELS = [
-  'Level 0 บันทึกเท่านั้น', 'Level 1 ACA', 'Level 2 RCA', 'Level 3 Team Investigation',
-];
-
-const RCA_METHODS = [
-  '5 Whys', 'Fishbone/Ishikawa', 'FTA', 'SOURCE™', 'DO IT²', 'PROACT', 'TapRooT',
-  'Change Analysis', 'Barrier Analysis', 'Bow Tie', 'ไม่ได้ทำ RCA',
-];
-
-const RC_CATEGORIES = [
-  'ขั้นตอนปฏิบัติ/WI', 'การฝึกอบรม', 'การสื่อสาร', 'การจัดการ/กำกับดูแล',
-  'การออกแบบ/วิศวกรรม', 'การบำรุงรักษา', 'มาตรฐาน/ข้อกำหนด', 'การจัดซื้อ/วัสดุ',
-  'MOC', 'วัฒนธรรมความปลอดภัย', 'อุปกรณ์/เครื่องมือ', 'ทรัพยากร/งบประมาณ',
-  'สภาพแวดล้อม', 'การวางแผนงาน', 'จัดการผู้รับเหมา', 'Human Factors', 'อื่นๆ',
-];
-
-const BARRIER_FAILS = ['ไม่มี Barrier', 'ไม่เพียงพอ', 'ไม่ทำงาน (Failed)', 'ถูกข้ามไป (Bypassed)', 'ไม่เหมาะสม', 'ไม่ทราบ'];
-
-const HOC_TYPES = ['1.Elimination', '2.Substitution', '3.Engineering Controls', '4.Administrative Controls', '5.PPE'];
-
-const CA_STATUSES = ['Open', 'In Progress', 'Completed', 'Verified', 'Overdue', 'Cancelled'];
-
-const JUST_CULTURES = ['Human Error (Honest Mistake)', 'At-Risk Behavior (Drift)', 'Reckless Behavior', 'ไม่เกี่ยวกับ Human Error', 'ยังไม่ได้ประเมิน'];
-
-const NATURE_INJURIES = [
-  '0 ไม่ได้รับบาดเจ็บ', 'แผลมีดบาด / ฉีกขาด', 'แผลถูกเจาะ', 'ถลอก/ขีดข่วน',
-  'ฟกช้ำ', 'กระดูกแตก/หัก', 'เคลื่อน/หลุด', 'เส้นเอ็นฉีกขาด', 'แผลตัด/ขาด/ดึงออก',
-  'แผลไหม้จากความร้อน', 'แผลไหม้จากสารเคมี', 'แผลไหม้จากไฟฟ้า', 'ไฟฟ้าช็อต/แฟลชอาร์ค',
-  'พิษ/แพ้สารเคมี', 'ผิวหนังอักเสบ / แพ้เฉียบพลัน', 'สมองกระทบกระเทือน',
-  'บาดเจ็บภายใน', 'ปัญหาระบบหายใจ', 'สูญเสียการได้ยิน', 'ปัญหากล้ามเนื้อ', 'ช็อก/หมดสติ', 'อื่นๆ',
-];
-
-const BODY_PARTS = [
-  '0 ไม่ได้รับบาดเจ็บ', 'ศีรษะ', 'ใบหน้า', 'ตา', 'ปาก/ฟัน', 'หู', 'คอ', 'ไหล่',
-  'แขน/ศอก', 'ข้อมือ', 'มือ', 'นิ้วมือ', 'หลัง', 'หน้าอก/ซี่โครง', 'ท้อง/เอว',
-  'สะโพก', 'ขา / เข่า / น่อง', 'ข้อเท้า', 'เท้า', 'นิ้วเท้า', 'ระบบหายใจ',
-  'อวัยวะภายใน', 'หลายส่วน', 'ไม่สามารถจำแนกได้', 'ไม่ได้รับบาดเจ็บ',
-];
-
-const BODY_SIDES = ['ซ้าย', 'ขวา', 'ทั้งสองข้าง', 'ไม่ระบุ'];
-
-const INJ_SEVERITIES = [
-  'FA ปฐมพยาบาล', 'MTC รักษาโดยแพทย์', 'RW ทำงานอย่างจำกัด',
-  'LTI หยุดงาน', 'PD ทุพพลภาพถาวร', 'Fatal เสียชีวิต',
-];
-
-const TRAIN_STATUSES = ['ผ่าน-มีหลักฐาน', 'ผ่าน-ไม่มีหลักฐาน', 'ไม่ผ่าน', 'ไม่ต้องอบรม', 'ไม่ทราบ'];
-
-const CONTACT_TYPES = [
-  'กระแทก/ชนกับวัตถุหรืออุปกรณ์', 'ถูกหนีบ/ถูกกดทับ โดยเครื่องจักรหรือวัตถุ',
-  'ถูกกระแทก หรือถูกทับจากโครงสร้างที่พัง', 'วัตถุหรืออุปกรณ์ บาด/ตัด/เจาะ/ทิ่ม',
-  'ตกจากที่สูง', 'ลื่น/สะดุด/หกล้ม', 'สัมผัสสารเคมี ก๊าซพิษ',
-  'สัมผัสไฟฟ้า', 'สัมผัสของร้อน/เย็น', 'ยกของหนักเกินไป',
-  'ถูกวัตถุตก/หล่น/กระเด็นใส่', 'ยานพาหนะ/รถยก', 'อื่นๆ',
-];
-
-const AGENCY_SOURCES = [
-  'เครื่องจักร', 'เครื่องมือ (มีด , ค้อน )', 'เครื่องมือกล/ไฟฟ้า',
-  'สารเคมีและผลิตภัณฑ์เคมี', 'วัตถุ/ชิ้นส่วน', 'พื้นผิว/ทางเดิน',
-  'ยานพาหนะ', 'ไฟฟ้า', 'เศษวัสดุ ขยะ ', 'โครงสร้าง/อาคาร', 'อื่นๆ',
-];
-
-const SHIFTS = ['Day (08:00-18:00)', 'Night (20:00-08:00)', 'OT (กะกลางวัน)', 'OT (กะกลางคืน)'];
-
-// Types imported from ./types, constants still used locally for form view
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MONTH_TH: Record<string, string> = {
-  Jan: 'ม.ค.', Feb: 'ก.พ.', Mar: 'มี.ค.', Apr: 'เม.ย.', May: 'พ.ค.', Jun: 'มิ.ย.',
-  Jul: 'ก.ค.', Aug: 'ส.ค.', Sep: 'ก.ย.', Oct: 'ต.ค.', Nov: 'พ.ย.', Dec: 'ธ.ค.',
-};
-
-interface Incident {
-  id: string;
-  incident_no: string;
-  company_id: string;
-  incident_date: string;
-  incident_time?: string;
-  year: number;
-  month: string;
-  shift?: string;
-  report_date?: string;
-  reporter?: string;
-  person_type?: string;
-  department?: string;
-  work_related?: string;
-  incident_type: string;
-  actual_severity?: string;
-  potential_severity?: string;
-  injured_count?: number;
-  contact_type?: string;
-  agency_source?: string;
-  activity?: string;
-  description?: string;
-  incident_detail?: string;
-  area?: string;
-  equipment?: string;
-  environment?: string;
-  direct_cost?: number;
-  indirect_cost?: number;
-  report_status?: string;
-  [key: string]: unknown;
-}
-
-interface SummaryData {
-  summary: {
-    totalIncidents: number;
-    totalInjuries: number;
-    ltiCases: number;
-    nearMisses: number;
-    propertyDamage: number;
-    fatalities: number;
-    totalDirectCost: number;
-    totalIndirectCost: number;
-    employeeInjuries: number;
-    contractorInjuries: number;
-    employeeLti: number;
-    contractorLti: number;
-  };
-  monthlyData: Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }>;
-  severityBreakdown: Record<string, number>;
-  typeBreakdown: Record<string, number>;
-}
-
-const inputStyle = {
-  background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 10,
-  padding: '8px 12px', fontSize: 13, width: '100%', color: '#1a1a1a',
-};
-
-const selectStyle = { ...inputStyle, appearance: 'none' as const };
+import IncidentForm from './components/IncidentForm';
+import {
+  INCIDENT_TYPES,
+  MONTHS,
+  MONTH_TH,
+  NON_INJURY_TYPES,
+  INJURY_TYPES_PART,
+  inputStyle,
+  selectStyle,
+} from './constants';
 
 export default function IncidentsPage() {
   const { id } = useParams() as { id: string };
@@ -214,11 +49,8 @@ export default function IncidentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
 
-  // Form data
+  // Form data — simplified
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
-  const [saving, setSaving] = useState(false);
-  const [injuredPersons, setInjuredPersons] = useState<Record<string, unknown>[]>([]);
 
   // Man-hours data for TIFR/LTIFR
   const [manHours, setManHours] = useState<{ employee: number; contractor: number; total: number }>({ employee: 0, contractor: 0, total: 0 });
@@ -242,16 +74,6 @@ export default function IncidentsPage() {
   const [trendManhours, setTrendManhours] = useState<Record<number, number>>({});
 
   // Injured persons data for injury-specific charts
-  interface InjuredPerson {
-    incident_no: string;
-    person_type?: string;
-    injury_severity?: string;
-    nature_of_injury?: string;
-    body_part?: string;
-    body_side?: string;
-    is_lti?: string;
-    lost_work_days?: number;
-  }
   const [injuredPersonsData, setInjuredPersonsData] = useState<InjuredPerson[]>([]);
   const [injuredIncidentMap, setInjuredIncidentMap] = useState<Record<string, { year: number; work_related: string; incident_type: string }>>({});
 
@@ -487,80 +309,16 @@ export default function IncidentsPage() {
       });
   }, [viewMode, id, incidentCategory, selectedYears]);
 
-  // Form handlers
+  // Form handlers — simplified
   const openNewForm = () => {
     setEditingIncident(null);
-    setFormData({
-      company_id: id,
-      incident_date: new Date().toISOString().split('T')[0],
-      incident_type: '',
-      work_related: 'ใช่',
-      report_status: 'Draft',
-    });
-    setInjuredPersons([]);
     setViewMode('form');
   };
 
-  const openEditForm = async (incident: Incident) => {
+  const openEditForm = (incident: Incident) => {
     setEditingIncident(incident);
-    setFormData({ ...incident });
-    // Fetch injured persons for this incident
-    try {
-      const res = await fetch(`/api/incidents/injured?incident_no=${encodeURIComponent(incident.incident_no)}`);
-      const data = await res.json();
-      setInjuredPersons(data.persons || []);
-    } catch { setInjuredPersons([]); }
     setViewMode('form');
   };
-
-  const addInjuredPerson = () => {
-    setInjuredPersons(prev => [...prev, {
-      person_type: '', full_name: '', position: '', department: '', years_of_service: null,
-      training_status: '', injury_severity: '', nature_of_injury: '', body_part: '', body_side: '',
-      injury_detail: '', is_lti: 'ไม่ใช่', lost_work_days: 0, leave_start_date: '', return_to_work_date: '',
-      treatment: '', hospital: '', medical_cost: 0,
-    }]);
-  };
-
-  const updateInjuredPerson = (idx: number, key: string, value: unknown) => {
-    setInjuredPersons(prev => prev.map((p, i) => i === idx ? { ...p, [key]: value } : p));
-  };
-
-  const removeInjuredPerson = (idx: number) => {
-    setInjuredPersons(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleSave = async () => {
-    if (!formData.incident_type || !formData.incident_date) {
-      alert('กรุณากรอกวันที่และประเภทอุบัติการณ์');
-      return;
-    }
-    setSaving(true);
-    try {
-      const method = editingIncident ? 'PUT' : 'POST';
-      const payload = { ...formData, injured_persons: injuredPersons.length > 0 ? injuredPersons : undefined };
-      const res = await fetch('/api/incidents', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.error) {
-        alert(`Error: ${data.error}`);
-      } else {
-        setViewMode('list');
-        fetchList();
-      }
-    } catch {
-      alert('เกิดข้อผิดพลาด');
-    }
-    setSaving(false);
-  };
-
-  // Determine if injury-related sections should be shown based on incident_type
-  const NON_INJURY_TYPES = ['ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล', 'Near Miss', 'สิ่งแวดล้อม'];
-  const selectedType = (formData.incident_type as string) || '';
-  const showInjurySections = selectedType !== '' && !NON_INJURY_TYPES.includes(selectedType);
 
   const handleDelete = async (inc: Incident) => {
     if (!confirm(`ต้องการลบ ${inc.incident_no}?`)) return;
@@ -569,48 +327,6 @@ export default function IncidentsPage() {
       fetchList();
     } catch { /* empty */ }
   };
-
-  const updateForm = (key: string, value: unknown) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
-  };
-
-  // Severity color
-  const getSevColor = (sev: string) => {
-    if (sev?.includes('S6') || sev?.includes('เสียชีวิต')) return '#ef4444';
-    if (sev?.includes('S5') || sev?.includes('S4')) return '#f97316';
-    if (sev?.includes('S3')) return '#eab308';
-    if (sev?.includes('S2')) return '#3b82f6';
-    if (sev?.includes('S1')) return '#22c55e';
-    return '#9ca3af';
-  };
-
-  // Incident type badge color
-  const getTypeBadge = (type: string): { bg: string; color: string; border: string } => {
-    if (type?.includes('เสียชีวิต')) return { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' };
-    if (type?.includes('หยุดงาน')) return { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' };
-    if (type?.includes('ทำงานอย่างจำกัด')) return { bg: '#fefce8', color: '#ca8a04', border: '#fef08a' };
-    if (type?.includes('ไม่หยุดงาน') || type?.includes('ปฐมพยาบาล')) return { bg: '#f0f9ff', color: '#0284c7', border: '#bae6fd' };
-    if (type === 'Near Miss') return { bg: '#faf5ff', color: '#7c3aed', border: '#ddd6fe' };
-    if (type === 'ทรัพย์สินเสียหาย') return { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' };
-    return { bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' };
-  };
-
-  // Type color map for stacked chart
-  const TYPE_COLORS: Record<string, string> = {
-    'ทรัพย์สินเสียหาย': '#3b82f6',
-    'บาดเจ็บ - ไม่หยุดงาน': '#f97316',
-    'บาดเจ็บ - หยุดงาน ≤ 3 วัน': '#eab308',
-    'บาดเจ็บ - หยุดงาน > 3 วัน': '#ef4444',
-    'บาดเจ็บ - ทำงานอย่างจำกัด': '#a855f7',
-    'Near Miss': '#22c55e',
-    'เสียชีวิต (Fatality)': '#991b1b',
-    'เพลิงไหม้ (Fire)': '#dc2626',
-    'สารเคมีรั่วไหล': '#d946ef',
-    'โรคจากการทำงาน': '#64748b',
-    'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน': '#14b8a6',
-    'สิ่งแวดล้อม': '#84cc16',
-  };
-  const getTypeColor = (t: string) => TYPE_COLORS[t] || '#9ca3af';
 
   // Base incidents filtered by workRelatedOnly (for KPIs, type cards, charts)
   const baseIncidents = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
@@ -627,7 +343,6 @@ export default function IncidentsPage() {
 
   // Compute live stats from baseIncidents (respects workRelatedOnly toggle)
   const liveStats = (() => {
-    const INJURY_TYPES_PART = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
     const injuryIncidents = categoryIncidents.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p)));
     const ltiIncidents = categoryIncidents.filter(i => {
       const t = i.incident_type || '';
@@ -675,7 +390,6 @@ export default function IncidentsPage() {
   const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
 
   // Compute yearlyTrend from raw data — respects workRelatedOnly toggle
-  const INJURY_TYPES_PART_TREND = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
   const yearlyTrend = (() => {
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
@@ -694,7 +408,7 @@ export default function IncidentsPage() {
     
     return years.map(y => {
       const yInc = categoryFiltered.filter(i => i.year === y);
-      const injuries = yInc.filter(i => INJURY_TYPES_PART_TREND.some(p => (i.incident_type || '').includes(p))).length;
+      const injuries = yInc.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p))).length;
       const lti = yInc.filter(i => {
         const t = i.incident_type || '';
         return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
@@ -994,545 +708,19 @@ export default function IncidentsPage() {
               )}
             </div>
           ) : viewMode === 'form' ? (
-            /* ===================== FORM VIEW ===================== */
-            <div className="max-w-4xl">
-              <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                {/* Form Header */}
-                <div className="px-6 py-4" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-[16px] font-bold text-white">
-                        {editingIncident ? `แก้ไข ${editingIncident.incident_no}` : 'บันทึกอุบัติเหตุใหม่'}
-                      </h2>
-                      <p className="text-[12px] text-white/70 mt-0.5">{companyName}</p>
-                    </div>
-                    <button onClick={() => setViewMode('list')} className="text-white/70 hover:text-white">
-                      <X size={20} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto">
-                  {/* Section 1: Identification — Incident Type first */}
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[11px] font-bold">1</span>
-                      IDENTIFICATION
-                    </h3>
-                    {/* Incident Type — prominent selector */}
-                    <div className="mb-4 p-3 rounded-lg" style={{ background: selectedType ? '#f0fdf4' : '#fef9c3', border: `1px solid ${selectedType ? '#bbf7d0' : '#fde68a'}` }}>
-                      <label className="block text-[12px] font-bold mb-1.5" style={{ color: '#374151' }}>ประเภทอุบัติการณ์ * <span className="font-normal text-[11px]" style={{ color: '#6b7280' }}>(เลือกก่อนเพื่อแสดงฟอร์มที่เกี่ยวข้อง)</span></label>
-                      <select
-                        value={selectedType}
-                        onChange={e => {
-                          updateForm('incident_type', e.target.value);
-                          // Clear injury data if switching to non-injury type
-                          if (NON_INJURY_TYPES.includes(e.target.value)) {
-                            setInjuredPersons([]);
-                            updateForm('injured_count', 0);
-                          }
-                        }}
-                        style={{ ...selectStyle, fontSize: 14, padding: '10px 12px', fontWeight: 600, background: '#ffffff' }}
-                      >
-                        <option value="">— กรุณาเลือกประเภทอุบัติการณ์ —</option>
-                        {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      {selectedType && (
-                        <p className="mt-1.5 text-[11px]" style={{ color: showInjurySections ? '#16a34a' : '#d97706' }}>
-                          {showInjurySections
-                            ? '✓ ฟอร์มจะแสดงส่วนข้อมูลการบาดเจ็บ + Injured Person Log'
-                            : '⚡ ฟอร์มจะซ่อนส่วนข้อมูลการบาดเจ็บ (ไม่เกี่ยวข้อง)'}
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่เกิดเหตุ *</label>
-                        <input type="date" value={(formData.incident_date as string) || ''} onChange={e => updateForm('incident_date', e.target.value)} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>เวลาเกิดเหตุ</label>
-                        <input type="time" value={(formData.incident_time as string) || ''} onChange={e => updateForm('incident_time', e.target.value)} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กะการทำงาน</label>
-                        <select value={(formData.shift as string) || ''} onChange={e => updateForm('shift', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่รายงาน</label>
-                        <input type="date" value={(formData.report_date as string) || ''} onChange={e => updateForm('report_date', e.target.value)} style={inputStyle} />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ผู้รายงาน</label>
-                        <input type="text" value={(formData.reporter as string) || ''} onChange={e => updateForm('reporter', e.target.value)} style={inputStyle} placeholder="ชื่อผู้รายงาน" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 2: Who — only show for injury-related types */}
-                  {showInjurySections && (
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[11px] font-bold">2</span>
-                      WHO
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภทบุคคล</label>
-                        <select value={(formData.person_type as string) || ''} onChange={e => updateForm('person_type', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {PERSON_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>แผนก</label>
-                        <input type="text" value={(formData.department as string) || ''} onChange={e => updateForm('department', e.target.value)} style={inputStyle} placeholder="แผนก" />
-                      </div>
-                    </div>
-                  </div>
-                  )}
-
-                  {/* Section 3: What & Where */}
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[11px] font-bold">3</span>
-                      WHAT & WHERE
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>อุบัติเหตุเกี่ยวกับงาน</label>
-                        <select value={(formData.work_related as string) || 'ใช่'} onChange={e => updateForm('work_related', e.target.value)} style={selectStyle}>
-                          <option value="ใช่">ใช่</option>
-                          <option value="ไม่ใช่">ไม่ใช่</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กิจกรรมขณะเกิดเหตุ</label>
-                        <select value={(formData.activity as string) || ''} onChange={e => updateForm('activity', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {ACTIVITIES.map(a => <option key={a} value={a}>{a}</option>)}
-                        </select>
-                      </div>
-                      {showInjurySections && (
-                      <>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ความรุนแรงจริง (Actual)</label>
-                        <select value={(formData.actual_severity as string) || ''} onChange={e => updateForm('actual_severity', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {ACTUAL_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ความรุนแรงที่อาจเกิด (Potential)</label>
-                        <select value={(formData.potential_severity as string) || ''} onChange={e => updateForm('potential_severity', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {POTENTIAL_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      </>
-                      )}
-                      {showInjurySections && (
-                      <>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>จำนวนผู้บาดเจ็บ</label>
-                        <input type="number" value={(formData.injured_count as number) || 0} onChange={e => updateForm('injured_count', parseInt(e.target.value) || 0)} style={inputStyle} min={0} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>เหตุการณ์/การสัมผัส</label>
-                        <select value={(formData.contact_type as string) || ''} onChange={e => updateForm('contact_type', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>แหล่งที่มาอุบัติเหตุ</label>
-                        <select value={(formData.agency_source as string) || ''} onChange={e => updateForm('agency_source', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {AGENCY_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      </>
-                      )}
-                    </div>
-                    <div className="mt-3">
-                      <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>รายละเอียดเหตุการณ์</label>
-                      <textarea value={(formData.description as string) || ''} onChange={e => updateForm('description', e.target.value)} style={{ ...inputStyle, minHeight: 80 }} placeholder="อธิบายรายละเอียดเหตุการณ์..." />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mt-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>พื้นที่เกิดเหตุ</label>
-                        <input type="text" value={(formData.area as string) || ''} onChange={e => updateForm('area', e.target.value)} style={inputStyle} placeholder="พื้นที่/โซน" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>เครื่องจักร/อุปกรณ์</label>
-                        <input type="text" value={(formData.equipment as string) || ''} onChange={e => updateForm('equipment', e.target.value)} style={inputStyle} placeholder="เครื่องจักรที่เกี่ยวข้อง" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>สภาพแวดล้อม</label>
-                        <select value={(formData.environment as string) || ''} onChange={e => updateForm('environment', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {ENVIRONMENTS.map(e => <option key={e} value={e}>{e}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 4: Property Damage 🟣 */}
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[11px] font-bold">4</span>
-                      PROPERTY DAMAGE 🟣
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภททรัพย์สินเสียหาย</label>
-                        <select value={(formData.property_damage_type as string) || ''} onChange={e => updateForm('property_damage_type', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {PROP_DMG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>อุปกรณ์ดับเพลิงที่ใช้</label>
-                        <input type="text" value={(formData.fire_equipment_used as string) || ''} onChange={e => updateForm('fire_equipment_used', e.target.value)} style={inputStyle} placeholder="ถ้ามี" />
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>รายละเอียดความเสียหาย</label>
-                      <textarea value={(formData.property_damage_detail as string) || ''} onChange={e => updateForm('property_damage_detail', e.target.value)} style={{ ...inputStyle, minHeight: 60 }} placeholder="รายละเอียดทรัพย์สินที่เสียหาย..." />
-                    </div>
-                  </div>
-
-                  {/* Section 5: Consequence */}
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[11px] font-bold">5</span>
-                      CONSEQUENCE
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ค่าเสียหายโดยตรง (บาท)</label>
-                        <input type="number" value={(formData.direct_cost as number) || 0} onChange={e => updateForm('direct_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ค่าเสียหายทางอ้อม (บาท)</label>
-                        <input type="number" value={(formData.indirect_cost as number) || 0} onChange={e => updateForm('indirect_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ผลกระทบต่อการผลิต</label>
-                        <select value={(formData.production_impact as string) || ''} onChange={e => updateForm('production_impact', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {PROD_IMPACTS.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>สถานะเคลมประกัน</label>
-                        <select value={(formData.insurance_claim as string) || ''} onChange={e => updateForm('insurance_claim', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {INSUR_CLAIMS.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 6: Investigation */}
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-[11px] font-bold">6</span>
-                      INVESTIGATION
-                    </h3>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ระดับการสอบสวน</label>
-                        <select value={(formData.investigation_level as string) || ''} onChange={e => updateForm('investigation_level', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {INV_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่เริ่มสอบสวน</label>
-                        <input type="date" value={(formData.investigation_start_date as string) || ''} onChange={e => updateForm('investigation_start_date', e.target.value)} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>หัวหน้าทีมสอบสวน</label>
-                        <input type="text" value={(formData.investigation_lead as string) || ''} onChange={e => updateForm('investigation_lead', e.target.value)} style={inputStyle} placeholder="ชื่อหัวหน้าทีม" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>RCA Method</label>
-                        <select value={(formData.rca_method as string) || ''} onChange={e => updateForm('rca_method', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {RCA_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Root Cause Category</label>
-                        <select value={(formData.root_cause_category as string) || ''} onChange={e => updateForm('root_cause_category', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {RC_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Barrier ที่ล้มเหลว</label>
-                        <select value={(formData.barrier_failure as string) || ''} onChange={e => updateForm('barrier_failure', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {BARRIER_FAILS.map(b => <option key={b} value={b}>{b}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mt-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Immediate Cause</label>
-                        <textarea value={(formData.immediate_cause as string) || ''} onChange={e => updateForm('immediate_cause', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="สาเหตุโดยตรง" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Contributing Cause</label>
-                        <textarea value={(formData.contributing_cause as string) || ''} onChange={e => updateForm('contributing_cause', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="สาเหตุร่วม" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mt-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Root Cause Detail</label>
-                        <textarea value={(formData.root_cause_detail as string) || ''} onChange={e => updateForm('root_cause_detail', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="รายละเอียดสาเหตุราก" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Just Culture</label>
-                        <select value={(formData.just_culture as string) || ''} onChange={e => updateForm('just_culture', e.target.value)} style={selectStyle}>
-                          <option value="">เลือก</option>
-                          {JUST_CULTURES.map(j => <option key={j} value={j}>{j}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 7: Corrective Action */}
-                  <div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center text-[11px] font-bold">7</span>
-                      CORRECTIVE ACTION
-                    </h3>
-                    {/* CA 1 */}
-                    <div className="p-3 rounded-lg mb-3" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                      <p className="text-[11px] font-bold mb-2" style={{ color: '#374151' }}>Corrective Action 1</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2">
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>มาตรการแก้ไข</label>
-                          <textarea value={(formData.corrective_action_1 as string) || ''} onChange={e => updateForm('corrective_action_1', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="อธิบายมาตรการแก้ไข..." />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภท (HoC)</label>
-                          <select value={(formData.ca1_type as string) || ''} onChange={e => updateForm('ca1_type', e.target.value)} style={selectStyle}>
-                            <option value="">เลือก</option>
-                            {HOC_TYPES.map(h => <option key={h} value={h}>{h}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ผู้รับผิดชอบ</label>
-                          <input type="text" value={(formData.ca1_responsible as string) || ''} onChange={e => updateForm('ca1_responsible', e.target.value)} style={inputStyle} placeholder="ชื่อผู้รับผิดชอบ" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กำหนดเสร็จ</label>
-                          <input type="date" value={(formData.ca1_due_date as string) || ''} onChange={e => updateForm('ca1_due_date', e.target.value)} style={inputStyle} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>สถานะ</label>
-                          <select value={(formData.ca1_status as string) || ''} onChange={e => updateForm('ca1_status', e.target.value)} style={selectStyle}>
-                            <option value="">เลือก</option>
-                            {CA_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    {/* CA 2 */}
-                    <div className="p-3 rounded-lg mb-3" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                      <p className="text-[11px] font-bold mb-2" style={{ color: '#374151' }}>Corrective Action 2</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="col-span-2">
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>มาตรการแก้ไข</label>
-                          <textarea value={(formData.corrective_action_2 as string) || ''} onChange={e => updateForm('corrective_action_2', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="อธิบายมาตรการแก้ไข..." />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภท (HoC)</label>
-                          <select value={(formData.ca2_type as string) || ''} onChange={e => updateForm('ca2_type', e.target.value)} style={selectStyle}>
-                            <option value="">เลือก</option>
-                            {HOC_TYPES.map(h => <option key={h} value={h}>{h}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>ผู้รับผิดชอบ</label>
-                          <input type="text" value={(formData.ca2_responsible as string) || ''} onChange={e => updateForm('ca2_responsible', e.target.value)} style={inputStyle} placeholder="ชื่อผู้รับผิดชอบ" />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>กำหนดเสร็จ</label>
-                          <input type="date" value={(formData.ca2_due_date as string) || ''} onChange={e => updateForm('ca2_due_date', e.target.value)} style={inputStyle} />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>สถานะ</label>
-                          <select value={(formData.ca2_status as string) || ''} onChange={e => updateForm('ca2_status', e.target.value)} style={selectStyle}>
-                            <option value="">เลือก</option>
-                            {CA_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>Lessons Learned</label>
-                      <textarea value={(formData.lessons_learned as string) || ''} onChange={e => updateForm('lessons_learned', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="บทเรียนที่ได้..." />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mt-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่ปิดรายงาน</label>
-                        <input type="date" value={(formData.report_closed_date as string) || ''} onChange={e => updateForm('report_closed_date', e.target.value)} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold mb-1" style={{ color: '#6b7280' }}>สถานะรายงาน</label>
-                        <select value={(formData.report_status as string) || 'Draft'} onChange={e => updateForm('report_status', e.target.value)} style={selectStyle}>
-                          {['Draft', 'Under Review', 'Approved', 'Closed'].map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 8: Injured Person Log — only show for injury-related types */}
-                  {showInjurySections && (<div>
-                    <h3 className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#1a1a1a' }}>
-                      <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-[11px] font-bold">IP</span>
-                      INJURED PERSON LOG
-                      <span className="text-[11px] font-normal" style={{ color: '#9ca3af' }}>({injuredPersons.length} คน)</span>
-                    </h3>
-                    {injuredPersons.map((person, idx) => (
-                      <div key={idx} className="p-3 rounded-lg mb-3 relative" style={{ background: '#fff5f5', border: '1px solid #fecaca' }}>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-[11px] font-bold" style={{ color: '#dc2626' }}>ผู้บาดเจ็บที่ {idx + 1}</p>
-                          <button onClick={() => removeInjuredPerson(idx)} className="text-red-400 hover:text-red-600"><X size={14} /></button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ประเภทบุคคล</label>
-                            <select value={(person.person_type as string) || ''} onChange={e => updateInjuredPerson(idx, 'person_type', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="">เลือก</option>
-                              {PERSON_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ชื่อ-สกุล</label>
-                            <input type="text" value={(person.full_name as string) || ''} onChange={e => updateInjuredPerson(idx, 'full_name', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} placeholder="ชื่อ-สกุล" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ตำแหน่ง</label>
-                            <input type="text" value={(person.position as string) || ''} onChange={e => updateInjuredPerson(idx, 'position', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} placeholder="ตำแหน่ง" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>แผนก</label>
-                            <input type="text" value={(person.department as string) || ''} onChange={e => updateInjuredPerson(idx, 'department', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} placeholder="แผนก" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>อายุงาน (ปี)</label>
-                            <input type="number" value={(person.years_of_service as number) || ''} onChange={e => updateInjuredPerson(idx, 'years_of_service', parseFloat(e.target.value) || null)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} min={0} step={0.5} />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ผ่านการอบรม</label>
-                            <select value={(person.training_status as string) || ''} onChange={e => updateInjuredPerson(idx, 'training_status', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="">เลือก</option>
-                              {TRAIN_STATUSES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ระดับการบาดเจ็บ</label>
-                            <select value={(person.injury_severity as string) || ''} onChange={e => updateInjuredPerson(idx, 'injury_severity', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="">เลือก</option>
-                              {INJ_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ลักษณะการบาดเจ็บ</label>
-                            <select value={(person.nature_of_injury as string) || ''} onChange={e => updateInjuredPerson(idx, 'nature_of_injury', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="">เลือก</option>
-                              {NATURE_INJURIES.map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ส่วนร่างกาย</label>
-                            <select value={(person.body_part as string) || ''} onChange={e => updateInjuredPerson(idx, 'body_part', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="">เลือก</option>
-                              {BODY_PARTS.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ด้าน</label>
-                            <select value={(person.body_side as string) || ''} onChange={e => updateInjuredPerson(idx, 'body_side', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="">เลือก</option>
-                              {BODY_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>LTI?</label>
-                            <select value={(person.is_lti as string) || 'ไม่ใช่'} onChange={e => updateInjuredPerson(idx, 'is_lti', e.target.value)} style={{ ...selectStyle, fontSize: 12, padding: '6px 8px' }}>
-                              <option value="ใช่">ใช่</option>
-                              <option value="ไม่ใช่">ไม่ใช่</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันหยุดงาน (LWD)</label>
-                            <input type="number" value={(person.lost_work_days as number) || 0} onChange={e => updateInjuredPerson(idx, 'lost_work_days', parseInt(e.target.value) || 0)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} min={0} />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่เริ่มหยุด</label>
-                            <input type="date" value={(person.leave_start_date as string) || ''} onChange={e => updateInjuredPerson(idx, 'leave_start_date', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>วันที่กลับทำงาน</label>
-                            <input type="date" value={(person.return_to_work_date as string) || ''} onChange={e => updateInjuredPerson(idx, 'return_to_work_date', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>การรักษา</label>
-                            <input type="text" value={(person.treatment as string) || ''} onChange={e => updateInjuredPerson(idx, 'treatment', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} placeholder="วิธีรักษา" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>โรงพยาบาล/คลินิก</label>
-                            <input type="text" value={(person.hospital as string) || ''} onChange={e => updateInjuredPerson(idx, 'hospital', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} placeholder="ชื่อสถานพยาบาล" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>ค่ารักษา (บาท)</label>
-                            <input type="number" value={(person.medical_cost as number) || 0} onChange={e => updateInjuredPerson(idx, 'medical_cost', parseFloat(e.target.value) || 0)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px' }} min={0} />
-                          </div>
-                        </div>
-                        <div className="mt-2">
-                          <label className="block text-[10px] font-semibold mb-1" style={{ color: '#6b7280' }}>รายละเอียดบาดเจ็บ</label>
-                          <textarea value={(person.injury_detail as string) || ''} onChange={e => updateInjuredPerson(idx, 'injury_detail', e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: '6px 8px', minHeight: 40 }} placeholder="รายละเอียดเพิ่มเติม..." />
-                        </div>
-                      </div>
-                    ))}
-                    <button onClick={addInjuredPerson} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50" style={{ border: '1px dashed #fca5a5' }}>
-                      <Plus size={14} /> เพิ่มผู้บาดเจ็บ
-                    </button>
-                  </div>)}
-
-                  {/* Actions */}
-                  <div className="flex gap-3 pt-3" style={{ borderTop: '1px solid #e5e7eb' }}>
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-semibold text-white"
-                      style={{ background: saving ? '#9ca3af' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
-                    >
-                      {saving ? 'กำลังบันทึก...' : editingIncident ? 'อัปเดต' : 'บันทึก'}
-                    </button>
-                    <button
-                      onClick={() => setViewMode('list')}
-                      className="px-6 py-2.5 rounded-xl text-[13px] font-medium"
-                      style={{ color: '#6b7280', background: '#f3f4f6' }}
-                    >
-                      ยกเลิก
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            /* ===================== FORM VIEW — Use IncidentForm Component ===================== */
+            <IncidentForm
+              companyId={id}
+              companyName={companyName}
+              editingIncident={editingIncident}
+              onClose={() => setViewMode('list')}
+              onSaved={() => { setViewMode('list'); fetchList(); }}
+            />
           ) : null}
         </div>
-        {/* ===================== INCIDENT DRAWER (Extracted Component) ===================== */}
+      </main>
+
+      {/* ===================== INCIDENT DRAWER (Extracted Component) ===================== */}
         <IncidentDrawer
           open={drawerOpen}
           incident={drawerIncident}
@@ -1553,7 +741,6 @@ export default function IncidentsPage() {
             return incidents;
           })()}
         />
-      </main>
     </div>
   );
 }
