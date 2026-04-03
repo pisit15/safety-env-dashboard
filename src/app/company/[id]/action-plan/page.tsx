@@ -664,7 +664,12 @@ export default function CompanyDrilldown() {
     const actualActNo = editingCell.actNo.replace(/^[SE]:/, '');
     // Prepend completion date to note when marking done
     const finalNote = (newStatus === 'done' && completionDate)
-      ? `[ดำเนินการ: ${completionDate}] ${statusNote}`.trim()
+      ? (() => {
+          const [y, m, d] = completionDate.split('-');
+          const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          const formatted = `${d}/${monthNames[parseInt(m, 10) - 1]}/${y}`;
+          return `[ดำเนินการเสร็จ: ${formatted}] ${statusNote}`.trim();
+        })()
       : statusNote;
     setSavingStatus(true);
     try {
@@ -2774,10 +2779,21 @@ export default function CompanyDrilldown() {
                             <p className="text-xs font-semibold mb-2" style={{ color: '#16a34a' }}>บันทึกการดำเนินงาน</p>
                             <div className="space-y-2">
                               <div>
-                                <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>วันที่ดำเนินการ</label>
-                                <input type="date" value={completionDate} onChange={e => setCompletionDate(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                                  style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
+                                <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>วันที่ดำเนินการเสร็จ</label>
+                                <div className="relative">
+                                  <input type="date" value={completionDate} onChange={e => setCompletionDate(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none opacity-0 absolute inset-0 cursor-pointer"
+                                    style={{ zIndex: 2 }} />
+                                  <div className="w-full px-3 py-2 rounded-lg text-sm flex items-center justify-between"
+                                    style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }}>
+                                    <span>{completionDate ? (() => {
+                                      const [y, m, d] = completionDate.split('-');
+                                      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                                      return `${d}/${monthNames[parseInt(m, 10) - 1]}/${y}`;
+                                    })() : 'เลือกวันที่'}</span>
+                                    <span style={{ color: '#9ca3af' }}>📅</span>
+                                  </div>
+                                </div>
                               </div>
                               <p className="text-[10px]" style={{ color: '#9ca3af' }}>เพิ่มรายละเอียดเพิ่มเติมได้ที่ &quot;หมายเหตุ&quot; ด้านขวา</p>
                               <div className="flex gap-2">
