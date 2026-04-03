@@ -471,6 +471,54 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, postponedOverrides, summary?.monthlyProgress]);
 
+  // Compute effective overall status considering overrides
+  // For recurring activities, status should reflect current progress across ALL months
+  const getEffectiveOverallStatus = useCallback((act: Activity & { _planTag?: string }): ActivityStatus => {
+    // First check if ALL months are overridden to not_applicable or cancelled
+    const mStatuses = MONTH_KEYS.map(mk => getEffectiveStatus(act, mk));
+    const allNotApplicable = mStatuses.every(s => s === 'not_applicable' || s === 'not_planned');
+    if (allNotApplicable && mStatuses.some(s => s === 'not_applicable')) return 'not_applicable';
+    const allCancelled = mStatuses.every(s => s === 'cancelled' || s === 'not_planned');
+    if (allCancelled && mStatuses.some(s => s === 'cancelled')) return 'cancelled';
+
+    // Check if any month is postponed
+    const hasPostponed = mStatuses.some(s => s === 'postponed');
+    if (hasPostponed && act.status === 'postponed') return 'postponed';
+
+    // For recurring: check planned months up to current month
+    const plannedMonths = MONTH_KEYS.filter(mk => {
+      const s = getEffectiveStatus(act, mk);
+      return s !== 'not_planned';
+    });
+    if (plannedMonths.length === 0) return act.status; // fallback
+
+    const plannedUpToCurrent = MONTH_KEYS.filter((mk, idx) => {
+      if (idx > currentMonthIdx) return false;
+      const s = getEffectiveStatus(act, mk);
+      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
+    });
+    const doneUpToCurrent = plannedUpToCurrent.filter(mk => getEffectiveStatus(act, mk) === 'done');
+    const hasFutureMonths = MONTH_KEYS.some((mk, idx) => {
+      if (idx <= currentMonthIdx) return false;
+      const s = getEffectiveStatus(act, mk);
+      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
+    });
+
+    // If all planned months up to now are done BUT there are future months → not truly "done"
+    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && hasFutureMonths) {
+      return 'not_started'; // Still has work to do in future months
+    }
+    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && !hasFutureMonths) {
+      return 'done'; // All months completed
+    }
+    if (doneUpToCurrent.length > 0) {
+      return 'done'; // Partial done — keep in done category
+    }
+
+    return act.status; // fallback to original
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overrides, currentMonthIdx]);
+
   // Filter activities by status and month
   const filteredActivities = useMemo(() => {
     let list = statusFilter === 'all'
@@ -562,53 +610,6 @@ export default function CompanyDrilldown() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, postponedOverrides, summary, activeMonthKeys]);
-
-  // Compute effective overall status considering overrides
-  // For recurring activities, status should reflect current progress across ALL months
-  const getEffectiveOverallStatus = (act: Activity & { _planTag?: string }): ActivityStatus => {
-    // First check if ALL months are overridden to not_applicable or cancelled
-    const monthStatuses = MONTH_KEYS.map(mk => getEffectiveStatus(act, mk));
-    const allNotApplicable = monthStatuses.every(s => s === 'not_applicable' || s === 'not_planned');
-    if (allNotApplicable && monthStatuses.some(s => s === 'not_applicable')) return 'not_applicable';
-    const allCancelled = monthStatuses.every(s => s === 'cancelled' || s === 'not_planned');
-    if (allCancelled && monthStatuses.some(s => s === 'cancelled')) return 'cancelled';
-
-    // Check if any month is postponed
-    const hasPostponed = monthStatuses.some(s => s === 'postponed');
-    if (hasPostponed && act.status === 'postponed') return 'postponed';
-
-    // For recurring: check planned months up to current month
-    const plannedMonths = MONTH_KEYS.filter((mk, idx) => {
-      const s = getEffectiveStatus(act, mk);
-      return s !== 'not_planned';
-    });
-    if (plannedMonths.length === 0) return act.status; // fallback
-
-    const plannedUpToCurrent = MONTH_KEYS.filter((mk, idx) => {
-      if (idx > currentMonthIdx) return false;
-      const s = getEffectiveStatus(act, mk);
-      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
-    });
-    const doneUpToCurrent = plannedUpToCurrent.filter(mk => getEffectiveStatus(act, mk) === 'done');
-    const hasFutureMonths = MONTH_KEYS.some((mk, idx) => {
-      if (idx <= currentMonthIdx) return false;
-      const s = getEffectiveStatus(act, mk);
-      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
-    });
-
-    // If all planned months up to now are done BUT there are future months → not truly "done"
-    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && hasFutureMonths) {
-      return 'not_started'; // Still has work to do in future months
-    }
-    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && !hasFutureMonths) {
-      return 'done'; // All months completed
-    }
-    if (doneUpToCurrent.length > 0) {
-      return 'done'; // Partial done — keep in done category
-    }
-
-    return act.status; // fallback to original
-  };
 
   // Count statuses using effective overall status
   const statusCounts = useMemo(() => {
