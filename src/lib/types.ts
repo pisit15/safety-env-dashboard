@@ -16,6 +16,7 @@ export interface CompanyConfig {
   id: string;
   name: string;
   shortName: string;
+  fullName?: string;         // Full company name in Thai for search/display
   sheetId: string;         // Default Google Spreadsheet ID (current year)
   safetySheet: string;     // Default Sheet name for Safety Plan
   enviSheet: string;       // Default Sheet name for Environment Plan
