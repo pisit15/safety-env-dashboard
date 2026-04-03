@@ -962,17 +962,25 @@ export default function CompanyDrilldown() {
         subtitle: 'ขับเคลื่อนงานลดความเสี่ยง — ติดตาม ปิดงาน ป้องกันอุบัติเหตุ',
         accentColor: '#ff6b35',
         accentBg: 'rgba(255,107,53,0.15)',
-        kpi: { total: 'กิจกรรม Safety', done: 'ปิดงานแล้ว', notStarted: 'ยังไม่เริ่ม (เสี่ยง)', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
+        kpi: { total: 'กิจกรรม Safety', done: 'ปิดงานแล้ว', notStarted: 'เสี่ยงสูง — ยังไม่เริ่ม', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
         quickFilters: [
-          { key: 'thisMonth', label: `เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '📅' },
-          { key: 'overdue', label: 'เกินกำหนด', icon: '🔴' },
-          { key: 'notStarted', label: 'ยังไม่เริ่ม', icon: '⏳' },
+          { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
+          { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
+          { key: 'notStarted', label: '⏳ ยังไม่เริ่ม', icon: '' },
+          { key: 'noEvidence', label: '📎 หลักฐานไม่ครบ', icon: '' },
         ],
         defaultSort: 'overdue-first' as const,
-        chartTitle: '📅 Safety Timeline — ความก้าวหน้ารายเดือน',
+        chartTitle: '🛡️ Safety Execution — ความก้าวหน้ารายเดือน',
         tableTitle: 'รายละเอียดกิจกรรม Safety',
         emptyIcon: '🛡️',
         filterSummaryLabel: 'Safety',
+        statusLabels: {
+          done: '✅ ปิดงานแล้ว',
+          not_started: '⚠️ ยังไม่เริ่ม',
+          postponed: '📅 เลื่อน',
+          cancelled: '❌ ยกเลิก',
+          not_applicable: '⊘ ไม่เข้าเงื่อนไข',
+        },
       };
     } else if (planType === 'environment') {
       return {
@@ -980,17 +988,25 @@ export default function CompanyDrilldown() {
         subtitle: 'ควบคุม compliance — ติดตามใบอนุญาต รายงาน หลักฐาน',
         accentColor: '#34c759',
         accentBg: 'rgba(52,199,89,0.15)',
-        kpi: { total: 'กิจกรรม Envi', done: 'ปิดงานแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
+        kpi: { total: 'กิจกรรม Envi', done: 'ดำเนินการแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
         quickFilters: [
-          { key: 'thisMonth', label: `ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, icon: '📋' },
-          { key: 'overdue', label: 'เกินกำหนด', icon: '🔴' },
-          { key: 'noEvidence', label: 'ยังไม่แนบหลักฐาน', icon: '📎' },
+          { key: 'thisMonth', label: `📋 ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, icon: '' },
+          { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
+          { key: 'noEvidence', label: '📎 ยังไม่แนบหลักฐาน', icon: '' },
+          { key: 'postponed', label: '📅 เลื่อน', icon: '' },
         ],
         defaultSort: 'due-this-month' as const,
         chartTitle: '📋 Compliance Calendar — สถานะรายเดือน',
         tableTitle: 'รายละเอียดกิจกรรม Environment',
         emptyIcon: '🌿',
         filterSummaryLabel: 'Environment',
+        statusLabels: {
+          done: '✅ ดำเนินการแล้ว',
+          not_started: '⏳ รอดำเนินการ',
+          postponed: '📅 เลื่อน',
+          cancelled: '❌ ยกเลิก',
+          not_applicable: '⊘ ไม่เข้าเงื่อนไข',
+        },
       };
     } else {
       return {
@@ -999,12 +1015,24 @@ export default function CompanyDrilldown() {
         accentColor: 'var(--accent)',
         accentBg: 'rgba(10,132,255,0.15)',
         kpi: { total: 'กิจกรรมรวม', done: 'เสร็จแล้ว', notStarted: 'ยังไม่เริ่ม', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบรวม' },
-        quickFilters: [] as { key: string; label: string; icon: string }[],
-        defaultSort: 'default' as const,
+        quickFilters: [
+          { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
+          { key: 'overdue', label: '🔴 เกินกำหนดรวม', icon: '' },
+          { key: 'safetyOnly', label: '🛡️ เฉพาะ Safety', icon: '' },
+          { key: 'enviOnly', label: '🌿 เฉพาะ Envi', icon: '' },
+        ],
+        defaultSort: 'overdue-first' as const,
         chartTitle: '📊 Timeline — ความก้าวหน้ารายเดือน',
         tableTitle: 'รายละเอียดกิจกรรมทั้งหมด',
         emptyIcon: '📊',
         filterSummaryLabel: 'Total',
+        statusLabels: {
+          done: '✅ เสร็จแล้ว',
+          not_started: '⏳ ยังไม่เริ่ม',
+          postponed: '📅 เลื่อน',
+          cancelled: '❌ ยกเลิก',
+          not_applicable: '⊘ ไม่เข้าเงื่อนไข',
+        },
       };
     }
   }, [planType, selectedYear, currentMonthIdx]);
@@ -1012,11 +1040,14 @@ export default function CompanyDrilldown() {
   // Quick filter state
   const [quickFilter, setQuickFilter] = useState<string>('none');
 
-  // Compute overdue/thisMonth/noEvidence counts for quick filters
+  // Compute overdue/thisMonth/noEvidence/postponed/plan counts for quick filters
   const quickFilterCounts = useMemo(() => {
     let overdueCount = 0;
     let thisMonthCount = 0;
     let noEvidenceCount = 0;
+    let postponedCount = 0;
+    let safetyOnlyCount = 0;
+    let enviOnlyCount = 0;
     const curMK = MONTH_KEYS[currentMonthIdx];
     activities.forEach(act => {
       const curStatus = getEffectiveStatus(act, curMK);
@@ -1032,13 +1063,20 @@ export default function CompanyDrilldown() {
           }
         }
       });
+      // Postponed
+      if (act.status === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed')) {
+        postponedCount++;
+      }
       // No evidence: has done status but no attachment
       const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
       const hasDoneMonth = MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'done');
       const hasAnyAttachment = MONTH_KEYS.some(mk => (attachmentCounts[`${prefix}${act.no}:${mk}`] || 0) > 0);
       if (hasDoneMonth && !hasAnyAttachment) noEvidenceCount++;
+      // Plan tag counts
+      if ((act as any)._planTag === 'S') safetyOnlyCount++;
+      if ((act as any)._planTag === 'E') enviOnlyCount++;
     });
-    return { overdue: overdueCount, thisMonth: thisMonthCount, noEvidence: noEvidenceCount };
+    return { overdue: overdueCount, thisMonth: thisMonthCount, noEvidence: noEvidenceCount, postponed: postponedCount, safetyOnly: safetyOnlyCount, enviOnly: enviOnlyCount };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, currentMonthIdx, attachmentCounts]);
 
@@ -1070,6 +1108,14 @@ export default function CompanyDrilldown() {
         const hasAnyAttachment = MONTH_KEYS.some(mk => (attachmentCounts[`${prefix}${act.no}:${mk}`] || 0) > 0);
         return hasDoneMonth && !hasAnyAttachment;
       });
+    } else if (quickFilter === 'postponed') {
+      list = list.filter(act => {
+        return act.status === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed');
+      });
+    } else if (quickFilter === 'safetyOnly') {
+      list = list.filter(act => (act as any)._planTag === 'S');
+    } else if (quickFilter === 'enviOnly') {
+      list = list.filter(act => (act as any)._planTag === 'E');
     }
 
     // Default sort per tab
@@ -1348,29 +1394,45 @@ export default function CompanyDrilldown() {
         ) : (
           <>
             {/* Filter Summary Bar */}
-            <div className="px-4 py-2.5 rounded-lg mb-5 flex items-center justify-between animate-fade-in-up" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                <span style={{ color: 'var(--muted)' }}>กำลังดู:</span>
-                <span className="inline-flex items-center gap-1.5 ml-2">
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: planConfig.accentBg, color: planConfig.accentColor }}>
-                    {planConfig.filterSummaryLabel}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,149,0,0.2)', color: '#ff9500' }}>
-                    {selectedYear}
-                  </span>
-                  {timeRange !== 'year' && (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(88,86,214,0.2)', color: '#5856d6' }}>
-                      {timeRange === 'ytd' ? `ถึง ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]}
+            <div className="px-4 py-2.5 rounded-lg mb-5 flex items-center justify-between animate-fade-in-up" style={{ background: 'var(--bg-tertiary)', border: `1px solid var(--border)`, borderLeft: `3px solid ${planConfig.accentColor}` }}>
+              <span className="text-[12px] flex items-center flex-wrap gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: planConfig.accentBg, color: planConfig.accentColor }}>
+                  {planConfig.filterSummaryLabel}
+                </span>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,149,0,0.15)', color: '#ff9500' }}>
+                  {selectedYear}
+                </span>
+                <span style={{ color: 'var(--muted)' }}>•</span>
+                <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                  ถึง {MONTH_LABELS[currentMonthIdx]} (YTD)
+                </span>
+                {timeRange !== 'year' && timeRange !== 'ytd' && (
+                  <>
+                    <span style={{ color: 'var(--muted)' }}>•</span>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(88,86,214,0.15)', color: '#5856d6' }}>
+                      {MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]}
                     </span>
-                  )}
-                  {quickFilter !== 'none' && (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,59,48,0.15)', color: '#ff3b30' }}>
+                  </>
+                )}
+                {quickFilter !== 'none' && (
+                  <>
+                    <span style={{ color: 'var(--muted)' }}>•</span>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }}>
                       {planConfig.quickFilters.find(f => f.key === quickFilter)?.label || quickFilter}
                     </span>
-                  )}
-                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {enhancedFilteredActivities.length} กิจกรรม
-                  </span>
+                  </>
+                )}
+                {statusFilter !== 'all' && (
+                  <>
+                    <span style={{ color: 'var(--muted)' }}>•</span>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)' }}>
+                      {statusFilter}
+                    </span>
+                  </>
+                )}
+                <span style={{ color: 'var(--muted)' }}>→</span>
+                <span className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {enhancedFilteredActivities.length} กิจกรรม
                 </span>
               </span>
             </div>
@@ -1495,35 +1557,43 @@ export default function CompanyDrilldown() {
             {planConfig.quickFilters.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3 animate-fade-in-up">
                 <span className="text-[11px] font-medium self-center mr-1" style={{ color: 'var(--muted)' }}>โฟกัส:</span>
-                {planConfig.quickFilters.map(f => (
-                  <button
-                    key={f.key}
-                    onClick={() => setQuickFilter(quickFilter === f.key ? 'none' : f.key)}
-                    className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
-                    style={{
-                      background: quickFilter === f.key ? planConfig.accentBg : 'var(--bg-tertiary)',
-                      color: quickFilter === f.key ? planConfig.accentColor : 'var(--text-secondary)',
-                      border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
-                    }}
-                  >
-                    {f.icon} {f.label}
-                    <span className="ml-1 opacity-70">
-                      ({f.key === 'overdue' ? quickFilterCounts.overdue : f.key === 'thisMonth' ? quickFilterCounts.thisMonth : f.key === 'notStarted' ? statusCounts.not_started : f.key === 'noEvidence' ? quickFilterCounts.noEvidence : 0})
-                    </span>
-                  </button>
-                ))}
+                {planConfig.quickFilters.map(f => {
+                  const count = f.key === 'overdue' ? quickFilterCounts.overdue
+                    : f.key === 'thisMonth' ? quickFilterCounts.thisMonth
+                    : f.key === 'notStarted' ? statusCounts.not_started
+                    : f.key === 'noEvidence' ? quickFilterCounts.noEvidence
+                    : f.key === 'postponed' ? quickFilterCounts.postponed
+                    : f.key === 'safetyOnly' ? quickFilterCounts.safetyOnly
+                    : f.key === 'enviOnly' ? quickFilterCounts.enviOnly
+                    : 0;
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={() => setQuickFilter(quickFilter === f.key ? 'none' : f.key)}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                      style={{
+                        background: quickFilter === f.key ? planConfig.accentBg : 'var(--bg-tertiary)',
+                        color: quickFilter === f.key ? planConfig.accentColor : 'var(--text-secondary)',
+                        border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
+                      }}
+                    >
+                      {f.label}
+                      <span className="ml-1 opacity-70">({count})</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {/* Status Filter Tabs */}
+            {/* Status Filter Tabs — labels change per tab personality */}
             <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
               {[
                 { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)' },
-                { key: 'done', label: '✅ เสร็จแล้ว', color: 'var(--success)' },
-                { key: 'not_started', label: '⏳ ยังไม่เริ่ม', color: 'var(--warning)' },
-                { key: 'postponed', label: '📅 เลื่อน', color: 'var(--info)' },
-                { key: 'cancelled', label: '❌ ยกเลิก', color: 'var(--danger)' },
-                { key: 'not_applicable', label: '⊘ ไม่เข้าเงื่อนไข', color: 'var(--text-secondary)' },
+                { key: 'done', label: planConfig.statusLabels.done, color: 'var(--success)' },
+                { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? 'var(--danger)' : 'var(--warning)' },
+                { key: 'postponed', label: planConfig.statusLabels.postponed, color: 'var(--info)' },
+                { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: 'var(--danger)' },
+                { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: 'var(--text-secondary)' },
               ].map(f => (
                 <button
                   key={f.key}
@@ -1676,6 +1746,36 @@ export default function CompanyDrilldown() {
                                         title={overBudget ? `ใช้จริง (เกินงบ ${Math.abs(actActual - actBudget).toLocaleString()})` : 'ใช้จริง'}
                                       >
                                         {overBudget ? '⚠' : '✓'} ใช้จริง {actActual.toLocaleString()}
+                                      </span>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                              {/* Attachment & note summary badges */}
+                              {(() => {
+                                const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                                let totalAtt = 0;
+                                let totalNotes = 0;
+                                MONTH_KEYS.forEach(mk => {
+                                  totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0;
+                                  if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++;
+                                });
+                                return (
+                                  <>
+                                    {totalAtt > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                        style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}
+                                        title={`${totalAtt} ไฟล์แนบ`}
+                                      >
+                                        📎 {totalAtt}
+                                      </span>
+                                    )}
+                                    {totalNotes > 0 && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                        style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}
+                                        title={`${totalNotes} เดือนมีหมายเหตุ`}
+                                      >
+                                        ✎ {totalNotes}
                                       </span>
                                     )}
                                   </>
