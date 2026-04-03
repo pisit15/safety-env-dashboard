@@ -1942,26 +1942,33 @@ export default function CompanyTraining() {
 
         {/* ═══ Detail Modal — Status-Driven Form ═══ */}
         {showModal && selectedPlan && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 40, overflowY: 'auto' }}>
-            <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-              {/* Modal Header */}
-              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--bg-secondary)', borderRadius: '16px 16px 0 0' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 24, overflowY: 'auto' }}>
+            <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 900, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', border: '1px solid var(--border)' }}>
+              {/* Modal Header — Gradient like IncidentForm */}
+              <div style={{ padding: '16px 24px', flexShrink: 0, borderRadius: '16px 16px 0 0', background: (() => { const s = selectedPlan.training_sessions?.[0]?.status || 'planned'; return s === 'completed' ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : s === 'cancelled' ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' : s === 'postponed' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : s === 'scheduled' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'; })() }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                      {selectedPlan.course_name}
-                    </h2>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                       {selectedPlan.dsd_eligible !== false && (
-                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>DSD</span>
+                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 700 }}>DSD</span>
                       )}
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                        {selectedPlan.category} • {selectedPlan.in_house_external} • {selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนดเดือน'} {selectedYear}
-                        • {selectedPlan.hours_per_course} ชม. • งบ {selectedPlan.budget?.toLocaleString()} ฿
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
+                        {selectedPlan.category}
+                      </span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
+                        {selectedPlan.in_house_external}
                       </span>
                     </div>
+                    <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: '#fff', lineHeight: 1.4 }}>
+                      {selectedPlan.course_name}
+                    </h2>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center', fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
+                      <span>เดือน: <strong style={{ color: '#fff' }}>{selectedPlan.planned_month ? MONTH_LABELS[selectedPlan.planned_month - 1] : 'ยังไม่กำหนด'} {selectedYear}</strong></span>
+                      <span>ชั่วโมง: <strong style={{ color: '#fff' }}>{selectedPlan.hours_per_course} ชม.</strong></span>
+                      <span>งบ: <strong style={{ color: '#fff' }}>{selectedPlan.budget?.toLocaleString()} ฿</strong></span>
+                    </div>
                   </div>
-                  <button onClick={() => setShowModal(false)} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                  <button onClick={() => setShowModal(false)} style={{ padding: 8, border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', cursor: 'pointer', color: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <X size={18} />
                   </button>
                 </div>
@@ -1985,8 +1992,8 @@ export default function CompanyTraining() {
                 })()}
               </div>
 
-              {/* Modal Body — Status-Driven */}
-              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+              {/* Modal Body — Status-Driven with Numbered Sections */}
+              <div style={{ padding: '24px', overflowY: 'auto', flex: 1, maxHeight: 'calc(100vh - 200px)' }}>
 
                 {/* Cost Summary Card — always visible */}
                 {(() => {
@@ -2060,9 +2067,13 @@ export default function CompanyTraining() {
                   );
                 })()}
 
-                {/* Step 1: Status Selection — always visible */}
-                <label style={labelStyle}>สถานะ</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 20 }}>
+                {/* Section 1: Status Selection */}
+                <div style={{ marginBottom: 20 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+                  <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(59,130,246,0.1)', color: '#2563eb' }}>1</span>
+                  สถานะการอบรม
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
                   {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                     <button key={key} onClick={() => setModalStatus(key)}
                       style={{ padding: '7px 4px', borderRadius: 8, border: modalStatus === key ? `2px solid ${cfg.color}` : '1px solid var(--border)',
@@ -2072,6 +2083,13 @@ export default function CompanyTraining() {
                     </button>
                   ))}
                 </div>
+                </div>
+
+                {/* Section 2: Status Details */}
+                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+                  <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (() => { const s = modalStatus; return s === 'completed' ? 'rgba(22,163,74,0.1)' : s === 'cancelled' ? 'rgba(220,38,38,0.1)' : s === 'postponed' ? 'rgba(245,158,11,0.1)' : s === 'scheduled' ? 'rgba(59,130,246,0.1)' : 'rgba(107,114,128,0.1)'; })(), color: (() => { const s = modalStatus; return s === 'completed' ? '#16a34a' : s === 'cancelled' ? '#dc2626' : s === 'postponed' ? '#f59e0b' : s === 'scheduled' ? '#3b82f6' : '#6b7280'; })() }}>2</span>
+                  {modalStatus === 'planned' ? 'รายละเอียด' : modalStatus === 'scheduled' ? 'กำหนดการอบรม' : modalStatus === 'completed' ? 'ผลการอบรม' : modalStatus === 'postponed' ? 'รายละเอียดการเลื่อน' : modalStatus === 'cancelled' ? 'รายละเอียดการยกเลิก' : 'รายละเอียด'}
+                </h3>
 
                 {/* ─── STATUS: planned ─── */}
                 {modalStatus === 'planned' && (
@@ -2201,7 +2219,11 @@ export default function CompanyTraining() {
                       </div>
                     </div>
 
-                    {/* Attendees — summary card with open button */}
+                    {/* Section 3: Attendees */}
+                    <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+                      <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(168,85,247,0.1)', color: '#9333ea' }}>3</span>
+                      ผู้เข้าอบรม
+                    </h3>
                     <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '12px 16px', border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
@@ -2218,11 +2240,16 @@ export default function CompanyTraining() {
                       </div>
                     </div>
 
-                    {/* DSD Documents */}
+                    {/* Section 4: DSD Documents */}
                     {selectedPlan.dsd_eligible !== false && (
+                      <div>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+                        <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(249,115,22,0.1)', color: '#ea580c' }}>4</span>
+                        เอกสาร DSD (รง.1)
+                      </h3>
                       <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📋 เอกสาร DSD (รง.1)</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📋 รายการเอกสาร</div>
                           {auth.isAdmin && (
                             <button onClick={() => { setShowDsdToggleModal(true); setDsdToggleCourseName(selectedPlan.course_name); setDsdToggleValue(!selectedPlan.dsd_eligible); }}
                               style={{ padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2267,9 +2294,14 @@ export default function CompanyTraining() {
                           </div>
                         </div>
                       </div>
+                      </div>
                     )}
 
-                    {/* Note */}
+                    {/* Section 5: Note */}
+                    <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
+                      <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{selectedPlan.dsd_eligible !== false ? '5' : '4'}</span>
+                      หมายเหตุ
+                    </h3>
                     <div>
                       <label style={labelStyle}>หมายเหตุ</label>
                       <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="บันทึกเพิ่มเติม" style={{ ...inputStyle, resize: 'vertical' }} />
@@ -2311,32 +2343,32 @@ export default function CompanyTraining() {
                 )}
               </div>
 
-              {/* Modal Footer — Contextual Save Button */}
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 10, alignItems: 'center' }}>
+              {/* Modal Footer — Styled like IncidentForm */}
+              <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', gap: 10, alignItems: 'center', background: 'var(--bg-secondary)' }}>
                 {/* Attendees shortcut for scheduled status */}
                 {modalStatus === 'scheduled' && (
                   <button onClick={() => setShowAttendeePanel(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
-                    <Users size={13} /> ผู้เข้าอบรม ({attendees.length})
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>
+                    <Users size={14} /> ผู้เข้าอบรม ({attendees.length})
                   </button>
                 )}
                 <div style={{ flex: 1 }} />
                 <button onClick={() => setShowModal(false)}
-                  style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13 }}>
-                  ปิด
+                  style={{ padding: '9px 22px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 13, fontWeight: 500, transition: 'all 0.15s' }}>
+                  ยกเลิก
                 </button>
                 <button onClick={handleSaveSession} disabled={saving}
                   style={{
-                    padding: '8px 24px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                    padding: '9px 28px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
                     opacity: saving ? 0.6 : 1, transition: 'all 0.15s',
-                    background: modalStatus === 'completed' ? '#16a34a' : modalStatus === 'cancelled' ? '#dc2626' : modalStatus === 'postponed' ? '#f59e0b' : 'var(--accent)',
+                    background: modalStatus === 'completed' ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : modalStatus === 'cancelled' ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' : modalStatus === 'postponed' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : modalStatus === 'scheduled' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
                     color: '#fff',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                   }}>
                   {saving ? 'กำลังบันทึก...' : (
                     modalStatus === 'planned' ? '💾 บันทึก' :
                     modalStatus === 'scheduled' ? '💾 บันทึกกำหนดการ' :
-                    modalStatus === 'completed' ? '💾 บันทึกผลอบรม' :
+                    modalStatus === 'completed' ? '✓ บันทึกผลอบรม' :
                     modalStatus === 'postponed' ? '💾 บันทึกการเลื่อน' :
                     modalStatus === 'cancelled' ? '💾 บันทึกการยกเลิก' :
                     '💾 บันทึก'
