@@ -93,6 +93,10 @@ export default function CompanyDrilldown() {
   const [statusNote, setStatusNote] = useState('');
   const [pendingPostpone, setPendingPostpone] = useState(false);
   const [postponeMonth, setPostponeMonth] = useState('');
+  const [pendingDone, setPendingDone] = useState(false);
+  const [completionDate, setCompletionDate] = useState('');
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Sort state
   const [sortMonth, setSortMonth] = useState<string>('none');
@@ -648,11 +652,22 @@ export default function CompanyDrilldown() {
       return;
     }
 
+    // If "เสร็จแล้ว" is selected but completion form not shown yet, show it
+    if (newStatus === 'done' && !pendingDone) {
+      setPendingDone(true);
+      setCompletionDate(new Date().toISOString().split('T')[0]);
+      return;
+    }
+
     // Determine actual planType for total mode
     const actualPlanType = planType === 'total'
       ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
       : planType;
     const actualActNo = editingCell.actNo.replace(/^[SE]:/, '');
+    // Prepend completion date to note when marking done
+    const finalNote = (newStatus === 'done' && completionDate)
+      ? `[ดำเนินการ: ${completionDate}] ${statusNote}`.trim()
+      : statusNote;
     setSavingStatus(true);
     try {
       const payload: Record<string, unknown> = {
@@ -661,7 +676,7 @@ export default function CompanyDrilldown() {
         activityNo: actualActNo,
         month: editingCell.month,
         status: newStatus,
-        note: statusNote,
+        note: finalNote,
         updatedBy: loginDisplayName || loginCompanyName,
       };
 
@@ -678,7 +693,7 @@ export default function CompanyDrilldown() {
       // Update local state
       const key = `${editingCell.actNo}:${editingCell.month}`;
       setOverrides(prev => ({ ...prev, [key]: newStatus }));
-      setNoteOverrides(prev => ({ ...prev, [key]: statusNote }));
+      setNoteOverrides(prev => ({ ...prev, [key]: finalNote }));
 
       // Update postponed overrides
       if (newStatus === 'postponed' && postponeMonth) {
@@ -696,6 +711,8 @@ export default function CompanyDrilldown() {
       setStatusNote('');
       setPendingPostpone(false);
       setPostponeMonth('');
+      setPendingDone(false);
+      setCompletionDate('');
     } catch {
       alert('บันทึกไม่สำเร็จ');
     }
@@ -945,6 +962,93 @@ export default function CompanyDrilldown() {
   };
 
   // Delete attachment
+  // Bulk: mark all planned/overdue activities as done for current month
+  const handleBulkDoneCurrentMonth = async () => {
+    const currentMonth = MONTH_KEYS[currentMonthIdx];
+    const targetActs = enhancedFilteredActivities.filter((act: Activity & { _planTag?: string }) => {
+      const status = getEffectiveStatus(act, currentMonth);
+      return status === 'planned' || status === 'overdue';
+    });
+    if (targetActs.length === 0) { alert('ไม่มีกิจกรรมที่ต้องปิดงาน'); return; }
+    if (!confirm(`ยืนยันปิดงาน ${targetActs.length} กิจกรรมในเดือน ${MONTH_LABELS[currentMonthIdx]}?`)) return;
+    setBulkProcessing(true);
+    let count = 0;
+    for (const act of targetActs) {
+      const tag = (act as any)._planTag as string | undefined;
+      const actualPlanType = planType === 'total'
+        ? (tag === 'S' ? 'safety' : tag === 'E' ? 'environment' : planType)
+        : planType;
+      const actualActNo = planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no;
+      try {
+        await fetch('/api/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId,
+            planType: actualPlanType,
+            activityNo: actualActNo,
+            month: currentMonth,
+            status: 'done',
+            note: `[Bulk close: ${new Date().toISOString().split('T')[0]}]`,
+            updatedBy: loginDisplayName || loginCompanyName,
+          }),
+        });
+        const prefix = tag ? `${tag}:` : '';
+        const key = `${prefix}${act.no}:${currentMonth}`;
+        setOverrides(prev => ({ ...prev, [key]: 'done' }));
+        count++;
+      } catch { /* skip failed */ }
+    }
+    setBulkProcessing(false);
+    alert(`ปิดงานแล้ว ${count}/${targetActs.length} กิจกรรม`);
+  };
+
+  // Bulk: copy notes from previous month to current month for recurring activities
+  const handleBulkCopyNotes = async () => {
+    if (currentMonthIdx === 0) { alert('ไม่มีเดือนก่อนหน้า'); return; }
+    const prevMonth = MONTH_KEYS[currentMonthIdx - 1];
+    const currentMonth = MONTH_KEYS[currentMonthIdx];
+    const targetActs = enhancedFilteredActivities.filter((act: Activity & { _planTag?: string }) => {
+      const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+      const prevKey = `${prefix}${act.no}:${prevMonth}`;
+      const curKey = `${prefix}${act.no}:${currentMonth}`;
+      return noteOverrides[prevKey] && !noteOverrides[curKey] && act.isRecurring;
+    });
+    if (targetActs.length === 0) { alert('ไม่พบกิจกรรมที่ต้องคัดลอก note'); return; }
+    if (!confirm(`คัดลอก note จาก ${MONTH_LABELS[currentMonthIdx - 1]} → ${MONTH_LABELS[currentMonthIdx]} สำหรับ ${targetActs.length} กิจกรรม?`)) return;
+    setBulkProcessing(true);
+    let count = 0;
+    for (const act of targetActs) {
+      const tag = (act as any)._planTag as string | undefined;
+      const prefix = tag ? `${tag}:` : '';
+      const prevKey = `${prefix}${act.no}:${prevMonth}`;
+      const prevNote = noteOverrides[prevKey];
+      const actualPlanType = planType === 'total'
+        ? (tag === 'S' ? 'safety' : tag === 'E' ? 'environment' : planType)
+        : planType;
+      const actualActNo = planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no;
+      try {
+        await fetch('/api/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId,
+            planType: actualPlanType,
+            activityNo: actualActNo,
+            month: currentMonth,
+            note: prevNote,
+            updatedBy: loginDisplayName || loginCompanyName,
+          }),
+        });
+        const curKey = `${prefix}${act.no}:${currentMonth}`;
+        setNoteOverrides(prev => ({ ...prev, [curKey]: prevNote }));
+        count++;
+      } catch { /* skip */ }
+    }
+    setBulkProcessing(false);
+    alert(`คัดลอก note แล้ว ${count}/${targetActs.length} กิจกรรม`);
+  };
+
   const handleDeleteAttachment = async (attId: string) => {
     if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
     setDeletingAttId(attId);
@@ -1870,6 +1974,33 @@ export default function CompanyDrilldown() {
                   </button>
                 </div>
               </div>
+              {/* Bulk Actions Toolbar */}
+              {enhancedFilteredActivities.length > 0 && (
+                <div className="mb-3">
+                  <button
+                    onClick={() => setShowBulkActions(!showBulkActions)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{ background: showBulkActions ? 'rgba(99,102,241,0.1)' : 'var(--bg-hover)', color: showBulkActions ? '#6366f1' : 'var(--text-secondary)', border: showBulkActions ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--border)' }}
+                  >
+                    ⚡ Bulk Actions {showBulkActions ? '▲' : '▼'}
+                  </button>
+                  {showBulkActions && (
+                    <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                      <button onClick={handleBulkDoneCurrentMonth} disabled={bulkProcessing}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                        style={{ background: '#16a34a', color: '#fff', opacity: bulkProcessing ? 0.5 : 1 }}>
+                        ✓ ปิดงานเดือน {MONTH_LABELS[currentMonthIdx]} ทั้งหมด
+                      </button>
+                      <button onClick={handleBulkCopyNotes} disabled={bulkProcessing || currentMonthIdx === 0}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                        style={{ background: '#8b5cf6', color: '#fff', opacity: bulkProcessing || currentMonthIdx === 0 ? 0.5 : 1 }}>
+                        📋 คัดลอก note จาก {currentMonthIdx > 0 ? MONTH_LABELS[currentMonthIdx - 1] : '...'} → {MONTH_LABELS[currentMonthIdx]}
+                      </button>
+                      {bulkProcessing && <span className="text-xs animate-pulse" style={{ color: '#6b7280' }}>กำลังดำเนินการ...</span>}
+                    </div>
+                  )}
+                </div>
+              )}
               {enhancedFilteredActivities.length > 0 ? (
                 <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                   <table className="apple-table w-full text-[13px]">
@@ -1920,6 +2051,7 @@ export default function CompanyDrilldown() {
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
                             <div>{act.activity}</div>
                             <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {(() => { if (act.isConditional) return null; const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue'); if (overdueMonths.length === 0) return null; const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', '); return (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }} title={`เกินกำหนด: ${labels} — ยังไม่มีผลดำเนินการ`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#ff3b30' }} />เกินกำหนด: {labels}</span>); })()}
                               {(() => { const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : ''; const postponedEntry = MONTH_KEYS.find(mk => { const key = `${prefix}${act.no}:${mk}`; return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done'); }); if (postponedEntry) { const key = `${prefix}${act.no}:${postponedEntry}`; const targetMonth = postponedOverrides[key]; return (<span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}>เลื่อน → {MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)]}</span>); } return null; })()}
                               {(() => { const bKey = `${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`; const actBudget = act.budget || 0; const actActual = budgetOverrides[bKey]?.actual_cost || 0; if (actBudget <= 0 && actActual <= 0) return null; return (<>{actBudget > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--text-secondary)' }}>💰 {actBudget.toLocaleString()}</span>}{actActual > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: actActual > actBudget && actBudget > 0 ? 'rgba(255,59,48,0.12)' : 'rgba(52,199,89,0.12)', color: actActual > actBudget && actBudget > 0 ? 'var(--danger)' : 'var(--success)' }}>✓ ใช้จริง {actActual.toLocaleString()}</span>}</>); })()}
                               {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); let totalAtt = 0; let totalNotes = 0; MONTH_KEYS.forEach(mk => { totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0; if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++; }); return (<>{totalAtt > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}>📎 {totalAtt}</span>}{totalNotes > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>✎ {totalNotes}</span>}</>); })()}
@@ -1950,6 +2082,7 @@ export default function CompanyDrilldown() {
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
                             <div>{act.activity}</div>
                             <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {(() => { if (act.isConditional) return null; const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue'); if (overdueMonths.length === 0) return null; const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', '); return (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }} title={`เกินกำหนด: ${labels} — ยังไม่มีผลดำเนินการ`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#ff3b30' }} />เกินกำหนด: {labels}</span>); })()}
                               {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); const actKey = `${prefix}${act.no}`; const indicator = evidenceIndicators[actKey]; if (indicator === 'attached') return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(52,199,89,0.12)', color: '#34c759' }}>✓ แนบแล้ว</span>); if (indicator === 'missing') return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold animate-pulse" style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }}>⚠ รอหลักฐาน</span>); if (indicator === 'required') return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>📋 ต้องใช้หลักฐาน</span>); return null; })()}
                               {(() => { const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : ''; const postponedEntry = MONTH_KEYS.find(mk => { const key = `${prefix}${act.no}:${mk}`; return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done'); }); if (postponedEntry) { const key = `${prefix}${act.no}:${postponedEntry}`; const targetMonth = postponedOverrides[key]; return (<span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}>เลื่อน → {MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)]}</span>); } return null; })()}
                               {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); let totalAtt = 0; let totalNotes = 0; MONTH_KEYS.forEach(mk => { totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0; if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++; }); return (<>{totalAtt > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}>📎 {totalAtt}</span>}{totalNotes > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>✎ {totalNotes}</span>}</>); })()}
@@ -1979,8 +2112,23 @@ export default function CompanyDrilldown() {
                           )}
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
                             <div>{act.activity}</div>
-                            {/* Badges row: postponed + budget */}
+                            {/* Badges row: overdue + postponed + budget */}
                             <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {/* Overdue explanation badge */}
+                              {(() => {
+                                if (act.isConditional) return null;
+                                const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue');
+                                if (overdueMonths.length === 0) return null;
+                                const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                    style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}
+                                    title={`เกินกำหนด: ${labels} — ยังไม่มีผลดำเนินการ`}>
+                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#ff3b30' }} />
+                                    เกินกำหนด: {labels}
+                                  </span>
+                                );
+                              })()}
                               {/* Postponed badge */}
                               {(() => {
                                 const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
@@ -2390,7 +2538,7 @@ export default function CompanyDrilldown() {
           const budgetPctUsed = modalBudget > 0 ? Math.round(((parseFloat(editingActualCost) || modalActualCost) / modalBudget) * 100) : 0;
           const isOverBudget = budgetPctUsed > 100;
           const modalResponsible = modalAct ? getEffectiveResponsible(modalAct as Activity & { _planTag?: string }) : '-';
-          const closeModal = () => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); setEditingActualCost(''); };
+          const closeModal = () => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); setPendingDone(false); setCompletionDate(''); setEditingActualCost(''); };
 
           return (
           <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={closeModal}>
@@ -2522,6 +2670,31 @@ export default function CompanyDrilldown() {
                             );
                           })}
                         </div>
+
+                        {/* Completion Sub-Panel (when marking done) */}
+                        {pendingDone && (
+                          <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(52,199,89,0.06)', border: '1px solid rgba(52,199,89,0.3)' }}>
+                            <p className="text-xs font-semibold mb-2" style={{ color: '#16a34a' }}>บันทึกการดำเนินงาน</p>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>วันที่ดำเนินการ</label>
+                                <input type="date" value={completionDate} onChange={e => setCompletionDate(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                                  style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
+                              </div>
+                              <p className="text-[10px]" style={{ color: '#9ca3af' }}>เพิ่มรายละเอียดเพิ่มเติมได้ที่ &quot;หมายเหตุ&quot; ด้านขวา</p>
+                              <div className="flex gap-2">
+                                <button onClick={() => { setPendingDone(false); setCompletionDate(''); }}
+                                  className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                                <button onClick={() => handleSaveStatus('done' as MonthStatus)} disabled={!completionDate || savingStatus}
+                                  className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                                  style={{ background: '#16a34a', color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1 }}>
+                                  {savingStatus ? 'กำลังบันทึก...' : '✓ ยืนยันเสร็จแล้ว'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Postpone Month Picker */}
                         {pendingPostpone && (
