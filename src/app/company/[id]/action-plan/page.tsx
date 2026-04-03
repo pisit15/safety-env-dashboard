@@ -472,50 +472,37 @@ export default function CompanyDrilldown() {
   }, [activities, overrides, postponedOverrides, summary?.monthlyProgress]);
 
   // Compute effective overall status considering overrides
-  // For recurring activities, status should reflect current progress across ALL months
+  // Logic: count all planned months (excluding not_planned/cancelled/not_applicable)
+  // If ALL done → 'done'. If some done but work remains → 'not_started'. If none done → fallback.
   const getEffectiveOverallStatus = useCallback((act: Activity & { _planTag?: string }): ActivityStatus => {
-    // First check if ALL months are overridden to not_applicable or cancelled
     const mStatuses = MONTH_KEYS.map(mk => getEffectiveStatus(act, mk));
+
+    // Check if ALL months are not_applicable or cancelled
     const allNotApplicable = mStatuses.every(s => s === 'not_applicable' || s === 'not_planned');
     if (allNotApplicable && mStatuses.some(s => s === 'not_applicable')) return 'not_applicable';
     const allCancelled = mStatuses.every(s => s === 'cancelled' || s === 'not_planned');
     if (allCancelled && mStatuses.some(s => s === 'cancelled')) return 'cancelled';
 
-    // Check if any month is postponed
-    const hasPostponed = mStatuses.some(s => s === 'postponed');
-    if (hasPostponed && act.status === 'postponed') return 'postponed';
-
-    // For recurring: check planned months up to current month
-    const plannedMonths = MONTH_KEYS.filter(mk => {
+    // Count active planned months (excludes not_planned, cancelled, not_applicable)
+    const activePlannedMonths = MONTH_KEYS.filter(mk => {
       const s = getEffectiveStatus(act, mk);
-      return s !== 'not_planned';
+      return s !== 'not_planned' && s !== 'cancelled' && s !== 'not_applicable';
     });
-    if (plannedMonths.length === 0) return act.status; // fallback
+    if (activePlannedMonths.length === 0) return act.status; // no active plan
 
-    const plannedUpToCurrent = MONTH_KEYS.filter((mk, idx) => {
-      if (idx > currentMonthIdx) return false;
-      const s = getEffectiveStatus(act, mk);
-      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
-    });
-    const doneUpToCurrent = plannedUpToCurrent.filter(mk => getEffectiveStatus(act, mk) === 'done');
-    const hasFutureMonths = MONTH_KEYS.some((mk, idx) => {
-      if (idx <= currentMonthIdx) return false;
-      const s = getEffectiveStatus(act, mk);
-      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
-    });
+    // Count done months out of all active planned months
+    const doneMonths = activePlannedMonths.filter(mk => getEffectiveStatus(act, mk) === 'done');
 
-    // If all planned months up to now are done BUT there are future months → not truly "done"
-    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && hasFutureMonths) {
-      return 'not_started'; // Still has work to do in future months
-    }
-    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && !hasFutureMonths) {
-      return 'done'; // All months completed
-    }
-    if (doneUpToCurrent.length > 0) {
-      return 'done'; // Partial done — keep in done category
-    }
+    // ALL active planned months are done → truly done
+    if (doneMonths.length >= activePlannedMonths.length) return 'done';
 
-    return act.status; // fallback to original
+    // Has any postponed month → postponed
+    const hasPostponed = activePlannedMonths.some(mk => getEffectiveStatus(act, mk) === 'postponed');
+    if (hasPostponed) return 'postponed';
+
+    // Some done but NOT all → still has work, keep as not_started
+    // (even with partial progress, activity is not finished)
+    return 'not_started';
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overrides, currentMonthIdx]);
 
@@ -717,7 +704,12 @@ export default function CompanyDrilldown() {
     if (!editingCell) return;
     setSavingStatus(true);
     try {
-      await fetch(`/api/status?companyId=${companyId}&planType=${planType}&activityNo=${editingCell.actNo}&month=${editingCell.month}`, {
+      // In Total mode, derive actual planType from the S:/E: prefix
+      const actualPlanType = planType === 'total'
+        ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const actualActNo = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
+      await fetch(`/api/status?companyId=${companyId}&planType=${actualPlanType}&activityNo=${actualActNo}&month=${editingCell.month}`, {
         method: 'DELETE',
       });
       setOverrides(prev => {
@@ -782,13 +774,18 @@ export default function CompanyDrilldown() {
     if (!editingResponsible || !newResponsible.trim()) return;
     setSavingStatus(true);
     try {
+      // In Total mode, derive actual planType from S:/E: prefix
+      const actualPlanType = planType === 'total'
+        ? (editingResponsible.actNo.startsWith('S:') ? 'safety' : editingResponsible.actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const actualActNo = planType === 'total' ? editingResponsible.actNo.replace(/^[SE]:/, '') : editingResponsible.actNo;
       await fetch('/api/responsible', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
-          planType,
-          activityNo: editingResponsible.actNo,
+          planType: actualPlanType,
+          activityNo: actualActNo,
           responsible: newResponsible.trim(),
           updatedBy: loginDisplayName || loginCompanyName,
         }),
@@ -835,11 +832,16 @@ export default function CompanyDrilldown() {
   const fetchAttachments = async (actNo: string, month: string) => {
     setLoadingAttachments(true);
     try {
-      const res = await fetch(`/api/attachments?companyId=${companyId}&planType=${planType}&activityNo=${actNo}&month=${month}`);
+      // In Total mode, derive actual planType from S:/E: prefix
+      const pt = planType === 'total'
+        ? (actNo.startsWith('S:') ? 'safety' : actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const an = planType === 'total' ? actNo.replace(/^[SE]:/, '') : actNo;
+      const res = await fetch(`/api/attachments?companyId=${companyId}&planType=${pt}&activityNo=${an}&month=${month}`);
       const data = await res.json();
       const atts = data.attachments || [];
       setAttachments(atts);
-      // Update count for cell indicator
+      // Update count for cell indicator (keep prefixed key for matching)
       setAttachmentCounts(prev => ({
         ...prev,
         [`${actNo}:${month}`]: atts.length,
@@ -854,7 +856,12 @@ export default function CompanyDrilldown() {
   const checkDeadlineLock = async (actNo: string, month: string) => {
     setCheckingLock(true);
     try {
-      const res = await fetch(`/api/deadlines?month=${month}&companyId=${companyId}&planType=${planType}&activityNo=${actNo}`);
+      // In Total mode, derive actual planType
+      const dlPt = planType === 'total'
+        ? (actNo.startsWith('S:') ? 'safety' : actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const dlAn = planType === 'total' ? actNo.replace(/^[SE]:/, '') : actNo;
+      const res = await fetch(`/api/deadlines?month=${month}&companyId=${companyId}&planType=${dlPt}&activityNo=${dlAn}`);
       const data = await res.json();
       setDeadlineLocked(data.isLocked || false);
       setHasApproval(data.hasApproval || false);
@@ -906,10 +913,15 @@ export default function CompanyDrilldown() {
     setUploadingFile(true);
     try {
       const formData = new FormData();
+      // In Total mode, derive actual planType from S:/E: prefix
+      const actualPT = planType === 'total'
+        ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const actualAN = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
       formData.append('file', file);
       formData.append('companyId', companyId);
-      formData.append('planType', planType);
-      formData.append('activityNo', editingCell.actNo);
+      formData.append('planType', actualPT);
+      formData.append('activityNo', actualAN);
       formData.append('month', editingCell.month);
       formData.append('uploadedBy', loginDisplayName || loginCompanyName);
 
@@ -962,13 +974,18 @@ export default function CompanyDrilldown() {
     }
     setAddingLink(true);
     try {
+      // In Total mode, derive actual planType from S:/E: prefix
+      const actualPT2 = planType === 'total'
+        ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const actualAN2 = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
       const res = await fetch('/api/attachments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
-          planType,
-          activityNo: editingCell.actNo,
+          planType: actualPT2,
+          activityNo: actualAN2,
           month: editingCell.month,
           uploadedBy: loginDisplayName || loginCompanyName,
           linkUrl: externalLink.trim(),
@@ -994,13 +1011,18 @@ export default function CompanyDrilldown() {
     if (!editingCell || !editRequestReason.trim()) return;
     setSubmittingRequest(true);
     try {
+      // In Total mode, derive actual planType from S:/E: prefix
+      const actualPT3 = planType === 'total'
+        ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const actualAN3 = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
       const res = await fetch('/api/edit-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyId,
-          planType,
-          activityNo: editingCell.actNo,
+          planType: actualPT3,
+          activityNo: actualAN3,
           month: editingCell.month,
           reason: editRequestReason.trim(),
           requestedBy: loginDisplayName || loginCompanyName,
@@ -1120,17 +1142,15 @@ export default function CompanyDrilldown() {
       if (curStatus !== 'not_planned' && curStatus !== 'done' && curStatus !== 'not_applicable' && curStatus !== 'cancelled') {
         thisMonthCount++;
       }
-      // Check overdue: any past month with planned but not done
-      MONTH_KEYS.forEach((mk, idx) => {
-        if (idx < currentMonthIdx) {
-          const st = getEffectiveStatus(act, mk);
-          if (st === 'overdue' || (st === 'planned' && idx < currentMonthIdx)) {
-            overdueCount++;
-          }
-        }
+      // Check overdue: count UNIQUE activities that have any overdue month (not month-slots)
+      const hasOverdueMonth = MONTH_KEYS.some((mk, idx) => {
+        if (idx >= currentMonthIdx) return false;
+        const st = getEffectiveStatus(act, mk);
+        return st === 'overdue' || st === 'planned';
       });
-      // Postponed
-      if (act.status === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed')) {
+      if (hasOverdueMonth) overdueCount++;
+      // Postponed: use effective status
+      if (getEffectiveOverallStatus(act) === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed')) {
         postponedCount++;
       }
       // No evidence: has done status but no attachment
@@ -1176,7 +1196,7 @@ export default function CompanyDrilldown() {
         });
       });
     } else if (quickFilter === 'notStarted') {
-      list = list.filter(act => act.status === 'not_started');
+      list = list.filter(act => getEffectiveOverallStatus(act) === 'not_started');
     } else if (quickFilter === 'noEvidence') {
       list = list.filter(act => {
         const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
@@ -1186,7 +1206,7 @@ export default function CompanyDrilldown() {
       });
     } else if (quickFilter === 'postponed') {
       list = list.filter(act => {
-        return act.status === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed');
+        return getEffectiveOverallStatus(act) === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed');
       });
     } else if (quickFilter === 'safetyOnly') {
       list = list.filter(act => (act as any)._planTag === 'S');
