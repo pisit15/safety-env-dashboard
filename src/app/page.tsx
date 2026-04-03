@@ -18,6 +18,11 @@ import {
   Sun,
   Moon,
   HelpCircle,
+  ClipboardList,
+  GraduationCap,
+  AlertTriangle,
+  Settings,
+  LogOut,
 } from 'lucide-react';
 
 interface DbCompanySetting {
@@ -219,6 +224,76 @@ export default function HomePage() {
             </p>
           )}
         </div>
+
+        {/* Admin Quick Nav — only visible when admin is logged in */}
+        {auth.isAdmin && (
+          <div style={{ marginBottom: 28, padding: '20px', borderRadius: 14, background: 'var(--card-solid)', border: '1px solid var(--border)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Shield size={16} style={{ color: '#ff9500' }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>ภาพรวมผู้ดูแล</span>
+              </div>
+              <button onClick={() => { auth.adminLogout(); window.location.href = '/'; }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer' }}>
+                <LogOut size={12} /> ออกจากระบบ
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+              <Link href="/action-plan" style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#007aff'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,122,255,0.1)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,122,255,0.1)', flexShrink: 0 }}>
+                    <ClipboardList size={17} style={{ color: '#007aff' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>แผนงานประจำปี</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>ภาพรวมทุกบริษัท</div>
+                  </div>
+                </div>
+              </Link>
+              <Link href="/training" style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#5856d6'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(88,86,214,0.1)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(88,86,214,0.1)', flexShrink: 0 }}>
+                    <GraduationCap size={17} style={{ color: '#5856d6' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>แผนอบรมประจำปี</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>ภาพรวมทุกบริษัท</div>
+                  </div>
+                </div>
+              </Link>
+              <Link href="/incidents" style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ff3b30'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(255,59,48,0.1)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,59,48,0.1)', flexShrink: 0 }}>
+                    <AlertTriangle size={17} style={{ color: '#ff3b30' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>สถิติอุบัติเหตุ</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>ภาพรวมทุกบริษัท</div>
+                  </div>
+                </div>
+              </Link>
+              <Link href="/admin" style={{ textDecoration: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ff9500'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(255,149,0,0.1)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,149,0,0.1)', flexShrink: 0 }}>
+                    <Settings size={17} style={{ color: '#ff9500' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>ตั้งค่าระบบ</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>จัดการสิทธิ์ / ข้อมูล</div>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Company Grid — grouped by BU */}
         <div style={{ paddingBottom: 40 }}>
