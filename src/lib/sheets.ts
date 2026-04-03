@@ -535,6 +535,22 @@ export async function fetchActivities(
       }).length;
       const isRecurring = plannedMonthCount >= 3;
 
+      // Detect conditional/trigger-based activities
+      // These should NOT auto-mark as overdue when past months have no actual
+      const conditionalPatterns = ['เมื่อเกิด', 'เมื่อมี', 'กรณีหาก', 'กรณีมี', 'กรณีเกิด', 'หากมี', 'หากเกิด', 'เมื่อพบ', 'ตามแผนฝึกอบรม', 'ดำเนินการตามแผน'];
+      const actLower = activity.toLowerCase();
+      const isConditional = conditionalPatterns.some(p => actLower.includes(p.toLowerCase())) ||
+        MONTH_KEYS.some(k => (planMonths[k] || '').includes('เมื่อ'));
+
+      // For conditional activities: change overdue → planned (they're not late, just not triggered)
+      if (isConditional) {
+        MONTH_KEYS.forEach(key => {
+          if (monthStatuses[key] === 'overdue') {
+            monthStatuses[key] = 'planned';
+          }
+        });
+      }
+
       // For planMonths display: if cell had background color but no text, mark it with a plan indicator
       MONTH_KEYS.forEach(key => {
         if (planMonths[key] === '' && planMonthsHighlighted[key]) {
@@ -554,6 +570,7 @@ export async function fetchActivities(
         status,
         monthStatuses,
         isRecurring,
+        isConditional,
         follower,
       });
     } else {

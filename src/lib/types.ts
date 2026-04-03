@@ -41,6 +41,7 @@ export interface Activity {
   status: ActivityStatus;
   monthStatuses: Record<string, MonthStatus>; // Per-month status tracking
   isRecurring: boolean; // true if activity is planned for 3+ months
+  isConditional: boolean; // true if activity is trigger-based (เมื่อเกิด..., กรณี..., หากมี...)
   follower: string;
 }
 

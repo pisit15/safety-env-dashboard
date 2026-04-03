@@ -389,7 +389,10 @@ export default function CompanyDrilldown() {
     const overrideKey = `${prefix}${act.no}:${monthKey}`;
     const override = overrides[overrideKey];
     if (override) return override as MonthStatus;
-    return act.monthStatuses?.[monthKey] || 'not_planned';
+    const baseStatus = act.monthStatuses?.[monthKey] || 'not_planned';
+    // Conditional/trigger-based activities: overdue → planned (not late, just not triggered)
+    if (baseStatus === 'overdue' && act.isConditional) return 'planned';
+    return baseStatus;
   };
 
   // Recalculate monthly progress including overrides
@@ -1050,7 +1053,7 @@ export default function CompanyDrilldown() {
         subtitle: 'ขับเคลื่อนงานลดความเสี่ยง — ติดตาม ปิดงาน ป้องกันอุบัติเหตุ',
         accentColor: '#ff6b35',
         accentBg: 'rgba(255,107,53,0.15)',
-        kpi: { total: 'กิจกรรม Safety', done: 'ปิดงานแล้ว', notStarted: 'เสี่ยงสูง — ยังไม่เริ่ม', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
+        kpi: { total: 'รายการรายเดือน', done: 'ปิดงานแล้ว', notStarted: 'เสี่ยงสูง — ยังไม่เริ่ม', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
         quickFilters: [
           { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
           { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
@@ -1076,7 +1079,7 @@ export default function CompanyDrilldown() {
         subtitle: 'ควบคุม compliance — ติดตามใบอนุญาต รายงาน หลักฐาน',
         accentColor: '#34c759',
         accentBg: 'rgba(52,199,89,0.15)',
-        kpi: { total: 'กิจกรรม Envi', done: 'ดำเนินการแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
+        kpi: { total: 'รายการรายเดือน', done: 'ดำเนินการแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
         quickFilters: [
           { key: 'thisMonth', label: `📋 ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, icon: '' },
           { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
@@ -1102,7 +1105,7 @@ export default function CompanyDrilldown() {
         subtitle: 'บริหารจัดลำดับระหว่าง Safety + Environment',
         accentColor: 'var(--accent)',
         accentBg: 'rgba(10,132,255,0.15)',
-        kpi: { total: 'กิจกรรมรวม', done: 'เสร็จแล้ว', notStarted: 'ยังไม่เริ่ม', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบรวม' },
+        kpi: { total: 'รายการรายเดือน', done: 'เสร็จแล้ว', notStarted: 'ยังไม่เริ่ม', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบรวม' },
         quickFilters: [
           { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
           { key: 'overdue', label: '🔴 เกินกำหนดรวม', icon: '' },
@@ -1637,18 +1640,23 @@ export default function CompanyDrilldown() {
               </div>
               </>
             ) : (
-              /* Safety / Environment KPIs */
-              <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mb-5 animate-fade-in-up">
-                <KPICard label={planConfig.kpi.total} value={effectiveSummary?.total || 0} />
-                <div title={`สำเร็จจริง ${(effectiveSummary as any)?.pctPureDone || 0}% (${effectiveSummary?.done || 0} รายการ)\nรวม N/A ${effectiveSummary?.pctDone || 0}% (+${effectiveSummary?.notApplicable || 0} ไม่เข้าเงื่อนไข)`}>
-                  <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={effectiveSummary?.notApplicable ? `+${effectiveSummary.notApplicable} N/A = ${effectiveSummary?.pctDone || 0}%` : undefined} />
-                </div>
-                <KPICard label={planConfig.kpi.notStarted} value={effectiveSummary?.notStarted || 0} color={planType === 'safety' ? 'var(--danger)' : 'var(--warning)'} />
+              /* Safety / Environment KPIs — two rows */
+              <>
+              {/* Row 1: Activity-level overview */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2 animate-fade-in-up">
+                <KPICard label={planType === 'safety' ? 'กิจกรรม Safety' : 'กิจกรรม Envi'} value={activities.length} subtext={`${activities.filter(a => a.isConditional).length} งาน trigger-based`} />
+                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={`จาก ${effectiveSummary?.total || 0} รายการรายเดือน`} />
+                <KPICard label={planConfig.kpi.notStarted} value={effectiveSummary?.notStarted || 0} color={planType === 'safety' ? 'var(--danger)' : 'var(--warning)'} subtext="รายการรายเดือน" />
+                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={planConfig.accentColor} subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : 'บาท'} />
+              </div>
+              {/* Row 2: Detailed breakdown */}
+              <div className="grid grid-cols-4 lg:grid-cols-4 gap-3 mb-5 animate-fade-in-up">
                 <KPICard label={planConfig.kpi.postponed} value={effectiveSummary?.postponed || 0} color="var(--info)" />
                 <KPICard label={planConfig.kpi.cancelled} value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
                 <KPICard label={planConfig.kpi.na} value={effectiveSummary?.notApplicable || 0} color="var(--muted)" />
-                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={planConfig.accentColor} subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : 'บาท'} />
+                <KPICard label="Conditional / ยังไม่เกิดเหตุ" value={activities.filter(a => a.isConditional).length} color="var(--muted)" subtext="ไม่นับ overdue" />
               </div>
+              </>
             )}
 
             {/* Total tab: Attention section — ต้องติดตามก่อน */}
