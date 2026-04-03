@@ -452,6 +452,10 @@ export async function fetchActivities(
   const dataStart = findDataStartRow(rows);
   const activities: Activity[] = [];
 
+  // Track current category header for grouping
+  let currentCategoryGroup = '';
+  let currentCategoryNo = '';
+
   let i = dataStart;
   while (i < rows.length) {
     const row = rows[i];
@@ -468,8 +472,10 @@ export async function fetchActivities(
     const budget = parseFloat(budgetStr) || 0;
     const planActual = (row[5]?.value || '').trim().toLowerCase();
 
-    // Skip category headers
+    // Capture category headers for grouping (e.g. "1" + "การฝึกอบรม")
     if (no && !planActual && activity && !activity.match(/^\d/)) {
+      currentCategoryGroup = activity;
+      currentCategoryNo = no;
       i++;
       continue;
     }
@@ -572,6 +578,8 @@ export async function fetchActivities(
         isRecurring,
         isConditional,
         follower,
+        categoryGroup: currentCategoryGroup || undefined,
+        categoryNo: currentCategoryNo || undefined,
       });
     } else {
       i++;

@@ -97,6 +97,7 @@ export default function CompanyDrilldown() {
   const [completionDate, setCompletionDate] = useState('');
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [groupByCategory, setGroupByCategory] = useState(false);
 
   // Sort state
   const [sortMonth, setSortMonth] = useState<string>('none');
@@ -1446,6 +1447,87 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides]);
 
+  // Evidence tiers per activity: none | basic (note only) | standard (note + attachment) | full (note + attachment + date)
+  const evidenceTiers = useMemo(() => {
+    const result: Record<string, { tier: 'none' | 'basic' | 'standard' | 'full'; details: string }> = {};
+    activities.forEach(act => {
+      const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+      const actKey = `${prefix}${act.no}`;
+      const doneMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act, mk) === 'done');
+      if (doneMonths.length === 0) { result[actKey] = { tier: 'none', details: 'ยังไม่มีเดือนที่เสร็จ' }; return; }
+      const hasAttachment = MONTH_KEYS.some(mk => (attachmentCounts[`${prefix}${act.no}:${mk}`] || 0) > 0);
+      const hasNote = MONTH_KEYS.some(mk => !!noteOverrides[`${prefix}${act.no}:${mk}`]);
+      const hasDateInNote = MONTH_KEYS.some(mk => {
+        const note = noteOverrides[`${prefix}${act.no}:${mk}`] || '';
+        return note.includes('[ดำเนินการ:') || note.includes('[Bulk close:');
+      });
+      if (hasAttachment && hasNote && hasDateInNote) {
+        result[actKey] = { tier: 'full', details: 'ครบถ้วน: หลักฐาน + หมายเหตุ + วันที่' };
+      } else if (hasAttachment && (hasNote || hasDateInNote)) {
+        result[actKey] = { tier: 'standard', details: 'มีหลักฐานแนบ + ' + (hasNote ? 'หมายเหตุ' : 'วันที่') };
+      } else if (hasNote || hasDateInNote || hasAttachment) {
+        result[actKey] = { tier: 'basic', details: hasAttachment ? 'มีหลักฐานแนบ' : 'มีหมายเหตุ' };
+      } else {
+        result[actKey] = { tier: 'none', details: 'เสร็จแล้วแต่ยังไม่มีหลักฐาน' };
+      }
+    });
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, attachmentCounts, noteOverrides, overrides]);
+
+  // Category groups for grouping view
+  const categoryGroups = useMemo(() => {
+    const groups: { categoryNo: string; categoryGroup: string; activities: (Activity & { _planTag?: string })[] }[] = [];
+    const groupMap = new Map<string, (Activity & { _planTag?: string })[]>();
+    const groupNames = new Map<string, string>();
+    enhancedFilteredActivities.forEach((act: Activity & { _planTag?: string }) => {
+      const catNo = act.categoryNo || act.no.split('.')[0] || '?';
+      const catName = act.categoryGroup || `หมวด ${catNo}`;
+      if (!groupMap.has(catNo)) {
+        groupMap.set(catNo, []);
+        groupNames.set(catNo, catName);
+      }
+      groupMap.get(catNo)!.push(act);
+    });
+    // Sort by category number
+    const sortedKeys = Array.from(groupMap.keys()).sort((a, b) => {
+      const numA = parseInt(a) || 999;
+      const numB = parseInt(b) || 999;
+      return numA - numB;
+    });
+    sortedKeys.forEach(catNo => {
+      groups.push({ categoryNo: catNo, categoryGroup: groupNames.get(catNo) || '', activities: groupMap.get(catNo) || [] });
+    });
+    return groups;
+  }, [enhancedFilteredActivities]);
+
+  // Cross-module links: find related activities between Safety and Environment
+  const crossModuleLinks = useMemo(() => {
+    if (planType !== 'total') return {};
+    const links: Record<string, { relatedTag: string; relatedNo: string; relatedName: string }[]> = {};
+    const safetyActs = activities.filter((a: any) => a._planTag === 'S');
+    const enviActs = activities.filter((a: any) => a._planTag === 'E');
+    // Link by same responsible person AND overlapping months
+    safetyActs.forEach(sAct => {
+      const sResp = getEffectiveResponsible(sAct).toLowerCase();
+      const sMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(sAct, mk) !== 'not_planned');
+      const sKey = `S:${sAct.no}`;
+      enviActs.forEach(eAct => {
+        const eResp = getEffectiveResponsible(eAct).toLowerCase();
+        const eMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(eAct, mk) !== 'not_planned');
+        if (sResp === eResp && sResp !== '-' && sResp !== '' && sMonths.some(m => eMonths.includes(m))) {
+          if (!links[sKey]) links[sKey] = [];
+          links[sKey].push({ relatedTag: 'E', relatedNo: eAct.no, relatedName: eAct.activity });
+          const eKey = `E:${eAct.no}`;
+          if (!links[eKey]) links[eKey] = [];
+          links[eKey].push({ relatedTag: 'S', relatedNo: sAct.no, relatedName: sAct.activity });
+        }
+      });
+    });
+    return links;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, planType, overrides]);
+
   // Responsible person stats: activities count, overdue count, done count
   const responsibleStats = useMemo(() => {
     const stats: Record<string, { name: string; total: number; done: number; overdue: number; open: number }> = {};
@@ -1974,15 +2056,22 @@ export default function CompanyDrilldown() {
                   </button>
                 </div>
               </div>
-              {/* Bulk Actions Toolbar */}
+              {/* Toolbar: Bulk Actions + Group by Category */}
               {enhancedFilteredActivities.length > 0 && (
-                <div className="mb-3">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setShowBulkActions(!showBulkActions)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                     style={{ background: showBulkActions ? 'rgba(99,102,241,0.1)' : 'var(--bg-hover)', color: showBulkActions ? '#6366f1' : 'var(--text-secondary)', border: showBulkActions ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--border)' }}
                   >
                     ⚡ Bulk Actions {showBulkActions ? '▲' : '▼'}
+                  </button>
+                  <button
+                    onClick={() => setGroupByCategory(!groupByCategory)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{ background: groupByCategory ? 'rgba(245,158,11,0.1)' : 'var(--bg-hover)', color: groupByCategory ? '#d97706' : 'var(--text-secondary)', border: groupByCategory ? '1px solid rgba(245,158,11,0.3)' : '1px solid var(--border)' }}
+                  >
+                    {groupByCategory ? '📂' : '📁'} จัดกลุ่มตามหมวด {groupByCategory ? '(เปิด)' : ''}
                   </button>
                   {showBulkActions && (
                     <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)' }}>
@@ -2094,7 +2183,75 @@ export default function CompanyDrilldown() {
                         </tr>
                         ))}
                         </>
-                      ) : enhancedFilteredActivities.map((act, i) => (
+                      ) : (groupByCategory ? categoryGroups.flatMap(group => [
+                        <tr key={`cat-header-${group.categoryNo}`}>
+                          <td colSpan={planType === 'total' ? 16 : 15} className="py-2 px-3 text-[12px] font-bold" style={{ background: 'rgba(245,158,11,0.08)', color: '#d97706', borderBottom: '2px solid rgba(245,158,11,0.25)' }}>
+                            <span className="inline-flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#d97706' }}>{group.categoryNo}</span>
+                              {group.categoryGroup}
+                              <span className="text-[10px] font-normal" style={{ color: '#9ca3af' }}>({group.activities.length} กิจกรรม)</span>
+                            </span>
+                          </td>
+                        </tr>,
+                        ...group.activities.map((act, i) => (
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
+                          {planType === 'total' && (
+                            <td className="py-2.5 px-2 text-center">
+                              <span
+                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+                                style={{
+                                  background: (act as any)._planTag === 'S' ? 'rgba(255,107,53,0.15)' : 'rgba(52,199,89,0.15)',
+                                  color: (act as any)._planTag === 'S' ? '#ff6b35' : '#34c759',
+                                }}
+                              >
+                                {(act as any)._planTag === 'S' ? 'S' : 'E'}
+                              </span>
+                            </td>
+                          )}
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
+                            <div>{act.activity}</div>
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {(() => {
+                                if (act.isConditional) return null;
+                                const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue');
+                                if (overdueMonths.length === 0) return null;
+                                const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
+                                return (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#ff3b30' }} />เกินกำหนด: {labels}</span>);
+                              })()}
+                            </div>
+                            {(() => {
+                              const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                              const prog = activityProgress[`${prefix}${act.no}`];
+                              if (!prog || prog.total === 0) return null;
+                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${prog.done}/${prog.total}`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${prog.pct}%`, background: prog.pct >= 100 ? 'var(--success)' : prog.pct >= 50 ? '#ff9500' : 'var(--danger)' }} /></div><span className="text-[9px] font-medium" style={{ color: prog.pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{prog.done}/{prog.total}</span></div>);
+                            })()}
+                          </td>
+                          <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          {MONTH_KEYS.map((k, idx) => {
+                            const effectiveStatus = getEffectiveStatus(act, k);
+                            const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
+                            const planMark = act.planMonths?.[k] || '';
+                            const actualMark = act.actualMonths?.[k] || '';
+                            const isCurrent = idx === currentMonthIdx;
+                            const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = {
+                              not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' },
+                              planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` },
+                              done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` },
+                              overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` },
+                              postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` },
+                              cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` },
+                              not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' },
+                            };
+                            const cfg = statusConfig[effectiveStatus];
+                            const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                            const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
+                            const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
+                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(act.no, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>);
+                          })}
+                        </tr>
+                        ))
+                      ]) : enhancedFilteredActivities.map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
                           {planType === 'total' && (
@@ -2241,6 +2398,39 @@ export default function CompanyDrilldown() {
                                   </>
                                 );
                               })()}
+                              {/* Evidence tier badge */}
+                              {(() => {
+                                const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                                const actKey = `${prefix}${act.no}`;
+                                const tier = evidenceTiers[actKey];
+                                if (!tier || tier.tier === 'none') return null;
+                                const tierConfig = {
+                                  basic: { label: '◑ Basic', bg: 'rgba(255,149,0,0.1)', color: '#d97706' },
+                                  standard: { label: '◕ Standard', bg: 'rgba(59,130,246,0.1)', color: '#2563eb' },
+                                  full: { label: '● Full', bg: 'rgba(22,163,74,0.1)', color: '#16a34a' },
+                                };
+                                const cfg = tierConfig[tier.tier];
+                                return (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                    style={{ background: cfg.bg, color: cfg.color }} title={tier.details}>
+                                    {cfg.label}
+                                  </span>
+                                );
+                              })()}
+                              {/* Cross-module link badge (Total view) */}
+                              {planType === 'total' && (() => {
+                                const tag = (act as any)._planTag as string | undefined;
+                                const linkKey = tag ? `${tag}:${act.no}` : act.no;
+                                const related = crossModuleLinks[linkKey];
+                                if (!related || related.length === 0) return null;
+                                return (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help"
+                                    style={{ background: 'rgba(139,92,246,0.1)', color: '#7c3aed' }}
+                                    title={related.map(r => `${r.relatedTag}:${r.relatedNo} ${r.relatedName}`).join('\n')}>
+                                    🔗 {related.length} linked
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {/* Mini progress bar */}
                             {(() => {
@@ -2332,7 +2522,7 @@ export default function CompanyDrilldown() {
                             );
                           })}
                         </tr>
-                      ))}
+                      )))}
                     </tbody>
                   </table>
                 </div>

@@ -29,6 +29,8 @@ export type ActivityStatus = 'not_started' | 'done' | 'postponed' | 'cancelled' 
 
 export type MonthStatus = 'not_planned' | 'planned' | 'done' | 'overdue' | 'postponed' | 'cancelled' | 'not_applicable';
 
+export type EvidenceTier = 'none' | 'basic' | 'standard' | 'full';
+
 export interface Activity {
   no: string;
   activity: string;
@@ -43,6 +45,8 @@ export interface Activity {
   isRecurring: boolean; // true if activity is planned for 3+ months
   isConditional: boolean; // true if activity is trigger-based (เมื่อเกิด..., กรณี..., หากมี...)
   follower: string;
+  categoryGroup?: string; // Category header name from sheet (e.g. "การฝึกอบรม")
+  categoryNo?: string;    // Category number prefix (e.g. "1", "2")
 }
 
 export interface MonthlyProgress {
