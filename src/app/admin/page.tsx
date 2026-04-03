@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
@@ -531,43 +532,168 @@ export default function AdminPage() {
   const existingCredCompanyIds = credentials.map(c => c.company_id);
   const availableCompaniesForCred = COMPANIES.filter(c => !existingCredCompanyIds.includes(c.id));
 
-  // Admin Login Screen
+  // Password visibility & Caps Lock state
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // Admin Login Screen — no sidebar, centered auth layout
   if (!isAdminLoggedIn) {
     return (
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="glass-card p-8 w-full max-w-sm animate-fade-in-up">
-              <h2 className="text-[26px] font-bold mb-2 text-center tracking-tight" style={{ color: 'var(--text-primary)' }}>Admin Login</h2>
-              <p className="text-[13px] mb-6 text-center" style={{ color: 'var(--text-secondary)' }}>กรอก Username และ Password เพื่อเข้าจัดการระบบ</p>
-              <input
-                type="text"
-                value={adminUsername}
-                onChange={e => setAdminUsername(e.target.value)}
-                placeholder="Username"
-                className="w-full px-4 py-3 bg-transparent border rounded-xl text-[13px] mb-3 focus:outline-none transition-colors"
-                style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-                autoFocus
-              />
-              <input
-                type="password"
-                value={adminPassword}
-                onChange={e => setAdminPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-                placeholder="Password"
-                className="w-full px-4 py-3 bg-transparent border rounded-xl text-[13px] mb-3 focus:outline-none transition-colors"
-                style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}
-              />
-              {adminLoginError && <p className="text-[11px] mb-3" style={{ color: 'var(--danger)' }}>{adminLoginError}</p>}
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-primary)' }}>
+        {/* Minimal top bar */}
+        <header style={{ borderBottom: '1px solid var(--border)', background: 'var(--card-solid)' }}>
+          <div style={{ maxWidth: 480, margin: '0 auto', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+              <img src="/ea-logo.svg" alt="EA" style={{ height: 24 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Safety & Environment</span>
+            </Link>
+            <Link href="/" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+              &larr; กลับหน้าผู้ใช้งาน
+            </Link>
+          </div>
+        </header>
+
+        {/* Centered login card */}
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: '100%', maxWidth: 400 }}>
+            {/* Header section */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 16, margin: '0 auto 14px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'linear-gradient(135deg, #ff9500 0%, #ff6b35 100%)',
+                boxShadow: '0 4px 14px rgba(255,149,0,0.3)',
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                เข้าสู่ระบบผู้ดูแล
+              </h1>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                ดูภาพรวม จัดการข้อมูล และตั้งค่าระบบทั้งกลุ่ม EA
+              </p>
+            </div>
+
+            {/* Login card */}
+            <div style={{
+              background: 'var(--card-solid)', borderRadius: 16, padding: 28,
+              border: '1px solid var(--border)', boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+            }}>
+              {/* Username field */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                  ชื่อผู้ใช้
+                </label>
+                <input
+                  type="text"
+                  value={adminUsername}
+                  onChange={e => setAdminUsername(e.target.value)}
+                  placeholder="กรอกชื่อผู้ใช้"
+                  style={{
+                    width: '100%', padding: '11px 14px', borderRadius: 10, fontSize: 13,
+                    border: '1.5px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+                    outline: 'none', transition: 'border-color 0.2s',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = '#ff9500')}
+                  onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                  autoFocus
+                />
+              </div>
+
+              {/* Password field */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                  รหัสผ่าน
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    ref={passwordRef}
+                    type={showPassword ? 'text' : 'password'}
+                    value={adminPassword}
+                    onChange={e => setAdminPassword(e.target.value)}
+                    onKeyDown={e => {
+                      setCapsLock(e.getModifierState('CapsLock'));
+                      if (e.key === 'Enter') handleAdminLogin();
+                    }}
+                    onKeyUp={e => setCapsLock(e.getModifierState('CapsLock'))}
+                    placeholder="กรอกรหัสผ่าน"
+                    style={{
+                      width: '100%', padding: '11px 42px 11px 14px', borderRadius: 10, fontSize: 13,
+                      border: `1.5px solid ${adminLoginError ? '#dc2626' : 'var(--border)'}`, background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+                      outline: 'none', transition: 'border-color 0.2s',
+                    }}
+                    onFocus={e => { if (!adminLoginError) e.target.style.borderColor = '#ff9500'; }}
+                    onBlur={e => { if (!adminLoginError) e.target.style.borderColor = 'var(--border)'; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setShowPassword(!showPassword); passwordRef.current?.focus(); }}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', padding: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--muted)', fontSize: 12 }}
+                    title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    )}
+                  </button>
+                </div>
+                {capsLock && (
+                  <p style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Caps Lock เปิดอยู่
+                  </p>
+                )}
+              </div>
+
+              {/* Error message */}
+              {adminLoginError && (
+                <div style={{
+                  marginBottom: 16, padding: '10px 14px', borderRadius: 8, fontSize: 12,
+                  background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                  {adminLoginError}
+                </div>
+              )}
+
+              {/* Submit button */}
               <button
                 onClick={handleAdminLogin}
                 disabled={adminLoading || !adminPassword}
-                className="w-full px-4 py-3 rounded-[10px] text-[13px] font-medium disabled:opacity-50 transition-colors"
-                style={{ background: 'var(--accent)', color: 'var(--text-primary)' }}
+                style={{
+                  width: '100%', padding: '12px 16px', borderRadius: 10, border: 'none',
+                  fontSize: 14, fontWeight: 700, cursor: adminPassword ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transition: 'all 0.2s',
+                  background: adminPassword ? 'linear-gradient(135deg, #ff9500 0%, #ff6b35 100%)' : 'var(--border)',
+                  color: adminPassword ? '#fff' : 'var(--text-secondary)',
+                  opacity: adminLoading ? 0.7 : 1,
+                  boxShadow: adminPassword ? '0 4px 14px rgba(255,149,0,0.3)' : 'none',
+                }}
               >
+                {adminLoading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
+                )}
                 {adminLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
               </button>
+            </div>
+
+            {/* Trust cues + Help */}
+            <div style={{ textAlign: 'center', marginTop: 20 }}>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+                สำหรับผู้ดูแลระบบที่ได้รับสิทธิ์เท่านั้น
+              </p>
+              <p style={{ fontSize: 11, color: 'var(--muted)' }}>
+                เข้าสู่ระบบไม่ได้? ติดต่อ <a href="mailto:pisit15@gmail.com" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>ฝ่าย Safety</a>
+              </p>
             </div>
           </div>
         </main>
