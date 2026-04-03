@@ -143,6 +143,9 @@ export default function CompanyDrilldown() {
   const [editingActualCost, setEditingActualCost] = useState<string>('');
   const [savingBudget, setSavingBudget] = useState(false);
 
+  // Total tab view toggle: 'combined' = all merged, 'split' = grouped by plan
+  const [totalViewMode, setTotalViewMode] = useState<'combined' | 'split'>('combined');
+
   // Check if already logged in from sessionStorage or AuthContext
   useEffect(() => {
     const ca = auth.getCompanyAuth(companyId);
@@ -534,6 +537,10 @@ export default function CompanyDrilldown() {
     const pctDone = totalPlanned > 0
       ? Math.round(((totalDone + totalNotApplicable) / totalPlanned) * 1000) / 10
       : 0;
+    // Pure done % (excluding N/A from numerator)
+    const pctPureDone = totalPlanned > 0
+      ? Math.round((totalDone / totalPlanned) * 1000) / 10
+      : 0;
 
     return {
       ...summary,
@@ -544,6 +551,7 @@ export default function CompanyDrilldown() {
       cancelled: totalCancelled,
       notApplicable: totalNotApplicable,
       pctDone,
+      pctPureDone,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, postponedOverrides, summary, activeMonthKeys]);
@@ -1194,6 +1202,35 @@ export default function CompanyDrilldown() {
     return total;
   }, [budgetOverrides]);
 
+  // Evidence indicator per activity: 'required' | 'attached' | 'missing' | 'na'
+  // For Environment tab: evidence is expected for any month with status 'done'
+  const evidenceIndicators = useMemo(() => {
+    const result: Record<string, 'required' | 'attached' | 'missing' | 'na'> = {};
+    activities.forEach(act => {
+      const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+      const actKey = `${prefix}${act.no}`;
+      const hasDoneMonth = MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'done');
+      const hasPlannedMonth = MONTH_KEYS.some(mk => {
+        const st = getEffectiveStatus(act, mk);
+        return st !== 'not_planned' && st !== 'not_applicable' && st !== 'cancelled';
+      });
+      if (!hasPlannedMonth) {
+        result[actKey] = 'na';
+        return;
+      }
+      const hasAnyAttachment = MONTH_KEYS.some(mk => (attachmentCounts[`${prefix}${act.no}:${mk}`] || 0) > 0);
+      if (hasDoneMonth && hasAnyAttachment) {
+        result[actKey] = 'attached';
+      } else if (hasDoneMonth && !hasAnyAttachment) {
+        result[actKey] = 'missing';
+      } else {
+        result[actKey] = 'required'; // planned but not done yet — evidence will be needed
+      }
+    });
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, attachmentCounts, overrides]);
+
   // ── View Gate: require login to see company data ──
   if (!isLoggedIn && !auth.isAdmin) {
     return (
@@ -1439,20 +1476,42 @@ export default function CompanyDrilldown() {
 
             {/* KPI Cards — use effectiveSummary which includes override data */}
             {planType === 'total' && crossPlanStats ? (
-              /* Total tab: cross-plan KPIs */
-              <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5 animate-fade-in-up">
+              /* Total tab: cross-plan KPIs + view toggle */
+              <>
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3 animate-fade-in-up">
                 <KPICard label={planConfig.kpi.total} value={effectiveSummary?.total || 0} />
-                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${effectiveSummary?.pctDone || 0}%`} />
+                <div title={`สำเร็จจริง ${(effectiveSummary as any)?.pctPureDone || 0}% (${effectiveSummary?.done || 0} รายการ)\nรวม N/A ${effectiveSummary?.pctDone || 0}% (+${effectiveSummary?.notApplicable || 0} ไม่เข้าเงื่อนไข)`}>
+                  <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={effectiveSummary?.notApplicable ? `+${effectiveSummary.notApplicable} N/A = ${effectiveSummary?.pctDone || 0}%` : undefined} />
+                </div>
                 <KPICard label="Safety ยังเปิด" value={crossPlanStats.safetyOpen} color="#ff6b35" subtext={`จาก ${crossPlanStats.safetyTotal} กิจกรรม`} />
                 <KPICard label="Envi ยังเปิด" value={crossPlanStats.enviOpen} color="#34c759" subtext={`จาก ${crossPlanStats.enviTotal} กิจกรรม`} />
                 <KPICard label="Overdue รวม" value={(crossPlanStats.safetyOverdue + crossPlanStats.enviOverdue)} color="var(--danger)" subtext={`S:${crossPlanStats.safetyOverdue} / E:${crossPlanStats.enviOverdue}`} />
                 <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
               </div>
+              {/* View toggle: combined vs split */}
+              <div className="flex items-center gap-2 mb-5 animate-fade-in-up">
+                <span className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>มุมมอง:</span>
+                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                  <button onClick={() => setTotalViewMode('combined')}
+                    className="px-3 py-1.5 rounded-md text-[11px] font-medium transition-all"
+                    style={totalViewMode === 'combined' ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' } : { color: 'var(--muted)' }}>
+                    รวมทั้งหมด
+                  </button>
+                  <button onClick={() => setTotalViewMode('split')}
+                    className="px-3 py-1.5 rounded-md text-[11px] font-medium transition-all"
+                    style={totalViewMode === 'split' ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' } : { color: 'var(--muted)' }}>
+                    แยกตามแผน
+                  </button>
+                </div>
+              </div>
+              </>
             ) : (
               /* Safety / Environment KPIs */
               <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mb-5 animate-fade-in-up">
                 <KPICard label={planConfig.kpi.total} value={effectiveSummary?.total || 0} />
-                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${effectiveSummary?.pctDone || 0}%`} />
+                <div title={`สำเร็จจริง ${(effectiveSummary as any)?.pctPureDone || 0}% (${effectiveSummary?.done || 0} รายการ)\nรวม N/A ${effectiveSummary?.pctDone || 0}% (+${effectiveSummary?.notApplicable || 0} ไม่เข้าเงื่อนไข)`}>
+                  <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={effectiveSummary?.notApplicable ? `+${effectiveSummary.notApplicable} N/A = ${effectiveSummary?.pctDone || 0}%` : undefined} />
+                </div>
                 <KPICard label={planConfig.kpi.notStarted} value={effectiveSummary?.notStarted || 0} color={planType === 'safety' ? 'var(--danger)' : 'var(--warning)'} />
                 <KPICard label={planConfig.kpi.postponed} value={effectiveSummary?.postponed || 0} color="var(--info)" />
                 <KPICard label={planConfig.kpi.cancelled} value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
@@ -1674,7 +1733,69 @@ export default function CompanyDrilldown() {
                       </tr>
                     </thead>
                     <tbody>
-                      {enhancedFilteredActivities.map((act, i) => (
+                      {/* Split view group headers for Total tab */}
+                      {planType === 'total' && totalViewMode === 'split' ? (
+                        <>
+                        {/* Safety group */}
+                        {enhancedFilteredActivities.some((a: any) => a._planTag === 'S') && (
+                          <tr>
+                            <td colSpan={16} className="py-2 px-3 text-[12px] font-bold" style={{ background: 'rgba(255,107,53,0.08)', color: '#ff6b35', borderBottom: '2px solid rgba(255,107,53,0.3)' }}>
+                              <Shield size={13} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} />
+                              Safety ({enhancedFilteredActivities.filter((a: any) => a._planTag === 'S').length} กิจกรรม)
+                            </td>
+                          </tr>
+                        )}
+                        {enhancedFilteredActivities.filter((a: any) => a._planTag === 'S').map((act, i) => (
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
+                          {planType === 'total' && (
+                            <td className="py-2.5 px-2 text-center">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide" style={{ background: 'rgba(255,107,53,0.15)', color: '#ff6b35' }}>S</span>
+                            </td>
+                          )}
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
+                            <div>{act.activity}</div>
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {(() => { const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : ''; const postponedEntry = MONTH_KEYS.find(mk => { const key = `${prefix}${act.no}:${mk}`; return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done'); }); if (postponedEntry) { const key = `${prefix}${act.no}:${postponedEntry}`; const targetMonth = postponedOverrides[key]; return (<span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}>เลื่อน → {MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)]}</span>); } return null; })()}
+                              {(() => { const bKey = `${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`; const actBudget = act.budget || 0; const actActual = budgetOverrides[bKey]?.actual_cost || 0; if (actBudget <= 0 && actActual <= 0) return null; return (<>{actBudget > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--text-secondary)' }}>💰 {actBudget.toLocaleString()}</span>}{actActual > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: actActual > actBudget && actBudget > 0 ? 'rgba(255,59,48,0.12)' : 'rgba(52,199,89,0.12)', color: actActual > actBudget && actBudget > 0 ? 'var(--danger)' : 'var(--success)' }}>✓ ใช้จริง {actActual.toLocaleString()}</span>}</>); })()}
+                              {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); let totalAtt = 0; let totalNotes = 0; MONTH_KEYS.forEach(mk => { totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0; if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++; }); return (<>{totalAtt > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}>📎 {totalAtt}</span>}{totalNotes > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>✎ {totalNotes}</span>}</>); })()}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          {MONTH_KEYS.map((k, idx) => { const effectiveStatus = getEffectiveStatus(act, k); const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined; const planMark = act.planMonths?.[k] || ''; const actualMark = act.actualMonths?.[k] || ''; const isCurrent = idx === currentMonthIdx; const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = { not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' }, planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` }, done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` }, overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` }, postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` }, cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` }, not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' } }; const cfg = statusConfig[effectiveStatus]; const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string }); const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0; const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`]; return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(act.no, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>); })}
+                        </tr>
+                        ))}
+                        {/* Environment group */}
+                        {enhancedFilteredActivities.some((a: any) => a._planTag === 'E') && (
+                          <tr>
+                            <td colSpan={16} className="py-2 px-3 text-[12px] font-bold" style={{ background: 'rgba(52,199,89,0.08)', color: '#34c759', borderBottom: '2px solid rgba(52,199,89,0.3)' }}>
+                              <Leaf size={13} className="inline mr-1.5" style={{ verticalAlign: '-2px' }} />
+                              Environment ({enhancedFilteredActivities.filter((a: any) => a._planTag === 'E').length} กิจกรรม)
+                            </td>
+                          </tr>
+                        )}
+                        {enhancedFilteredActivities.filter((a: any) => a._planTag === 'E').map((act, i) => (
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
+                          {planType === 'total' && (
+                            <td className="py-2.5 px-2 text-center">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide" style={{ background: 'rgba(52,199,89,0.15)', color: '#34c759' }}>E</span>
+                            </td>
+                          )}
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
+                            <div>{act.activity}</div>
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); const actKey = `${prefix}${act.no}`; const indicator = evidenceIndicators[actKey]; if (indicator === 'attached') return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(52,199,89,0.12)', color: '#34c759' }}>✓ แนบแล้ว</span>); if (indicator === 'missing') return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold animate-pulse" style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }}>⚠ รอหลักฐาน</span>); if (indicator === 'required') return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>📋 ต้องใช้หลักฐาน</span>); return null; })()}
+                              {(() => { const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : ''; const postponedEntry = MONTH_KEYS.find(mk => { const key = `${prefix}${act.no}:${mk}`; return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done'); }); if (postponedEntry) { const key = `${prefix}${act.no}:${postponedEntry}`; const targetMonth = postponedOverrides[key]; return (<span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}>เลื่อน → {MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)]}</span>); } return null; })()}
+                              {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); let totalAtt = 0; let totalNotes = 0; MONTH_KEYS.forEach(mk => { totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0; if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++; }); return (<>{totalAtt > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}>📎 {totalAtt}</span>}{totalNotes > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>✎ {totalNotes}</span>}</>); })()}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          {MONTH_KEYS.map((k, idx) => { const effectiveStatus = getEffectiveStatus(act, k); const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined; const planMark = act.planMonths?.[k] || ''; const actualMark = act.actualMonths?.[k] || ''; const isCurrent = idx === currentMonthIdx; const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = { not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' }, planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` }, done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` }, overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` }, postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` }, cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` }, not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' } }; const cfg = statusConfig[effectiveStatus]; const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string }); const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0; const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`]; return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(act.no, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>); })}
+                        </tr>
+                        ))}
+                        </>
+                      ) : enhancedFilteredActivities.map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
                           {planType === 'total' && (
@@ -1750,6 +1871,31 @@ export default function CompanyDrilldown() {
                                     )}
                                   </>
                                 );
+                              })()}
+                              {/* Evidence indicator for Environment tab */}
+                              {(planType === 'environment' || (planType === 'total' && (act as any)._planTag === 'E')) && (() => {
+                                const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                                const actKey = `${prefix}${act.no}`;
+                                const indicator = evidenceIndicators[actKey];
+                                if (indicator === 'attached') return (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                                    style={{ background: 'rgba(52,199,89,0.12)', color: '#34c759' }} title="แนบหลักฐานแล้ว">
+                                    ✓ แนบแล้ว
+                                  </span>
+                                );
+                                if (indicator === 'missing') return (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold animate-pulse"
+                                    style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }} title="ดำเนินการแล้วแต่ยังไม่แนบหลักฐาน">
+                                    ⚠ รอหลักฐาน
+                                  </span>
+                                );
+                                if (indicator === 'required') return (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                    style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }} title="ต้องใช้หลักฐานเมื่อดำเนินการเสร็จ">
+                                    📋 ต้องใช้หลักฐาน
+                                  </span>
+                                );
+                                return null;
                               })()}
                               {/* Attachment & note summary badges */}
                               {(() => {
@@ -2091,6 +2237,35 @@ export default function CompanyDrilldown() {
                 </div>
               ) : null}
 
+              {/* Safety helper: what's needed to close this activity */}
+              {(planType === 'safety' || modalPlanTag === 'S') && (
+                <div className="rounded-lg p-3 mb-4 flex items-start gap-2.5" style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
+                  <span className="text-base mt-0.5">🛡️</span>
+                  <div>
+                    <p className="text-[12px] font-semibold mb-1" style={{ color: '#ff6b35' }}>สิ่งที่ต้องมีเพื่อปิดกิจกรรม Safety</p>
+                    <div className="text-[11px] space-y-0.5" style={{ color: '#6b7280' }}>
+                      <p>1. อัปเดตสถานะเป็น "เสร็จแล้ว" ในเดือนที่ดำเนินการ</p>
+                      <p>2. แนบหลักฐาน (ภาพ/เอกสาร/ลิงก์) อย่างน้อย 1 รายการ</p>
+                      <p>3. ระบุรายละเอียด/หมายเหตุ สิ่งที่ทำและผลลัพธ์</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Environment helper: compliance evidence reminder */}
+              {(planType === 'environment' || modalPlanTag === 'E') && (
+                <div className="rounded-lg p-3 mb-4 flex items-start gap-2.5" style={{ background: 'rgba(52,199,89,0.06)', border: '1px solid rgba(52,199,89,0.2)' }}>
+                  <span className="text-base mt-0.5">📋</span>
+                  <div>
+                    <p className="text-[12px] font-semibold mb-1" style={{ color: '#34c759' }}>Compliance — ต้องแนบหลักฐาน</p>
+                    <div className="text-[11px] space-y-0.5" style={{ color: '#6b7280' }}>
+                      <p>1. อัปเดตสถานะเป็น "เสร็จแล้ว" เมื่อดำเนินการครบ</p>
+                      <p>2. <strong style={{ color: '#34c759' }}>จำเป็น:</strong> แนบหลักฐาน (ใบอนุญาต/รายงาน/ภาพถ่าย) เพื่อ compliance</p>
+                      <p>3. ระบุรายละเอียดการดำเนินงาน</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 2-Column Grid on Desktop */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -2315,27 +2490,39 @@ export default function CompanyDrilldown() {
                   </div>
 
                   {/* Section 4: EVIDENCE / ATTACHMENTS */}
-                  <div>
+                  <div style={planType === 'environment' || modalPlanTag === 'E' ? {
+                    background: 'rgba(52,199,89,0.04)', border: '2px solid rgba(52,199,89,0.2)', borderRadius: '12px', padding: '16px',
+                  } : undefined}>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{
                         background: planType === 'environment' || modalPlanTag === 'E' ? '#16a34a' : '#0ea5e9',
                       }}>4</span>
                       <h3 className="text-[14px] font-bold" style={{ color: '#1f2937' }}>
-                        {planType === 'environment' || modalPlanTag === 'E' ? 'หลักฐาน / Evidence' : 'ไฟล์แนบ'}
+                        {planType === 'environment' || modalPlanTag === 'E' ? '📋 หลักฐาน / Evidence' : 'ไฟล์แนบ'}
                       </h3>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#f3f4f6', color: '#9ca3af' }}>สูงสุด 20 MB/ไฟล์</span>
+                      {planType === 'environment' || modalPlanTag === 'E' ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(52,199,89,0.15)', color: '#16a34a' }}>จำเป็นสำหรับ compliance</span>
+                      ) : (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#f3f4f6', color: '#9ca3af' }}>สูงสุด 20 MB/ไฟล์</span>
+                      )}
                     </div>
 
                     {loadingAttachments ? (
                       <div className="text-xs py-3" style={{ color: '#6b7280' }}>กำลังโหลด...</div>
                     ) : attachments.length === 0 ? (
-                      <div className="text-center py-6 rounded-lg" style={{ background: '#f9fafb', border: '2px dashed #d1d5db' }}>
-                        <Paperclip size={24} className="mx-auto mb-2" style={{ color: '#d1d5db' }} />
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>
+                      <div className="text-center py-6 rounded-lg" style={planType === 'environment' || modalPlanTag === 'E'
+                        ? { background: 'rgba(255,59,48,0.04)', border: '2px dashed rgba(255,59,48,0.3)' }
+                        : { background: '#f9fafb', border: '2px dashed #d1d5db' }
+                      }>
+                        <Paperclip size={24} className="mx-auto mb-2" style={{ color: planType === 'environment' || modalPlanTag === 'E' ? '#ff3b30' : '#d1d5db' }} />
+                        <p className="text-xs font-medium" style={{ color: planType === 'environment' || modalPlanTag === 'E' ? '#ff3b30' : '#9ca3af' }}>
                           {planType === 'environment' || modalPlanTag === 'E'
-                            ? 'ยังไม่มีหลักฐานแนบ — อัปโหลดเพื่อ compliance'
+                            ? '⚠ ยังไม่มีหลักฐานแนบ — ต้องอัปโหลดเพื่อ compliance'
                             : 'ยังไม่มีไฟล์แนบ'}
                         </p>
+                        {(planType === 'environment' || modalPlanTag === 'E') && (
+                          <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>รองรับ: ภาพ, PDF, Excel, Word (สูงสุด 20 MB)</p>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-1.5 max-h-48 overflow-y-auto">
