@@ -183,6 +183,9 @@ export default function CompanyTraining() {
 
   // Feature 7: Attendee sub-panel (separated from main modal)
   const [showAttendeePanel, setShowAttendeePanel] = useState(false);
+  const [attendeeViewTab, setAttendeeViewTab] = useState<'all' | 'selected'>('all');
+  const [attendeeSortKey, setAttendeeSortKey] = useState<'name' | 'dept' | 'position'>('name');
+  const [attendeeSortAsc, setAttendeeSortAsc] = useState(true);
 
   // Feature 8: Collapsible task queue groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['done', 'muted']));
@@ -2386,28 +2389,44 @@ export default function CompanyTraining() {
             <div style={{ background: 'var(--card-solid)', width: '95%', maxWidth: 520, height: '100%', display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 30px rgba(0,0,0,0.15)' }}
               onClick={e => e.stopPropagation()}>
               {/* Panel Header */}
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <div>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>👥 จัดการผู้เข้าอบรม</h3>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                    {selectedPlan.course_name} • เลือกแล้ว <strong style={{ color: '#16a34a' }}>{attendees.length}</strong> คน
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: '#fff' }}>👥 จัดการผู้เข้าอบรม</h3>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>
+                      {selectedPlan.course_name} • เลือกแล้ว <strong style={{ color: '#fff' }}>{attendees.length}</strong> คน
+                      {selectedPlan.planned_participants > 0 && <span> / แผน {selectedPlan.planned_participants} คน</span>}
+                    </div>
                   </div>
+                  <button onClick={() => setShowAttendeePanel(false)} style={{ padding: 6, border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={16} />
+                  </button>
                 </div>
-                <button onClick={() => setShowAttendeePanel(false)} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                  <X size={18} />
-                </button>
               </div>
 
-              {/* Panel Actions */}
-              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, flexWrap: 'wrap', flexShrink: 0 }}>
-                <label style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Upload size={11} /> นำเข้า Excel
-                  <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
-                </label>
-                <button onClick={() => setShowManualEntry(!showManualEntry)}
-                  style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Plus size={11} /> เพิ่มพนักงานใหม่
-                </button>
+              {/* Panel Actions + Tabs */}
+              <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <label style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Upload size={11} /> นำเข้า Excel
+                    <input type="file" accept=".xlsx,.xls" hidden onChange={e => e.target.files?.[0] && handleImportEmployeeList(e.target.files[0])} />
+                  </label>
+                  <button onClick={() => setShowManualEntry(!showManualEntry)}
+                    style={{ padding: '5px 12px', borderRadius: 6, border: `1px solid ${showManualEntry ? 'var(--success)' : 'var(--border)'}`, background: showManualEntry ? 'var(--success)' : 'var(--bg)', color: showManualEntry ? '#fff' : 'var(--text-primary)', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Plus size={11} /> เพิ่มพนักงานใหม่
+                  </button>
+                </div>
+                {/* Tabs: All / Selected */}
+                <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <button onClick={() => setAttendeeViewTab('all')}
+                    style={{ flex: 1, padding: '6px 12px', border: 'none', fontSize: 11, fontWeight: attendeeViewTab === 'all' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'all' ? 'var(--accent)' : 'var(--bg)', color: attendeeViewTab === 'all' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
+                    ทั้งหมด ({companyEmployees.length})
+                  </button>
+                  <button onClick={() => setAttendeeViewTab('selected')}
+                    style={{ flex: 1, padding: '6px 12px', border: 'none', borderLeft: '1px solid var(--border)', fontSize: 11, fontWeight: attendeeViewTab === 'selected' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'selected' ? '#16a34a' : 'var(--bg)', color: attendeeViewTab === 'selected' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
+                    เลือกแล้ว ({attendees.length})
+                  </button>
+                </div>
               </div>
 
               {/* Panel Body */}
@@ -2455,12 +2474,50 @@ export default function CompanyTraining() {
                     }
                     return true;
                   });
-                  const sorted = [...filteredEmps].sort((a, b) => {
+                  // Apply tab filter
+                  const tabFiltered = attendeeViewTab === 'selected'
+                    ? filteredEmps.filter(emp => !!findAttendeeFor(emp))
+                    : filteredEmps;
+
+                  // Apply sorting
+                  const sorted = [...tabFiltered].sort((a, b) => {
                     const aIsAtt = findAttendeeFor(a) ? 1 : 0;
                     const bIsAtt = findAttendeeFor(b) ? 1 : 0;
-                    if (aIsAtt !== bIsAtt) return bIsAtt - aIsAtt;
-                    return (a.first_name || '').localeCompare(b.first_name || '');
+                    if (attendeeViewTab === 'all' && aIsAtt !== bIsAtt) return bIsAtt - aIsAtt;
+                    let cmp = 0;
+                    if (attendeeSortKey === 'name') cmp = (a.first_name || '').localeCompare(b.first_name || '');
+                    else if (attendeeSortKey === 'dept') cmp = (a.department || '').localeCompare(b.department || '');
+                    else if (attendeeSortKey === 'position') cmp = (a.position || '').localeCompare(b.position || '');
+                    return attendeeSortAsc ? cmp : -cmp;
                   });
+
+                  // Select-all helpers
+                  const allFilteredSelected = sorted.length > 0 && sorted.every(emp => !!findAttendeeFor(emp));
+                  const someFilteredSelected = sorted.some(emp => !!findAttendeeFor(emp));
+                  const handleSelectAll = async () => {
+                    for (const emp of sorted) {
+                      const att = findAttendeeFor(emp);
+                      if (!att) {
+                        await handleToggleAttendee(emp, false, undefined);
+                      }
+                    }
+                  };
+                  const handleDeselectAll = async () => {
+                    for (const emp of sorted) {
+                      const att = findAttendeeFor(emp);
+                      if (att) {
+                        await handleToggleAttendee(emp, true, att.id);
+                      }
+                    }
+                  };
+
+                  // Sort header helper
+                  const SortTh = ({ label, sortKey, style: thSt }: { label: string; sortKey: 'name' | 'dept' | 'position'; style?: React.CSSProperties }) => (
+                    <th style={{ padding: '7px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...thSt }}
+                      onClick={() => { if (attendeeSortKey === sortKey) setAttendeeSortAsc(!attendeeSortAsc); else { setAttendeeSortKey(sortKey); setAttendeeSortAsc(true); } }}>
+                      {label} {attendeeSortKey === sortKey ? (attendeeSortAsc ? '▲' : '▼') : <span style={{ color: 'var(--border)' }}>⇅</span>}
+                    </th>
+                  );
 
                   return (
                     <>
@@ -2490,17 +2547,34 @@ export default function CompanyTraining() {
                       ) : loadingAttendees ? (
                         <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
                       ) : sorted.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>ไม่พบพนักงานตามเงื่อนไข</div>
+                        <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)', fontSize: 12 }}>
+                          {attendeeViewTab === 'selected' ? 'ยังไม่มีผู้เข้าอบรมที่เลือก' : 'ไม่พบพนักงานตามเงื่อนไข'}
+                        </div>
                       ) : (
-                        <div style={{ border: '1px solid var(--border)', borderRadius: 6 }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
+                            <colgroup>
+                              <col style={{ width: 36 }} />
+                              <col style={{ width: 80 }} />
+                              <col />
+                              <col style={{ width: '25%' }} />
+                              <col style={{ width: '22%' }} />
+                            </colgroup>
                             <thead>
-                              <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
-                                <th style={{ padding: '6px 8px', width: 32 }}></th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ชื่อ-สกุล</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>ตำแหน่ง</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>แผนก</th>
+                              <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                <th style={{ padding: '7px 8px', width: 36, textAlign: 'center' }}>
+                                  <input type="checkbox"
+                                    checked={allFilteredSelected}
+                                    ref={el => { if (el) el.indeterminate = !allFilteredSelected && someFilteredSelected; }}
+                                    onChange={() => allFilteredSelected ? handleDeselectAll() : handleSelectAll()}
+                                    style={{ cursor: 'pointer', accentColor: '#16a34a' }}
+                                    title={allFilteredSelected ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด'}
+                                  />
+                                </th>
+                                <th style={{ padding: '7px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
+                                <SortTh label="ชื่อ-สกุล" sortKey="name" />
+                                <SortTh label="ตำแหน่ง" sortKey="position" />
+                                <SortTh label="แผนก" sortKey="dept" />
                               </tr>
                             </thead>
                             <tbody>
@@ -2512,20 +2586,22 @@ export default function CompanyTraining() {
                                 return (
                                   <tr key={idx} style={{
                                     borderBottom: '1px solid var(--border)',
-                                    background: isAttendee ? '#f0fdf4' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
-                                    cursor: isToggling ? 'wait' : 'pointer', opacity: isToggling ? 0.5 : 1, transition: 'background 0.15s',
+                                    background: isAttendee ? 'rgba(22,163,74,0.08)' : idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)',
+                                    cursor: isToggling ? 'wait' : 'pointer', opacity: isToggling ? 0.5 : 1, transition: 'all 0.15s',
                                   }}
+                                  onMouseEnter={e => { if (!isAttendee) (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.06)'; }}
+                                  onMouseLeave={e => { if (!isAttendee) (e.currentTarget as HTMLElement).style.background = idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)'; }}
                                   onClick={() => { if (!isToggling) handleToggleAttendee(emp, isAttendee, att?.id); }}>
-                                    <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                                    <td style={{ padding: '5px 8px', textAlign: 'center' }}>
                                       <input type="checkbox" checked={isAttendee} readOnly style={{ cursor: 'pointer', accentColor: '#16a34a' }} />
                                     </td>
-                                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.emp_code || '-'}</td>
-                                    <td style={{ padding: '4px 8px', fontWeight: isAttendee ? 600 : 400 }}>
+                                    <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.emp_code || '-'}</td>
+                                    <td style={{ padding: '5px 8px', fontWeight: isAttendee ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {isAttendee && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#16a34a', marginRight: 6, verticalAlign: 'middle' }} />}
                                       {emp.first_name} {emp.last_name}
-                                      {isAttendee && <span style={{ marginLeft: 6, fontSize: 9, color: '#16a34a', fontWeight: 700 }}>✓</span>}
                                     </td>
-                                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.position || '-'}</td>
-                                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', fontSize: 11 }}>{emp.department || '-'}</td>
+                                    <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.position || ''}>{emp.position || '-'}</td>
+                                    <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.department || ''}>{emp.department || '-'}</td>
                                   </tr>
                                 );
                               })}
@@ -2533,9 +2609,19 @@ export default function CompanyTraining() {
                           </table>
                         </div>
                       )}
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
-                        พนักงาน {filteredEmps.length} คน • เข้าอบรม <b style={{ color: '#16a34a' }}>{attendees.length}</b> คน
-                        {selectedPlan.planned_participants > 0 && <span> • แผน {selectedPlan.planned_participants} คน</span>}
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>
+                          แสดง {sorted.length} คน • เข้าอบรม <b style={{ color: '#16a34a' }}>{attendees.length}</b> คน
+                          {selectedPlan.planned_participants > 0 && <span> • แผน {selectedPlan.planned_participants} คน</span>}
+                        </span>
+                        {attendees.length > 0 && selectedPlan.planned_participants > 0 && (
+                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600,
+                            background: attendees.length >= selectedPlan.planned_participants ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
+                            color: attendees.length >= selectedPlan.planned_participants ? '#16a34a' : '#f59e0b',
+                          }}>
+                            {attendees.length >= selectedPlan.planned_participants ? '✓ ครบตามแผน' : `ขาดอีก ${selectedPlan.planned_participants - attendees.length} คน`}
+                          </span>
+                        )}
                       </div>
                     </>
                   );
@@ -2543,10 +2629,21 @@ export default function CompanyTraining() {
               </div>
 
               {/* Panel Footer */}
-              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0, textAlign: 'right' }}>
+              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' }}>
                 <button onClick={() => setShowAttendeePanel(false)}
-                  style={{ padding: '8px 24px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                  เสร็จสิ้น ({attendees.length} คน)
+                  style={{ padding: '8px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                  ยกเลิก
+                </button>
+                <button onClick={() => setShowAttendeePanel(false)}
+                  disabled={attendees.length === 0}
+                  style={{
+                    padding: '8px 24px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 700, transition: 'all 0.15s',
+                    background: attendees.length > 0 ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : 'var(--border)',
+                    color: attendees.length > 0 ? '#fff' : 'var(--text-secondary)',
+                    cursor: attendees.length > 0 ? 'pointer' : 'not-allowed',
+                    boxShadow: attendees.length > 0 ? '0 2px 8px rgba(22,163,74,0.3)' : 'none',
+                  }}>
+                  ✓ เสร็จสิ้น ({attendees.length} คน)
                 </button>
               </div>
             </div>
