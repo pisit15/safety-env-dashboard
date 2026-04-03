@@ -1,17 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-function getServiceSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
-
 const SETUP_SQL = `
--- Budget overrides table: stores actual cost per activity
 CREATE TABLE IF NOT EXISTS budget_overrides (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   company_id text NOT NULL,
@@ -26,11 +17,9 @@ CREATE TABLE IF NOT EXISTS budget_overrides (
   UNIQUE(company_id, plan_type, activity_no, year)
 );
 
--- Indexes for fast lookup
 CREATE INDEX IF NOT EXISTS idx_budget_overrides_company
   ON budget_overrides(company_id, plan_type, year);
 
--- RLS policy (allow all for now, same pattern as other tables)
 ALTER TABLE budget_overrides ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
@@ -43,22 +32,65 @@ END $$;
 `;
 
 export async function GET() {
-  const supabase = getServiceSupabase();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // Try using rpc exec_sql if available
-  const { error: rpcError } = await supabase.rpc('exec_sql', { sql: SETUP_SQL });
-
-  if (rpcError) {
-    // If rpc not available, return the SQL for manual execution
-    return NextResponse.json({
-      message: 'RPC not available. Please run this SQL in Supabase SQL Editor:',
-      sql: SETUP_SQL,
-      error: rpcError.message,
-    });
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json({ error: 'Missing Supabase config' }, { status: 500 });
   }
 
+  // Use Supabase's SQL endpoint directly (PostgREST pg/sql)
+  const sqlUrl = `${supabaseUrl}/rest/v1/rpc/exec_sql`;
+
+  // Try rpc first
+  let rpcWorked = false;
+  try {
+    const rpcRes = await fetch(sqlUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ sql: SETUP_SQL }),
+    });
+    if (rpcRes.ok) {
+      rpcWorked = true;
+    }
+  } catch { /* rpc not available */ }
+
+  if (rpcWorked) {
+    return NextResponse.json({ success: true, message: 'budget_overrides table created via rpc' });
+  }
+
+  // Fallback: Use Supabase Management API (requires project ref)
+  // Extract project ref from URL: https://<ref>.supabase.co
+  const refMatch = supabaseUrl.match(/https:\/\/([^.]+)\.supabase/);
+  const projectRef = refMatch ? refMatch[1] : null;
+
+  if (projectRef) {
+    // Try the /pg/query endpoint (Supabase v2 SQL execution)
+    try {
+      const queryUrl = `https://${projectRef}.supabase.co/pg/query`;
+      const pgRes = await fetch(queryUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ query: SETUP_SQL }),
+      });
+      if (pgRes.ok) {
+        return NextResponse.json({ success: true, message: 'budget_overrides table created via pg/query' });
+      }
+    } catch { /* pg/query not available */ }
+  }
+
+  // Last resort: return SQL for manual execution
   return NextResponse.json({
-    success: true,
-    message: 'budget_overrides table created successfully',
+    message: 'Auto-creation failed. Please run this SQL in Supabase SQL Editor (https://supabase.com/dashboard):',
+    sql: SETUP_SQL,
+    projectRef,
   });
 }
