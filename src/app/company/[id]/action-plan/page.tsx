@@ -1588,8 +1588,6 @@ export default function CompanyDrilldown() {
                         )}
                         <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
                         <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ผู้รับผิดชอบ</th>
-                        <th className="text-right py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>งบ</th>
-                        <th className="text-right py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ใช้จริง</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
@@ -1623,32 +1621,67 @@ export default function CompanyDrilldown() {
                             </td>
                           )}
                           <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
-                            {act.activity}
-                            {/* Show postponed badge if any month has postponed_to_month */}
-                            {(() => {
-                              const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
-                              // Find any postponed month for this activity
-                              const postponedEntry = MONTH_KEYS.find(mk => {
-                                const key = `${prefix}${act.no}:${mk}`;
-                                return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done');
-                              });
-                              if (postponedEntry) {
-                                const key = `${prefix}${act.no}:${postponedEntry}`;
-                                const targetMonth = postponedOverrides[key];
-                                const fromLabel = MONTH_LABELS[MONTH_KEYS.indexOf(postponedEntry)];
-                                const toLabel = MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)];
+                            <div>{act.activity}</div>
+                            {/* Badges row: postponed + budget */}
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {/* Postponed badge */}
+                              {(() => {
+                                const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
+                                const postponedEntry = MONTH_KEYS.find(mk => {
+                                  const key = `${prefix}${act.no}:${mk}`;
+                                  return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done');
+                                });
+                                if (postponedEntry) {
+                                  const key = `${prefix}${act.no}:${postponedEntry}`;
+                                  const targetMonth = postponedOverrides[key];
+                                  const fromLabel = MONTH_LABELS[MONTH_KEYS.indexOf(postponedEntry)];
+                                  const toLabel = MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)];
+                                  return (
+                                    <span
+                                      className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                      style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}
+                                      title={`เลื่อนจาก ${fromLabel} → ${toLabel}`}
+                                    >
+                                      เลื่อน → {toLabel}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                              {/* Budget badges */}
+                              {(() => {
+                                const bKey = `${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`;
+                                const actBudget = act.budget || 0;
+                                const actActual = budgetOverrides[bKey]?.actual_cost || 0;
+                                const overBudget = actActual > 0 && actBudget > 0 && actActual > actBudget;
+                                if (actBudget <= 0 && actActual <= 0) return null;
                                 return (
-                                  <span
-                                    className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                    style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}
-                                    title={`เลื่อนจาก ${fromLabel} → ${toLabel}`}
-                                  >
-                                    เลื่อน → {toLabel}
-                                  </span>
+                                  <>
+                                    {actBudget > 0 && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                        style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--text-secondary)' }}
+                                        title="งบตามแผน"
+                                      >
+                                        💰 {actBudget.toLocaleString()}
+                                      </span>
+                                    )}
+                                    {actActual > 0 && (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                                        style={{
+                                          background: overBudget ? 'rgba(255,59,48,0.12)' : 'rgba(52,199,89,0.12)',
+                                          color: overBudget ? 'var(--danger)' : 'var(--success)',
+                                        }}
+                                        title={overBudget ? `ใช้จริง (เกินงบ ${Math.abs(actActual - actBudget).toLocaleString()})` : 'ใช้จริง'}
+                                      >
+                                        {overBudget ? '⚠' : '✓'} ใช้จริง {actActual.toLocaleString()}
+                                      </span>
+                                    )}
+                                  </>
                                 );
-                              }
-                              return null;
-                            })()}
+                              })()}
+                            </div>
                           </td>
                           <td
                             className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
@@ -1663,27 +1696,7 @@ export default function CompanyDrilldown() {
                           >
                             {getEffectiveResponsible(act)}
                           </td>
-                          {/* Budget columns */}
-                          {(() => {
-                            const bKey = `${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`;
-                            const actBudget = act.budget || 0;
-                            const actActual = budgetOverrides[bKey]?.actual_cost || 0;
-                            const overBudget = actActual > 0 && actBudget > 0 && actActual > actBudget;
-                            return (
-                              <>
-                                <td className="py-2.5 px-2 text-xs text-right whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                                  {actBudget > 0 ? actBudget.toLocaleString() : '-'}
-                                </td>
-                                <td className="py-2.5 px-2 text-xs text-right whitespace-nowrap" style={{
-                                  color: actActual > 0 ? (overBudget ? 'var(--danger)' : 'var(--success)') : 'var(--muted)',
-                                  fontWeight: actActual > 0 ? 600 : 400,
-                                }}>
-                                  {actActual > 0 ? actActual.toLocaleString() : '-'}
-                                  {overBudget && <span className="ml-0.5 text-[9px]">⚠</span>}
-                                </td>
-                              </>
-                            );
-                          })()}
+                          {/* Budget info moved to badges under activity name */}
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
                             const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
