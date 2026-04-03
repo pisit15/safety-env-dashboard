@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
@@ -137,6 +137,11 @@ export default function CompanyDrilldown() {
   const [showEditRequestForm, setShowEditRequestForm] = useState(false);
   const [editRequestReason, setEditRequestReason] = useState('');
   const [submittingRequest, setSubmittingRequest] = useState(false);
+
+  // Budget state
+  const [budgetOverrides, setBudgetOverrides] = useState<Record<string, { actual_cost: number; note?: string }>>({});
+  const [editingActualCost, setEditingActualCost] = useState<string>('');
+  const [savingBudget, setSavingBudget] = useState(false);
 
   // Check if already logged in from sessionStorage or AuthContext
   useEffect(() => {
@@ -315,6 +320,61 @@ export default function CompanyDrilldown() {
   useEffect(() => {
     fetchResponsibleOverrides();
   }, [fetchResponsibleOverrides]);
+
+  // Fetch budget overrides from Supabase
+  const fetchBudgetOverrides = useCallback(() => {
+    fetch(`/api/budget?companyId=${companyId}&planType=${planType === 'total' ? '' : planType}&year=${selectedYear}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.overrides) {
+          const map: Record<string, { actual_cost: number; note?: string }> = {};
+          data.overrides.forEach((o: { plan_type: string; activity_no: string; actual_cost: number; note?: string }) => {
+            const prefix = planType === 'total' ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
+            map[`${prefix}${o.activity_no}`] = { actual_cost: o.actual_cost || 0, note: o.note || undefined };
+          });
+          setBudgetOverrides(map);
+        }
+      })
+      .catch(() => {});
+  }, [companyId, planType, selectedYear]);
+
+  useEffect(() => {
+    fetchBudgetOverrides();
+  }, [fetchBudgetOverrides]);
+
+  // Save actual cost for an activity
+  const handleSaveBudget = async (actNo: string, actualCost: number) => {
+    if (!editingCell) return;
+    setSavingBudget(true);
+    try {
+      const effectivePlanType = planType === 'total'
+        ? (actNo.startsWith('S:') ? 'safety' : actNo.startsWith('E:') ? 'environment' : planType)
+        : planType;
+      const cleanActNo = actNo.replace(/^[SE]:/, '');
+
+      await fetch('/api/budget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType: effectivePlanType,
+          activityNo: cleanActNo,
+          year: selectedYear,
+          actualCost,
+          updatedBy: loginDisplayName || 'admin',
+        }),
+      });
+
+      // Update local state
+      setBudgetOverrides(prev => ({
+        ...prev,
+        [actNo]: { actual_cost: actualCost },
+      }));
+    } catch {
+      alert('บันทึกไม่สำเร็จ');
+    }
+    setSavingBudget(false);
+  };
 
   const companyName = summary?.companyName || companyId.toUpperCase();
   const currentMonthIdx = new Date().getMonth();
@@ -621,6 +681,9 @@ export default function CompanyDrilldown() {
     setPostponeMonth('');
     // Load existing note for this cell
     setStatusNote(noteOverrides[`${actNo}:${month}`] || '');
+    // Load actual cost for this activity
+    const budgetEntry = budgetOverrides[actNo];
+    setEditingActualCost(budgetEntry ? String(budgetEntry.actual_cost) : '');
     // Fetch attachments and deadline lock in parallel
     fetchAttachments(actNo, month);
     checkDeadlineLock(actNo, month);
@@ -1078,6 +1141,13 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, planType, currentMonthIdx]);
 
+  // Compute total actual cost from budget overrides
+  const totalActualCost = useMemo(() => {
+    let total = 0;
+    Object.values(budgetOverrides).forEach(b => { total += b.actual_cost || 0; });
+    return total;
+  }, [budgetOverrides]);
+
   // ── View Gate: require login to see company data ──
   if (!isLoggedIn && !auth.isAdmin) {
     return (
@@ -1314,7 +1384,7 @@ export default function CompanyDrilldown() {
                 <KPICard label="Safety ยังเปิด" value={crossPlanStats.safetyOpen} color="#ff6b35" subtext={`จาก ${crossPlanStats.safetyTotal} กิจกรรม`} />
                 <KPICard label="Envi ยังเปิด" value={crossPlanStats.enviOpen} color="#34c759" subtext={`จาก ${crossPlanStats.enviTotal} กิจกรรม`} />
                 <KPICard label="Overdue รวม" value={(crossPlanStats.safetyOverdue + crossPlanStats.enviOverdue)} color="var(--danger)" subtext={`S:${crossPlanStats.safetyOverdue} / E:${crossPlanStats.enviOverdue}`} />
-                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext={effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
+                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
               </div>
             ) : (
               /* Safety / Environment KPIs */
@@ -1325,7 +1395,7 @@ export default function CompanyDrilldown() {
                 <KPICard label={planConfig.kpi.postponed} value={effectiveSummary?.postponed || 0} color="var(--info)" />
                 <KPICard label={planConfig.kpi.cancelled} value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
                 <KPICard label={planConfig.kpi.na} value={effectiveSummary?.notApplicable || 0} color="var(--muted)" />
-                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={planConfig.accentColor} subtext="บาท" />
+                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={planConfig.accentColor} subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : 'บาท'} />
               </div>
             )}
 
@@ -1518,6 +1588,8 @@ export default function CompanyDrilldown() {
                         )}
                         <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
                         <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ผู้รับผิดชอบ</th>
+                        <th className="text-right py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>งบ</th>
+                        <th className="text-right py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ใช้จริง</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
@@ -1591,6 +1663,27 @@ export default function CompanyDrilldown() {
                           >
                             {getEffectiveResponsible(act)}
                           </td>
+                          {/* Budget columns */}
+                          {(() => {
+                            const bKey = `${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`;
+                            const actBudget = act.budget || 0;
+                            const actActual = budgetOverrides[bKey]?.actual_cost || 0;
+                            const overBudget = actActual > 0 && actBudget > 0 && actActual > actBudget;
+                            return (
+                              <>
+                                <td className="py-2.5 px-2 text-xs text-right whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                                  {actBudget > 0 ? actBudget.toLocaleString() : '-'}
+                                </td>
+                                <td className="py-2.5 px-2 text-xs text-right whitespace-nowrap" style={{
+                                  color: actActual > 0 ? (overBudget ? 'var(--danger)' : 'var(--success)') : 'var(--muted)',
+                                  fontWeight: actActual > 0 ? 600 : 400,
+                                }}>
+                                  {actActual > 0 ? actActual.toLocaleString() : '-'}
+                                  {overBudget && <span className="ml-0.5 text-[9px]">⚠</span>}
+                                </td>
+                              </>
+                            );
+                          })()}
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
                             const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
@@ -1811,342 +1904,419 @@ export default function CompanyDrilldown() {
           </div>
         )}
 
-        {/* Status Update Modal (with attachments, deadline lock, edit request) */}
-        {showStatusModal && editingCell && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); }}>
-            <div className="glass-card rounded-2xl w-full max-w-lg mx-auto flex flex-col" style={{ backdropFilter: 'blur(40px)', maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
-              {/* Fixed Header */}
-              <div className="px-5 pt-5 pb-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
-                <h3 className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
-                  {editingCell.actName}
-                </h3>
-                <p className="text-[12px] mt-1" style={{ color: 'var(--text-secondary)' }}>
-                  กิจกรรม: <span style={{ color: 'var(--text-primary)' }}>{editingCell.actNo}</span>
-                  {' | '}
-                  เดือน: <span style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</span>
-                </p>
+        {/* Status Update Modal — Full-Screen Layout */}
+        {showStatusModal && editingCell && (() => {
+          const modalAct = activities.find(a => a.no === editingCell.actNo || `${(a as any)._planTag}:${a.no}` === editingCell.actNo);
+          const modalPlanTag = (modalAct as any)?._planTag as string | undefined;
+          const modalBudget = modalAct?.budget || 0;
+          const budgetKey = editingCell.actNo;
+          const modalActualCost = budgetOverrides[budgetKey]?.actual_cost || 0;
+          const budgetVariance = modalBudget - (parseFloat(editingActualCost) || modalActualCost);
+          const budgetPctUsed = modalBudget > 0 ? Math.round(((parseFloat(editingActualCost) || modalActualCost) / modalBudget) * 100) : 0;
+          const isOverBudget = budgetPctUsed > 100;
+          const modalResponsible = modalAct ? getEffectiveResponsible(modalAct as Activity & { _planTag?: string }) : '-';
+          const closeModal = () => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); setEditingActualCost(''); };
+
+          return (
+          <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={closeModal}>
+            <div className="flex-1 overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="w-full max-w-5xl mx-auto my-4 lg:my-6 px-3">
+
+              {/* Header Banner */}
+              <div className="rounded-t-2xl px-6 py-5" style={{
+                background: modalPlanTag === 'S' || planType === 'safety'
+                  ? 'linear-gradient(135deg, #ff6b35 0%, #e8451a 100%)'
+                  : modalPlanTag === 'E' || planType === 'environment'
+                  ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)'
+                  : 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)',
+              }}>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 mr-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      {modalPlanTag && (
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold" style={{
+                          background: 'rgba(255,255,255,0.25)', color: '#fff',
+                        }}>
+                          {modalPlanTag === 'S' ? 'SAFETY' : 'ENVIRONMENT'}
+                        </span>
+                      )}
+                      <span className="text-[12px] font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                        กิจกรรม {editingCell.actNo.replace(/^[SE]:/, '')}
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-bold text-white leading-snug">{editingCell.actName}</h2>
+                    <div className="flex items-center gap-4 mt-2 text-[12px]" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                      <span>เดือน: <strong className="text-white">{MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}</strong></span>
+                      <span>ผู้รับผิดชอบ: <strong className="text-white">{modalResponsible}</strong></span>
+                    </div>
+                  </div>
+                  <button onClick={closeModal} className="p-2 rounded-full transition-opacity hover:opacity-80" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                    <X size={18} color="#fff" />
+                  </button>
+                </div>
               </div>
-              {/* Scrollable Body */}
-              <div className="px-5 py-3 overflow-y-auto flex-1">
+
+              {/* Body Content */}
+              <div className="rounded-b-2xl" style={{ background: '#ffffff' }}>
+                <div className="p-6">
 
               {/* Deadline Lock Notice */}
               {checkingLock ? (
-                <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>กำลังตรวจสอบกำหนดเวลา...</div>
+                <div className="text-xs mb-4" style={{ color: '#6b7280' }}>กำลังตรวจสอบกำหนดเวลา...</div>
               ) : deadlineLocked && !hasApproval && !auth.isAdmin ? (
-                <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,67,54,0.1)', border: '1px solid rgba(255,67,54,0.3)' }}>
-                  <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
-                    เลยกำหนดเวลาแก้ไขเดือนนี้แล้ว
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--danger)' }}>
-                    ต้องขออนุมัติจาก Admin เพื่อแก้ไขข้อมูล
-                  </p>
+                <div className="rounded-lg p-3 mb-4" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                  <p className="text-sm font-medium" style={{ color: '#dc2626' }}>เลยกำหนดเวลาแก้ไขเดือนนี้แล้ว</p>
+                  <p className="text-xs mt-1" style={{ color: '#dc2626' }}>ต้องขออนุมัติจาก Admin เพื่อแก้ไขข้อมูล</p>
                 </div>
               ) : deadlineLocked && auth.isAdmin ? (
-                <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(255,149,0,0.1)', border: '1px solid rgba(255,149,0,0.3)' }}>
-                  <p className="text-sm font-medium" style={{ color: '#ff9500' }}>
-                    เลยกำหนดเวลาแล้ว — แก้ไขได้ (Admin)
-                  </p>
+                <div className="rounded-lg p-3 mb-4" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                  <p className="text-sm font-medium" style={{ color: '#d97706' }}>เลยกำหนดเวลาแล้ว — แก้ไขได้ (Admin)</p>
                 </div>
               ) : deadlineLocked && hasApproval ? (
-                <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(48,209,88,0.1)', border: '1px solid rgba(48,209,88,0.3)' }}>
-                  <p className="text-sm font-medium" style={{ color: 'var(--success)' }}>
-                    ได้รับอนุมัติให้แก้ไขแล้ว (ชั่วคราว)
-                  </p>
+                <div className="rounded-lg p-3 mb-4" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <p className="text-sm font-medium" style={{ color: '#16a34a' }}>ได้รับอนุมัติให้แก้ไขแล้ว (ชั่วคราว)</p>
                 </div>
               ) : null}
 
-              {/* Status Buttons - disable if locked without approval (admin bypasses) */}
-              {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
-                <>
-                  <p className="text-[11px] mb-1.5" style={{ color: 'var(--text-secondary)' }}>เปลี่ยนสถานะ:</p>
-                  <div className="grid grid-cols-3 gap-1.5 mb-3">
-                    {STATUS_OPTIONS.map(opt => {
-                      const currentStatus = getEffectiveStatus(
-                        activities.find(a => a.no === editingCell.actNo)!,
-                        editingCell.month
-                      );
-                      const isActive = currentStatus === opt.value;
+              {/* 2-Column Grid on Desktop */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => handleSaveStatus(opt.value)}
-                          disabled={savingStatus}
-                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs transition-colors"
-                          style={{
-                            background: isActive ? 'var(--bg-hover)' : 'var(--border)',
-                            border: isActive ? '2px solid var(--accent)' : '1px solid var(--border)',
-                            color: isActive ? '#fff' : 'var(--text-secondary)',
-                            opacity: savingStatus ? 0.5 : 1
-                          }}
-                        >
-                          <span style={{ color: opt.color }} className="text-sm">{opt.icon}</span>
-                          <span className="truncate">{opt.label}</span>
-                        </button>
-                      );
-                    })}
+                {/* ── LEFT COLUMN ── */}
+                <div className="space-y-5">
+
+                  {/* Section 1: STATUS */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#007aff' }}>1</span>
+                      <h3 className="text-[14px] font-bold" style={{ color: '#1f2937' }}>สถานะกิจกรรม</h3>
+                    </div>
+                    {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                      <>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
+                          {STATUS_OPTIONS.map(opt => {
+                            const currentStatus = getEffectiveStatus(
+                              activities.find(a => a.no === editingCell.actNo) || activities[0],
+                              editingCell.month
+                            );
+                            const isActive = currentStatus === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                onClick={() => handleSaveStatus(opt.value)}
+                                disabled={savingStatus}
+                                className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all"
+                                style={{
+                                  background: isActive ? '#eef2ff' : '#f9fafb',
+                                  border: isActive ? '2px solid #6366f1' : '1px solid #e5e7eb',
+                                  color: isActive ? '#4338ca' : '#6b7280',
+                                  opacity: savingStatus ? 0.5 : 1,
+                                }}
+                              >
+                                <span style={{ color: opt.color }} className="text-sm">{opt.icon}</span>
+                                <span>{opt.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Postpone Month Picker */}
+                        {pendingPostpone && (
+                          <div className="rounded-lg p-3 mb-3" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                            <p className="text-xs font-medium mb-2" style={{ color: '#2563eb' }}>เลือกเดือนที่จะเลื่อนไป:</p>
+                            <div className="grid grid-cols-6 gap-1.5 mb-2">
+                              {MONTH_KEYS.map((mk, idx) => {
+                                const now = new Date();
+                                const isPast = idx < now.getMonth();
+                                const isOriginal = mk === editingCell.month;
+                                const disabled = isPast || isOriginal;
+                                const isSelected = postponeMonth === mk;
+                                return (
+                                  <button key={mk} onClick={() => !disabled && setPostponeMonth(mk)} disabled={disabled}
+                                    className="px-2 py-1.5 rounded text-xs transition-colors"
+                                    style={{
+                                      background: isSelected ? '#2563eb' : disabled ? '#f3f4f6' : '#e5e7eb',
+                                      color: isSelected ? '#fff' : disabled ? '#d1d5db' : '#374151',
+                                      cursor: disabled ? 'not-allowed' : 'pointer',
+                                      border: isSelected ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                                    }}
+                                  >{MONTH_LABELS[idx]}</button>
+                                );
+                              })}
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => { setPendingPostpone(false); setPostponeMonth(''); }}
+                                className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                              <button onClick={() => handleSaveStatus('postponed' as MonthStatus)} disabled={!postponeMonth || savingStatus}
+                                className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                                style={{ background: '#2563eb', color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}>
+                                {savingStatus ? 'กำลังบันทึก...' : `เลื่อนไป ${postponeMonth ? MONTH_LABELS[MONTH_KEYS.indexOf(postponeMonth)] : '...'}`}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Revert */}
+                        {overrides[`${editingCell.actNo}:${editingCell.month}`] && (
+                          <button onClick={handleRevertStatus} disabled={savingStatus}
+                            className="w-full px-2 py-1.5 rounded-lg text-[11px] mb-2 transition-colors"
+                            style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }}>
+                            ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
 
-                  {/* Postpone Month Picker */}
-                  {pendingPostpone && (
-                    <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(0,122,255,0.08)', border: '1px solid rgba(0,122,255,0.3)' }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: 'var(--info)' }}>เลือกเดือนที่จะเลื่อนไป:</p>
-                      <div className="grid grid-cols-4 gap-1.5 mb-2">
-                        {MONTH_KEYS.map((mk, idx) => {
-                          const now = new Date();
-                          const currentMonth = now.getMonth(); // 0-based
-                          const isPast = idx < currentMonth; // Can't postpone to past months
-                          const isOriginal = mk === editingCell.month; // Can't postpone to same month
-                          const disabled = isPast || isOriginal;
-                          const isSelected = postponeMonth === mk;
-
-                          return (
-                            <button
-                              key={mk}
-                              onClick={() => !disabled && setPostponeMonth(mk)}
-                              disabled={disabled}
-                              className="px-2 py-1.5 rounded text-xs transition-colors"
-                              style={{
-                                background: isSelected ? 'var(--accent)' : disabled ? 'var(--bg-secondary)' : 'var(--border)',
-                                color: isSelected ? '#fff' : disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
-                                opacity: disabled ? 0.4 : 1,
-                                cursor: disabled ? 'not-allowed' : 'pointer',
-                                border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                              }}
-                            >
-                              {MONTH_LABELS[idx]}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setPendingPostpone(false); setPostponeMonth(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs transition-colors"
-                          style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                        >
-                          ยกเลิก
-                        </button>
-                        <button
-                          onClick={() => handleSaveStatus('postponed' as MonthStatus)}
-                          disabled={!postponeMonth || savingStatus}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity"
-                          style={{ background: 'var(--info)', color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}
-                        >
-                          {savingStatus ? 'กำลังบันทึก...' : `เลื่อนไป ${postponeMonth ? MONTH_LABELS[MONTH_KEYS.indexOf(postponeMonth)] : '...'}`}
-                        </button>
-                      </div>
+                  {/* Section 2: BUDGET */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#f59e0b' }}>2</span>
+                      <h3 className="text-[14px] font-bold" style={{ color: '#1f2937' }}>งบประมาณ</h3>
                     </div>
-                  )}
-
-                  {/* Revert button */}
-                  {overrides[`${editingCell.actNo}:${editingCell.month}`] && (
-                    <button
-                      onClick={handleRevertStatus}
-                      disabled={savingStatus}
-                      className="w-full px-2 py-1.5 rounded-lg text-[11px] transition-colors mb-2"
-                      style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                    >
-                      ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
-                    </button>
-                  )}
-                </>
-              )}
-
-              {/* Edit Request Form - show when locked and no approval (admin bypasses) */}
-              {deadlineLocked && !hasApproval && !auth.isAdmin && (
-                <div className="mb-4">
-                  {!showEditRequestForm ? (
-                    <button
-                      onClick={() => setShowEditRequestForm(true)}
-                      className="btn-primary w-full px-3 py-2.5 rounded-lg text-sm font-medium"
-                    >
-                      ขอแก้ไขข้อมูลย้อนหลัง
-                    </button>
-                  ) : (
-                    <div className="rounded-lg p-3" style={{ background: 'var(--border)', border: '1px solid var(--border)' }}>
-                      <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>ขอแก้ไขข้อมูลย้อนหลัง</p>
-                      <textarea
-                        value={editRequestReason}
-                        onChange={e => setEditRequestReason(e.target.value)}
-                        placeholder="เหตุผลที่ต้องการแก้ไข..."
-                        className="w-full px-3 py-2 rounded-lg text-sm mb-2 focus:outline-none resize-none"
-                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                        rows={3}
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setShowEditRequestForm(false); setEditRequestReason(''); }}
-                          className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
-                          style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                        >
-                          ยกเลิก
-                        </button>
-                        <button
-                          onClick={handleSubmitEditRequest}
-                          disabled={submittingRequest || !editRequestReason.trim()}
-                          className="btn-primary flex-1 px-3 py-2 rounded-lg text-sm font-medium"
-                          style={{ opacity: submittingRequest || !editRequestReason.trim() ? 0.5 : 1 }}
-                        >
-                          {submittingRequest ? 'กำลังส่ง...' : 'ส่งคำขอ'}
-                        </button>
+                    <div className="rounded-xl p-4" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                      {/* Planned vs Actual summary */}
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: '#9ca3af' }}>งบตามแผน</p>
+                          <p className="text-lg font-bold" style={{ color: '#1f2937' }}>
+                            {modalBudget > 0 ? modalBudget.toLocaleString() : '-'}
+                            {modalBudget > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: '#9ca3af' }}>บาท</span>}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] mb-0.5" style={{ color: '#9ca3af' }}>ใช้จริง</p>
+                          <p className="text-lg font-bold" style={{ color: isOverBudget ? '#dc2626' : '#16a34a' }}>
+                            {modalActualCost > 0 ? modalActualCost.toLocaleString() : '-'}
+                            {modalActualCost > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: '#9ca3af' }}>บาท</span>}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Note / Detail Section */}
-              {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
-                <div className="mb-3">
-                  <p className="text-xs mb-1.5" style={{ color: 'var(--text-secondary)' }}>รายละเอียด / หมายเหตุ:</p>
-                  <RichTextEditor
-                    value={statusNote}
-                    onChange={setStatusNote}
-                    placeholder="พิมพ์รายละเอียดเพิ่มเติม เช่น สิ่งที่ทำ ผลลัพธ์ หรือเหตุผล..."
-                  />
-                  <button
-                    onClick={handleSaveNote}
-                    disabled={savingNote}
-                    className="mt-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                    style={{ background: 'var(--accent)', color: '#fff', opacity: savingNote ? 0.5 : 1 }}
-                  >
-                    {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
-                  </button>
-                </div>
-              )}
-              {/* Show existing note if locked */}
-              {deadlineLocked && !hasApproval && !auth.isAdmin && statusNote && (
-                <div className="mb-3">
-                  <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>รายละเอียด:</p>
-                  <RichTextEditor value={statusNote} onChange={() => {}} readOnly />
-                </div>
-              )}
-
-              {/* Attachments Section */}
-              <div style={{ borderTop: '1px solid var(--border)' }} className="pt-3 mt-2">
-                <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>หลักฐาน / ไฟล์แนบ <span style={{ color: 'var(--text-muted)' }}>(สูงสุด 20 MB/ไฟล์)</span></p>
-
-                {loadingAttachments ? (
-                  <div className="text-xs py-2" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
-                ) : attachments.length === 0 ? (
-                  <div className="text-xs py-2 text-center" style={{ color: 'var(--text-muted)' }}>ยังไม่มีไฟล์แนบ</div>
-                ) : (
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {attachments.map(att => (
-                      <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'var(--bg-secondary)' }}>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-sm">
-                            {att.file_type === 'link' ? '🔗' :
-                             att.file_type?.includes('image') ? '🖼️' :
-                             att.file_type?.includes('pdf') ? '📄' :
-                             att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '📊' : '📎'}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{att.file_name}</p>
-                            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                              {att.uploaded_by} | {new Date(att.created_at).toLocaleDateString('th-TH')}
-                              {att.file_size > 0 && ` | ${(att.file_size / 1024 / 1024).toFixed(1)} MB`}
-                            </p>
+                      {/* Variance bar */}
+                      {modalBudget > 0 && modalActualCost > 0 && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between text-[11px] mb-1">
+                            <span style={{ color: '#6b7280' }}>ใช้ไป {budgetPctUsed}%</span>
+                            <span className="flex items-center gap-1" style={{ color: isOverBudget ? '#dc2626' : '#16a34a' }}>
+                              {isOverBudget ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                              {isOverBudget ? `เกินงบ ${Math.abs(budgetVariance).toLocaleString()}` : `เหลือ ${budgetVariance.toLocaleString()}`}
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
+                            <div className="h-full rounded-full transition-all" style={{
+                              width: `${Math.min(budgetPctUsed, 100)}%`,
+                              background: isOverBudget ? '#dc2626' : budgetPctUsed >= 85 ? '#f59e0b' : '#16a34a',
+                            }} />
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                          <a
-                            href={att.file_url || att.drive_url || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs transition-opacity hover:opacity-80"
-                            style={{ color: 'var(--accent)' }}
-                          >
-                            เปิด
-                          </a>
-                          {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                      )}
+                      {/* Actual Cost Input */}
+                      {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                        <div>
+                          <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>บันทึกค่าใช้จ่ายจริง (บาท)</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="number"
+                              value={editingActualCost}
+                              onChange={e => setEditingActualCost(e.target.value)}
+                              placeholder="0"
+                              className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none"
+                              style={{ background: '#ffffff', border: '1px solid #d1d5db', color: '#1f2937' }}
+                            />
                             <button
-                              onClick={() => handleDeleteAttachment(att.id)}
-                              disabled={deletingAttId === att.id}
-                              className="p-1 rounded transition-opacity hover:opacity-70"
-                              style={{ color: 'var(--danger)', opacity: deletingAttId === att.id ? 0.3 : 1 }}
-                              title="ลบไฟล์"
+                              onClick={() => handleSaveBudget(editingCell.actNo, parseFloat(editingActualCost) || 0)}
+                              disabled={savingBudget}
+                              className="px-4 py-2 rounded-lg text-xs font-medium transition-opacity"
+                              style={{ background: '#f59e0b', color: '#fff', opacity: savingBudget ? 0.5 : 1 }}
                             >
-                              <Trash2 size={13} />
+                              {savingBudget ? '...' : '💾 บันทึก'}
                             </button>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Upload Button */}
-                {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
-                  <label className={`inline-flex items-center mt-2 px-3 py-1.5 btn-primary rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
-                    {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
-                    <input
-                      type="file"
-                      accept="image/*,.pdf,.xlsx,.xls,.doc,.docx"
-                      className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUploadFile(file);
-                        e.target.value = '';
-                      }}
-                      disabled={uploadingFile}
-                    />
-                  </label>
-                )}
-
-                {/* External Link Section */}
-                {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
-                  <div className="mt-2.5 rounded-lg p-2.5" style={{ background: 'var(--bg-secondary)', border: '1px dashed var(--border)' }}>
-                    <p className="text-[11px] mb-1.5 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                      <ExternalLink size={11} /> เพิ่มลิงก์ภายนอก (Google Drive, OneDrive ฯลฯ)
-                    </p>
-                    <input
-                      type="text"
-                      value={externalLinkTitle}
-                      onChange={e => setExternalLinkTitle(e.target.value)}
-                      placeholder="ชื่อลิงก์ (ไม่จำเป็น)"
-                      className="w-full px-2.5 py-1.5 rounded text-xs mb-1.5 focus:outline-none"
-                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    />
-                    <div className="flex gap-1.5">
-                      <input
-                        type="url"
-                        value={externalLink}
-                        onChange={e => setExternalLink(e.target.value)}
-                        placeholder="https://drive.google.com/..."
-                        className="flex-1 px-2.5 py-1.5 rounded text-xs focus:outline-none"
-                        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                        onKeyDown={e => { if (e.key === 'Enter') handleAddExternalLink(); }}
-                      />
-                      <button
-                        onClick={handleAddExternalLink}
-                        disabled={addingLink || !externalLink.trim()}
-                        className="px-3 py-1.5 rounded text-xs font-medium transition-opacity"
-                        style={{ background: 'var(--accent)', color: '#fff', opacity: addingLink || !externalLink.trim() ? 0.5 : 1 }}
-                      >
-                        {addingLink ? '...' : '+ เพิ่ม'}
-                      </button>
+                      )}
                     </div>
                   </div>
-                )}
+
+                  {/* Edit Request Form - show when locked */}
+                  {deadlineLocked && !hasApproval && !auth.isAdmin && (
+                    <div>
+                      {!showEditRequestForm ? (
+                        <button onClick={() => setShowEditRequestForm(true)}
+                          className="w-full px-3 py-2.5 rounded-lg text-sm font-medium"
+                          style={{ background: '#4f46e5', color: '#fff' }}>
+                          ขอแก้ไขข้อมูลย้อนหลัง
+                        </button>
+                      ) : (
+                        <div className="rounded-lg p-3" style={{ background: '#f3f4f6', border: '1px solid #e5e7eb' }}>
+                          <p className="text-sm font-medium mb-2" style={{ color: '#1f2937' }}>ขอแก้ไขข้อมูลย้อนหลัง</p>
+                          <textarea value={editRequestReason} onChange={e => setEditRequestReason(e.target.value)}
+                            placeholder="เหตุผลที่ต้องการแก้ไข..."
+                            className="w-full px-3 py-2 rounded-lg text-sm mb-2 focus:outline-none resize-none"
+                            style={{ background: '#ffffff', border: '1px solid #d1d5db', color: '#1f2937' }}
+                            rows={3} autoFocus />
+                          <div className="flex gap-2">
+                            <button onClick={() => { setShowEditRequestForm(false); setEditRequestReason(''); }}
+                              className="flex-1 px-3 py-2 rounded-lg text-sm" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                            <button onClick={handleSubmitEditRequest} disabled={submittingRequest || !editRequestReason.trim()}
+                              className="flex-1 px-3 py-2 rounded-lg text-sm font-medium"
+                              style={{ background: '#4f46e5', color: '#fff', opacity: submittingRequest || !editRequestReason.trim() ? 0.5 : 1 }}>
+                              {submittingRequest ? 'กำลังส่ง...' : 'ส่งคำขอ'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+
+                {/* ── RIGHT COLUMN ── */}
+                <div className="space-y-5">
+
+                  {/* Section 3: NOTES */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: '#8b5cf6' }}>3</span>
+                      <h3 className="text-[14px] font-bold" style={{ color: '#1f2937' }}>รายละเอียด / หมายเหตุ</h3>
+                    </div>
+                    {!(deadlineLocked && !hasApproval && !auth.isAdmin) ? (
+                      <div>
+                        <RichTextEditor
+                          value={statusNote}
+                          onChange={setStatusNote}
+                          placeholder="พิมพ์รายละเอียดเพิ่มเติม เช่น สิ่งที่ทำ ผลลัพธ์ หรือเหตุผล..."
+                        />
+                        <button onClick={handleSaveNote} disabled={savingNote}
+                          className="mt-2 px-4 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
+                          style={{ background: '#8b5cf6', color: '#fff', opacity: savingNote ? 0.5 : 1 }}>
+                          {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
+                        </button>
+                      </div>
+                    ) : statusNote ? (
+                      <div>
+                        <p className="text-xs mb-1" style={{ color: '#6b7280' }}>รายละเอียด:</p>
+                        <RichTextEditor value={statusNote} onChange={() => {}} readOnly />
+                      </div>
+                    ) : (
+                      <p className="text-xs" style={{ color: '#9ca3af' }}>ไม่มีหมายเหตุ</p>
+                    )}
+                  </div>
+
+                  {/* Section 4: EVIDENCE / ATTACHMENTS */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{
+                        background: planType === 'environment' || modalPlanTag === 'E' ? '#16a34a' : '#0ea5e9',
+                      }}>4</span>
+                      <h3 className="text-[14px] font-bold" style={{ color: '#1f2937' }}>
+                        {planType === 'environment' || modalPlanTag === 'E' ? 'หลักฐาน / Evidence' : 'ไฟล์แนบ'}
+                      </h3>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#f3f4f6', color: '#9ca3af' }}>สูงสุด 20 MB/ไฟล์</span>
+                    </div>
+
+                    {loadingAttachments ? (
+                      <div className="text-xs py-3" style={{ color: '#6b7280' }}>กำลังโหลด...</div>
+                    ) : attachments.length === 0 ? (
+                      <div className="text-center py-6 rounded-lg" style={{ background: '#f9fafb', border: '2px dashed #d1d5db' }}>
+                        <Paperclip size={24} className="mx-auto mb-2" style={{ color: '#d1d5db' }} />
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>
+                          {planType === 'environment' || modalPlanTag === 'E'
+                            ? 'ยังไม่มีหลักฐานแนบ — อัปโหลดเพื่อ compliance'
+                            : 'ยังไม่มีไฟล์แนบ'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {attachments.map(att => (
+                          <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-sm">
+                                {att.file_type === 'link' ? '🔗' :
+                                 att.file_type?.includes('image') ? '🖼️' :
+                                 att.file_type?.includes('pdf') ? '📄' :
+                                 att.file_type?.includes('sheet') || att.file_type?.includes('excel') ? '📊' : '📎'}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-xs truncate" style={{ color: '#1f2937' }}>{att.file_name}</p>
+                                <p className="text-[10px]" style={{ color: '#9ca3af' }}>
+                                  {att.uploaded_by} | {new Date(att.created_at).toLocaleDateString('th-TH')}
+                                  {att.file_size > 0 && ` | ${(att.file_size / 1024 / 1024).toFixed(1)} MB`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                              <a href={att.file_url || att.drive_url || '#'} target="_blank" rel="noopener noreferrer"
+                                className="text-xs transition-opacity hover:opacity-80" style={{ color: '#2563eb' }}>เปิด</a>
+                              {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                                <button onClick={() => handleDeleteAttachment(att.id)} disabled={deletingAttId === att.id}
+                                  className="p-1 rounded transition-opacity hover:opacity-70"
+                                  style={{ color: '#dc2626', opacity: deletingAttId === att.id ? 0.3 : 1 }} title="ลบไฟล์">
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Upload Button */}
+                    {!(deadlineLocked && !hasApproval && !auth.isAdmin) && (
+                      <div className="mt-3 flex flex-col gap-2">
+                        <label className={`inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}
+                          style={{ background: planType === 'environment' || modalPlanTag === 'E' ? '#16a34a' : '#2563eb', color: '#fff' }}>
+                          {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
+                          <input type="file" accept="image/*,.pdf,.xlsx,.xls,.doc,.docx" className="hidden"
+                            onChange={e => { const file = e.target.files?.[0]; if (file) handleUploadFile(file); e.target.value = ''; }}
+                            disabled={uploadingFile} />
+                        </label>
+
+                        {/* External Link */}
+                        <div className="rounded-lg p-3" style={{ background: '#f9fafb', border: '1px dashed #d1d5db' }}>
+                          <p className="text-[11px] mb-1.5 flex items-center gap-1" style={{ color: '#6b7280' }}>
+                            <ExternalLink size={11} /> เพิ่มลิงก์ภายนอก (Google Drive, OneDrive ฯลฯ)
+                          </p>
+                          <input type="text" value={externalLinkTitle} onChange={e => setExternalLinkTitle(e.target.value)}
+                            placeholder="ชื่อลิงก์ (ไม่จำเป็น)"
+                            className="w-full px-2.5 py-1.5 rounded text-xs mb-1.5 focus:outline-none"
+                            style={{ background: '#ffffff', border: '1px solid #d1d5db', color: '#1f2937' }} />
+                          <div className="flex gap-1.5">
+                            <input type="url" value={externalLink} onChange={e => setExternalLink(e.target.value)}
+                              placeholder="https://drive.google.com/..."
+                              className="flex-1 px-2.5 py-1.5 rounded text-xs focus:outline-none"
+                              style={{ background: '#ffffff', border: '1px solid #d1d5db', color: '#1f2937' }}
+                              onKeyDown={e => { if (e.key === 'Enter') handleAddExternalLink(); }} />
+                            <button onClick={handleAddExternalLink} disabled={addingLink || !externalLink.trim()}
+                              className="px-3 py-1.5 rounded text-xs font-medium transition-opacity"
+                              style={{ background: '#2563eb', color: '#fff', opacity: addingLink || !externalLink.trim() ? 0.5 : 1 }}>
+                              {addingLink ? '...' : '+ เพิ่ม'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
               </div>
 
-              </div>
-              {/* Fixed Footer */}
-              <div className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-                <button
-                  onClick={() => { setShowStatusModal(false); setEditingCell(null); setStatusNote(''); setExternalLink(''); setExternalLinkTitle(''); setPendingPostpone(false); setPostponeMonth(''); }}
-                  className="w-full px-3 py-2 rounded-lg text-sm transition-colors"
-                  style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                >
+              {/* Footer */}
+              <div className="mt-6 pt-4 flex justify-end" style={{ borderTop: '1px solid #e5e7eb' }}>
+                <button onClick={closeModal}
+                  className="px-6 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                  style={{ background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb' }}>
                   ปิด
                 </button>
               </div>
+
+                </div>
+              </div>
+
+              </div>
             </div>
           </div>
-        )}
+          );
+        })()}
+
         {/* Responsible Edit Modal */}
         {showResponsibleModal && editingResponsible && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => { setShowResponsibleModal(false); setEditingResponsible(null); }}>
