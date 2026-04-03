@@ -8,7 +8,7 @@ import KPICard from '@/components/KPICard';
 
 import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
-import { Activity, CompanySummary, MonthStatus } from '@/lib/types';
+import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
 import dynamic from 'next/dynamic';
 
@@ -475,18 +475,25 @@ export default function CompanyDrilldown() {
   const filteredActivities = useMemo(() => {
     let list = statusFilter === 'all'
       ? [...activities]
-      : activities.filter(a => a.status === statusFilter);
+      : activities.filter(a => getEffectiveOverallStatus(a) === statusFilter);
 
     if (sortMonth !== 'none') {
       list = list.filter(act => {
         const status = getEffectiveStatus(act, sortMonth);
-        return status !== 'not_planned';
+        if (status !== 'not_planned') return true;
+        // For recurring activities: keep them even if THIS month is not_planned
+        // Only hide if the activity has NO planned months at all
+        const hasAnyPlannedMonth = MONTH_KEYS.some(mk => {
+          const ms = getEffectiveStatus(act, mk);
+          return ms !== 'not_planned';
+        });
+        return hasAnyPlannedMonth;
       });
     }
 
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, statusFilter, sortMonth, overrides]);
+  }, [activities, statusFilter, sortMonth, overrides, currentMonthIdx]);
 
   // Determine which months to include based on timeRange
   const activeMonthKeys = useMemo(() => {
@@ -556,15 +563,65 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, postponedOverrides, summary, activeMonthKeys]);
 
-  // Count statuses
-  const statusCounts = {
-    all: activities.length,
-    done: activities.filter(a => a.status === 'done').length,
-    not_started: activities.filter(a => a.status === 'not_started').length,
-    postponed: activities.filter(a => a.status === 'postponed').length,
-    cancelled: activities.filter(a => a.status === 'cancelled').length,
-    not_applicable: activities.filter(a => a.status === 'not_applicable').length,
+  // Compute effective overall status considering overrides
+  // For recurring activities, status should reflect current progress across ALL months
+  const getEffectiveOverallStatus = (act: Activity & { _planTag?: string }): ActivityStatus => {
+    // First check if ALL months are overridden to not_applicable or cancelled
+    const monthStatuses = MONTH_KEYS.map(mk => getEffectiveStatus(act, mk));
+    const allNotApplicable = monthStatuses.every(s => s === 'not_applicable' || s === 'not_planned');
+    if (allNotApplicable && monthStatuses.some(s => s === 'not_applicable')) return 'not_applicable';
+    const allCancelled = monthStatuses.every(s => s === 'cancelled' || s === 'not_planned');
+    if (allCancelled && monthStatuses.some(s => s === 'cancelled')) return 'cancelled';
+
+    // Check if any month is postponed
+    const hasPostponed = monthStatuses.some(s => s === 'postponed');
+    if (hasPostponed && act.status === 'postponed') return 'postponed';
+
+    // For recurring: check planned months up to current month
+    const plannedMonths = MONTH_KEYS.filter((mk, idx) => {
+      const s = getEffectiveStatus(act, mk);
+      return s !== 'not_planned';
+    });
+    if (plannedMonths.length === 0) return act.status; // fallback
+
+    const plannedUpToCurrent = MONTH_KEYS.filter((mk, idx) => {
+      if (idx > currentMonthIdx) return false;
+      const s = getEffectiveStatus(act, mk);
+      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
+    });
+    const doneUpToCurrent = plannedUpToCurrent.filter(mk => getEffectiveStatus(act, mk) === 'done');
+    const hasFutureMonths = MONTH_KEYS.some((mk, idx) => {
+      if (idx <= currentMonthIdx) return false;
+      const s = getEffectiveStatus(act, mk);
+      return s !== 'not_planned' && s !== 'not_applicable' && s !== 'cancelled';
+    });
+
+    // If all planned months up to now are done BUT there are future months → not truly "done"
+    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && hasFutureMonths) {
+      return 'not_started'; // Still has work to do in future months
+    }
+    if (doneUpToCurrent.length > 0 && doneUpToCurrent.length >= plannedUpToCurrent.length && !hasFutureMonths) {
+      return 'done'; // All months completed
+    }
+    if (doneUpToCurrent.length > 0) {
+      return 'done'; // Partial done — keep in done category
+    }
+
+    return act.status; // fallback to original
   };
+
+  // Count statuses using effective overall status
+  const statusCounts = useMemo(() => {
+    const counts = { all: activities.length, done: 0, not_started: 0, postponed: 0, cancelled: 0, not_applicable: 0 };
+    activities.forEach(act => {
+      const effectiveStatus = getEffectiveOverallStatus(act);
+      if (effectiveStatus in counts) {
+        counts[effectiveStatus as keyof typeof counts]++;
+      }
+    });
+    return counts;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides, currentMonthIdx]);
 
   // Login handler
   const handleLogin = async () => {
@@ -1095,9 +1152,19 @@ export default function CompanyDrilldown() {
     // Apply quick filter
     if (quickFilter === 'thisMonth') {
       const curMK = MONTH_KEYS[currentMonthIdx];
+      // Don't hide recurring activities — sort them to the bottom instead
+      // Only hide activities that have NO plan in ANY month
       list = list.filter(act => {
         const st = getEffectiveStatus(act, curMK);
-        return st !== 'not_planned';
+        if (st !== 'not_planned') return true;
+        // Keep if activity has plans in other months (recurring)
+        return MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) !== 'not_planned');
+      });
+      // Sort: activities with plan this month first, not_planned this month at bottom
+      list.sort((a, b) => {
+        const aHasPlan = getEffectiveStatus(a, curMK) !== 'not_planned' ? 1 : 0;
+        const bHasPlan = getEffectiveStatus(b, curMK) !== 'not_planned' ? 1 : 0;
+        return bHasPlan - aHasPlan;
       });
     } else if (quickFilter === 'overdue') {
       list = list.filter(act => {
