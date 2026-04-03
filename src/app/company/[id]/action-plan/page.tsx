@@ -1231,6 +1231,49 @@ export default function CompanyDrilldown() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, attachmentCounts, overrides]);
 
+  // Activity progress per row: how many months done / total planned months
+  const activityProgress = useMemo(() => {
+    const result: Record<string, { done: number; total: number; pct: number }> = {};
+    activities.forEach(act => {
+      const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+      const actKey = `${prefix}${act.no}`;
+      let done = 0, total = 0;
+      MONTH_KEYS.forEach(mk => {
+        const st = getEffectiveStatus(act, mk);
+        if (st !== 'not_planned') {
+          total++;
+          if (st === 'done' || st === 'not_applicable') done++;
+        }
+      });
+      result[actKey] = { done, total, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
+    });
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides]);
+
+  // Responsible person stats: activities count, overdue count, done count
+  const responsibleStats = useMemo(() => {
+    const stats: Record<string, { name: string; total: number; done: number; overdue: number; open: number }> = {};
+    activities.forEach(act => {
+      const name = getEffectiveResponsible(act) || 'ไม่ระบุ';
+      if (!stats[name]) stats[name] = { name, total: 0, done: 0, overdue: 0, open: 0 };
+      stats[name].total++;
+      const hasDoneAll = MONTH_KEYS.every(mk => {
+        const st = getEffectiveStatus(act, mk);
+        return st === 'not_planned' || st === 'done' || st === 'not_applicable' || st === 'cancelled';
+      });
+      if (hasDoneAll && MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'done')) {
+        stats[name].done++;
+      } else {
+        const hasOverdue = MONTH_KEYS.some((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(act, mk)));
+        if (hasOverdue) stats[name].overdue++;
+        else stats[name].open++;
+      }
+    });
+    return Object.values(stats).sort((a, b) => b.overdue - a.overdue || b.total - a.total);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities, overrides, responsibleOverrides, currentMonthIdx]);
+
   // ── View Gate: require login to see company data ──
   if (!isLoggedIn && !auth.isAdmin) {
     return (
@@ -1695,15 +1738,40 @@ export default function CompanyDrilldown() {
                     </select>
                   </div>
                 </div>
-                {/* Legend in header */}
-                <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                  <span><span style={{ color: 'var(--success)' }}>●</span> เสร็จแล้ว</span>
-                  <span><span style={{ color: 'var(--danger)' }}>○</span> เกินกำหนด</span>
-                  <span><span style={{ color: 'var(--muted)' }}>○</span> มีแผน</span>
-                  <span><span style={{ color: 'var(--info)' }}>◐</span> เลื่อน</span>
-                  <span><span style={{ color: 'var(--danger)' }}>✕</span> ยกเลิก</span>
-                  <span><span style={{ color: 'var(--muted)' }}>⊘</span> ไม่เข้าเงื่อนไข</span>
-                  <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'var(--warning)' }}></span> แก้ไขจาก Dashboard</span>
+                {/* Legend + Export */}
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                    <span><span style={{ color: 'var(--success)' }}>●</span> เสร็จแล้ว</span>
+                    <span><span style={{ color: 'var(--danger)' }}>○</span> เกินกำหนด</span>
+                    <span><span style={{ color: 'var(--muted)' }}>○</span> มีแผน</span>
+                    <span><span style={{ color: 'var(--info)' }}>◐</span> เลื่อน</span>
+                    <span><span style={{ color: 'var(--danger)' }}>✕</span> ยกเลิก</span>
+                    <span><span style={{ color: 'var(--muted)' }}>⊘</span> ไม่เข้าเงื่อนไข</span>
+                    <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'var(--warning)' }}></span> แก้ไขจาก Dashboard</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const statusMap: Record<string, string> = { done: 'เสร็จแล้ว', planned: 'มีแผน', overdue: 'เกินกำหนด', postponed: 'เลื่อน', cancelled: 'ยกเลิก', not_applicable: 'ไม่เข้าเงื่อนไข', not_planned: '-' };
+                      const header = ['ลำดับ', planType === 'total' ? 'แผน' : '', 'กิจกรรม', 'ผู้รับผิดชอบ', ...MONTH_LABELS, 'ความก้าวหน้า'].filter(Boolean);
+                      const rows = enhancedFilteredActivities.map(act => {
+                        const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                        const prog = activityProgress[`${prefix}${act.no}`];
+                        const monthStatuses = MONTH_KEYS.map(mk => statusMap[getEffectiveStatus(act, mk)] || '-');
+                        return [act.no, planType === 'total' ? ((act as any)._planTag === 'S' ? 'Safety' : 'Environment') : '', act.activity, getEffectiveResponsible(act), ...monthStatuses, prog ? `${prog.done}/${prog.total} (${prog.pct}%)` : '-'].filter((_, idx) => planType === 'total' || idx !== 1);
+                      });
+                      const csv = '\uFEFF' + [header.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `${companyId}-${planConfig.filterSummaryLabel}-${selectedYear}.csv`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all hover:opacity-80 flex-shrink-0"
+                    style={{ background: planConfig.accentBg, color: planConfig.accentColor, border: `1px solid ${planConfig.accentColor}` }}
+                    title="ดาวน์โหลด CSV"
+                  >
+                    <Download size={11} /> Export
+                  </button>
                 </div>
               </div>
               {enhancedFilteredActivities.length > 0 ? (
@@ -1760,8 +1828,9 @@ export default function CompanyDrilldown() {
                               {(() => { const bKey = `${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`; const actBudget = act.budget || 0; const actActual = budgetOverrides[bKey]?.actual_cost || 0; if (actBudget <= 0 && actActual <= 0) return null; return (<>{actBudget > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--text-secondary)' }}>💰 {actBudget.toLocaleString()}</span>}{actActual > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: actActual > actBudget && actBudget > 0 ? 'rgba(255,59,48,0.12)' : 'rgba(52,199,89,0.12)', color: actActual > actBudget && actBudget > 0 ? 'var(--danger)' : 'var(--success)' }}>✓ ใช้จริง {actActual.toLocaleString()}</span>}</>); })()}
                               {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); let totalAtt = 0; let totalNotes = 0; MONTH_KEYS.forEach(mk => { totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0; if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++; }); return (<>{totalAtt > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}>📎 {totalAtt}</span>}{totalNotes > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>✎ {totalNotes}</span>}</>); })()}
                             </div>
+                            {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); const prog = activityProgress[`${prefix}${act.no}`]; if (!prog || prog.total === 0) return null; return (<div className="flex items-center gap-1.5 mt-1.5" title={`${prog.done}/${prog.total} เดือนเสร็จ (${prog.pct}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${prog.pct}%`, background: prog.pct >= 100 ? 'var(--success)' : prog.pct >= 50 ? '#ff9500' : 'var(--danger)' }} /></div><span className="text-[9px] font-medium" style={{ color: prog.pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{prog.done}/{prog.total}</span></div>); })()}
                           </td>
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
                           {MONTH_KEYS.map((k, idx) => { const effectiveStatus = getEffectiveStatus(act, k); const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined; const planMark = act.planMonths?.[k] || ''; const actualMark = act.actualMonths?.[k] || ''; const isCurrent = idx === currentMonthIdx; const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = { not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' }, planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` }, done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` }, overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` }, postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` }, cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` }, not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' } }; const cfg = statusConfig[effectiveStatus]; const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string }); const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0; const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`]; return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(act.no, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>); })}
                         </tr>
                         ))}
@@ -1789,8 +1858,9 @@ export default function CompanyDrilldown() {
                               {(() => { const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : ''; const postponedEntry = MONTH_KEYS.find(mk => { const key = `${prefix}${act.no}:${mk}`; return postponedOverrides[key] && (overrides[key] === 'postponed' || overrides[key] === 'done'); }); if (postponedEntry) { const key = `${prefix}${act.no}:${postponedEntry}`; const targetMonth = postponedOverrides[key]; return (<span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}>เลื่อน → {MONTH_LABELS[MONTH_KEYS.indexOf(targetMonth)]}</span>); } return null; })()}
                               {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); let totalAtt = 0; let totalNotes = 0; MONTH_KEYS.forEach(mk => { totalAtt += attachmentCounts[`${prefix}${act.no}:${mk}`] || 0; if (noteOverrides[`${prefix}${act.no}:${mk}`]) totalNotes++; }); return (<>{totalAtt > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}>📎 {totalAtt}</span>}{totalNotes > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>✎ {totalNotes}</span>}</>); })()}
                             </div>
+                            {(() => { const prefix = getOverridePrefix(act as Activity & { _planTag?: string }); const prog = activityProgress[`${prefix}${act.no}`]; if (!prog || prog.total === 0) return null; return (<div className="flex items-center gap-1.5 mt-1.5" title={`${prog.done}/${prog.total} เดือนเสร็จ (${prog.pct}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${prog.pct}%`, background: prog.pct >= 100 ? 'var(--success)' : prog.pct >= 50 ? '#ff9500' : 'var(--danger)' }} /></div><span className="text-[9px] font-medium" style={{ color: prog.pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{prog.done}/{prog.total}</span></div>); })()}
                           </td>
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
                           {MONTH_KEYS.map((k, idx) => { const effectiveStatus = getEffectiveStatus(act, k); const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined; const planMark = act.planMonths?.[k] || ''; const actualMark = act.actualMonths?.[k] || ''; const isCurrent = idx === currentMonthIdx; const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = { not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' }, planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` }, done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` }, overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` }, postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` }, cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` }, not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' } }; const cfg = statusConfig[effectiveStatus]; const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string }); const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0; const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`]; return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(act.no, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>); })}
                         </tr>
                         ))}
@@ -1928,6 +1998,23 @@ export default function CompanyDrilldown() {
                                 );
                               })()}
                             </div>
+                            {/* Mini progress bar */}
+                            {(() => {
+                              const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+                              const prog = activityProgress[`${prefix}${act.no}`];
+                              if (!prog || prog.total === 0) return null;
+                              return (
+                                <div className="flex items-center gap-1.5 mt-1.5" title={`${prog.done}/${prog.total} เดือนเสร็จ (${prog.pct}%)`}>
+                                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}>
+                                    <div className="h-full rounded-full transition-all" style={{
+                                      width: `${prog.pct}%`,
+                                      background: prog.pct >= 100 ? 'var(--success)' : prog.pct >= 50 ? '#ff9500' : 'var(--danger)',
+                                    }} />
+                                  </div>
+                                  <span className="text-[9px] font-medium" style={{ color: prog.pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{prog.done}/{prog.total}</span>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td
                             className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
@@ -2013,6 +2100,39 @@ export default function CompanyDrilldown() {
                 </div>
               )}
             </div>
+            {/* Responsible Summary — workload per person */}
+            {responsibleStats.length > 0 && (
+              <div className="glass-card rounded-xl p-5 mt-5 animate-fade-in-up">
+                <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
+                  <Users size={14} /> ภาระงานตามผู้รับผิดชอบ
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {responsibleStats.map(person => {
+                    const pctDone = person.total > 0 ? Math.round((person.done / person.total) * 100) : 0;
+                    return (
+                      <div key={person.name} className="rounded-lg p-3 flex items-center gap-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                          style={{ background: person.overdue > 0 ? 'linear-gradient(135deg, #ff3b30, #ff6b35)' : pctDone >= 100 ? 'linear-gradient(135deg, #34c759, #30d158)' : 'linear-gradient(135deg, var(--accent), #5856d6)' }}>
+                          {person.name.slice(0, 2)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{person.name}</div>
+                          <div className="flex items-center gap-2 text-[10px] mt-0.5">
+                            <span style={{ color: 'var(--muted)' }}>{person.total} งาน</span>
+                            {person.done > 0 && <span style={{ color: 'var(--success)' }}>✓ {person.done}</span>}
+                            {person.overdue > 0 && <span className="font-semibold" style={{ color: 'var(--danger)' }}>⚠ ค้าง {person.overdue}</span>}
+                            {person.open > 0 && <span style={{ color: 'var(--muted)' }}>เปิด {person.open}</span>}
+                          </div>
+                          <div className="h-1 rounded-full mt-1.5 overflow-hidden" style={{ background: 'var(--border)' }}>
+                            <div className="h-full rounded-full" style={{ width: `${pctDone}%`, background: pctDone >= 100 ? 'var(--success)' : pctDone >= 50 ? '#ff9500' : 'var(--danger)' }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
 
