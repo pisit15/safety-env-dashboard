@@ -1322,30 +1322,20 @@ export default function CompanyDrilldown() {
       list = list.filter(act => (act as any)._planTag === 'E');
     }
 
-    // Default sort per tab
-    if (planConfig.defaultSort === 'overdue-first') {
-      list.sort((a, b) => {
-        // Count overdue months
-        const aOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(a, mk))).length;
-        const bOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(b, mk))).length;
-        if (bOverdue !== aOverdue) return bOverdue - aOverdue;
-        // Then not started
-        const aNotStarted = a.status === 'not_started' ? 1 : 0;
-        const bNotStarted = b.status === 'not_started' ? 1 : 0;
-        return bNotStarted - aNotStarted;
-      });
-    } else if (planConfig.defaultSort === 'due-this-month') {
-      const curMK = MONTH_KEYS[currentMonthIdx];
-      list.sort((a, b) => {
-        const aDue = getEffectiveStatus(a, curMK) !== 'not_planned' && getEffectiveStatus(a, curMK) !== 'done' ? 1 : 0;
-        const bDue = getEffectiveStatus(b, curMK) !== 'not_planned' && getEffectiveStatus(b, curMK) !== 'done' ? 1 : 0;
-        if (bDue !== aDue) return bDue - aDue;
-        // Then overdue
-        const aOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(a, mk))).length;
-        const bOverdue = MONTH_KEYS.filter((mk, idx) => idx < currentMonthIdx && ['overdue', 'planned'].includes(getEffectiveStatus(b, mk))).length;
-        return bOverdue - aOverdue;
-      });
-    }
+    // Keep original order by activity number (no auto-resorting when status changes)
+    // This prevents the confusing behavior where marking an activity as "done"
+    // causes it to jump to the bottom of the list
+    list.sort((a, b) => {
+      // Sort by activity number naturally: "1.1" < "1.2" < "2.1" etc.
+      const aParts = a.no.split('.').map(Number);
+      const bParts = b.no.split('.').map(Number);
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aVal = aParts[i] || 0;
+        const bVal = bParts[i] || 0;
+        if (aVal !== bVal) return aVal - bVal;
+      }
+      return 0;
+    });
 
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2093,21 +2083,21 @@ export default function CompanyDrilldown() {
               {enhancedFilteredActivities.length > 0 ? (
                 <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
                   <table className="apple-table w-full text-[13px]">
-                    <thead className="sticky top-0 z-10">
-                      <tr style={{ borderBottom: `1px solid var(--border)` }}>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ลำดับ</th>
+                    <thead className="sticky top-0 z-20" style={{ background: 'var(--bg-primary, #fff)' }}>
+                      <tr style={{ borderBottom: `2px solid var(--border)` }}>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ลำดับ</th>
                         {planType === 'total' && (
-                          <th className="text-center py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>แผน</th>
+                          <th className="text-center py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>แผน</th>
                         )}
-                        <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>ผู้รับผิดชอบ</th>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>กิจกรรม</th>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ผู้รับผิดชอบ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
                             className="text-center py-3 px-1 font-semibold text-[10px]"
                             style={{
                               color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
-                              background: idx === currentMonthIdx ? planConfig.accentColor : 'transparent',
+                              background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--bg-primary, #fff)',
                               borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0'
                             }}
                           >
