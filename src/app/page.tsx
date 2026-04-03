@@ -377,12 +377,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Login Modal Overlay */}
+      {/* Login Modal Overlay — don't close on backdrop click if form has data */}
       {loginModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setLoginModal(null)}
+          onClick={() => {
+            if (!loginUser && !loginPass) setLoginModal(null);
+          }}
         >
           <div
             className="rounded-2xl p-0 w-full max-w-[380px] animate-fade-in-up overflow-hidden"
