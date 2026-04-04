@@ -40,6 +40,8 @@ const PATCH_WHITELIST = [
   'safety_officer',
   'closed_date',
   'admin_notes',
+  // Coordinator can append closing images
+  'images',
 ];
 
 export async function PATCH(

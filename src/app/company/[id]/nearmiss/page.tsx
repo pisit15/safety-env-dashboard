@@ -62,7 +62,14 @@ const RISK_CFG = {
   LOW:        { label: 'LOW',      color: '#16a34a', bg: '#f0fdf4',  border: '#86efac' },
 } as const;
 
-const INV_LEVEL_OPTIONS = ['ระดับ 1 – ผู้ควบคุมงาน', 'ระดับ 2 – จป.วิชาชีพ', 'ระดับ 3 – คณะกรรมการ'];
+const INV_LEVEL_OPTIONS = [
+  'ระดับ 1 – ผู้ควบคุมงาน',
+  'ระดับ 2 – จป.วิชาชีพ',
+  'ระดับ 3 – คณะกรรมการ',
+  'คปอ.',
+  'ผู้จัดการแผนกที่เกี่ยวข้อง',
+  'ผู้บริหารหน่วยงาน',
+];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmtDate(d: string | null) {
@@ -104,6 +111,8 @@ export default function NearMissCoordinatorPage() {
   const [saveMsg, setSaveMsg]     = useState('');
   const [activeTab, setActiveTab] = useState<'incident' | 'action'>('incident');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [closingImages, setClosingImages] = useState<string[]>([]);
+  const [uploadingImg, setUploadingImg]   = useState(false);
 
   const fetchReports = useCallback(async (includeHidden = false) => {
     setLoading(true);
@@ -133,6 +142,24 @@ export default function NearMissCoordinatorPage() {
       admin_notes: r.admin_notes || '',
     });
     setSaveMsg('');
+    setClosingImages(r.images || []);
+    setConfirmDelete(false);
+  };
+
+  const uploadClosingImage = async (file: File) => {
+    setUploadingImg(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('companyId', companyId);
+      const res = await fetch('/api/nearmiss/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (res.ok && json.url) {
+        setClosingImages(prev => [...prev, json.url as string]);
+      } else {
+        alert(json.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch { alert('เกิดข้อผิดพลาดขณะอัปโหลด'); } finally { setUploadingImg(false); }
   };
 
   const saveEdits = async () => {
@@ -142,7 +169,7 @@ export default function NearMissCoordinatorPage() {
       const res = await fetch(`/api/nearmiss/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({ ...editForm, images: closingImages }),
       });
       const json = await res.json();
       if (res.ok) {
@@ -716,6 +743,62 @@ export default function NearMissCoordinatorPage() {
                               placeholder="บันทึกที่ไม่แสดงต่อสาธารณะ..." />
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* ── Closing image attachment — shown when status = closed ── */}
+                    {s === 'closed' && (
+                      <div style={{ padding: '16px', borderRadius: 12, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>
+                          📎 แนบรูปภาพ / หลักฐานการแก้ไข
+                        </p>
+
+                        {/* Thumbnails */}
+                        {closingImages.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                            {closingImages.map((url, i) => (
+                              <div key={i} style={{ position: 'relative', width: 72, height: 72 }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={url} alt={`img-${i}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1.5px solid #bbf7d0' }} />
+                                <button
+                                  onClick={() => setClosingImages(prev => prev.filter((_, idx) => idx !== i))}
+                                  style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Upload buttons */}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {/* Camera (mobile) */}
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #16a34a', background: '#fff', color: '#16a34a', fontSize: 13, fontWeight: 600, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
+                            📷 ถ่ายรูป
+                            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                              disabled={uploadingImg}
+                              onChange={e => { const f = e.target.files?.[0]; if (f) uploadClosingImage(f); e.target.value = ''; }} />
+                          </label>
+                          {/* Gallery */}
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #16a34a', background: '#fff', color: '#16a34a', fontSize: 13, fontWeight: 600, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
+                            🖼️ เลือกรูป
+                            <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                              disabled={uploadingImg}
+                              onChange={async e => {
+                                const files = Array.from(e.target.files || []);
+                                for (const f of files) await uploadClosingImage(f);
+                                e.target.value = '';
+                              }} />
+                          </label>
+                          {uploadingImg && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#16a34a', fontWeight: 500 }}>
+                              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> กำลังอัปโหลด...
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: 11, color: '#4ade80', margin: '8px 0 0', lineHeight: 1.4 }}>
+                          รองรับ JPG, PNG — รูปจะถูกบันทึกพร้อมกันเมื่อกด "บันทึก"
+                        </p>
                       </div>
                     )}
 
