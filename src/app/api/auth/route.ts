@@ -12,7 +12,13 @@ function getSupabase() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, password, username } = await request.json();
+    let body: { companyId?: string; password?: string; username?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    const { companyId, password, username } = body;
 
     if (!companyId || !password) {
       return NextResponse.json({ error: 'Missing companyId or password' }, { status: 400 });

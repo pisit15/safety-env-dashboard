@@ -7,7 +7,8 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import {
   FolderKanban, Plus, X, ChevronRight, Search,
-  Calendar, User, Building2, TrendingUp, Wallet,
+  Calendar, User, Wallet,
+  LayoutGrid, LayoutList, AlertTriangle, Clock3,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -34,16 +35,16 @@ interface SpecialProject {
 
 // ─── Config ──────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  planning:  { label: 'วางแผน',       color: '#6366f1', bg: 'rgba(99,102,241,0.12)',  icon: '📋' },
-  active:    { label: 'ดำเนินการ',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   icon: '🟢' },
-  on_hold:   { label: 'พักชั่วคราว',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏸️' },
-  completed: { label: 'เสร็จสิ้น',    color: '#10b981', bg: 'rgba(16,185,129,0.15)', icon: '✅' },
-  cancelled: { label: 'ยกเลิก',       color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '❌' },
+  planning:  { label: 'วางแผน',      color: '#6366f1', bg: 'rgba(99,102,241,0.1)'  },
+  active:    { label: 'ดำเนินการ',   color: '#22c55e', bg: 'rgba(34,197,94,0.1)'   },
+  on_hold:   { label: 'พักชั่วคราว', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
+  completed: { label: 'เสร็จสิ้น',   color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  cancelled: { label: 'ยกเลิก',      color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
 };
 
 const PLAN_TYPE_CONFIG = {
-  safety:      { label: 'Safety',      color: '#ff6b35', bg: 'rgba(255,107,53,0.12)', icon: '🛡️' },
-  environment: { label: 'Environment', color: '#34c759', bg: 'rgba(52,199,89,0.12)',  icon: '🌿' },
+  safety:      { label: 'Safety',      color: '#ff6b35', bg: 'rgba(255,107,53,0.1)' },
+  environment: { label: 'Environment', color: '#34c759', bg: 'rgba(52,199,89,0.1)'  },
 };
 
 const CATEGORY_OPTIONS = ['compliance', 'infrastructure', 'csr', 'capex', 'training', 'other'];
@@ -265,103 +266,96 @@ function ProjectCard({ project, onClick }: { project: SpecialProject; onClick: (
   const barColor = pct >= 75 ? '#22c55e' : pct >= 25 ? '#f59e0b' : '#ef4444';
   const budgetPct = project.budget_planned > 0 ? Math.round((project.budget_actual / project.budget_planned) * 100) : 0;
   const overBudget = project.budget_actual > project.budget_planned && project.budget_planned > 0;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const endDate = new Date(project.end_date);
+  const isOverdue = endDate < today && !['completed', 'cancelled'].includes(project.status);
+  const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / 86400000);
+  const dueSoon = !isOverdue && daysLeft <= 14 && !['completed', 'cancelled'].includes(project.status);
 
   return (
     <div onClick={onClick} className="rounded-2xl p-5 cursor-pointer transition-all hover:translate-y-[-2px]"
-      style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+      style={{
+        background: 'var(--card-solid)',
+        border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+        boxShadow: 'var(--shadow-sm)',
+      }}>
 
-      {/* Top badges */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        {pt && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-            style={{ background: pt.bg, color: pt.color }}>
-            {pt.icon} {pt.label}
+      {/* Top row: status badge + due risk */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
+            style={{ background: st.bg, color: st.color }}>
+            <span className="w-1.5 h-1.5 rounded-full inline-block flex-shrink-0" style={{ background: st.color }} />
+            {st.label}
+          </span>
+          {pt && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium"
+              style={{ background: pt.bg, color: pt.color }}>{pt.label}</span>
+          )}
+          {project.project_scope === 'cross_dept' && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium"
+              style={{ background: 'rgba(139,92,246,0.1)', color: '#7c3aed' }}>ข้ามแผนก</span>
+          )}
+        </div>
+        {isOverdue && (
+          <span className="flex items-center gap-1 text-[11px] font-semibold shrink-0 px-2 py-0.5 rounded-md"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+            <AlertTriangle size={10} /> เกินกำหนด
           </span>
         )}
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-          style={{ background: st.bg, color: st.color }}>
-          {st.icon} {st.label}
-        </span>
-        {project.project_scope === 'cross_dept' && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-            style={{ background: 'rgba(139,92,246,0.12)', color: '#7c3aed' }}>
-            🔗 ข้ามแผนก
-          </span>
-        )}
-        {project.category && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium"
-            style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-            {CATEGORY_LABELS[project.category] || project.category}
+        {dueSoon && (
+          <span className="flex items-center gap-1 text-[11px] font-semibold shrink-0 px-2 py-0.5 rounded-md"
+            style={{ background: 'rgba(245,158,11,0.1)', color: '#d97706' }}>
+            <Clock3 size={10} /> {daysLeft} วัน
           </span>
         )}
       </div>
 
       {/* Title */}
-      <h3 className="text-[14px] font-bold mb-1 leading-snug" style={{ color: 'var(--text-primary)' }}>
+      <h3 className="text-[14px] font-bold mb-2 leading-snug" style={{ color: 'var(--text-primary)' }}>
         {project.title}
       </h3>
 
-      {/* Owner + dept */}
-      <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-          <User size={12} /> {project.owner}
+      {/* Owner + timeline */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+        <span className="flex items-center gap-1"><User size={11} /> {project.owner}</span>
+        <span className="flex items-center gap-1">
+          <Calendar size={11} /> {formatDate(project.start_date)} – {formatDate(project.end_date)}
         </span>
-        {project.requesting_dept && (
-          <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--muted)' }}>
-            <Building2 size={12} /> {project.requesting_dept}
-          </span>
-        )}
       </div>
 
-      {/* Timeline */}
-      <div className="flex items-center gap-1.5 text-[12px] mb-3" style={{ color: 'var(--muted)' }}>
-        <Calendar size={12} />
-        <span>{formatDate(project.start_date)}</span>
-        <span>→</span>
-        <span>{formatDate(project.end_date)}</span>
-      </div>
-
-      {/* Progress bar */}
+      {/* Progress */}
       <div className="mb-3">
         <div className="flex justify-between items-center mb-1">
-          <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-            <TrendingUp size={10} className="inline mr-1" />ความคืบหน้า
+          <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+            {project.milestone_counts.total > 0
+              ? `Milestone ${project.milestone_counts.done}/${project.milestone_counts.total}`
+              : 'ความคืบหน้า'}
           </span>
-          <span className="text-[11px] font-bold" style={{ color: barColor }}>{pct}%</span>
+          <span className="text-[12px] font-bold tabular-nums" style={{ color: barColor }}>{pct}%</span>
         </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
           <div className="h-full rounded-full transition-all duration-500"
             style={{ width: `${pct}%`, background: barColor }} />
         </div>
-        {project.milestone_counts.total > 0 && (
-          <div className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>
-            Milestone: {project.milestone_counts.done}/{project.milestone_counts.total} เสร็จ
-          </div>
-        )}
       </div>
 
-      {/* Budget */}
-      {(project.budget_planned > 0 || project.budget_actual > 0) && (
-        <div className="flex items-center justify-between pt-3"
-          style={{ borderTop: '1px solid var(--border)' }}>
-          <div className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-            <Wallet size={12} />
-            <span>งบ: <strong>{formatBudget(project.budget_actual)}</strong> / {formatBudget(project.budget_planned)} บาท</span>
-          </div>
-          {project.budget_planned > 0 && (
-            <span className="text-[11px] font-semibold"
-              style={{ color: overBudget ? '#ef4444' : '#22c55e' }}>
-              {overBudget ? `⚠ เกิน ${budgetPct - 100}%` : `${budgetPct}%`}
-            </span>
-          )}
+      {/* Budget + arrow */}
+      <div className="flex items-center justify-between pt-2.5" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+          <Wallet size={11} />
+          {project.budget_planned > 0
+            ? <>
+                <strong style={{ color: overBudget ? '#ef4444' : 'var(--text-primary)' }}>
+                  ฿{formatBudget(project.budget_actual)}
+                </strong>
+                <span style={{ color: 'var(--muted)' }}> / ฿{formatBudget(project.budget_planned)}</span>
+                {overBudget && <span className="ml-1 font-semibold text-[10px]" style={{ color: '#ef4444' }}>เกิน {budgetPct - 100}%</span>}
+              </>
+            : <span style={{ color: 'var(--muted)' }}>–</span>
+          }
         </div>
-      )}
-
-      {/* Arrow */}
-      <div className="flex justify-end mt-3">
-        <span className="flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--accent)' }}>
-          ดูรายละเอียด <ChevronRight size={14} />
-        </span>
+        <ChevronRight size={14} style={{ color: 'var(--muted)' }} />
       </div>
     </div>
   );
@@ -378,10 +372,12 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  // Filters
+  // Filters + view
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'due' | 'progress' | 'name'>('newest');
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
 
   const isLoggedIn = auth.isAdmin || !!auth.companyAuth[id];
 
@@ -396,27 +392,45 @@ export default function ProjectsPage() {
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
-  // Filter logic
-  const filtered = projects.filter(p => {
-    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
-    if (filterType === 'safety' && p.plan_type !== 'safety') return false;
-    if (filterType === 'environment' && p.plan_type !== 'environment') return false;
-    if (filterType === 'general' && p.plan_type !== null) return false;
-    if (filterType === 'cross_dept' && p.project_scope !== 'cross_dept') return false;
-    if (search && !p.title.toLowerCase().includes(search.toLowerCase()) &&
-        !p.owner.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  // Computed values
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const thisMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-  // Summary stats
   const stats = {
     total: projects.length,
     active: projects.filter(p => p.status === 'active').length,
-    completed: projects.filter(p => p.status === 'completed').length,
-    onHold: projects.filter(p => p.status === 'on_hold').length,
+    overdue: projects.filter(p => {
+      const d = new Date(p.end_date);
+      return d < today && !['completed', 'cancelled'].includes(p.status);
+    }).length,
+    dueThisMonth: projects.filter(p => {
+      const d = new Date(p.end_date);
+      return d >= today && d <= thisMonthEnd && !['completed', 'cancelled'].includes(p.status);
+    }).length,
+    budgetAtRisk: projects.filter(p =>
+      p.budget_planned > 0 && p.budget_actual > p.budget_planned * 0.85
+    ).length,
     totalBudget: projects.reduce((s, p) => s + p.budget_planned, 0),
-    usedBudget: projects.reduce((s, p) => s + p.budget_actual, 0),
   };
+
+  // Filter + sort logic
+  const filtered = projects
+    .filter(p => {
+      if (filterStatus !== 'all' && p.status !== filterStatus) return false;
+      if (filterType === 'safety' && p.plan_type !== 'safety') return false;
+      if (filterType === 'environment' && p.plan_type !== 'environment') return false;
+      if (filterType === 'general' && p.plan_type !== null) return false;
+      if (filterType === 'cross_dept' && p.project_scope !== 'cross_dept') return false;
+      if (search && !p.title.toLowerCase().includes(search.toLowerCase()) &&
+          !p.owner.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'due') return new Date(a.end_date).getTime() - new Date(b.end_date).getTime();
+      if (sortBy === 'progress') return b.completion_pct - a.completion_pct;
+      if (sortBy === 'name') return a.title.localeCompare(b.title, 'th');
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   if (!isLoggedIn) {
     return (
@@ -439,127 +453,212 @@ export default function ProjectsPage() {
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
 
           {/* Header */}
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <FolderKanban size={24} style={{ color: '#6366f1' }} />
-                <h1 className="text-[22px] font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(99,102,241,0.12)' }}>
+                <FolderKanban size={18} style={{ color: '#6366f1' }} />
+              </div>
+              <div>
+                <h1 className="text-[18px] font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
                   โครงการพิเศษ
                 </h1>
+                <p className="text-[12px]" style={{ color: 'var(--muted)' }}>
+                  {company?.name || id.toUpperCase()} · โครงการนอกแผนงานประจำปี
+                </p>
               </div>
-              <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                {company?.name || id.toUpperCase()}
-              </p>
-              <p className="text-[12px] mt-1 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5"
-                style={{ background: 'rgba(99,102,241,0.08)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <span>💡</span>
-                <span>โครงการพิเศษคือโครงการที่<strong>ไม่ได้อยู่ในแผนงานประจำปี</strong> เช่น งานก่อสร้าง โครงการข้ามแผนก หรือโครงการพัฒนาพิเศษ</span>
-              </p>
             </div>
             {(auth.isAdmin || auth.companyAuth[id]) && (
               <button onClick={() => setShowCreate(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all hover:opacity-90"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-all hover:opacity-90"
                 style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-                <Plus size={16} /> สร้างโครงการ
+                <Plus size={15} /> สร้างโครงการ
               </button>
             )}
           </div>
 
-          {/* KPI Summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+          {/* KPI — actionable */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
             {[
-              { label: 'ทั้งหมด', value: stats.total, color: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
-              { label: 'ดำเนินการ', value: stats.active, color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-              { label: 'เสร็จสิ้น', value: stats.completed, color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
-              { label: 'พักชั่วคราว', value: stats.onHold, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-              { label: 'งบรวม (M)', value: `${(stats.totalBudget / 1_000_000).toFixed(1)}`, color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-              { label: 'ใช้แล้ว (M)', value: `${(stats.usedBudget / 1_000_000).toFixed(1)}`, color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+              { label: 'โครงการทั้งหมด', value: stats.total, sub: `${stats.active} กำลังดำเนินการ`, color: '#6366f1', bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.2)' },
+              { label: 'เกินกำหนด', value: stats.overdue, sub: stats.overdue > 0 ? 'ต้องติดตาม' : 'ปกติดี', color: stats.overdue > 0 ? '#ef4444' : '#22c55e', bg: stats.overdue > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.06)', border: stats.overdue > 0 ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.15)' },
+              { label: 'ครบกำหนดเดือนนี้', value: stats.dueThisMonth, sub: 'ต้องติดตามความคืบหน้า', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
+              { label: 'งบเกินเส้น 85%', value: stats.budgetAtRisk, sub: stats.budgetAtRisk > 0 ? `งบรวม ฿${(stats.totalBudget/1_000_000).toFixed(1)}M` : `งบรวม ฿${stats.totalBudget > 0 ? (stats.totalBudget/1_000_000).toFixed(1)+'M' : '–'}`, color: stats.budgetAtRisk > 0 ? '#ef4444' : '#3b82f6', bg: stats.budgetAtRisk > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(59,130,246,0.06)', border: stats.budgetAtRisk > 0 ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.15)' },
             ].map(k => (
-              <div key={k.label} className="rounded-xl p-3 text-center" style={{ background: k.bg, border: `1px solid ${k.color}22` }}>
-                <div className="text-[20px] font-bold" style={{ color: k.color }}>{k.value}</div>
-                <div className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{k.label}</div>
+              <div key={k.label} className="rounded-xl p-4" style={{ background: k.bg, border: `1px solid ${k.border}` }}>
+                <div className="text-[24px] font-bold tabular-nums" style={{ color: k.color }}>{k.value}</div>
+                <div className="text-[12px] font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>{k.label}</div>
+                <div className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>{k.sub}</div>
               </div>
             ))}
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mb-5">
+          {/* Toolbar: Search | Status | Type | Sort | View */}
+          <div className="flex flex-wrap items-center gap-2 mb-5 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
             {/* Search */}
-            <div className="relative flex-1 min-w-[200px] max-w-[280px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+            <div className="relative min-w-[200px] flex-1 max-w-[260px]">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="ค้นหาโครงการ / เจ้าของ..."
-                className="w-full rounded-xl text-[13px]"
-                style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }} />
+                className="w-full rounded-lg text-[12px]"
+                style={{ paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }} />
             </div>
 
-            {/* Status filter */}
-            <div className="flex gap-1.5 flex-wrap">
-              {[{ k: 'all', label: 'ทั้งหมด' }, ...Object.entries(STATUS_CONFIG).map(([k, v]) => ({ k, label: v.label }))].map(f => (
+            {/* Status */}
+            <div className="flex gap-1 flex-wrap">
+              {[{ k: 'all', label: 'สถานะ: ทั้งหมด' }, ...Object.entries(STATUS_CONFIG).map(([k, v]) => ({ k, label: v.label }))].map(f => (
                 <button key={f.k} onClick={() => setFilterStatus(f.k)}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
                   style={{
                     background: filterStatus === f.k ? '#6366f1' : 'var(--bg-secondary)',
                     color: filterStatus === f.k ? '#fff' : 'var(--text-secondary)',
                     border: `1px solid ${filterStatus === f.k ? '#6366f1' : 'var(--border)'}`,
-                  }}>
-                  {f.label}
+                  }}>{f.label}
                 </button>
               ))}
             </div>
 
-            {/* Type filter */}
-            <div className="flex gap-1.5 flex-wrap">
+            {/* Type */}
+            <div className="flex gap-1 flex-wrap">
               {[
                 { k: 'all', label: 'ทุกประเภท' },
-                { k: 'safety', label: '🛡️ Safety' },
-                { k: 'environment', label: '🌿 Envi' },
-                { k: 'general', label: '📁 ทั่วไป' },
-                { k: 'cross_dept', label: '🔗 ข้ามแผนก' },
+                { k: 'safety', label: 'Safety' },
+                { k: 'environment', label: 'Environment' },
+                { k: 'general', label: 'ทั่วไป' },
+                { k: 'cross_dept', label: 'ข้ามแผนก' },
               ].map(f => (
                 <button key={f.k} onClick={() => setFilterType(f.k)}
-                  className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
                   style={{
                     background: filterType === f.k ? 'var(--accent)' : 'var(--bg-secondary)',
                     color: filterType === f.k ? '#fff' : 'var(--text-secondary)',
                     border: `1px solid ${filterType === f.k ? 'var(--accent)' : 'var(--border)'}`,
-                  }}>
-                  {f.label}
+                  }}>{f.label}
                 </button>
               ))}
             </div>
+
+            {/* Sort + View — pushed right */}
+            <div className="ml-auto flex items-center gap-1.5">
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                className="rounded-lg text-[11px] font-medium cursor-pointer"
+                style={{ padding: '6px 8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-secondary)', outline: 'none' }}>
+                <option value="newest">เรียง: ล่าสุด</option>
+                <option value="due">เรียง: ใกล้ครบกำหนด</option>
+                <option value="progress">เรียง: ความคืบหน้า</option>
+                <option value="name">เรียง: ชื่อ A-Z</option>
+              </select>
+              <button onClick={() => setViewMode('card')}
+                className="p-1.5 rounded-lg transition-all"
+                style={{ background: viewMode === 'card' ? 'rgba(99,102,241,0.15)' : 'var(--bg-secondary)', color: viewMode === 'card' ? '#6366f1' : 'var(--muted)', border: '1px solid var(--border)' }}>
+                <LayoutGrid size={14} />
+              </button>
+              <button onClick={() => setViewMode('table')}
+                className="p-1.5 rounded-lg transition-all"
+                style={{ background: viewMode === 'table' ? 'rgba(99,102,241,0.15)' : 'var(--bg-secondary)', color: viewMode === 'table' ? '#6366f1' : 'var(--muted)', border: '1px solid var(--border)' }}>
+                <LayoutList size={14} />
+              </button>
+            </div>
           </div>
 
-          {/* Projects Grid */}
+          {/* Result count */}
+          {!loading && projects.length > 0 && (
+            <p className="text-[12px] mb-3" style={{ color: 'var(--muted)' }}>
+              แสดง {filtered.length} จาก {projects.length} โครงการ
+            </p>
+          )}
+
+          {/* Projects */}
           {loading ? (
             <div className="text-center py-20">
-              <div className="inline-block w-8 h-8 border-4 border-t-indigo-500 rounded-full animate-spin mb-4"
+              <div className="inline-block w-7 h-7 border-[3px] border-t-indigo-500 rounded-full animate-spin mb-3"
                 style={{ borderColor: 'var(--border)', borderTopColor: '#6366f1' }} />
-              <p style={{ color: 'var(--muted)' }}>กำลังโหลด...</p>
+              <p className="text-[13px]" style={{ color: 'var(--muted)' }}>กำลังโหลด...</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-20">
-              <FolderKanban size={48} className="mx-auto mb-4" style={{ color: 'var(--muted)' }} />
-              <p className="text-[15px] font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                {projects.length === 0 ? 'ยังไม่มีโครงการพิเศษ' : 'ไม่พบโครงการที่ตรงกับ filter'}
+              <FolderKanban size={40} className="mx-auto mb-3" style={{ color: 'var(--muted)' }} />
+              <p className="text-[14px] font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                {projects.length === 0 ? 'ยังไม่มีโครงการพิเศษ' : 'ไม่พบโครงการที่ตรงกับเงื่อนไข'}
               </p>
-              <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
-                {projects.length === 0 ? 'คลิก "สร้างโครงการ" เพื่อเริ่มต้น' : 'ลองเปลี่ยน filter หรือลบคำค้นหา'}
+              <p className="text-[12px] mb-4" style={{ color: 'var(--muted)' }}>
+                {projects.length === 0 ? 'กดปุ่มสร้างโครงการเพื่อเริ่มต้น' : 'ลองเปลี่ยน filter หรือล้างคำค้นหา'}
               </p>
-              {projects.length === 0 && (
+              {projects.length === 0 && isLoggedIn && (
                 <button onClick={() => setShowCreate(true)}
-                  className="mt-4 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white"
+                  className="px-5 py-2 rounded-xl text-[13px] font-semibold text-white"
                   style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-                  <Plus size={14} className="inline mr-1.5" />สร้างโครงการแรก
+                  <Plus size={13} className="inline mr-1.5" />สร้างโครงการแรก
                 </button>
               )}
             </div>
-          ) : (
+          ) : viewMode === 'card' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filtered.map(p => (
                 <ProjectCard key={p.id} project={p}
                   onClick={() => router.push(`/company/${id}/projects/${p.id}`)} />
               ))}
+            </div>
+          ) : (
+            /* Table view */
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                    {['โครงการ', 'สถานะ', 'เจ้าของ', 'กำหนดเสร็จ', 'คืบหน้า', 'งบประมาณ'].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 text-[11px] font-semibold"
+                        style={{ color: 'var(--text-secondary)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p, i) => {
+                    const st = STATUS_CONFIG[p.status];
+                    const endD = new Date(p.end_date);
+                    const isOv = endD < today && !['completed','cancelled'].includes(p.status);
+                    const barC = p.completion_pct >= 75 ? '#22c55e' : p.completion_pct >= 25 ? '#f59e0b' : '#ef4444';
+                    return (
+                      <tr key={p.id} onClick={() => router.push(`/company/${id}/projects/${p.id}`)}
+                        className="cursor-pointer transition-colors hover:bg-opacity-50"
+                        style={{
+                          borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                          background: 'var(--card-solid)',
+                        }}>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold leading-tight mb-0.5" style={{ color: 'var(--text-primary)' }}>{p.title}</div>
+                          {p.plan_type && <span className="text-[10px]" style={{ color: 'var(--muted)' }}>{PLAN_TYPE_CONFIG[p.plan_type].label}</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium"
+                            style={{ background: st.bg, color: st.color }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{p.owner}</td>
+                        <td className="px-4 py-3">
+                          <span style={{ color: isOv ? '#ef4444' : 'var(--text-secondary)', fontWeight: isOv ? 600 : 400 }}>
+                            {formatDate(p.end_date)}{isOv && ' ⚠'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', minWidth: 60 }}>
+                              <div className="h-full rounded-full" style={{ width: `${p.completion_pct}%`, background: barC }} />
+                            </div>
+                            <span className="tabular-nums font-semibold text-[11px]" style={{ color: barC }}>{p.completion_pct}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
+                          {p.budget_planned > 0
+                            ? `฿${formatBudget(p.budget_planned)}`
+                            : <span style={{ color: 'var(--muted)' }}>–</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
