@@ -23,6 +23,7 @@ import {
   LogOut,
   Home,
   Clock,
+  FolderKanban,
 } from 'lucide-react';
 
 // ready: true = all companies, 'hasSheet' = only with Google Sheet, false = not yet
@@ -32,6 +33,7 @@ const PROJECTS = [
   { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true as const },
   { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: true as const },
   { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, hqHref: '', companyPath: '/manhours', ready: 'companyOnly' as const },
+  { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' as const },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
   { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/nearmiss', companyPath: '/nearmiss', ready: false as const },
