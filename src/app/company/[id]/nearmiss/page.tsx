@@ -24,6 +24,9 @@ interface NearMissReport {
   severity: number;
   risk_score: number;
   risk_level: 'HIGH' | 'MED-HIGH' | 'MEDIUM' | 'LOW';
+  notified_persons: string | null;
+  suggested_action: string | null;
+  // admin-managed action fields
   immediate_action: string | null;
   responsible_person: string | null;
   due_date: string | null;
@@ -329,11 +332,21 @@ export default function NearMissCompanyPage() {
                 </DetailSection>
               )}
 
-              <DetailSection title="E — การดำเนินการ">
-                <DetailRow label="สิ่งที่ทำไปแล้ว" value={selectedReport.immediate_action} />
-                <DetailRow label="ผู้รับผิดชอบ" value={selectedReport.responsible_person} />
-                <DetailRow label="กำหนดแล้วเสร็จ" value={selectedReport.due_date ? fmtDate(selectedReport.due_date) : null} />
-              </DetailSection>
+              {(selectedReport.notified_persons || selectedReport.suggested_action) && (
+                <DetailSection title="E — แจ้งและแนะนำ">
+                  <DetailRow label="แจ้งให้ทราบแล้ว" value={selectedReport.notified_persons} />
+                  <DetailRow label="คำแนะนำแก้ไข" value={selectedReport.suggested_action} />
+                </DetailSection>
+              )}
+
+              {/* Admin action section — shown if admin has filled it */}
+              {(selectedReport.immediate_action || selectedReport.responsible_person || selectedReport.due_date) && (
+                <DetailSection title="การดำเนินการ (Admin)">
+                  <DetailRow label="มาตรการแก้ไข" value={selectedReport.immediate_action} />
+                  <DetailRow label="ผู้รับผิดชอบ" value={selectedReport.responsible_person} />
+                  <DetailRow label="กำหนดแล้วเสร็จ" value={selectedReport.due_date ? fmtDate(selectedReport.due_date) : null} />
+                </DetailSection>
+              )}
 
               {/* Admin update section */}
               {auth.isAdmin && (
@@ -360,6 +373,25 @@ export default function NearMissCompanyPage() {
                       <input value={editForm.safety_officer || ''} onChange={e => setEditForm(f => ({ ...f, safety_officer: e.target.value }))}
                         style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }}
                         placeholder="ชื่อ Safety Officer" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>มาตรการแก้ไข / การดำเนินการ</label>
+                      <textarea value={(editForm as Record<string, string>).immediate_action || ''} onChange={e => setEditForm(f => ({ ...f, immediate_action: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, minHeight: 70, resize: 'vertical', boxSizing: 'border-box' }}
+                        placeholder="มาตรการที่กำหนดให้ดำเนินการ..." />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>ผู้รับผิดชอบ</label>
+                        <input value={(editForm as Record<string, string>).responsible_person || ''} onChange={e => setEditForm(f => ({ ...f, responsible_person: e.target.value }))}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+                          placeholder="ชื่อผู้รับผิดชอบ" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>กำหนดแล้วเสร็จ</label>
+                        <input type="date" value={(editForm as Record<string, string>).due_date || ''} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }} />
+                      </div>
                     </div>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>หมายเหตุ Admin</label>

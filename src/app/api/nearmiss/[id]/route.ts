@@ -29,6 +29,9 @@ const ADMIN_WHITELIST = [
   'safety_officer',
   'closed_date',
   'admin_notes',
+  'immediate_action',
+  'responsible_person',
+  'due_date',
 ];
 
 export async function PATCH(

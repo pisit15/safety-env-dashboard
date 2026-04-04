@@ -41,9 +41,8 @@ export default function NearMissReportPage() {
     saving_factor: '',
     probability: 0,
     severity: 0,
-    immediate_action: '',
-    responsible_person: '',
-    due_date: '',
+    notified_persons: '',
+    suggested_action: '',
     _hp: '',  // honeypot — must stay empty
   });
 
@@ -133,7 +132,7 @@ export default function NearMissReportPage() {
             ขอบคุณที่รายงาน Near Miss เจ้าหน้าที่ความปลอดภัยจะดำเนินการตรวจสอบต่อไป
           </p>
           <button
-            onClick={() => { setSubmitted(false); setStep(1); setForm({ reporter_name: '', reporter_dept: '', incident_date: new Date().toISOString().slice(0, 10), location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, immediate_action: '', responsible_person: '', due_date: '', _hp: '' }); startTime.current = Date.now(); }}
+            onClick={() => { setSubmitted(false); setStep(1); setForm({ reporter_name: '', reporter_dept: '', incident_date: new Date().toISOString().slice(0, 10), location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, notified_persons: '', suggested_action: '', _hp: '' }); startTime.current = Date.now(); }}
             style={primaryBtnStyle}
           >
             รายงานอีกครั้ง
@@ -155,7 +154,7 @@ export default function NearMissReportPage() {
       {/* Progress bar */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-          {['ผู้รายงาน', 'เหตุการณ์', 'ปัจจัยที่ช่วย', 'ความเสี่ยง', 'การดำเนินการ'].map((label, i) => (
+          {['ผู้รายงาน', 'เหตุการณ์', 'ปัจจัยที่ช่วย', 'ความเสี่ยง', 'แจ้งและแนะนำ'].map((label, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
               <div style={{
                 width: 28, height: 28, borderRadius: '50%',
@@ -324,36 +323,38 @@ export default function NearMissReportPage() {
           </div>
         )}
 
-        {/* ── Step 5: Actions & Submit ── */}
+        {/* ── Step 5: Notify & Suggest ── */}
         {step === 5 && (
           <div>
-            <StepHeader icon="⚡" title="การดำเนินการ" sub="Section E" />
-            <Field label="สิ่งที่ทำไปแล้ว / ข้อเสนอแนะ">
+            <StepHeader icon="📢" title="แจ้งและแนะนำ" sub="Section E" />
+            <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20, lineHeight: 1.6 }}>
+              ขั้นตอนสุดท้าย — แจ้งให้ทราบว่าได้รายงานต่อใครแล้วบ้าง และมีคำแนะนำวิธีแก้ไขหรือไม่
+            </p>
+
+            <Field label="ได้แจ้งให้ใครทราบแล้วบ้าง (ไม่บังคับ)">
               <textarea
-                style={{ ...inputStyle(false), minHeight: 100, resize: 'vertical' }}
-                placeholder="สิ่งที่ทำไปแล้วเพื่อป้องกัน หรือข้อเสนอแนะเพื่อป้องกันในอนาคต..."
-                value={form.immediate_action}
-                onChange={e => set('immediate_action', e.target.value)}
+                style={{ ...inputStyle(false), minHeight: 90, resize: 'vertical' }}
+                placeholder="เช่น หัวหน้างาน, จป.ประจำแผนก, ผู้จัดการโรงงาน..."
+                value={form.notified_persons}
+                onChange={e => set('notified_persons', e.target.value)}
                 autoFocus
               />
             </Field>
-            <Field label="ผู้รับผิดชอบดำเนินการ">
-              <input
-                style={inputStyle(false)}
-                placeholder="ชื่อผู้รับผิดชอบ"
-                value={form.responsible_person}
-                onChange={e => set('responsible_person', e.target.value)}
+
+            <Field label="คำแนะนำวิธีการแก้ไข / ป้องกัน (ไม่บังคับ)">
+              <textarea
+                style={{ ...inputStyle(false), minHeight: 90, resize: 'vertical' }}
+                placeholder="หากคุณมีไอเดียหรือข้อเสนอแนะเพื่อป้องกันไม่ให้เกิดซ้ำ กรอกได้เลย..."
+                value={form.suggested_action}
+                onChange={e => set('suggested_action', e.target.value)}
               />
             </Field>
-            <Field label="กำหนดแล้วเสร็จ">
-              <input
-                type="date"
-                style={inputStyle(false)}
-                value={form.due_date}
-                onChange={e => set('due_date', e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
-              />
-            </Field>
+
+            <div style={{ marginTop: 4, padding: '10px 14px', background: 'rgba(34,197,94,0.07)', borderRadius: 10, borderLeft: '3px solid #22c55e' }}>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0, lineHeight: 1.6 }}>
+                ✅ การดำเนินการแก้ไข ผู้รับผิดชอบ และกำหนดเวลา จะถูกกำหนดโดย <strong>จป.วิชาชีพ</strong> หลังจากรับเรื่องแล้ว
+              </p>
+            </div>
 
             {/* Summary review */}
             <div style={{ marginTop: 20, padding: 16, background: '#f9fafb', borderRadius: 14, border: '1px solid #e5e7eb' }}>

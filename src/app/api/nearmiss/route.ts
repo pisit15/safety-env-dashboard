@@ -20,9 +20,8 @@ export async function POST(request: NextRequest) {
       saving_factor,
       probability,
       severity,
-      immediate_action,
-      responsible_person,
-      due_date,
+      notified_persons,
+      suggested_action,
       // bot protection fields
       _hp,          // honeypot — must be empty
       _duration_ms, // form fill duration
@@ -83,9 +82,8 @@ export async function POST(request: NextRequest) {
         saving_factor: saving_factor || null,
         probability: prob,
         severity: sev,
-        immediate_action: immediate_action || null,
-        responsible_person: responsible_person || null,
-        due_date: due_date || null,
+        notified_persons: notified_persons || null,
+        suggested_action: suggested_action || null,
         submitter_ip: ip,
         form_duration_ms: typeof _duration_ms === 'number' ? _duration_ms : null,
         status: 'new',
