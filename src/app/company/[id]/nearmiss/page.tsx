@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
+import { COMPANIES } from '@/lib/companies';
 import {
   AlertTriangle, ExternalLink,
   RefreshCw, X, Save, Loader2, Search, QrCode, ChevronRight,
@@ -84,6 +85,7 @@ function isDueSoon(r: NearMissReport) {
 export default function NearMissCoordinatorPage() {
   const params = useParams();
   const companyId = params.id as string;
+  const company = COMPANIES.find(c => c.id === companyId);
   const auth = useAuth();
   const ca = auth.getCompanyAuth(companyId);
   const isLoggedIn = auth.isAdmin || ca.isLoggedIn;
@@ -229,7 +231,8 @@ export default function NearMissCoordinatorPage() {
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
           <div style={{ textAlign: 'center', maxWidth: 320, padding: 32 }}>
             <div style={{ width: 64, height: 64, borderRadius: 20, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>🔒</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>กรุณาเข้าสู่ระบบ</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>กรุณาเข้าสู่ระบบ</h2>
+            {company && <p style={{ fontSize: 13, fontWeight: 600, color: '#007aff', margin: '0 0 8px' }}>{company.fullName || company.name}</p>}
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 24px' }}>ต้องเข้าสู่ระบบก่อนจึงจะดูและจัดการรายงาน Near Miss ได้</p>
             <button
               onClick={() => { const el = document.querySelector('[data-login-btn]') as HTMLButtonElement; el?.click(); }}
@@ -252,8 +255,17 @@ export default function NearMissCoordinatorPage() {
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px', letterSpacing: '-0.02em' }}>Near Miss</h1>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>ติดตามและจัดการรายงานเหตุการณ์เกือบอุบัติเหตุ</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Near Miss</h1>
+                {company && (
+                  <span style={{ padding: '3px 10px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    {company.shortName}
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                {company?.fullName || company?.name || companyId} · ติดตามและจัดการรายงานเหตุการณ์เกือบอุบัติเหตุ
+              </p>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => window.open(boardUrl, '_blank')} style={btnOutline}>
