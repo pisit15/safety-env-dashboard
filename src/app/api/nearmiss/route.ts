@@ -122,6 +122,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
     }
 
+    const showHidden = searchParams.get('show_hidden') === 'true';
+
     const supabase = getSupabase();
     let query = supabase
       .from('near_miss_reports')
@@ -129,6 +131,9 @@ export async function GET(request: NextRequest) {
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // By default, exclude hidden reports. Pass show_hidden=true (admin only) to include them.
+    if (!showHidden) query = query.neq('is_hidden', true);
 
     if (status) query = query.eq('status', status);
     if (riskLevel) query = query.eq('risk_level', riskLevel);

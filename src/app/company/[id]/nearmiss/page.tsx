@@ -5,9 +5,9 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import {
-  AlertTriangle, Clock, TrendingUp, ExternalLink,
+  AlertTriangle, ExternalLink,
   RefreshCw, X, Save, Loader2, Search, QrCode, ChevronRight,
-  User, FileText, Image as ImageIcon, Settings,
+  User, FileText, Image as ImageIcon, Settings, EyeOff, Eye, Trash2,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -40,6 +40,7 @@ interface NearMissReport {
   due_date: string | null;
   closed_date: string | null;
   admin_notes: string | null;
+  is_hidden: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -94,23 +95,26 @@ export default function NearMissCoordinatorPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterRisk, setFilterRisk]     = useState('');
   const [filterOpen, setFilterOpen]     = useState(false);
+  const [showHidden, setShowHidden]     = useState(false);
   const [selected, setSelected]   = useState<NearMissReport | null>(null);
   const [editForm, setEditForm]   = useState<Record<string, string>>({});
   const [saving, setSaving]       = useState(false);
   const [saveMsg, setSaveMsg]     = useState('');
   const [activeTab, setActiveTab] = useState<'incident' | 'action'>('incident');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async (includeHidden = false) => {
     setLoading(true);
     try {
       const p = new URLSearchParams({ companyId });
+      if (includeHidden) p.set('show_hidden', 'true');
       const res = await fetch(`/api/nearmiss?${p}`);
       const json = await res.json();
       setReports(json.data || []);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [companyId]);
 
-  useEffect(() => { if (isLoggedIn) fetchReports(); }, [isLoggedIn, fetchReports]);
+  useEffect(() => { if (isLoggedIn) fetchReports(showHidden); }, [isLoggedIn, fetchReports, showHidden]);
 
   const openDrawer = (r: NearMissReport) => {
     setSelected(r);
@@ -144,6 +148,37 @@ export default function NearMissCoordinatorPage() {
         setReports(prev => prev.map(r => r.id === json.id ? json : r));
         setSelected(json);
       } else { setSaveMsg(json.error || 'เกิดข้อผิดพลาด'); }
+    } catch { setSaveMsg('เกิดข้อผิดพลาด'); } finally { setSaving(false); }
+  };
+
+  const toggleHidden = async () => {
+    if (!selected) return;
+    setSaving(true); setSaveMsg('');
+    try {
+      const res = await fetch(`/api/nearmiss/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_hidden: !selected.is_hidden }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setSaveMsg(json.is_hidden ? 'ซ่อนรายการแล้ว' : 'แสดงรายการแล้ว');
+        setReports(prev => prev.map(r => r.id === json.id ? json : r));
+        setSelected(json);
+      } else { setSaveMsg(json.error || 'เกิดข้อผิดพลาด'); }
+    } catch { setSaveMsg('เกิดข้อผิดพลาด'); } finally { setSaving(false); }
+  };
+
+  const deleteReport = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/nearmiss/${selected.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setReports(prev => prev.filter(r => r.id !== selected.id));
+        setSelected(null);
+        setConfirmDelete(false);
+      } else { setSaveMsg('ลบไม่สำเร็จ'); }
     } catch { setSaveMsg('เกิดข้อผิดพลาด'); } finally { setSaving(false); }
   };
 
@@ -227,7 +262,7 @@ export default function NearMissCoordinatorPage() {
               <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')} style={btnOutline}>
                 <ExternalLink size={14} /> ลิงก์รายงาน
               </button>
-              <button onClick={fetchReports} style={btnPrimary}>
+              <button onClick={() => fetchReports(showHidden)} style={btnPrimary}>
                 <RefreshCw size={14} /> รีเฟรช
               </button>
             </div>
@@ -311,6 +346,13 @@ export default function NearMissCoordinatorPage() {
                 <X size={12} /> ล้าง
               </button>
             )}
+            {isAdmin && (
+              <button onClick={() => { setShowHidden(v => !v); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 8, border: `1.5px solid ${showHidden ? '#f97316' : 'var(--border)'}`, background: showHidden ? 'rgba(249,115,22,0.08)' : 'var(--bg-secondary)', color: showHidden ? '#f97316' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {showHidden ? <Eye size={13} /> : <EyeOff size={13} />}
+                {showHidden ? 'ซ่อนอยู่' : 'ซ่อนอยู่'}
+              </button>
+            )}
             <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{filtered.length} รายการ</span>
           </div>
 
@@ -354,7 +396,12 @@ export default function NearMissCoordinatorPage() {
                             {risk.label}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 12px' }}><StatusPill status={r.status} /></td>
+                        <td style={{ padding: '12px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                            <StatusPill status={r.status} />
+                            {r.is_hidden && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#fff7ed', color: '#ea580c', border: '1px solid #fdba74', fontWeight: 600 }}>ซ่อน</span>}
+                          </div>
+                        </td>
                         <td style={{ padding: '12px 12px', fontSize: 12, color: r.coordinator ? 'var(--text-primary)' : '#94a3b8' }}>{r.coordinator || '–'}</td>
                         <td style={{ padding: '12px 12px', fontSize: 12, whiteSpace: 'nowrap', color: overdue ? '#ef4444' : 'var(--text-secondary)', fontWeight: overdue ? 600 : 400 }}>
                           {r.due_date ? fmtDate(r.due_date) : '–'}
@@ -579,16 +626,48 @@ export default function NearMissCoordinatorPage() {
                   )}
 
                   {/* Save */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4, flexWrap: 'wrap' }}>
                     <button onClick={saveEdits} disabled={saving}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 9, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                       {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
                       {saving ? 'กำลังบันทึก...' : 'บันทึก'}
                     </button>
                     {saveMsg && (
-                      <span style={{ fontSize: 13, color: saveMsg === 'บันทึกแล้ว' ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                        {saveMsg === 'บันทึกแล้ว' ? '✓ ' : '✕ '}{saveMsg}
+                      <span style={{ fontSize: 13, color: ['บันทึกแล้ว','ซ่อนรายการแล้ว','แสดงรายการแล้ว'].includes(saveMsg) ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                        {['บันทึกแล้ว','ซ่อนรายการแล้ว','แสดงรายการแล้ว'].includes(saveMsg) ? '✓ ' : '✕ '}{saveMsg}
                       </span>
+                    )}
+                  </div>
+
+                  {/* Hide / Delete actions */}
+                  <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '8px 0' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Hide toggle — coordinator + admin */}
+                    <button onClick={toggleHidden} disabled={saving}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${selected.is_hidden ? '#f97316' : '#e2e8f0'}`, background: selected.is_hidden ? '#fff7ed' : '#f8fafc', color: selected.is_hidden ? '#ea580c' : '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      {selected.is_hidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                      {selected.is_hidden ? 'แสดงรายการ' : 'ซ่อนรายการ'}
+                    </button>
+
+                    {/* Delete — admin only */}
+                    {isAdmin && !confirmDelete && (
+                      <button onClick={() => setConfirmDelete(true)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #fca5a5', background: '#fff5f5', color: '#dc2626', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        <Trash2 size={14} /> ลบถาวร
+                      </button>
+                    )}
+                    {isAdmin && confirmDelete && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: '#fef2f2', border: '1.5px solid #fca5a5' }}>
+                        <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>ยืนยันลบ?</span>
+                        <button onClick={deleteReport} disabled={saving}
+                          style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                          {saving ? 'กำลังลบ...' : 'ลบเลย'}
+                        </button>
+                        <button onClick={() => setConfirmDelete(false)}
+                          style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
+                          ยกเลิก
+                        </button>
+                      </div>
                     )}
                   </div>
 

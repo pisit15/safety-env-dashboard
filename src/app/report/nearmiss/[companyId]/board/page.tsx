@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
-import { RefreshCw, Loader2, AlertTriangle, QrCode, Link2 } from 'lucide-react';
+import { RefreshCw, Loader2, AlertTriangle, Link2, ClipboardList } from 'lucide-react';
 
 // ── Status config (5-step) ──
 const STATUS = {
@@ -125,13 +125,17 @@ export default function EmployeeBoardPage() {
                 <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>{company.name}</p>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: '#007aff', fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }}>
+                <ClipboardList size={14} /> รายงาน Near Miss
+              </button>
               <button onClick={copyLink}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
                 <Link2 size={13} /> {copied ? 'คัดลอกแล้ว ✓' : 'คัดลอกลิงก์'}
               </button>
               <button onClick={fetchBoard}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: 'none', background: '#007aff', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: 'none', background: '#f1f5f9', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
                 <RefreshCw size={13} />
               </button>
             </div>
@@ -181,7 +185,7 @@ export default function EmployeeBoardPage() {
         </div>
 
         {/* ── Report list ── */}
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px 48px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 20px 88px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: '#9ca3af' }}>
               <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
@@ -264,9 +268,17 @@ export default function EmployeeBoardPage() {
         </div>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', padding: '0 20px 32px', fontSize: 11, color: '#d1d5db' }}>
+        <div style={{ textAlign: 'center', padding: '0 20px 24px', fontSize: 11, color: '#d1d5db' }}>
           รายงานฉบับนี้เป็นข้อมูลภายในองค์กรเท่านั้น • ข้อมูลผู้รายงานถูกปกปิดทั้งหมด
         </div>
+      </div>
+
+      {/* ── Sticky CTA bar for mobile ── */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 20, padding: '12px 16px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'center' }}>
+        <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', borderRadius: 12, border: 'none', background: '#007aff', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,122,255,0.3)', width: '100%', maxWidth: 400, justifyContent: 'center' }}>
+          <ClipboardList size={16} /> แจ้ง Near Miss ใหม่
+        </button>
       </div>
 
       <style>{`

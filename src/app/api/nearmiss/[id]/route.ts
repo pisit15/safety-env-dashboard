@@ -23,7 +23,7 @@ export async function GET(
 }
 
 // ── PATCH /api/nearmiss/[id] ── Coordinator / Admin update
-const ADMIN_WHITELIST = [
+const PATCH_WHITELIST = [
   // Coordinator fields
   'status',
   'coordinator',
@@ -33,6 +33,8 @@ const ADMIN_WHITELIST = [
   'immediate_action',
   'responsible_person',
   'due_date',
+  // Visibility (coordinator can hide, admin can restore)
+  'is_hidden',
   // Admin-only fields
   'investigation_level',
   'safety_officer',
@@ -47,9 +49,8 @@ export async function PATCH(
   try {
     const body = await request.json();
 
-    // Filter to only admin-allowed fields
     const updates: Record<string, unknown> = {};
-    for (const key of ADMIN_WHITELIST) {
+    for (const key of PATCH_WHITELIST) {
       if (key in body) updates[key] = body[key];
     }
 
@@ -57,8 +58,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    // Auto-set last_action_at on every update
-    updates.last_action_at = new Date().toISOString();
+    // Auto-set last_action_at on every update (except pure visibility toggle)
+    if (!('is_hidden' in body && Object.keys(updates).length === 1)) {
+      updates.last_action_at = new Date().toISOString();
+    }
 
     // Auto-set coordinator_assigned_at when coordinator is first assigned
     if (updates.coordinator && !('coordinator_assigned_at' in body)) {
@@ -80,6 +83,25 @@ export async function PATCH(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// ── DELETE /api/nearmiss/[id] ── Admin-only permanent delete
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from('near_miss_reports')
+      .delete()
+      .eq('id', params.id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       .from('near_miss_reports')
       .select(PUBLIC_SELECT)
       .eq('company_id', companyId)
+      .neq('is_hidden', true)          // never show hidden reports on public board
       .order('created_at', { ascending: false })
       .limit(200);
 
