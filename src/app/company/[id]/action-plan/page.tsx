@@ -1026,6 +1026,8 @@ export default function CompanyDrilldown() {
           { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
           { key: 'notStarted', label: '⏳ ยังไม่เริ่ม', icon: '' },
           { key: 'noEvidence', label: '📎 หลักฐานไม่ครบ', icon: '' },
+          { key: 'atRisk', label: '⚠ เสี่ยงสูง', icon: '' },
+          { key: 'hasProgress', label: '◑ กำลังดำเนินการ', icon: '' },
         ],
         defaultSort: 'overdue-first' as const,
         chartTitle: '🛡️ Safety Execution — ความก้าวหน้ารายเดือน',
@@ -1052,6 +1054,8 @@ export default function CompanyDrilldown() {
           { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
           { key: 'noEvidence', label: '📎 ยังไม่แนบหลักฐาน', icon: '' },
           { key: 'postponed', label: '📅 เลื่อน', icon: '' },
+          { key: 'atRisk', label: '⚠ เสี่ยง', icon: '' },
+          { key: 'hasProgress', label: '◑ กำลังดำเนินการ', icon: '' },
         ],
         defaultSort: 'due-this-month' as const,
         chartTitle: '📋 Compliance Calendar — สถานะรายเดือน',
@@ -1078,6 +1082,8 @@ export default function CompanyDrilldown() {
           { key: 'overdue', label: '🔴 เกินกำหนดรวม', icon: '' },
           { key: 'safetyOnly', label: '🛡️ เฉพาะ Safety', icon: '' },
           { key: 'enviOnly', label: '🌿 เฉพาะ Envi', icon: '' },
+          { key: 'atRisk', label: '⚠ เสี่ยง', icon: '' },
+          { key: 'hasProgress', label: '◑ กำลังดำเนินการ', icon: '' },
         ],
         defaultSort: 'overdue-first' as const,
         chartTitle: '📊 Timeline — ความก้าวหน้ารายเดือน',
@@ -1106,6 +1112,8 @@ export default function CompanyDrilldown() {
     let postponedCount = 0;
     let safetyOnlyCount = 0;
     let enviOnlyCount = 0;
+    let atRiskCount = 0;
+    let hasProgressCount = 0;
     const curMK = MONTH_KEYS[currentMonthIdx];
     activities.forEach(act => {
       const curStatus = getEffectiveStatus(act, curMK);
@@ -1131,8 +1139,22 @@ export default function CompanyDrilldown() {
       // Plan tag counts
       if ((act as any)._planTag === 'S') safetyOnlyCount++;
       if ((act as any)._planTag === 'E') enviOnlyCount++;
+      // At-risk: not fully done AND has at least 1 past month that is active but incomplete
+      const overallSt = getEffectiveOverallStatus(act);
+      if (overallSt !== 'done' && overallSt !== 'cancelled' && overallSt !== 'not_applicable' && hasOverdueMonth) {
+        atRiskCount++;
+      }
+      // Has progress: partially done — at least 1 done month but NOT all done
+      const activePlannedMonths = MONTH_KEYS.filter(mk => {
+        const s = getEffectiveStatus(act, mk);
+        return s !== 'not_planned' && s !== 'cancelled' && s !== 'not_applicable';
+      });
+      const doneMonths = activePlannedMonths.filter(mk => getEffectiveStatus(act, mk) === 'done');
+      if (doneMonths.length > 0 && doneMonths.length < activePlannedMonths.length) {
+        hasProgressCount++;
+      }
     });
-    return { overdue: overdueCount, thisMonth: thisMonthCount, noEvidence: noEvidenceCount, postponed: postponedCount, safetyOnly: safetyOnlyCount, enviOnly: enviOnlyCount };
+    return { overdue: overdueCount, thisMonth: thisMonthCount, noEvidence: noEvidenceCount, postponed: postponedCount, safetyOnly: safetyOnlyCount, enviOnly: enviOnlyCount, atRisk: atRiskCount, hasProgress: hasProgressCount };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, currentMonthIdx, attachmentCounts]);
 
@@ -1182,6 +1204,25 @@ export default function CompanyDrilldown() {
       list = list.filter(act => (act as any)._planTag === 'S');
     } else if (quickFilter === 'enviOnly') {
       list = list.filter(act => (act as any)._planTag === 'E');
+    } else if (quickFilter === 'atRisk') {
+      list = list.filter(act => {
+        const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
+        if (overallSt === 'done' || overallSt === 'cancelled' || overallSt === 'not_applicable') return false;
+        return MONTH_KEYS.some((mk, idx) => {
+          if (idx >= currentMonthIdx) return false;
+          const st = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
+          return st === 'overdue' || st === 'planned';
+        });
+      });
+    } else if (quickFilter === 'hasProgress') {
+      list = list.filter(act => {
+        const activePlannedMonths = MONTH_KEYS.filter(mk => {
+          const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
+          return s !== 'not_planned' && s !== 'cancelled' && s !== 'not_applicable';
+        });
+        const doneMonths = activePlannedMonths.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
+        return doneMonths.length > 0 && doneMonths.length < activePlannedMonths.length;
+      });
     }
 
     // Keep original order by activity number (no auto-resorting when status changes)
@@ -1795,6 +1836,8 @@ export default function CompanyDrilldown() {
                     : f.key === 'postponed' ? quickFilterCounts.postponed
                     : f.key === 'safetyOnly' ? quickFilterCounts.safetyOnly
                     : f.key === 'enviOnly' ? quickFilterCounts.enviOnly
+                    : f.key === 'atRisk' ? quickFilterCounts.atRisk
+                    : f.key === 'hasProgress' ? quickFilterCounts.hasProgress
                     : 0;
                   return (
                     <button
@@ -1976,7 +2019,34 @@ export default function CompanyDrilldown() {
                         </tr>,
                         ...group.activities.map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                            <div>{act.no}</div>
+                            {(() => {
+                              const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
+                              const hasOverdueM = !act.isConditional && MONTH_KEYS.some((mk, idx) => {
+                                if (idx >= currentMonthIdx) return false;
+                                const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
+                                return s === 'overdue' || s === 'planned';
+                              });
+                              const badgeCfg: Record<string, { label: string; bg: string; color: string }> = {
+                                done: { label: '✓ เสร็จ', bg: 'rgba(52,199,89,0.15)', color: '#34c759' },
+                                not_started: hasOverdueM
+                                  ? { label: '⚠ เสี่ยง', bg: 'rgba(255,149,0,0.18)', color: '#f59e0b' }
+                                  : { label: '⏳ ดำเนินการ', bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
+                                postponed: { label: '◐ เลื่อน', bg: 'rgba(0,122,255,0.15)', color: 'var(--info)' },
+                                cancelled: { label: '✕ ยกเลิก', bg: 'rgba(255,59,48,0.1)', color: '#ff3b30' },
+                                not_applicable: { label: '⊘ N/A', bg: 'rgba(156,163,175,0.1)', color: 'var(--muted)' },
+                              };
+                              const cfg = badgeCfg[overallSt];
+                              if (!cfg) return null;
+                              return (
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
+                                  style={{ background: cfg.bg, color: cfg.color }}>
+                                  {cfg.label}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           {planType === 'total' && (
                             <td className="py-2.5 px-2 text-center">
                               <span
@@ -2002,10 +2072,15 @@ export default function CompanyDrilldown() {
                               })()}
                             </div>
                             {(() => {
-                              const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
-                              const prog = activityProgress[`${prefix}${act.no}`];
-                              if (!prog || prog.total === 0) return null;
-                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${prog.done}/${prog.total}`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${prog.pct}%`, background: prog.pct >= 100 ? 'var(--success)' : prog.pct >= 50 ? '#ff9500' : 'var(--danger)' }} /></div><span className="text-[9px] font-medium" style={{ color: prog.pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{prog.done}/{prog.total}</span></div>);
+                              const activePMg = MONTH_KEYS.filter(mk => {
+                                const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
+                                return s !== 'not_planned' && s !== 'cancelled' && s !== 'not_applicable';
+                              });
+                              if (activePMg.length === 0) return null;
+                              const donePMg = activePMg.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
+                              const pctG = Math.round((donePMg.length / activePMg.length) * 100);
+                              const barColorG = pctG >= 75 ? 'var(--success)' : pctG >= 25 ? '#ff9500' : 'var(--danger)';
+                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? 'var(--success)' : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
                           <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
@@ -2034,7 +2109,34 @@ export default function CompanyDrilldown() {
                         ))
                       ]) : enhancedFilteredActivities.map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{act.no}</td>
+                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                            <div>{act.no}</div>
+                            {(() => {
+                              const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
+                              const hasOverdueM = !act.isConditional && MONTH_KEYS.some((mk, idx) => {
+                                if (idx >= currentMonthIdx) return false;
+                                const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
+                                return s === 'overdue' || s === 'planned';
+                              });
+                              const badgeCfg: Record<string, { label: string; bg: string; color: string }> = {
+                                done: { label: '✓ เสร็จ', bg: 'rgba(52,199,89,0.15)', color: '#34c759' },
+                                not_started: hasOverdueM
+                                  ? { label: '⚠ เสี่ยง', bg: 'rgba(255,149,0,0.18)', color: '#f59e0b' }
+                                  : { label: '⏳ ดำเนินการ', bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
+                                postponed: { label: '◐ เลื่อน', bg: 'rgba(0,122,255,0.15)', color: 'var(--info)' },
+                                cancelled: { label: '✕ ยกเลิก', bg: 'rgba(255,59,48,0.1)', color: '#ff3b30' },
+                                not_applicable: { label: '⊘ N/A', bg: 'rgba(156,163,175,0.1)', color: 'var(--muted)' },
+                              };
+                              const cfg = badgeCfg[overallSt];
+                              if (!cfg) return null;
+                              return (
+                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
+                                  style={{ background: cfg.bg, color: cfg.color }}>
+                                  {cfg.label}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           {planType === 'total' && (
                             <td className="py-2.5 px-2 text-center">
                               <span
@@ -2215,18 +2317,20 @@ export default function CompanyDrilldown() {
                             </div>
                             {/* Mini progress bar */}
                             {(() => {
-                              const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
-                              const prog = activityProgress[`${prefix}${act.no}`];
-                              if (!prog || prog.total === 0) return null;
+                              const activePM = MONTH_KEYS.filter(mk => {
+                                const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
+                                return s !== 'not_planned' && s !== 'cancelled' && s !== 'not_applicable';
+                              });
+                              if (activePM.length === 0) return null;
+                              const donePM = activePM.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
+                              const pct = Math.round((donePM.length / activePM.length) * 100);
+                              const barColor = pct >= 75 ? 'var(--success)' : pct >= 25 ? '#ff9500' : 'var(--danger)';
                               return (
-                                <div className="flex items-center gap-1.5 mt-1.5" title={`${prog.done}/${prog.total} เดือนเสร็จ (${prog.pct}%)`}>
+                                <div className="flex items-center gap-1.5 mt-1.5" title={`${donePM.length}/${activePM.length} เดือนเสร็จ (${pct}%)`}>
                                   <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}>
-                                    <div className="h-full rounded-full transition-all" style={{
-                                      width: `${prog.pct}%`,
-                                      background: prog.pct >= 100 ? 'var(--success)' : prog.pct >= 50 ? '#ff9500' : 'var(--danger)',
-                                    }} />
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
                                   </div>
-                                  <span className="text-[9px] font-medium" style={{ color: prog.pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{prog.done}/{prog.total}</span>
+                                  <span className="text-[9px] font-medium" style={{ color: pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{donePM.length}/{activePM.length}</span>
                                 </div>
                               );
                             })()}
