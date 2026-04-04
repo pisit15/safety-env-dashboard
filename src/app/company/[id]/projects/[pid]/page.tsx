@@ -325,6 +325,21 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showAddMilestone, setShowAddMilestone] = useState(false);
 
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    if (!confirm(`ลบโครงการ "${project.title}" ใช่ไหม?\n\nการลบจะลบ Milestone ทั้งหมดด้วย และไม่สามารถกู้คืนได้`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/projects/${pid}`, { method: 'DELETE' });
+    if (res.ok) {
+      router.push(`/company/${id}/projects`);
+    } else {
+      alert('เกิดข้อผิดพลาดในการลบ');
+      setDeleting(false);
+    }
+  };
+
   // Inline edit states
   const [editingBudget, setEditingBudget] = useState(false);
   const [budgetActual, setBudgetActual] = useState('');
@@ -403,12 +418,21 @@ export default function ProjectDetailPage() {
       <main className="flex-1 overflow-y-auto">
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
 
-          {/* Back button */}
-          <button onClick={() => router.push(`/company/${id}/projects`)}
-            className="flex items-center gap-2 text-[13px] mb-5 transition-opacity hover:opacity-70"
-            style={{ color: 'var(--text-secondary)' }}>
-            <ArrowLeft size={16} /> กลับหน้ารายการโครงการ
-          </button>
+          {/* Back button row */}
+          <div className="flex items-center justify-between mb-5">
+            <button onClick={() => router.push(`/company/${id}/projects`)}
+              className="flex items-center gap-2 text-[13px] transition-opacity hover:opacity-70"
+              style={{ color: 'var(--text-secondary)' }}>
+              <ArrowLeft size={16} /> กลับหน้ารายการโครงการ
+            </button>
+            {isAdmin && (
+              <button onClick={handleDeleteProject} disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-80"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <Trash2 size={13} /> {deleting ? 'กำลังลบ...' : 'ลบโครงการ'}
+              </button>
+            )}
+          </div>
 
           {/* Project Header Card */}
           <div className="rounded-2xl p-6 mb-5"
