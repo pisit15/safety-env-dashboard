@@ -638,6 +638,10 @@ export default function IncidentsPage() {
               allIncidentsForExport={categoryIncidents}
               companyId={id}
               onImported={() => { fetchList(); fetchDashboard(); }}
+              isLoggedIn={(() => {
+                const ca = auth ? (auth as unknown as { getCompanyAuth: (id: string) => { isLoggedIn: boolean } }).getCompanyAuth(id) : null;
+                return ca?.isLoggedIn || (auth as unknown as { isAdmin: boolean })?.isAdmin || false;
+              })()}
             />
           ) : viewMode === 'form' ? (
             <IncidentForm

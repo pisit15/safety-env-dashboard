@@ -21,6 +21,7 @@ interface IncidentListViewProps {
   allIncidentsForExport: Incident[];
   companyId: string;
   onImported?: () => void;
+  isLoggedIn?: boolean;
 }
 
 /* ---- CSV Parser ---- */
@@ -92,7 +93,7 @@ export default function IncidentListView({
   incidents, total, page, setPage,
   searchTerm, setSearchTerm, filterType, setFilterType,
   openDrawer, openEditForm, handleDelete,
-  allIncidentsForExport, companyId, onImported,
+  allIncidentsForExport, companyId, onImported, isLoggedIn,
 }: IncidentListViewProps) {
   /* Import modal state */
   const [showImport, setShowImport] = useState(false);
@@ -258,8 +259,8 @@ export default function IncidentListView({
         <table className="w-full text-[13px]">
           <thead>
             <tr style={{ background: 'var(--bg-secondary)' }}>
-              {['Incident No.', 'วันที่', 'ประเภท', 'ความรุนแรง', 'รายละเอียด', 'พื้นที่', 'สถานะ', ''].map(h => (
-                <th key={h} className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)', fontSize: 11 }}>{h}</th>
+              {['Incident No.', 'วันที่', 'ประเภท', 'ความรุนแรง', 'รายละเอียด', 'พื้นที่', 'สถานะ', ...(isLoggedIn ? [''] : [])].map(h => (
+                <th key={h || '_actions'} className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--muted)', fontSize: 11 }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -295,22 +296,24 @@ export default function IncidentListView({
                       {inc.report_status || 'Draft'}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); openEditForm(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }}>
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#ef4444' }}>
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
+                  {isLoggedIn && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); openEditForm(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }}>
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#ef4444' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {incidents.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
+                <td colSpan={isLoggedIn ? 8 : 7} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
                   ไม่พบข้อมูลอุบัติเหตุ
                 </td>
               </tr>
