@@ -41,15 +41,18 @@ export async function GET(request: NextRequest) {
       .from('near_miss_reports')
       .select(PUBLIC_SELECT)
       .eq('company_id', companyId)
-      .neq('is_hidden', true)          // never show hidden reports on public board
       .order('created_at', { ascending: false })
       .limit(200);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    // Filter hidden reports client-side (safe if is_hidden column doesn't exist yet)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const visible = ((data || []) as any[]).filter((r: Record<string, unknown>) => !r['is_hidden']);
+
     // Sanitize: truncate incident_description, strip reporter info
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sanitized = ((data || []) as any[]).map((r: Record<string, unknown>) => ({
+    const sanitized = (visible as any[]).map((r: Record<string, unknown>) => ({
       id: r['id'],
       report_no: r['report_no'],
       incident_date: r['incident_date'],
@@ -69,6 +72,7 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ data: sanitized, total: sanitized.length });
+
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

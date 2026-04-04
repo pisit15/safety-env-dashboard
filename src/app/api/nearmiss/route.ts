@@ -132,16 +132,19 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    // By default, exclude hidden reports. Pass show_hidden=true (admin only) to include them.
-    if (!showHidden) query = query.neq('is_hidden', true);
-
     if (status) query = query.eq('status', status);
     if (riskLevel) query = query.eq('risk_level', riskLevel);
 
     const { data, error, count } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ data, total: count });
+    // Filter hidden reports client-side — safe even if is_hidden column doesn't exist yet
+    // (field will be undefined, which is falsy, so all reports remain visible until migration runs)
+    const visible = showHidden
+      ? data
+      : (data || []).filter((r: Record<string, unknown>) => !r['is_hidden']);
+
+    return NextResponse.json({ data: visible, total: showHidden ? count : visible.length });
   } catch {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
