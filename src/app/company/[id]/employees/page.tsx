@@ -939,86 +939,10 @@ export default function EmployeesPage() {
                             )}
                           </div>
 
-                          {/* Cert Form */}
-                          {showCertForm && (
-                            <div className="mb-4 p-4 rounded-xl" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                              <h4 className="text-sm font-semibold mb-3" style={{ color: '#6366f1' }}>
-                                {editingCert ? 'แก้ไข Certificate' : 'เพิ่ม Certificate ใหม่'}
-                              </h4>
-                              <div className="space-y-3">
-                                <div>
-                                  <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>ชื่อ Certificate *</label>
-                                  <input type="text" value={certForm.certificate_name} onChange={e => setCertForm(f => ({ ...f, certificate_name: e.target.value }))} style={inputStyle} placeholder="เช่น จป.วิชาชีพ" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>เลขที่</label>
-                                    <input type="text" value={certForm.certificate_number} onChange={e => setCertForm(f => ({ ...f, certificate_number: e.target.value }))} style={inputStyle} placeholder="เลขที่ (ถ้ามี)" />
-                                  </div>
-                                  <div>
-                                    <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>หน่วยงานที่ออก</label>
-                                    <input type="text" value={certForm.issuer} onChange={e => setCertForm(f => ({ ...f, issuer: e.target.value }))} style={inputStyle} placeholder="เช่น กรมสวัสดิการฯ" />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>วันที่ออก</label>
-                                    <input type="date" value={certForm.issued_date} onChange={e => setCertForm(f => ({ ...f, issued_date: e.target.value }))} style={inputStyle} />
-                                  </div>
-                                  <div>
-                                    <label className="text-[11px] font-medium flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                                      วันหมดอายุ
-                                      <label className="flex items-center gap-1 cursor-pointer">
-                                        <input type="checkbox" checked={certForm.no_expiry} onChange={e => setCertForm(f => ({ ...f, no_expiry: e.target.checked, expiry_date: '' }))} />
-                                        <span className="text-[10px]" style={{ color: '#6366f1' }}>ไม่หมดอายุ</span>
-                                      </label>
-                                    </label>
-                                    {!certForm.no_expiry ? (
-                                      <input type="date" value={certForm.expiry_date} onChange={e => setCertForm(f => ({ ...f, expiry_date: e.target.value }))} style={inputStyle} />
-                                    ) : (
-                                      <div className="px-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, color: '#6366f1', fontWeight: 500 }}>ตลอดชีพ</div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>หมายเหตุ</label>
-                                  <input type="text" value={certForm.notes} onChange={e => setCertForm(f => ({ ...f, notes: e.target.value }))} style={inputStyle} placeholder="หมายเหตุเพิ่มเติม" />
-                                </div>
-                                <div>
-                                  <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>แนบภาพ Certificate</label>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer ${uploadingImage ? 'opacity-50' : ''}`}
-                                      style={{ background: 'var(--border)', color: 'var(--text-primary)', border: '1px dashed var(--text-muted)' }}>
-                                      <Image size={13} /> {uploadingImage ? 'กำลังอัปโหลด...' : 'เลือกไฟล์'}
-                                      <input type="file" accept="image/*,.pdf" hidden disabled={uploadingImage}
-                                        onChange={e => { if (e.target.files?.[0]) handleCertImageUpload(e.target.files[0]); e.target.value = ''; }} />
-                                    </label>
-                                    {certForm.image_url && (
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px]" style={{ color: '#16a34a' }}>อัปโหลดแล้ว</span>
-                                        <button onClick={() => setPreviewImage(certForm.image_url)} className="text-[10px] underline" style={{ color: 'var(--accent)' }}>ดูภาพ</button>
-                                        <button onClick={() => setCertForm(f => ({ ...f, image_url: '' }))} className="text-[10px]" style={{ color: '#dc2626' }}>ลบ</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex gap-2 mt-4">
-                                <button onClick={() => { setShowCertForm(false); setEditingCert(null); }}
-                                  className="flex-1 px-3 py-2 rounded-lg text-xs" style={{ background: 'var(--border)', color: 'var(--text-secondary)' }}>ยกเลิก</button>
-                                <button onClick={handleSaveCert} disabled={savingCert || !certForm.certificate_name.trim()}
-                                  className="btn-primary flex-1 px-3 py-2 rounded-lg text-xs font-medium"
-                                  style={{ opacity: savingCert || !certForm.certificate_name.trim() ? 0.5 : 1 }}>
-                                  {savingCert ? 'กำลังบันทึก...' : editingCert ? 'บันทึก' : 'เพิ่ม'}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
                           {/* Cert List */}
                           {loadingCerts ? (
                             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
-                          ) : certificates.length === 0 && !showCertForm ? (
+                          ) : certificates.length === 0 ? (
                             <div className="text-center py-8">
                               <Award size={32} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
                               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีใบ Certificate</p>
@@ -1330,6 +1254,105 @@ export default function EmployeesPage() {
                   className="btn-primary flex-1 px-4 py-2.5 rounded-lg text-sm font-medium"
                   style={{ opacity: saving || !form.first_name.trim() ? 0.5 : 1 }}>
                   {saving ? 'กำลังบันทึก...' : editingEmp ? 'บันทึก' : 'เพิ่มพนักงาน'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ Certificate Form Modal ═══ */}
+        {showCertForm && selectedEmp && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setShowCertForm(false); setEditingCert(null); }}>
+            <div className="rounded-2xl w-full max-w-lg overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Award size={18} /> {editingCert ? 'แก้ไข Certificate' : 'เพิ่ม Certificate ใหม่'}
+                    </h3>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      {selectedEmp.first_name} {selectedEmp.last_name}
+                      {selectedEmp.emp_code && ` (${selectedEmp.emp_code})`}
+                    </p>
+                  </div>
+                  <button onClick={() => { setShowCertForm(false); setEditingCert(null); }} className="text-white/70 hover:text-white"><X size={20} /></button>
+                </div>
+              </div>
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto">
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>ชื่อ Certificate *</label>
+                  <input type="text" value={certForm.certificate_name} onChange={e => setCertForm(f => ({ ...f, certificate_name: e.target.value }))}
+                    style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} placeholder="เช่น จป.วิชาชีพ, ISO 45001 Lead Auditor" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>เลขที่ใบ Certificate</label>
+                    <input type="text" value={certForm.certificate_number} onChange={e => setCertForm(f => ({ ...f, certificate_number: e.target.value }))}
+                      style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} placeholder="เลขที่ (ถ้ามี)" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>หน่วยงานที่ออก</label>
+                    <input type="text" value={certForm.issuer} onChange={e => setCertForm(f => ({ ...f, issuer: e.target.value }))}
+                      style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} placeholder="เช่น กรมสวัสดิการฯ" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>วันที่ออก</label>
+                    <input type="date" value={certForm.issued_date} onChange={e => setCertForm(f => ({ ...f, issued_date: e.target.value }))}
+                      style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium flex items-center gap-2 mb-1" style={{ color: '#374151' }}>
+                      วันหมดอายุ
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" checked={certForm.no_expiry} onChange={e => setCertForm(f => ({ ...f, no_expiry: e.target.checked, expiry_date: '' }))} />
+                        <span className="text-[11px]" style={{ color: '#6366f1' }}>ไม่หมดอายุ</span>
+                      </label>
+                    </label>
+                    {!certForm.no_expiry ? (
+                      <input type="date" value={certForm.expiry_date} onChange={e => setCertForm(f => ({ ...f, expiry_date: e.target.value }))}
+                        style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} />
+                    ) : (
+                      <div className="px-3 py-2 rounded-lg text-sm" style={{ background: '#eef2ff', border: '1px solid #c7d2fe', color: '#6366f1', fontWeight: 500 }}>ใช้ได้ตลอดไป (ไม่หมดอายุ)</div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>หมายเหตุ</label>
+                  <input type="text" value={certForm.notes} onChange={e => setCertForm(f => ({ ...f, notes: e.target.value }))}
+                    style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>แนบภาพใบ Certificate</label>
+                  <div className="flex items-center gap-3">
+                    <label className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium cursor-pointer ${uploadingImage ? 'opacity-50' : ''}`}
+                      style={{ background: '#f3f4f6', color: '#374151', border: '1px dashed #9ca3af' }}>
+                      <Image size={14} /> {uploadingImage ? 'กำลังอัปโหลด...' : 'เลือกไฟล์ภาพ'}
+                      <input type="file" accept="image/*,.pdf" hidden disabled={uploadingImage}
+                        onChange={e => { if (e.target.files?.[0]) handleCertImageUpload(e.target.files[0]); e.target.value = ''; }} />
+                    </label>
+                    {certForm.image_url && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs" style={{ color: '#16a34a' }}>อัปโหลดแล้ว</span>
+                        <button onClick={() => setPreviewImage(certForm.image_url)} className="text-xs underline" style={{ color: '#6366f1' }}>ดูภาพ</button>
+                        <button onClick={() => setCertForm(f => ({ ...f, image_url: '' }))} className="text-xs" style={{ color: '#dc2626' }}>ลบ</button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>รองรับ JPG, PNG, WebP, PDF ขนาดไม่เกิน 10MB</p>
+                </div>
+              </div>
+              {/* Footer */}
+              <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid #e5e7eb' }}>
+                <button onClick={() => { setShowCertForm(false); setEditingCert(null); }}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm" style={{ background: '#e5e7eb', color: '#4b5563' }}>ยกเลิก</button>
+                <button onClick={handleSaveCert} disabled={savingCert || !certForm.certificate_name.trim()}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white"
+                  style={{ background: '#6366f1', opacity: savingCert || !certForm.certificate_name.trim() ? 0.5 : 1 }}>
+                  {savingCert ? 'กำลังบันทึก...' : editingCert ? 'บันทึกการแก้ไข' : 'เพิ่ม Certificate'}
                 </button>
               </div>
             </div>
