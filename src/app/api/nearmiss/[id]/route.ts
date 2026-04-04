@@ -51,9 +51,14 @@ export async function PATCH(
   try {
     const body = await request.json();
 
+    // Date fields — empty string must be converted to null (PostgreSQL rejects "")
+    const DATE_FIELDS = new Set(['due_date', 'closed_date', 'coordinator_assigned_at', 'last_action_at', 'incident_date']);
+
     const updates: Record<string, unknown> = {};
     for (const key of PATCH_WHITELIST) {
-      if (key in body) updates[key] = body[key];
+      if (key in body) {
+        updates[key] = DATE_FIELDS.has(key) && body[key] === '' ? null : body[key];
+      }
     }
 
     if (Object.keys(updates).length === 0) {
@@ -83,10 +88,18 @@ export async function PATCH(
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      // Translate common Postgres errors to Thai
+      let msg = error.message;
+      if (msg.includes('invalid input syntax for type date')) msg = 'รูปแบบวันที่ไม่ถูกต้อง กรุณาตรวจสอบฟิลด์วันที่';
+      else if (msg.includes('violates not-null constraint')) msg = 'ข้อมูลบางช่องจำเป็นต้องกรอก';
+      else if (msg.includes('duplicate key')) msg = 'ข้อมูลซ้ำกัน ไม่สามารถบันทึกได้';
+      else msg = 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
     return NextResponse.json(data);
   } catch {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์' }, { status: 500 });
   }
 }
 
