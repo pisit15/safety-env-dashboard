@@ -171,181 +171,74 @@ export default function CompanyDrilldown() {
     }
   }, [companyId, auth]);
 
-  // Fetch activities
-  useEffect(() => {
+  // ── Consolidated workspace fetch (replaces 7-10 separate API calls with 1) ──
+  const fetchWorkspace = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
-    if (planType === 'total') {
-      // Fetch both safety and environment, merge summaries
-      Promise.all([
-        fetch(`/api/company?id=${companyId}&plan=safety&year=${selectedYear}`).then(r => r.json()),
-        fetch(`/api/company?id=${companyId}&plan=environment&year=${selectedYear}`).then(r => r.json()),
-      ]).then(([safetyData, enviData]) => {
-        const s1 = safetyData.summary;
-        const s2 = enviData.summary;
-        if (s1 && s2) {
-          const merged: CompanySummary = {
-            companyId: s1.companyId,
-            companyName: s1.companyName,
-            shortName: s1.shortName,
-            total: (s1.total || 0) + (s2.total || 0),
-            done: (s1.done || 0) + (s2.done || 0),
-            notStarted: (s1.notStarted || 0) + (s2.notStarted || 0),
-            postponed: (s1.postponed || 0) + (s2.postponed || 0),
-            cancelled: (s1.cancelled || 0) + (s2.cancelled || 0),
-            notApplicable: (s1.notApplicable || 0) + (s2.notApplicable || 0),
-            budget: (s1.budget || 0) + (s2.budget || 0),
-            safetyBudget: s1.budget || 0,
-            enviBudget: s2.budget || 0,
-            pctDone: 0,
-            monthlyProgress: s1.monthlyProgress?.map((m: any, i: number) => {
-              const m2 = s2.monthlyProgress?.[i] || { planned: 0, completed: 0 };
-              const planned = (m.planned || 0) + (m2.planned || 0);
-              const completed = (m.completed || 0) + (m2.completed || 0);
-              return {
-                ...m,
-                planned,
-                completed,
-                pctComplete: planned > 0 ? Math.round((completed / planned) * 100) : 0,
-              };
-            }),
-          };
-          merged.pctDone = merged.total > 0 ? Math.round((merged.done / merged.total) * 100) : 0;
-          setSummary(merged);
-        } else {
-          setSummary(s1 || s2 || null);
-        }
-        // Merge activities from both — add _planTag to prevent override key collisions
-        const safetyActs = (safetyData.activities || []).map((a: Activity) => ({ ...a, _planTag: 'S' }));
-        const enviActs = (enviData.activities || []).map((a: Activity) => ({ ...a, _planTag: 'E' }));
-        const allActs = [...safetyActs, ...enviActs];
-        setActivities(allActs);
-        setLoading(false);
-      }).catch(() => {
-        setActivities([]);
-        setSummary(null);
-        setLoading(false);
+    try {
+      const res = await fetch(
+        `/api/action-plan/workspace?companyId=${companyId}&planType=${planType}&year=${selectedYear}`,
+        { signal }
+      );
+      if (signal?.aborted) return;
+      const data = await res.json();
+      if (signal?.aborted) return;
+
+      // 1. Activities + summary (already merged for total mode on server)
+      setActivities(data.activities || []);
+      setSummary(data.summary || null);
+
+      // 2. Status overrides → build maps
+      const isTotal = planType === 'total';
+      const statusMap: Record<string, string> = {};
+      const noteMap: Record<string, string> = {};
+      const postponedMap: Record<string, string> = {};
+      (data.statusOverrides || []).forEach((o: StatusOverride & { plan_type?: string }) => {
+        const prefix = isTotal ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
+        if (o.status !== '__noted__') statusMap[`${prefix}${o.activity_no}:${o.month}`] = o.status;
+        if (o.note) noteMap[`${prefix}${o.activity_no}:${o.month}`] = o.note;
+        if (o.postponed_to_month) postponedMap[`${prefix}${o.activity_no}:${o.month}`] = o.postponed_to_month;
       });
-    } else {
-      fetch(`/api/company?id=${companyId}&plan=${planType}&year=${selectedYear}`)
-        .then(res => res.json())
-        .then(data => {
-          setActivities(data.activities || []);
-          setSummary(data.summary || null);
-          setLoading(false);
-        })
-        .catch(() => {
-          setActivities([]);
-          setSummary(null);
-          setLoading(false);
-        });
-    }
-  }, [companyId, planType, selectedYear]);
+      setOverrides(statusMap);
+      setNoteOverrides(noteMap);
+      setPostponedOverrides(postponedMap);
 
-  // Fetch status overrides from Supabase
-  const fetchOverrides = useCallback(() => {
-    if (planType === 'total') {
-      // Fetch both safety and environment overrides
-      Promise.all([
-        fetch(`/api/status?companyId=${companyId}&planType=safety`).then(r => r.json()),
-        fetch(`/api/status?companyId=${companyId}&planType=environment`).then(r => r.json()),
-      ]).then(([s, e]) => {
-        const map: Record<string, string> = {};
-        const nMap: Record<string, string> = {};
-        const pMap: Record<string, string> = {};
-        // Prefix with S:/E: to match _planTag in Total mode
-        (s.overrides || []).forEach((o: StatusOverride) => {
-          if (o.status !== '__noted__') map[`S:${o.activity_no}:${o.month}`] = o.status;
-          if (o.note) nMap[`S:${o.activity_no}:${o.month}`] = o.note;
-          if (o.postponed_to_month) pMap[`S:${o.activity_no}:${o.month}`] = o.postponed_to_month;
-        });
-        (e.overrides || []).forEach((o: StatusOverride) => {
-          if (o.status !== '__noted__') map[`E:${o.activity_no}:${o.month}`] = o.status;
-          if (o.note) nMap[`E:${o.activity_no}:${o.month}`] = o.note;
-          if (o.postponed_to_month) pMap[`E:${o.activity_no}:${o.month}`] = o.postponed_to_month;
-        });
-        setOverrides(map);
-        setNoteOverrides(nMap);
-        setPostponedOverrides(pMap);
-      }).catch(() => {});
-    } else {
-      fetch(`/api/status?companyId=${companyId}&planType=${planType}`)
-        .then(res => res.json())
-        .then(data => {
-          const map: Record<string, string> = {};
-          const nMap: Record<string, string> = {};
-          const pMap: Record<string, string> = {};
-          (data.overrides || []).forEach((o: StatusOverride) => {
-            if (o.status !== '__noted__') map[`${o.activity_no}:${o.month}`] = o.status;
-            if (o.note) nMap[`${o.activity_no}:${o.month}`] = o.note;
-            if (o.postponed_to_month) pMap[`${o.activity_no}:${o.month}`] = o.postponed_to_month;
-          });
-          setOverrides(map);
-          setNoteOverrides(nMap);
-          setPostponedOverrides(pMap);
-        })
-        .catch(() => {});
+      // 3. Responsible overrides → build map
+      const respMap: Record<string, string> = {};
+      (data.responsibleOverrides || []).forEach((o: ResponsibleOverride & { plan_type?: string }) => {
+        const prefix = isTotal ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
+        respMap[`${prefix}${o.activity_no}`] = o.responsible;
+      });
+      setResponsibleOverrides(respMap);
+
+      // 4. Budget overrides → build map
+      const budgetMap: Record<string, { actual_cost: number; note?: string }> = {};
+      (data.budgetOverrides || []).forEach((o: { plan_type: string; activity_no: string; actual_cost: number; note?: string }) => {
+        const prefix = isTotal ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
+        budgetMap[`${prefix}${o.activity_no}`] = { actual_cost: o.actual_cost || 0, note: o.note || undefined };
+      });
+      setBudgetOverrides(budgetMap);
+
+      // 5. Attachment counts → build map
+      const attMap: Record<string, number> = {};
+      (data.attachmentCounts || []).forEach((o: { plan_type: string; activity_no: string; month: string; count: number }) => {
+        const prefix = isTotal ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
+        attMap[`${prefix}${o.activity_no}:${o.month}`] = o.count;
+      });
+      setAttachmentCounts(attMap);
+    } catch (err: unknown) {
+      if ((err as Error)?.name === 'AbortError') return;
+      setActivities([]);
+      setSummary(null);
     }
+    setLoading(false);
   }, [companyId, planType, selectedYear]);
 
   useEffect(() => {
-    fetchOverrides();
-  }, [fetchOverrides]);
+    const controller = new AbortController();
+    fetchWorkspace(controller.signal);
+    return () => controller.abort();
+  }, [fetchWorkspace]);
 
-  // Fetch responsible overrides from Supabase
-  const fetchResponsibleOverrides = useCallback(() => {
-    if (planType === 'total') {
-      Promise.all([
-        fetch(`/api/responsible?companyId=${companyId}&planType=safety`).then(r => r.json()),
-        fetch(`/api/responsible?companyId=${companyId}&planType=environment`).then(r => r.json()),
-      ]).then(([s, e]) => {
-        const map: Record<string, string> = {};
-        // Prefix with S:/E: to match _planTag in Total mode
-        (s.overrides || []).forEach((o: ResponsibleOverride) => {
-          map[`S:${o.activity_no}`] = o.responsible;
-        });
-        (e.overrides || []).forEach((o: ResponsibleOverride) => {
-          map[`E:${o.activity_no}`] = o.responsible;
-        });
-        setResponsibleOverrides(map);
-      }).catch(() => {});
-    } else {
-      fetch(`/api/responsible?companyId=${companyId}&planType=${planType}`)
-        .then(res => res.json())
-        .then(data => {
-          const map: Record<string, string> = {};
-          (data.overrides || []).forEach((o: ResponsibleOverride) => {
-            map[o.activity_no] = o.responsible;
-          });
-          setResponsibleOverrides(map);
-        })
-        .catch(() => {});
-    }
-  }, [companyId, planType, selectedYear]);
-
-  useEffect(() => {
-    fetchResponsibleOverrides();
-  }, [fetchResponsibleOverrides]);
-
-  // Fetch budget overrides from Supabase
-  const fetchBudgetOverrides = useCallback(() => {
-    fetch(`/api/budget?companyId=${companyId}&planType=${planType === 'total' ? '' : planType}&year=${selectedYear}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.overrides) {
-          const map: Record<string, { actual_cost: number; note?: string }> = {};
-          data.overrides.forEach((o: { plan_type: string; activity_no: string; actual_cost: number; note?: string }) => {
-            const prefix = planType === 'total' ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
-            map[`${prefix}${o.activity_no}`] = { actual_cost: o.actual_cost || 0, note: o.note || undefined };
-          });
-          setBudgetOverrides(map);
-        }
-      })
-      .catch(() => {});
-  }, [companyId, planType, selectedYear]);
-
-  useEffect(() => {
-    fetchBudgetOverrides();
-  }, [fetchBudgetOverrides]);
 
   // Save actual cost for an activity
   const handleSaveBudget = async (actNo: string, actualCost: number) => {
