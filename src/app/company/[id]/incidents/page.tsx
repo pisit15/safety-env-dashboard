@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -9,7 +9,6 @@ import {
   AlertTriangle, Plus, BarChart3, List,
 } from 'lucide-react';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
-import { buildLiveStats, getSevColor, getTypeBadge, getTypeColor } from './types';
 import type { Incident, SummaryData, InjuredPerson } from './types';
 import GlobalFilters from './components/GlobalFilters';
 import OverviewWorkspace from './components/OverviewWorkspace';
@@ -28,6 +27,24 @@ import {
   inputStyle,
   selectStyle,
 } from './constants';
+import { getYearOptions } from './constants';
+
+/* ─── helpers (pure functions, no state) ─── */
+
+const isInjuryType = (t: string) => INJURY_TYPES_PART.some(p => t.includes(p));
+const isLtiType = (t: string) =>
+  (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+
+interface ManHourRow {
+  year: number;
+  month: number;
+  employee_manhours: number;
+  contractor_manhours: number;
+  employee_count?: number;
+  contractor_count?: number;
+}
+
+/* ─── Component ─── */
 
 export default function IncidentsPage() {
   const { id } = useParams() as { id: string };
@@ -37,45 +54,43 @@ export default function IncidentsPage() {
 
   const [viewMode, setViewMode] = useState<'dashboard' | 'list' | 'form'>('dashboard');
   const [year, setYear] = useState(new Date().getFullYear());
-  const [loading, setLoading] = useState(true);
 
-  // Dashboard data
-  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+  // Loading — block-level (not full-page spinner)
+  const [dashLoading, setDashLoading] = useState(true);
+  const [dashError, setDashError] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
 
-  // List data
+  // ---- Consolidated dashboard data (from single API call) ----
+  const [dashIncidents, setDashIncidents] = useState<Incident[]>([]);
+  const [manHourRows, setManHourRows] = useState<ManHourRow[]>([]);
+  const [injuredPersonsData, setInjuredPersonsData] = useState<InjuredPerson[]>([]);
+  const [injuredIncidentMap, setInjuredIncidentMap] = useState<Record<string, { year: number; work_related: string; incident_type: string }>>({});
+
+  // List view data (separate from dashboard)
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
 
-  // Form data — simplified
+  // Form data
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
 
-  // Man-hours data for TRIR/LTIFR
-  const [manHours, setManHours] = useState<{ employee: number; contractor: number; total: number }>({ employee: 0, contractor: 0, total: 0 });
-
-  // Dashboard filter state (for interactive clicking)
+  // Dashboard filter state
   const [dashFilter, setDashFilter] = useState<{ month?: string; type?: string }>({});
-  const [dashIncidents, setDashIncidents] = useState<Incident[]>([]);
-
-  // Dashboard new filters: work-related and multi-year
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
-  const [selectedYears, setSelectedYears] = useState<number[]>([2021, 2022, 2023, 2024, 2025, 2026]);
+
+  // Dynamic years: default to currentYear only
+  const currentYear = new Date().getFullYear();
+  const [selectedYears, setSelectedYears] = useState<number[]>(() => {
+    const allYears = getYearOptions();
+    return allYears;
+  });
   const [incidentCategory, setIncidentCategory] = useState<IncidentCategory>('overview');
 
-  // Cross-filter for injury charts (click to drill down)
+  // Cross-filter for injury/property charts
   const [injuryFilter, setInjuryFilter] = useState<{ field: string; value: string } | null>(null);
-  // Cross-filter for property damage charts
   const [propFilter, setPropFilter] = useState<{ field: string; value: string } | null>(null);
-
-  // Multi-year TRIR/LTIFR trend — raw data for client-side computation
-  const [trendIncidents, setTrendIncidents] = useState<Incident[]>([]);
-  const [trendManhours, setTrendManhours] = useState<Record<number, number>>({});
-
-  // Injured persons data for injury-specific charts
-  const [injuredPersonsData, setInjuredPersonsData] = useState<InjuredPerson[]>([]);
-  const [injuredIncidentMap, setInjuredIncidentMap] = useState<Record<string, { year: number; work_related: string; incident_type: string }>>({});
 
   // ---- Incident Drawer State ----
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -89,300 +104,142 @@ export default function IncidentsPage() {
     if (node && drawerOpen) node.focus();
   }, [drawerOpen]);
 
-  // Open drawer for an incident
-  const openDrawer = useCallback(async (inc: Incident) => {
-    setDrawerIncident(inc);
-    setDrawerOpen(true);
-    setDrawerTab('summary');
-    setDrawerDetail(null);
-    setDrawerInjured([]);
-    setDrawerLoading(true);
-    setDrawerError(false);
+  // AbortController ref for cancelling stale requests
+  const abortRef = useRef<AbortController | null>(null);
+
+  /* ═══════════════════════════════════════════════════════════════
+     SINGLE consolidated fetch — replaces 15-31 API calls with ONE
+     ═══════════════════════════════════════════════════════════════ */
+  const fetchDashboard = useCallback(async () => {
+    // Cancel any in-flight request
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setDashLoading(true);
+    setDashError(false);
+
     try {
-      // Fetch full detail
-      const res = await fetch(`/api/incidents?companyId=${id}&search=${encodeURIComponent(inc.incident_no)}&year=${inc.year}&limit=1`);
+      const res = await fetch(
+        `/api/incidents/dashboard?companyId=${id}&years=${selectedYears.join(',')}`,
+        { signal: controller.signal }
+      );
+      if (!res.ok) throw new Error('API error');
       const data = await res.json();
-      const detail = (data.incidents || [])[0] || null;
-      setDrawerDetail(detail);
-      // Fetch injured persons if injury type
-      const isInjury = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (inc.incident_type || '').includes(p));
-      if (isInjury) {
-        try {
-          const res2 = await fetch(`/api/incidents/injured?incident_no=${encodeURIComponent(inc.incident_no)}`);
-          const data2 = await res2.json();
-          setDrawerInjured(data2.persons || []);
-        } catch { setDrawerInjured([]); }
-      }
-    } catch {
-      setDrawerError(true);
+
+      // Guard against stale response
+      if (controller.signal.aborted) return;
+
+      setDashIncidents(data.incidents || []);
+      setManHourRows(data.manHourRows || []);
+      setInjuredPersonsData(data.injuredPersons || []);
+      setInjuredIncidentMap(data.injuredIncidentMap || {});
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (!controller.signal.aborted) setDashError(true);
+    } finally {
+      if (!controller.signal.aborted) setDashLoading(false);
     }
-    setDrawerLoading(false);
-  }, [id]);
+  }, [id, selectedYears]);
 
-  const closeDrawer = useCallback(() => {
-    setDrawerOpen(false);
-  }, []);
-
-  // Fetch summary (handles multi-year for dashboard)
-  const fetchSummary = useCallback(async () => {
-    setLoading(true);
-    try {
-      // For dashboard view, fetch for all selectedYears and merge
-      const yearsToFetch = viewMode === 'dashboard' ? selectedYears : [year];
-      const summaries = await Promise.all(
-        yearsToFetch.map(y => fetch(`/api/incidents?mode=summary&companyId=${id}&year=${y}`).then(r => r.json()))
-      );
-      
-      if (summaries.length === 0) {
-        setSummaryData(null);
-      } else if (summaries.length === 1) {
-        setSummaryData(summaries[0]);
-      } else {
-        // Merge multiple years
-        const merged: SummaryData = {
-          summary: {
-            totalIncidents: summaries.reduce((s, d) => s + (d.summary?.totalIncidents || 0), 0),
-            totalInjuries: summaries.reduce((s, d) => s + (d.summary?.totalInjuries || 0), 0),
-            ltiCases: summaries.reduce((s, d) => s + (d.summary?.ltiCases || 0), 0),
-            nearMisses: summaries.reduce((s, d) => s + (d.summary?.nearMisses || 0), 0),
-            propertyDamage: summaries.reduce((s, d) => s + (d.summary?.propertyDamage || 0), 0),
-            fatalities: summaries.reduce((s, d) => s + (d.summary?.fatalities || 0), 0),
-            totalDirectCost: summaries.reduce((s, d) => s + (d.summary?.totalDirectCost || 0), 0),
-            totalIndirectCost: summaries.reduce((s, d) => s + (d.summary?.totalIndirectCost || 0), 0),
-            employeeInjuries: summaries.reduce((s, d) => s + (d.summary?.employeeInjuries || 0), 0),
-            contractorInjuries: summaries.reduce((s, d) => s + (d.summary?.contractorInjuries || 0), 0),
-            employeeLti: summaries.reduce((s, d) => s + (d.summary?.employeeLti || 0), 0),
-            contractorLti: summaries.reduce((s, d) => s + (d.summary?.contractorLti || 0), 0),
-          },
-          monthlyData: {} as Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }>,
-          severityBreakdown: {} as Record<string, number>,
-          typeBreakdown: {} as Record<string, number>,
-        };
-        
-        // Merge monthly data
-        summaries.forEach(d => {
-          if (d.monthlyData) {
-            Object.entries(d.monthlyData).forEach(([month, data]: [string, any]) => {
-              if (!merged.monthlyData[month]) merged.monthlyData[month] = { injuries: 0, nearMiss: 0, propertyDamage: 0, total: 0 };
-              merged.monthlyData[month].injuries += data.injuries || 0;
-              merged.monthlyData[month].nearMiss += data.nearMiss || 0;
-              merged.monthlyData[month].propertyDamage += data.propertyDamage || 0;
-              merged.monthlyData[month].total += data.total || 0;
-            });
-          }
-          if (d.severityBreakdown) {
-            Object.entries(d.severityBreakdown).forEach(([sev, count]: [string, any]) => {
-              merged.severityBreakdown[sev] = (merged.severityBreakdown[sev] || 0) + count;
-            });
-          }
-          if (d.typeBreakdown) {
-            Object.entries(d.typeBreakdown).forEach(([type, count]: [string, any]) => {
-              merged.typeBreakdown[type] = (merged.typeBreakdown[type] || 0) + count;
-            });
-          }
-        });
-        
-        setSummaryData(merged);
-      }
-    } catch { /* empty */ }
-
-    // Fetch man-hours (multi-year for dashboard)
-    try {
-      const yearsToFetch = viewMode === 'dashboard' ? selectedYears : [year];
-      const mhDataSets = await Promise.all(
-        yearsToFetch.map(y => fetch(`/api/manhours?companyId=${id}&year=${y}`).then(r => r.json()))
-      );
-      
-      const mh = mhDataSets.reduce(
-        (acc, mhData) => {
-          const rows = mhData.manHours || [];
-          return {
-            employee: acc.employee + rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.employee_manhours) || 0), 0),
-            contractor: acc.contractor + rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.contractor_manhours) || 0), 0),
-            total: acc.total + rows.reduce((s: number, r: Record<string, unknown>) => s + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0), 0),
-          };
-        },
-        { employee: 0, contractor: 0, total: 0 }
-      );
-      setManHours(mh);
-    } catch { /* empty */ }
-    setLoading(false);
-  }, [id, year, viewMode, selectedYears]);
-
-  // Fetch list (multi-year support)
-  const fetchList = useCallback(async () => {
-    setLoading(true);
-    try {
-      const yearsToFetch = selectedYears.length > 0 ? selectedYears : [year];
-      const results = await Promise.all(
-        yearsToFetch.map(y => {
-          const params = new URLSearchParams({ companyId: id, year: String(y), limit: '1000' });
-          if (searchTerm) params.set('search', searchTerm);
-          if (filterType) params.set('incidentType', filterType);
-          return fetch(`/api/incidents?${params}`).then(r => r.json());
-        })
-      );
-      let allInc: Incident[] = [];
-      results.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
-      // Apply work-related filter
-      if (workRelatedOnly) {
-        allInc = allInc.filter(i => i.work_related === 'ใช่');
-      }
-      // Apply category filter
-      if (incidentCategory === 'injury') {
-        allInc = allInc.filter(i => ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (i.incident_type || '').includes(p)));
-      }
-      if (incidentCategory === 'property') {
-        allInc = allInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
-      }
-      // Sort by date descending
-      allInc.sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''));
-      setTotal(allInc.length);
-      // Client-side pagination
-      const start = (page - 1) * 20;
-      setIncidents(allInc.slice(start, start + 20));
-    } catch { /* empty */ }
-    setLoading(false);
-  }, [id, year, selectedYears, page, searchTerm, filterType, workRelatedOnly, incidentCategory]);
-
+  // Trigger fetch when dashboard view or selectedYears change
   useEffect(() => {
-    if (viewMode === 'dashboard') fetchSummary();
-    else if (viewMode === 'list') fetchList();
-  }, [viewMode, fetchSummary, fetchList]);
-
-  // Fetch all incidents for dashboard table (multi-year)
-  useEffect(() => {
-    if (viewMode === 'dashboard') {
-      Promise.all(
-        selectedYears.map(y => fetch(`/api/incidents?companyId=${id}&year=${y}&limit=1000`).then(r => r.json()))
-      )
-        .then(results => {
-          const allIncidents = results.flatMap(d => d.incidents || []);
-          setDashIncidents(allIncidents);
-        })
-        .catch(() => setDashIncidents([]));
+    if (viewMode === 'dashboard' && selectedYears.length > 0) {
+      fetchDashboard();
     }
-  }, [viewMode, id, selectedYears]);
+    return () => { if (abortRef.current) abortRef.current.abort(); };
+  }, [viewMode, fetchDashboard, selectedYears]);
 
-  // Fetch multi-year raw data for TRIR/LTIFR trend (incidents + manhours for 6 years)
-  useEffect(() => {
-    if (viewMode !== 'dashboard') return;
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
+  /* ═══ Derived data — all computed client-side, no extra API calls ═══ */
 
-    // Fetch all incidents for 6 years
-    Promise.all(years.map(y => fetch(`/api/incidents?companyId=${id}&year=${y}&limit=1000`).then(r => r.json())))
-      .then(results => {
-        const allInc: Incident[] = [];
-        results.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
-        setTrendIncidents(allInc);
-      })
-      .catch(() => setTrendIncidents([]));
-
-    // Fetch manhours for 6 years
-    Promise.all(years.map(y => fetch(`/api/manhours?companyId=${id}&year=${y}`).then(r => r.json()).then(d => ({
-      year: y,
-      total: (d.manHours || []).reduce((acc: number, r: Record<string, unknown>) => acc + (Number(r.employee_manhours) || 0) + (Number(r.contractor_manhours) || 0), 0),
-    }))))
-      .then(results => {
-        const mhMap: Record<number, number> = {};
-        results.forEach(r => { mhMap[r.year] = r.total; });
-        setTrendManhours(mhMap);
-      })
-      .catch(() => setTrendManhours({}));
-  }, [viewMode, id]);
-
-  // Fetch injured persons data — needed for Employee/Contractor breakdown in all tabs (Overview uses it for TRIR/LTIFR)
-  useEffect(() => {
-    if (viewMode !== 'dashboard' || selectedYears.length === 0) {
-      return;
+  // Aggregated manhours
+  const manHours = useMemo<ManHours>(() => {
+    let employee = 0, contractor = 0;
+    for (const r of manHourRows) {
+      employee += Number(r.employee_manhours) || 0;
+      contractor += Number(r.contractor_manhours) || 0;
     }
-    fetch(`/api/incidents/injured-bulk?company_id=${id}&years=${selectedYears.join(',')}`)
-      .then(r => r.json())
-      .then(data => {
-        setInjuredPersonsData(data.persons || []);
-        setInjuredIncidentMap(data.incidentMap || {});
-      })
-      .catch(() => {
-        setInjuredPersonsData([]);
-        setInjuredIncidentMap({});
-      });
-  }, [viewMode, id, selectedYears]);
+    return { employee, contractor, total: employee + contractor };
+  }, [manHourRows]);
 
-  // Form handlers — simplified
-  const openNewForm = () => {
-    setEditingIncident(null);
-    setViewMode('form');
-  };
-
-  const openEditForm = (incident: Incident) => {
-    setEditingIncident(incident);
-    setViewMode('form');
-  };
-
-  const handleDelete = async (inc: Incident) => {
-    if (!confirm(`ต้องการลบ ${inc.incident_no}?`)) return;
-    try {
-      await fetch(`/api/incidents?id=${inc.id}`, { method: 'DELETE' });
-      fetchList();
-    } catch { /* empty */ }
-  };
-
-  // Base incidents filtered by workRelatedOnly (for KPIs, type cards, charts)
-  const baseIncidents = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
-
-  const categoryIncidents = baseIncidents.filter(inc => {
-    if (incidentCategory === 'injury') {
-      return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (inc.incident_type || '').includes(p));
+  // Manhours by year (for ratesByYear)
+  const manHoursByYear = useMemo(() => {
+    const map: Record<number, { emp: number; con: number; total: number }> = {};
+    for (const r of manHourRows) {
+      if (!map[r.year]) map[r.year] = { emp: 0, con: 0, total: 0 };
+      const emp = Number(r.employee_manhours) || 0;
+      const con = Number(r.contractor_manhours) || 0;
+      map[r.year].emp += emp;
+      map[r.year].con += con;
+      map[r.year].total += emp + con;
     }
-    if (incidentCategory === 'property') {
-      return inc.incident_type === 'ทรัพย์สินเสียหาย';
-    }
-    return true;
-  });
+    return map;
+  }, [manHourRows]);
 
-  // Compute live stats from baseIncidents (respects workRelatedOnly toggle)
-  const liveStats = (() => {
-    const injuryIncidents = categoryIncidents.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p)));
-    const ltiIncidents = categoryIncidents.filter(i => {
-      const t = i.incident_type || '';
-      return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+  // Manhours by year+month (for ratesByMonth)
+  const manHoursByYearMonth = useMemo(() => {
+    const map: Record<string, { emp: number; con: number; total: number }> = {};
+    for (const r of manHourRows) {
+      const key = `${r.year}-${r.month}`;
+      const emp = Number(r.employee_manhours) || 0;
+      const con = Number(r.contractor_manhours) || 0;
+      map[key] = { emp, con, total: emp + con };
+    }
+    return map;
+  }, [manHourRows]);
+
+  // Base incidents filtered by workRelatedOnly
+  const baseIncidents = useMemo(() =>
+    workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents,
+    [dashIncidents, workRelatedOnly]
+  );
+
+  // Category-filtered incidents
+  const categoryIncidents = useMemo(() =>
+    baseIncidents.filter(inc => {
+      if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
+      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      return true;
+    }),
+    [baseIncidents, incidentCategory]
+  );
+
+  // ---- Person-type helpers using injured persons data ----
+  const incidentPersonTypes = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    injuredPersonsData.forEach(p => {
+      const pt = (p.person_type || '').trim();
+      if (pt && p.incident_no) {
+        if (!map.has(p.incident_no)) map.set(p.incident_no, new Set());
+        map.get(p.incident_no)!.add(pt);
+      }
     });
+    return map;
+  }, [injuredPersonsData]);
+
+  const hasPersonType = useCallback((inc: Incident, keyword: string): boolean => {
+    const personTypes = incidentPersonTypes.get(inc.incident_no);
+    if (personTypes && personTypes.size > 0) {
+      return Array.from(personTypes).some(pt => pt.includes(keyword));
+    }
+    return (inc.person_type || '').includes(keyword);
+  }, [incidentPersonTypes]);
+
+  // Live stats — computed from categoryIncidents (respects all filters)
+  const liveStats = useMemo<LiveStats>(() => {
+    const injuryIncidents = categoryIncidents.filter(i => isInjuryType(i.incident_type || ''));
+    const ltiIncidents = categoryIncidents.filter(i => isLtiType(i.incident_type || ''));
     const nearMisses = categoryIncidents.filter(i => i.incident_type === 'Near Miss');
     const propDamage = categoryIncidents.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
     const fatalities = categoryIncidents.filter(i => (i.incident_type || '').includes('เสียชีวิต'));
     const directCost = categoryIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0);
     const indirectCost = categoryIncidents.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0);
 
-    // Employee vs Contractor breakdown
-    // Strategy: use injured_persons data (person-level) as primary source for person_type
-    // because 1 incident can involve multiple person types, and incident-level person_type is often null.
-    // Fallback to incident-level person_type only when injured_persons data is unavailable.
-    const incidentPersonTypes = new Map<string, Set<string>>();
-    injuredPersonsData.forEach(p => {
-      const pt = (p.person_type || '').trim();
-      if (pt && p.incident_no) {
-        if (!incidentPersonTypes.has(p.incident_no)) incidentPersonTypes.set(p.incident_no, new Set());
-        incidentPersonTypes.get(p.incident_no)!.add(pt);
-      }
-    });
-
-    const hasPersonType = (inc: Incident, keyword: string): boolean => {
-      // Check injured_persons first (more reliable, person-level)
-      const personTypes = incidentPersonTypes.get(inc.incident_no);
-      if (personTypes && personTypes.size > 0) {
-        return Array.from(personTypes).some(pt => pt.includes(keyword));
-      }
-      // Fallback to incident-level person_type
-      return (inc.person_type || '').includes(keyword);
-    };
-
     const empInj = injuryIncidents.filter(i => hasPersonType(i, 'พนักงาน'));
     const conInj = injuryIncidents.filter(i => hasPersonType(i, 'ผู้รับเหมา'));
     const empLti = ltiIncidents.filter(i => hasPersonType(i, 'พนักงาน'));
     const conLti = ltiIncidents.filter(i => hasPersonType(i, 'ผู้รับเหมา'));
 
-    // Type breakdown
     const typeBreakdown: Record<string, number> = {};
     categoryIncidents.forEach(i => { const t = i.incident_type || 'อื่นๆ'; typeBreakdown[t] = (typeBreakdown[t] || 0) + 1; });
 
@@ -401,9 +258,56 @@ export default function IncidentsPage() {
       contractorLti: conLti.length,
       typeBreakdown,
     };
-  })();
+  }, [categoryIncidents, hasPersonType]);
 
-  // Calculate TRIR/LTIFR — Combined, Employee-only, Contractor-only (uses liveStats for toggle support)
+  // SummaryData (for backward compat with components that still use it)
+  const summaryData = useMemo<SummaryData | null>(() => {
+    if (dashIncidents.length === 0 && !dashLoading) return null;
+    if (dashIncidents.length === 0) return null;
+
+    const monthlyData: Record<string, { injuries: number; nearMiss: number; propertyDamage: number; total: number }> = {};
+    MONTHS.forEach(m => { monthlyData[m] = { injuries: 0, nearMiss: 0, propertyDamage: 0, total: 0 }; });
+
+    const normalizeMonth = (raw: unknown): string | null => {
+      if (!raw) return null;
+      const s = String(raw).trim();
+      if (MONTHS.includes(s)) return s;
+      const num = parseInt(s);
+      if (num >= 1 && num <= 12) return MONTHS[num - 1];
+      return null;
+    };
+
+    categoryIncidents.forEach(i => {
+      const m = normalizeMonth(i.month);
+      if (m && monthlyData[m]) {
+        monthlyData[m].total++;
+        if (isInjuryType(i.incident_type || '')) monthlyData[m].injuries++;
+        if (i.incident_type === 'Near Miss') monthlyData[m].nearMiss++;
+        if (i.incident_type === 'ทรัพย์สินเสียหาย') monthlyData[m].propertyDamage++;
+      }
+    });
+
+    const severityBreakdown: Record<string, number> = {};
+    categoryIncidents.forEach(i => {
+      const sev = (i.actual_severity as string) || 'ไม่ระบุ';
+      severityBreakdown[sev] = (severityBreakdown[sev] || 0) + 1;
+    });
+
+    const typeBreakdown: Record<string, number> = {};
+    categoryIncidents.forEach(i => {
+      const t = (i.incident_type as string) || 'ไม่ระบุ';
+      typeBreakdown[t] = (typeBreakdown[t] || 0) + 1;
+    });
+
+    return {
+      summary: { ...liveStats },
+      monthlyData,
+      severityBreakdown,
+      typeBreakdown,
+    };
+  }, [categoryIncidents, dashIncidents.length, dashLoading, liveStats]);
+
+  // TRIR / LTIFR — Combined, Employee, Contractor
   const trirCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
   const ltifrCombined = manHours.total > 0 ? (liveStats.ltiCases / manHours.total) * 1000000 : null;
   const trirEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
@@ -411,70 +315,154 @@ export default function IncidentsPage() {
   const trirContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
   const ltifrContractor = manHours.contractor > 0 ? (liveStats.contractorLti / manHours.contractor) * 1000000 : null;
 
-  // Compute yearlyTrend from raw data — respects workRelatedOnly toggle
-  const yearlyTrend = (() => {
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
-    const filtered = workRelatedOnly ? trendIncidents.filter(i => i.work_related === 'ใช่') : trendIncidents;
-    
-    // Apply category filter to trend data
-    const categoryFiltered = filtered.filter(inc => {
-      if (incidentCategory === 'injury') {
-        return ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (inc.incident_type || '').includes(p));
-      }
-      if (incidentCategory === 'property') {
-        return inc.incident_type === 'ทรัพย์สินเสียหาย';
-      }
+  // Yearly trend — now driven by selectedYears (not fixed 6 years)
+  const yearlyTrend = useMemo(() => {
+    const filtered = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
+    const catFiltered = filtered.filter(inc => {
+      if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
+      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
       return true;
     });
-    
-    return years.map(y => {
-      const yInc = categoryFiltered.filter(i => i.year === y);
-      const injuries = yInc.filter(i => INJURY_TYPES_PART.some(p => (i.incident_type || '').includes(p))).length;
-      const lti = yInc.filter(i => {
-        const t = i.incident_type || '';
-        return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
-      }).length;
-      const mh = trendManhours[y] || 0;
+
+    return [...selectedYears].sort().map(y => {
+      const yInc = catFiltered.filter(i => i.year === y);
+      const injuries = yInc.filter(i => isInjuryType(i.incident_type || '')).length;
+      const lti = yInc.filter(i => isLtiType(i.incident_type || '')).length;
+      const mh = manHoursByYear[y]?.total || 0;
       return {
         year: y,
         trir: mh > 0 ? (injuries / mh) * 1000000 : 0,
         ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
       };
     });
-  })();
+  }, [dashIncidents, workRelatedOnly, incidentCategory, selectedYears, manHoursByYear]);
+
+  // trendIncidents & trendManhours — kept for backward compat with OverviewWorkspace
+  const trendIncidents = dashIncidents;
+  const trendManhours = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (const y of selectedYears) {
+      map[y] = manHoursByYear[y]?.total || 0;
+    }
+    return map;
+  }, [selectedYears, manHoursByYear]);
 
   // Filtered dashboard incidents based on dashFilter
-  const filteredDashIncidents = categoryIncidents.filter(inc => {
-    if (dashFilter.month) {
-      const incMonth = inc.month;
-      const monthNum = parseInt(String(incMonth));
-      const normalizedMonth = (monthNum >= 1 && monthNum <= 12) ? MONTHS[monthNum - 1] : String(incMonth);
-      if (normalizedMonth !== dashFilter.month) return false;
-    }
-    if (dashFilter.type) {
-      if (inc.incident_type !== dashFilter.type) return false;
-    }
-    return true;
-  });
+  const filteredDashIncidents = useMemo(() =>
+    categoryIncidents.filter(inc => {
+      if (dashFilter.month) {
+        const incMonth = inc.month;
+        const monthNum = parseInt(String(incMonth));
+        const normalizedMonth = (monthNum >= 1 && monthNum <= 12) ? MONTHS[monthNum - 1] : String(incMonth);
+        if (normalizedMonth !== dashFilter.month) return false;
+      }
+      if (dashFilter.type) {
+        if (inc.incident_type !== dashFilter.type) return false;
+      }
+      return true;
+    }),
+    [categoryIncidents, dashFilter]
+  );
 
-  // Compute monthly stacked data from baseIncidents (respects work-related filter)
-  const monthlyStacked: Record<string, Record<string, number>> = {};
-  MONTHS.forEach(m => { monthlyStacked[m] = {}; });
-  categoryIncidents.forEach(inc => {
-    const raw = inc.month;
-    const num = parseInt(String(raw));
-    const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
-    if (m && monthlyStacked[m] !== undefined) {
-      const t = inc.incident_type || 'อื่นๆ';
-      monthlyStacked[m][t] = (monthlyStacked[m][t] || 0) + 1;
-    }
-  });
-  const allTypes = Array.from(new Set(dashIncidents.map(i => i.incident_type || 'อื่นๆ')));
+  // Monthly stacked data
+  const monthlyStacked = useMemo(() => {
+    const stacked: Record<string, Record<string, number>> = {};
+    MONTHS.forEach(m => { stacked[m] = {}; });
+    categoryIncidents.forEach(inc => {
+      const raw = inc.month;
+      const num = parseInt(String(raw));
+      const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
+      if (m && stacked[m] !== undefined) {
+        const t = inc.incident_type || 'อื่นๆ';
+        stacked[m][t] = (stacked[m][t] || 0) + 1;
+      }
+    });
+    return stacked;
+  }, [categoryIncidents]);
+
+  const allTypes = useMemo(() =>
+    Array.from(new Set(dashIncidents.map(i => i.incident_type || 'อื่นๆ'))),
+    [dashIncidents]
+  );
   const maxStackedMonthly = Math.max(...MONTHS.map(m => Object.values(monthlyStacked[m]).reduce((s, v) => s + v, 0)), 1);
-
-  // Max bar value for chart
   const maxMonthly = summaryData ? Math.max(...Object.values(summaryData.monthlyData).map(m => m.total), 1) : 1;
+
+  /* ═══ Drawer ═══ */
+
+  const openDrawer = useCallback(async (inc: Incident) => {
+    setDrawerIncident(inc);
+    setDrawerOpen(true);
+    setDrawerTab('summary');
+    setDrawerDetail(null);
+    setDrawerInjured([]);
+    setDrawerLoading(true);
+    setDrawerError(false);
+    try {
+      const res = await fetch(`/api/incidents?companyId=${id}&search=${encodeURIComponent(inc.incident_no)}&year=${inc.year}&limit=1`);
+      const data = await res.json();
+      const detail = (data.incidents || [])[0] || null;
+      setDrawerDetail(detail);
+      const isInjury = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'].some(p => (inc.incident_type || '').includes(p));
+      if (isInjury) {
+        try {
+          const res2 = await fetch(`/api/incidents/injured?incident_no=${encodeURIComponent(inc.incident_no)}`);
+          const data2 = await res2.json();
+          setDrawerInjured(data2.persons || []);
+        } catch { setDrawerInjured([]); }
+      }
+    } catch {
+      setDrawerError(true);
+    }
+    setDrawerLoading(false);
+  }, [id]);
+
+  const closeDrawer = useCallback(() => { setDrawerOpen(false); }, []);
+
+  /* ═══ List view fetch ═══ */
+
+  const fetchList = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const yearsToFetch = selectedYears.length > 0 ? selectedYears : [year];
+      const results = await Promise.all(
+        yearsToFetch.map(y => {
+          const params = new URLSearchParams({ companyId: id, year: String(y), limit: '1000' });
+          if (searchTerm) params.set('search', searchTerm);
+          if (filterType) params.set('incidentType', filterType);
+          return fetch(`/api/incidents?${params}`).then(r => r.json());
+        })
+      );
+      let allInc: Incident[] = [];
+      results.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
+      if (workRelatedOnly) allInc = allInc.filter(i => i.work_related === 'ใช่');
+      if (incidentCategory === 'injury') allInc = allInc.filter(i => isInjuryType(i.incident_type || ''));
+      if (incidentCategory === 'property') allInc = allInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+      allInc.sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''));
+      setTotal(allInc.length);
+      const start = (page - 1) * 20;
+      setIncidents(allInc.slice(start, start + 20));
+    } catch { /* empty */ }
+    setListLoading(false);
+  }, [id, year, selectedYears, page, searchTerm, filterType, workRelatedOnly, incidentCategory]);
+
+  useEffect(() => {
+    if (viewMode === 'list') fetchList();
+  }, [viewMode, fetchList]);
+
+  /* ═══ Form handlers ═══ */
+
+  const openNewForm = () => { setEditingIncident(null); setViewMode('form'); };
+  const openEditForm = (incident: Incident) => { setEditingIncident(incident); setViewMode('form'); };
+  const handleDelete = async (inc: Incident) => {
+    if (!confirm(`ต้องการลบ ${inc.incident_no}?`)) return;
+    try {
+      await fetch(`/api/incidents?id=${inc.id}`, { method: 'DELETE' });
+      fetchList();
+    } catch { /* empty */ }
+  };
+
+  /* ═══ Loading state ═══ */
+  const loading = viewMode === 'dashboard' ? dashLoading : listLoading;
 
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
@@ -482,7 +470,6 @@ export default function IncidentsPage() {
       <main className="flex-1 overflow-y-auto">
         {/* Sticky Header */}
         <div className="sticky top-0 z-20 px-8 pt-6 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
-          {/* Title row */}
           <div className="flex items-center justify-between mb-3">
             <div>
               <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -490,7 +477,6 @@ export default function IncidentsPage() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              {/* View mode tabs */}
               <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
                 {[
                   { mode: 'dashboard' as const, icon: BarChart3, label: 'Dashboard' },
@@ -532,7 +518,6 @@ export default function IncidentsPage() {
             </div>
           </div>
 
-          {/* Global Filters + Category Tabs (Extracted Component) */}
           <GlobalFilters
             selectedYears={selectedYears}
             setSelectedYears={setSelectedYears}
@@ -549,26 +534,26 @@ export default function IncidentsPage() {
           />
         </div>
 
-        <div className="px-8 pb-8">
-          {loading && viewMode !== 'form' ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }} />
-              <span className="text-[13px]" style={{ color: 'var(--muted)' }}>กำลังโหลดข้อมูล...</span>
-            </div>
-          ) : viewMode === 'dashboard' && !summaryData && !loading ? (
+        <div className="px-8 pb-8" style={{ opacity: loading && viewMode !== 'form' ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+          {/* Error state */}
+          {dashError && viewMode === 'dashboard' ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <AlertTriangle size={32} style={{ color: 'var(--muted)' }} />
-              <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>โหลดข้อมูลไม่สำเร็จ หรือไม่มีข้อมูลสำหรับปีที่เลือก</p>
+              <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>โหลดข้อมูลไม่สำเร็จ</p>
               <button
-                onClick={() => { fetchSummary(); }}
+                onClick={fetchDashboard}
                 className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors"
                 style={{ background: 'var(--accent)', color: '#fff' }}
               >
                 ลองใหม่
               </button>
             </div>
-          ) : viewMode === 'dashboard' && summaryData ? (
-            /* ===================== DASHBOARD VIEW — WORKSPACE COMPONENTS ===================== */
+          ) : viewMode === 'dashboard' && !dashLoading && dashIncidents.length === 0 && !dashError ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <AlertTriangle size={32} style={{ color: 'var(--muted)' }} />
+              <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>ไม่มีข้อมูลสำหรับปีที่เลือก</p>
+            </div>
+          ) : viewMode === 'dashboard' ? (
             <div>
               {incidentCategory === 'overview' && (
                 <OverviewWorkspace
@@ -628,7 +613,6 @@ export default function IncidentsPage() {
               )}
             </div>
           ) : viewMode === 'list' ? (
-            /* ===================== LIST VIEW (Extracted Component) ===================== */
             <IncidentListView
               incidents={incidents}
               total={total}
@@ -643,10 +627,9 @@ export default function IncidentsPage() {
               handleDelete={handleDelete}
               allIncidentsForExport={categoryIncidents}
               companyId={id}
-              onImported={() => { fetchList(); fetchSummary(); }}
+              onImported={() => { fetchList(); fetchDashboard(); }}
             />
           ) : viewMode === 'form' ? (
-            /* ===================== FORM VIEW — Use IncidentForm Component ===================== */
             <IncidentForm
               companyId={id}
               companyName={companyName}
@@ -658,27 +641,26 @@ export default function IncidentsPage() {
         </div>
       </main>
 
-      {/* ===================== INCIDENT DRAWER (Extracted Component) ===================== */}
-        <IncidentDrawer
-          open={drawerOpen}
-          incident={drawerIncident}
-          detail={drawerDetail}
-          loading={drawerLoading}
-          error={drawerError}
-          tab={drawerTab}
-          setTab={setDrawerTab}
-          injured={drawerInjured}
-          onClose={closeDrawer}
-          onNavigate={openDrawer}
-          onEdit={(inc) => openEditForm(inc)}
-          sourceList={(() => {
-            if (viewMode === 'dashboard') {
-              if (incidentCategory === 'property') return categoryIncidents;
-              return filteredDashIncidents;
-            }
-            return incidents;
-          })()}
-        />
+      <IncidentDrawer
+        open={drawerOpen}
+        incident={drawerIncident}
+        detail={drawerDetail}
+        loading={drawerLoading}
+        error={drawerError}
+        tab={drawerTab}
+        setTab={setDrawerTab}
+        injured={drawerInjured}
+        onClose={closeDrawer}
+        onNavigate={openDrawer}
+        onEdit={(inc) => openEditForm(inc)}
+        sourceList={(() => {
+          if (viewMode === 'dashboard') {
+            if (incidentCategory === 'property') return categoryIncidents;
+            return filteredDashIncidents;
+          }
+          return incidents;
+        })()}
+      />
     </div>
   );
 }

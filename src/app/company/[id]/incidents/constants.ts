@@ -136,7 +136,18 @@ export const TYPE_COLORS: Record<string, string> = {
   'สิ่งแวดล้อม': '#84cc16',
 };
 
-export const ALL_YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
+// Dynamic year options: 2021..currentYear+1 (generated at runtime, not hardcoded)
+export function getYearOptions(): number[] {
+  const currentYear = new Date().getFullYear();
+  const startYear = 2021;
+  const endYear = currentYear + 1;
+  const years: number[] = [];
+  for (let y = startYear; y <= endYear; y++) years.push(y);
+  return years;
+}
+
+/** @deprecated Use getYearOptions() instead */
+export const ALL_YEARS = getYearOptions();
 
 // Form styles
 export const inputStyle = {

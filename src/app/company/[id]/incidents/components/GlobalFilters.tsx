@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react';
 import { IncidentCategory, getTypeColor } from '../types';
-import { ALL_YEARS, MONTH_TH } from '../constants';
+import { getYearOptions, MONTH_TH } from '../constants';
 
 interface GlobalFiltersProps {
   selectedYears: number[];
@@ -30,11 +30,12 @@ export default function GlobalFilters({
   if (viewMode !== 'dashboard' && viewMode !== 'list') return null;
 
   const currentYear = new Date().getFullYear();
+  const allYears = getYearOptions();
   const presets: { label: string; years: number[] }[] = [
     { label: 'YTD', years: [currentYear] },
     { label: `${currentYear - 1}–${currentYear}`, years: [currentYear - 1, currentYear] },
-    { label: '3 ปีล่าสุด', years: ALL_YEARS.filter(y => y >= currentYear - 2) },
-    { label: 'ทั้งหมด', years: [...ALL_YEARS] },
+    { label: '3 ปีล่าสุด', years: allYears.filter(y => y >= currentYear - 2) },
+    { label: 'ทั้งหมด', years: [...allYears] },
   ];
   const isPresetActive = (p: { years: number[] }) =>
     p.years.length === selectedYears.length && p.years.every(y => selectedYears.includes(y));
@@ -64,7 +65,7 @@ export default function GlobalFilters({
 
         {/* Individual year toggles */}
         <div className="flex items-center gap-1">
-          {ALL_YEARS.map(yr => (
+          {allYears.map(yr => (
             <button
               key={yr}
               onClick={() => {
