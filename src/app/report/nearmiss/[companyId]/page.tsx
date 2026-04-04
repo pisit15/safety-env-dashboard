@@ -180,13 +180,20 @@ export default function NearMissReportPage() {
               หมายเลขรายงาน: <span style={{ fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>{reportNo}</span>
             </p>
           )}
-          <p style={{ fontSize: 14, color: '#6b7280', maxWidth: 300, margin: '0 auto 32px' }}>
+          <p style={{ fontSize: 14, color: '#6b7280', maxWidth: 300, margin: '0 auto 28px' }}>
             ขอบคุณที่รายงาน Near Miss เจ้าหน้าที่ความปลอดภัยจะดำเนินการตรวจสอบต่อไป
           </p>
+
+          {/* ── ติดตามสถานะ ── */}
+          <button
+            onClick={() => { window.location.href = `/report/nearmiss/${companyId}/board`; }}
+            style={{ ...primaryBtnStyle, marginBottom: 12, background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%' }}>
+            📋 ติดตามสถานะรายงาน
+          </button>
+
           <button
             onClick={() => { setSubmitted(false); setStep(1); setImages([]); setForm({ reporter_name: '', reporter_dept: '', incident_date: new Date().toISOString().slice(0, 10), location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, notified_persons: '', suggested_action: '', _hp: '' }); startTime.current = Date.now(); }}
-            style={primaryBtnStyle}
-          >
+            style={{ ...primaryBtnStyle, background: 'transparent', border: '1.5px solid #e5e7eb', color: '#6b7280', width: '100%', justifyContent: 'center', display: 'flex' }}>
             รายงานอีกครั้ง
           </button>
         </div>
