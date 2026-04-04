@@ -36,7 +36,7 @@ const PROJECTS = [
   { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' as const },
   { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
   { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
-  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/nearmiss', companyPath: '/nearmiss', ready: false as const },
+  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/admin/nearmiss', companyPath: '/nearmiss', ready: true as const },
 ];
 
 export default function Sidebar() {

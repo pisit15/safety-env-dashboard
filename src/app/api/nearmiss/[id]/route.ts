@@ -1,0 +1,69 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+function getSupabase() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
+}
+
+// ── GET /api/nearmiss/[id] ── Get single report
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('near_miss_reports')
+    .select('*')
+    .eq('id', params.id)
+    .single();
+
+  if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json(data);
+}
+
+// ── PATCH /api/nearmiss/[id] ── Admin update (status, investigation_level, etc.)
+const ADMIN_WHITELIST = [
+  'status',
+  'investigation_level',
+  'safety_officer',
+  'closed_date',
+  'admin_notes',
+];
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+
+    // Filter to only admin-allowed fields
+    const updates: Record<string, unknown> = {};
+    for (const key of ADMIN_WHITELIST) {
+      if (key in body) updates[key] = body[key];
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    // Auto-set closed_date when status → closed
+    if (updates.status === 'closed' && !updates.closed_date) {
+      updates.closed_date = new Date().toISOString().slice(0, 10);
+    }
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('near_miss_reports')
+      .update(updates)
+      .eq('id', params.id)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
