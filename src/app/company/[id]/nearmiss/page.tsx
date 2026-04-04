@@ -26,6 +26,7 @@ interface NearMissReport {
   risk_level: 'HIGH' | 'MED-HIGH' | 'MEDIUM' | 'LOW';
   notified_persons: string | null;
   suggested_action: string | null;
+  images: string[] | null;
   // admin-managed action fields
   immediate_action: string | null;
   responsible_person: string | null;
@@ -325,6 +326,20 @@ export default function NearMissCompanyPage() {
               <DetailSection title="B — เหตุการณ์">
                 <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{selectedReport.incident_description}</p>
               </DetailSection>
+
+              {selectedReport.images && selectedReport.images.length > 0 && (
+                <DetailSection title="รูปภาพประกอบ">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
+                    {selectedReport.images.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'block', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        <img src={url} alt={`รูปที่ ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </a>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' }}>คลิกรูปเพื่อดูขนาดเต็ม</p>
+                </DetailSection>
+              )}
 
               {selectedReport.saving_factor && (
                 <DetailSection title="C — Saving Factor">

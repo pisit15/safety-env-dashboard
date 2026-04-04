@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       severity,
       notified_persons,
       suggested_action,
+      images,
       // bot protection fields
       _hp,          // honeypot — must be empty
       _duration_ms, // form fill duration
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
         severity: sev,
         notified_persons: notified_persons || null,
         suggested_action: suggested_action || null,
+        images: Array.isArray(images) ? images.filter((u: string) => typeof u === 'string' && u.startsWith('https://')) : [],
         submitter_ip: ip,
         form_duration_ms: typeof _duration_ms === 'number' ? _duration_ms : null,
         status: 'new',

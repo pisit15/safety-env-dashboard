@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
-import { CheckCircle, AlertTriangle, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus } from 'lucide-react';
 
 // ── Risk matrix helpers
 const riskScore = (p: number, s: number) => p * s;
@@ -30,6 +30,57 @@ export default function NearMissReportPage() {
   const [reportNo, setReportNo] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const startTime = useRef(Date.now());
+
+  // Image upload state
+  const [images, setImages] = useState<{ url: string; name: string; uploading?: boolean; error?: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = useCallback(async (files: FileList | null) => {
+    if (!files) return;
+    const remaining = 5 - images.filter(i => !i.error).length;
+    const toUpload = Array.from(files).slice(0, remaining);
+    if (toUpload.length === 0) return;
+
+    // Add placeholders
+    const placeholders = toUpload.map(f => ({ url: '', name: f.name, uploading: true }));
+    setImages(prev => [...prev, ...placeholders]);
+
+    for (let i = 0; i < toUpload.length; i++) {
+      const file = toUpload[i];
+      const idx = images.filter(x => !x.error).length + i;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('companyId', companyId);
+        const res = await fetch('/api/nearmiss/upload', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (res.ok && json.url) {
+          setImages(prev => {
+            const arr = [...prev];
+            const uploadingIdx = arr.findIndex((x, xi) => xi >= idx && x.uploading);
+            if (uploadingIdx >= 0) arr[uploadingIdx] = { url: json.url, name: file.name };
+            return arr;
+          });
+        } else {
+          setImages(prev => {
+            const arr = [...prev];
+            const uploadingIdx = arr.findIndex((x, xi) => xi >= idx && x.uploading);
+            if (uploadingIdx >= 0) arr[uploadingIdx] = { url: '', name: file.name, error: json.error || 'Upload failed' };
+            return arr;
+          });
+        }
+      } catch {
+        setImages(prev => {
+          const arr = [...prev];
+          const uploadingIdx = arr.findIndex(x => x.uploading);
+          if (uploadingIdx >= 0) arr[uploadingIdx] = { url: '', name: file.name, error: 'Upload failed' };
+          return arr;
+        });
+      }
+    }
+  }, [images, companyId]);
+
+  const removeImage = (idx: number) => setImages(prev => prev.filter((_, i) => i !== idx));
 
   // Form state
   const [form, setForm] = useState({
@@ -87,6 +138,7 @@ export default function NearMissReportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          images: images.filter(i => i.url && !i.error && !i.uploading).map(i => i.url),
           companyId,
           _duration_ms: Date.now() - startTime.current,
         }),
@@ -132,7 +184,7 @@ export default function NearMissReportPage() {
             ขอบคุณที่รายงาน Near Miss เจ้าหน้าที่ความปลอดภัยจะดำเนินการตรวจสอบต่อไป
           </p>
           <button
-            onClick={() => { setSubmitted(false); setStep(1); setForm({ reporter_name: '', reporter_dept: '', incident_date: new Date().toISOString().slice(0, 10), location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, notified_persons: '', suggested_action: '', _hp: '' }); startTime.current = Date.now(); }}
+            onClick={() => { setSubmitted(false); setStep(1); setImages([]); setForm({ reporter_name: '', reporter_dept: '', incident_date: new Date().toISOString().slice(0, 10), location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, notified_persons: '', suggested_action: '', _hp: '' }); startTime.current = Date.now(); }}
             style={primaryBtnStyle}
           >
             รายงานอีกครั้ง
@@ -245,6 +297,69 @@ export default function NearMissReportPage() {
               <p style={{ fontSize: 12, color: '#374151', margin: 0, lineHeight: 1.6 }}>
                 💡 <strong>เหตุการณ์เกือบอุบัติเหตุ (Near Miss)</strong> คือเหตุการณ์ที่เกิดขึ้นแต่โชคดีที่ไม่มีการบาดเจ็บหรือความเสียหาย การรายงานช่วยป้องกันอุบัติเหตุในอนาคต
               </p>
+            </div>
+
+            {/* ── Image upload ── */}
+            <div style={{ marginTop: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+                แนบรูปภาพ / ถ่ายรูป (ไม่บังคับ, สูงสุด 5 รูป)
+              </label>
+
+              {/* Upload buttons */}
+              {images.filter(i => !i.error).length < 5 && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                  {/* Take photo — opens camera on mobile */}
+                  <button type="button"
+                    onClick={() => { if (fileInputRef.current) { fileInputRef.current.capture = 'environment'; fileInputRef.current.accept = 'image/*'; fileInputRef.current.click(); } }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid #007aff', background: 'rgba(0,122,255,0.06)', color: '#007aff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    <Camera size={16} /> ถ่ายรูป
+                  </button>
+                  {/* Browse gallery */}
+                  <button type="button"
+                    onClick={() => { if (fileInputRef.current) { (fileInputRef.current as HTMLInputElement & { capture: string }).capture = ''; fileInputRef.current.accept = 'image/*'; fileInputRef.current.click(); } }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#f9fafb', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    <ImagePlus size={16} /> เลือกจากคลัง
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={e => handleImageSelect(e.target.files)}
+                    onClick={e => { (e.target as HTMLInputElement).value = ''; }}
+                  />
+                </div>
+              )}
+
+              {/* Preview grid */}
+              {images.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
+                  {images.map((img, idx) => (
+                    <div key={idx} style={{ position: 'relative', aspectRatio: '1', borderRadius: 10, overflow: 'hidden', border: `2px solid ${img.error ? '#ef4444' : img.uploading ? '#93c5fd' : '#e5e7eb'}`, background: '#f3f4f6' }}>
+                      {img.uploading ? (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <Loader2 size={20} color="#3b82f6" style={{ animation: 'spin 1s linear infinite' }} />
+                          <span style={{ fontSize: 10, color: '#6b7280' }}>กำลังอัป...</span>
+                        </div>
+                      ) : img.error ? (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 }}>
+                          <span style={{ fontSize: 18 }}>⚠️</span>
+                          <span style={{ fontSize: 9, color: '#ef4444', textAlign: 'center', lineHeight: 1.2 }}>{img.error}</span>
+                        </div>
+                      ) : (
+                        <img src={img.url} alt={img.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
+                      {/* Remove button */}
+                      <button type="button"
+                        onClick={() => removeImage(idx)}
+                        style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                        <X size={12} color="#fff" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -365,6 +480,9 @@ export default function NearMissReportPage() {
               <SummaryRow label="สถานที่" value={form.location} />
               {score > 0 && risk && (
                 <SummaryRow label="ระดับความเสี่ยง" value={`${risk.emoji} ${risk.label} (${score})`} />
+              )}
+              {images.filter(i => i.url).length > 0 && (
+                <SummaryRow label="รูปภาพแนบ" value={`${images.filter(i => i.url).length} รูป`} />
               )}
             </div>
 
