@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import {
   AlertTriangle, CheckCircle, Clock, TrendingUp, ExternalLink,
-  RefreshCw, ChevronDown, X, Save, Loader2, Filter,
+  RefreshCw, X, Save, Loader2, Filter, Search, QrCode, ChevronDown,
 } from 'lucide-react';
 
 // ── Types ──
@@ -20,20 +20,23 @@ interface NearMissReport {
   location: string;
   incident_description: string;
   saving_factor: string | null;
+  notified_persons: string | null;
+  suggested_action: string | null;
+  images: string[] | null;
   probability: number;
   severity: number;
   risk_score: number;
   risk_level: 'HIGH' | 'MED-HIGH' | 'MEDIUM' | 'LOW';
-  notified_persons: string | null;
-  suggested_action: string | null;
-  images: string[] | null;
-  // admin-managed action fields
+  status: 'new' | 'acknowledged' | 'in_progress' | 'pending_review' | 'closed';
+  coordinator: string | null;
+  coordinator_assigned_at: string | null;
+  last_action_at: string | null;
+  action_summary: string | null;
+  investigation_level: string | null;
+  safety_officer: string | null;
   immediate_action: string | null;
   responsible_person: string | null;
   due_date: string | null;
-  status: 'new' | 'investigating' | 'action_taken' | 'closed';
-  investigation_level: string | null;
-  safety_officer: string | null;
   closed_date: string | null;
   admin_notes: string | null;
   created_at: string;
@@ -41,106 +44,128 @@ interface NearMissReport {
 }
 
 // ── Config ──
-const RISK_CONFIG = {
-  HIGH:     { label: 'HIGH',     color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   emoji: '🔴' },
-  'MED-HIGH': { label: 'MED-HIGH', color: '#f97316', bg: 'rgba(249,115,22,0.1)',  emoji: '🟠' },
-  MEDIUM:   { label: 'MEDIUM',   color: '#eab308', bg: 'rgba(234,179,8,0.1)',   emoji: '🟡' },
-  LOW:      { label: 'LOW',      color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   emoji: '🟢' },
-};
+const STATUS_CFG = {
+  new:            { label: 'รายงานใหม่',      color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  order: 0 },
+  acknowledged:   { label: 'รับเรื่องแล้ว',  color: '#eab308', bg: 'rgba(234,179,8,0.1)',   order: 1 },
+  in_progress:    { label: 'กำลังดำเนินการ', color: '#f97316', bg: 'rgba(249,115,22,0.1)',  order: 2 },
+  pending_review: { label: 'รอตรวจสอบ',      color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  order: 3 },
+  closed:         { label: 'ปิดรายการ',       color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   order: 4 },
+} as const;
 
-const STATUS_CONFIG = {
-  new:          { label: 'รายงานใหม่',     color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
-  investigating: { label: 'กำลังสอบสวน',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-  action_taken:  { label: 'ดำเนินการแล้ว', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-  closed:        { label: 'ปิดแล้ว',       color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
-};
-
-const STATUS_OPTIONS = [
-  { value: 'new',          label: 'รายงานใหม่' },
-  { value: 'investigating', label: 'กำลังสอบสวน' },
-  { value: 'action_taken', label: 'ดำเนินการแล้ว' },
-  { value: 'closed',       label: 'ปิดแล้ว' },
-];
+const RISK_CFG = {
+  HIGH:       { emoji: '🔴', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+  'MED-HIGH': { emoji: '🟠', color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+  MEDIUM:     { emoji: '🟡', color: '#eab308', bg: 'rgba(234,179,8,0.1)' },
+  LOW:        { emoji: '🟢', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+} as const;
 
 const INV_LEVEL_OPTIONS = ['ระดับ 1 – ผู้ควบคุมงาน', 'ระดับ 2 – จป.วิชาชีพ', 'ระดับ 3 – คณะกรรมการ'];
 
 // ── Helpers ──
-function fmtDate(d: string) {
-  if (!d) return '–';
-  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-function fmtDateTime(d: string) {
-  if (!d) return '–';
-  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+function fmtDate(d: string | null) { if (!d) return '–'; return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }); }
+function fmtDateTime(d: string | null) { if (!d) return '–'; return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+function daysSince(d: string) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000); }
+function isOverdue(r: NearMissReport) { return !!r.due_date && r.status !== 'closed' && new Date(r.due_date) < new Date(); }
+function isDueSoon(r: NearMissReport) { if (!r.due_date || r.status === 'closed') return false; const d = (new Date(r.due_date).getTime() - Date.now()) / 86400000; return d >= 0 && d <= 3; }
 
-export default function NearMissCompanyPage() {
+export default function NearMissCoordinatorPage() {
   const params = useParams();
-  const router = useRouter();
   const companyId = params.id as string;
   const auth = useAuth();
   const ca = auth.getCompanyAuth(companyId);
   const isLoggedIn = auth.isAdmin || ca.isLoggedIn;
+  const canEdit = auth.isAdmin || ca.isLoggedIn;
+  const isAdmin = auth.isAdmin;
 
   const [reports, setReports] = useState<NearMissReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterRisk, setFilterRisk] = useState('');
-  const [selectedReport, setSelectedReport] = useState<NearMissReport | null>(null);
-
-  // Admin edit state
-  const [editForm, setEditForm] = useState<Partial<NearMissReport>>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selected, setSelected] = useState<NearMissReport | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ companyId });
-      if (filterStatus) params.set('status', filterStatus);
-      if (filterRisk) params.set('riskLevel', filterRisk);
-      const res = await fetch(`/api/nearmiss?${params}`);
+      const p = new URLSearchParams({ companyId });
+      const res = await fetch(`/api/nearmiss?${p}`);
       const json = await res.json();
       setReports(json.data || []);
-      setTotal(json.total || 0);
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [companyId, filterStatus, filterRisk]);
+  }, [companyId]);
 
   useEffect(() => { if (isLoggedIn) fetchReports(); }, [isLoggedIn, fetchReports]);
 
-  const openDetail = (r: NearMissReport) => {
-    setSelectedReport(r);
-    setEditForm({ status: r.status, investigation_level: r.investigation_level || '', safety_officer: r.safety_officer || '', admin_notes: r.admin_notes || '' });
+  const openDrawer = (r: NearMissReport) => {
+    setSelected(r);
+    setEditForm({
+      status: r.status,
+      coordinator: r.coordinator || '',
+      action_summary: r.action_summary || '',
+      immediate_action: r.immediate_action || '',
+      responsible_person: r.responsible_person || '',
+      due_date: r.due_date || '',
+      investigation_level: r.investigation_level || '',
+      safety_officer: r.safety_officer || '',
+      admin_notes: r.admin_notes || '',
+    });
     setSaveMsg('');
   };
 
-  const saveAdminFields = async () => {
-    if (!selectedReport) return;
-    setSaving(true);
-    setSaveMsg('');
+  const saveEdits = async () => {
+    if (!selected) return;
+    setSaving(true); setSaveMsg('');
     try {
-      const res = await fetch(`/api/nearmiss/${selectedReport.id}`, {
+      const res = await fetch(`/api/nearmiss/${selected.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
       });
       const json = await res.json();
       if (res.ok) {
-        setSaveMsg('บันทึกสำเร็จ');
+        setSaveMsg('✓ บันทึกแล้ว');
         setReports(prev => prev.map(r => r.id === json.id ? json : r));
-        setSelectedReport(json);
-      } else {
-        setSaveMsg(json.error || 'เกิดข้อผิดพลาด');
-      }
+        setSelected(json);
+      } else { setSaveMsg(json.error || 'เกิดข้อผิดพลาด'); }
     } catch { setSaveMsg('เกิดข้อผิดพลาด'); } finally { setSaving(false); }
   };
 
+  // ── Filtered + sorted ──
+  const filtered = reports
+    .filter(r => {
+      if (filterStatus && r.status !== filterStatus) return false;
+      if (filterRisk && r.risk_level !== filterRisk) return false;
+      if (filterOpen && r.status === 'closed') return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return r.report_no?.toLowerCase().includes(q) || r.location?.toLowerCase().includes(q) || r.incident_description?.toLowerCase().includes(q);
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const ao = isOverdue(a), bo = isOverdue(b);
+      if (ao && !bo) return -1;
+      if (!ao && bo) return 1;
+      const aNew = a.status === 'new', bNew = b.status === 'new';
+      if (aNew && !bNew) return -1;
+      if (!aNew && bNew) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
   // ── KPI stats ──
-  const statsNew       = reports.filter(r => r.status === 'new').length;
-  const statsOpen      = reports.filter(r => r.status !== 'closed').length;
-  const statsHigh      = reports.filter(r => r.risk_level === 'HIGH').length;
-  const statsClosed    = reports.filter(r => r.status === 'closed').length;
+  const kpiNew      = reports.filter(r => r.status === 'new').length;
+  const kpiOpen     = reports.filter(r => r.status !== 'closed').length;
+  const kpiOverdue  = reports.filter(r => isOverdue(r)).length;
+  const kpiHigh     = reports.filter(r => r.risk_level === 'HIGH' && r.status !== 'closed').length;
+
+  // ── Action queue (overdue + due soon + new) ──
+  const actionQueue = reports.filter(r => r.status !== 'closed' && (isOverdue(r) || isDueSoon(r) || r.status === 'new')).slice(0, 5);
+
+  const boardUrl = typeof window !== 'undefined' ? `${window.location.origin}/report/nearmiss/${companyId}/board` : '';
 
   // ── Auth gate ──
   if (!isLoggedIn) {
@@ -148,10 +173,15 @@ export default function NearMissCompanyPage() {
       <div className="flex min-h-screen">
         <Sidebar />
         <main className="flex-1 flex items-center justify-center p-8">
-          <div style={{ textAlign: 'center', maxWidth: 360 }}>
-            <AlertTriangle size={48} color="#f59e0b" style={{ margin: '0 auto 16px' }} />
+          <div style={{ textAlign: 'center', maxWidth: 340 }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>กรุณาเข้าสู่ระบบ</h2>
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 24 }}>ต้องเข้าสู่ระบบก่อนจึงจะดูรายงาน Near Miss ได้</p>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 28 }}>ต้องเข้าสู่ระบบก่อนจึงจะดูและจัดการรายงาน Near Miss ได้</p>
+            <button
+              onClick={() => { const el = document.querySelector('[data-login-btn]') as HTMLButtonElement; el?.click(); }}
+              style={{ padding: '12px 28px', borderRadius: 12, border: 'none', background: '#007aff', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              เข้าสู่ระบบ
+            </button>
           </div>
         </main>
       </div>
@@ -162,118 +192,151 @@ export default function NearMissCompanyPage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <main className="flex-1 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px' }}>
 
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+          {/* ── Page header ── */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>Near Miss Report</h1>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>รายงานเหตุการณ์เกือบอุบัติเหตุ — {total} รายการ</p>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>Near Miss</h1>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>ติดตามและจัดการรายงานเหตุการณ์เกือบอุบัติเหตุ</p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-              >
-                <ExternalLink size={14} /> ลิงก์แบบฟอร์ม
-              </button>
-              <button
-                onClick={fetchReports}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: 'none', background: '#007aff', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-              >
-                <RefreshCw size={14} /> รีเฟรช
-              </button>
+              <button onClick={() => window.open(boardUrl, '_blank')}
+                style={btnOutline}><QrCode size={14} /> Employee Board</button>
+              <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
+                style={btnOutline}><ExternalLink size={14} /> ลิงก์รายงาน</button>
+              <button onClick={fetchReports} style={btnPrimary}><RefreshCw size={14} /> รีเฟรช</button>
             </div>
           </div>
 
-          {/* KPI Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-            <KpiCard label="รายงานใหม่" value={statsNew} icon={<AlertTriangle size={18} />} color="#3b82f6" onClick={() => { setFilterStatus('new'); setFilterRisk(''); }} />
-            <KpiCard label="ค้างดำเนินการ" value={statsOpen} icon={<Clock size={18} />} color="#f59e0b" onClick={() => { setFilterStatus(''); setFilterRisk(''); }} />
-            <KpiCard label="ความเสี่ยงสูง" value={statsHigh} icon={<TrendingUp size={18} />} color="#ef4444" onClick={() => { setFilterRisk('HIGH'); setFilterStatus(''); }} />
-            <KpiCard label="ปิดแล้ว" value={statsClosed} icon={<CheckCircle size={18} />} color="#22c55e" onClick={() => { setFilterStatus('closed'); setFilterRisk(''); }} />
+          {/* ── KPI Cards (action-oriented) ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12, marginBottom: 20 }}>
+            <KpiCard label="รายงานใหม่" sub="ยังไม่รับเรื่อง" value={kpiNew} color="#3b82f6"
+              urgent={kpiNew > 0} onClick={() => { setFilterStatus('new'); setFilterOpen(false); }} />
+            <KpiCard label="ค้างดำเนินการ" sub="ยังไม่ปิด" value={kpiOpen} color="#f97316"
+              onClick={() => { setFilterOpen(true); setFilterStatus(''); }} />
+            <KpiCard label="เกินกำหนด" sub="ต้องแก้ไขทันที" value={kpiOverdue} color="#ef4444"
+              urgent={kpiOverdue > 0} onClick={() => { setFilterStatus(''); setFilterOpen(true); }} />
+            <KpiCard label="High Risk เปิดอยู่" sub="ยังไม่ปิด" value={kpiHigh} color="#dc2626"
+              urgent={kpiHigh > 0} onClick={() => { setFilterRisk('HIGH'); setFilterOpen(true); }} />
           </div>
 
-          {/* Filters */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Filter size={14} color="var(--text-secondary)" />
+          {/* ── Action Queue ── */}
+          {actionQueue.length > 0 && (
+            <div style={{ marginBottom: 20, padding: '14px 16px', borderRadius: 14, border: '1.5px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.03)' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>⚡ ต้องดำเนินการ</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {actionQueue.map(r => {
+                  const overdue = isOverdue(r);
+                  const soon = isDueSoon(r);
+                  return (
+                    <div key={r.id} onClick={() => openDrawer(r)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--bg-secondary)', cursor: 'pointer', border: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: 12 }}>{overdue ? '🔴' : soon ? '🟠' : '🔵'}</span>
+                      <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{r.report_no}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{r.location}</span>
+                      <span style={{ fontSize: 11, color: overdue ? '#ef4444' : 'var(--text-secondary)', fontWeight: overdue ? 700 : 400 }}>
+                        {overdue ? `เกินกำหนด ${Math.abs(Math.floor((Date.now() - new Date(r.due_date!).getTime()) / 86400000))} วัน` : r.status === 'new' ? 'ยังไม่รับเรื่อง' : soon ? `ครบ ${fmtDate(r.due_date)}` : ''}
+                      </span>
+                      <StatusBadge status={r.status} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Toolbar ── */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Search */}
+            <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+              <input
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="ค้นหา เลขรายงาน สถานที่ เหตุการณ์..."
+                style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }}
+              />
+            </div>
+            {/* Open only toggle */}
+            <button onClick={() => setFilterOpen(v => !v)}
+              style={{ padding: '7px 12px', borderRadius: 8, border: `1.5px solid ${filterOpen ? '#007aff' : 'var(--border)'}`, background: filterOpen ? 'rgba(0,122,255,0.08)' : 'var(--bg-secondary)', color: filterOpen ? '#007aff' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              ยังไม่ปิด
+            </button>
+            {/* Status filter */}
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer' }}>
+              style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer' }}>
               <option value="">สถานะทั้งหมด</option>
-              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {(Object.entries(STATUS_CFG) as [string, typeof STATUS_CFG[keyof typeof STATUS_CFG]][]).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
             </select>
+            {/* Risk filter */}
             <select value={filterRisk} onChange={e => setFilterRisk(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer' }}>
+              style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer' }}>
               <option value="">ความเสี่ยงทั้งหมด</option>
               <option value="HIGH">🔴 HIGH</option>
               <option value="MED-HIGH">🟠 MED-HIGH</option>
               <option value="MEDIUM">🟡 MEDIUM</option>
               <option value="LOW">🟢 LOW</option>
             </select>
-            {(filterStatus || filterRisk) && (
-              <button onClick={() => { setFilterStatus(''); setFilterRisk(''); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
-                <X size={12} /> ล้างตัวกรอง
+            {(search || filterStatus || filterRisk || filterOpen) && (
+              <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterRisk(''); setFilterOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
+                <X size={12} /> ล้าง
               </button>
             )}
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{filtered.length} รายการ</span>
           </div>
 
-          {/* Reports table */}
+          {/* ── Table ── */}
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
-              <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+              <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
               <p>กำลังโหลด...</p>
             </div>
-          ) : reports.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-secondary)' }}>
-              <p style={{ fontSize: 15 }}>ยังไม่มีรายงาน Near Miss</p>
-              <p style={{ fontSize: 13, marginTop: 8 }}>
-                <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
-                  style={{ color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                  เปิดแบบฟอร์มรายงาน
-                </button>
-              </p>
-            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState search={search} companyId={companyId} />
           ) : (
             <div style={{ borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                    {['หมายเลข', 'วันที่', 'ผู้รายงาน', 'สถานที่', 'ความเสี่ยง', 'สถานะ', 'รับเรื่อง'].map(h => (
-                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: 12 }}>{h}</th>
+                    {['', 'เลขที่', 'วันที่', 'สถานที่', 'ความเสี่ยง', 'สถานะ', 'ผู้ประสาน', 'กำหนด', 'อายุ'].map(h => (
+                      <th key={h} style={{ padding: '9px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', fontSize: 11, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {reports.map(r => {
-                    const risk = RISK_CONFIG[r.risk_level] || RISK_CONFIG.LOW;
-                    const st = STATUS_CONFIG[r.status] || STATUS_CONFIG.new;
+                  {filtered.map(r => {
+                    const risk  = RISK_CFG[r.risk_level] || RISK_CFG.LOW;
+                    const overdue = isOverdue(r);
+                    const age = daysSince(r.created_at);
                     return (
-                      <tr key={r.id}
-                        onClick={() => openDetail(r)}
-                        style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s' }}
+                      <tr key={r.id} onClick={() => openDrawer(r)}
+                        style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: overdue ? 'rgba(239,68,68,0.025)' : 'transparent', transition: 'background 0.1s' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>{r.report_no || '—'}</td>
-                        <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{fmtDate(r.incident_date)}</td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.reporter_name}</div>
-                          {r.reporter_dept && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{r.reporter_dept}</div>}
+                        onMouseLeave={e => (e.currentTarget.style.background = overdue ? 'rgba(239,68,68,0.025)' : 'transparent')}>
+                        {/* Overdue indicator */}
+                        <td style={{ padding: '0 4px 0 10px', width: 6 }}>
+                          {overdue && <span style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />}
                         </td>
-                        <td style={{ padding: '10px 12px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.location}</td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: risk.bg, color: risk.color }}>
-                            {risk.emoji} {risk.label}
-                          </span>
-                          <span style={{ marginLeft: 4, fontSize: 11, color: 'var(--text-secondary)' }}>({r.risk_score})</span>
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: st.bg, color: st.color }}>
-                            {st.label}
+                        <td style={{ padding: '10px 10px', fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.report_no || '—'}</td>
+                        <td style={{ padding: '10px 10px', whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDate(r.incident_date)}</td>
+                        <td style={{ padding: '10px 10px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-primary)' }}>{r.location}</td>
+                        <td style={{ padding: '10px 10px' }}>
+                          <span style={{ padding: '2px 7px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: risk.bg, color: risk.color }}>
+                            {risk.emoji} {r.risk_level}
                           </span>
                         </td>
-                        <td style={{ padding: '10px 12px', fontSize: 11, color: 'var(--text-secondary)' }}>{fmtDate(r.created_at)}</td>
+                        <td style={{ padding: '10px 10px' }}><StatusBadge status={r.status} /></td>
+                        <td style={{ padding: '10px 10px', fontSize: 12, color: r.coordinator ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{r.coordinator || '–'}</td>
+                        <td style={{ padding: '10px 10px', fontSize: 12, color: overdue ? '#ef4444' : 'var(--text-secondary)', fontWeight: overdue ? 700 : 400, whiteSpace: 'nowrap' }}>
+                          {r.due_date ? fmtDate(r.due_date) : '–'}
+                          {overdue && <span style={{ marginLeft: 4 }}>⚠️</span>}
+                        </td>
+                        <td style={{ padding: '10px 10px', fontSize: 12, color: age > 14 ? '#f97316' : 'var(--text-secondary)', fontWeight: age > 14 ? 600 : 400 }}>
+                          {age === 0 ? 'วันนี้' : `${age}ว`}
+                        </td>
                       </tr>
                     );
                   })}
@@ -284,151 +347,142 @@ export default function NearMissCompanyPage() {
         </div>
       </main>
 
-      {/* ── Detail Panel (slide-over) ── */}
-      {selectedReport && (
+      {/* ── Drawer ── */}
+      {selected && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }}>
-          {/* Backdrop */}
-          <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)' }} onClick={() => setSelectedReport(null)} />
-          {/* Panel */}
-          <div style={{ width: Math.min(520, window.innerWidth - 40), background: 'var(--bg-primary)', overflowY: 'auto', boxShadow: '-8px 0 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column' }}>
-            {/* Panel header */}
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, fontFamily: 'monospace' }}>{selectedReport.report_no || '—'}</p>
-                <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', margin: '2px 0 0' }}>รายละเอียดรายงาน</h3>
+          <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)' }} onClick={() => setSelected(null)} />
+          <div style={{ width: Math.min(540, (typeof window !== 'undefined' ? window.innerWidth : 540) - 40), background: 'var(--bg-primary)', overflowY: 'auto', boxShadow: '-8px 0 40px rgba(0,0,0,0.15)' }}>
+
+            {/* Drawer header */}
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg-primary)', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, fontFamily: 'monospace' }}>{selected.report_no}</p>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '2px 0 0' }}>{selected.location}</h3>
+                </div>
+                <button onClick={() => setSelected(null)} style={{ background: 'var(--bg-secondary)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
               </div>
-              <button onClick={() => setSelectedReport(null)} style={{ background: 'var(--bg-secondary)', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                <X size={18} />
-              </button>
+              {/* Risk + Status */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {(() => { const r = RISK_CFG[selected.risk_level]; return <span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: r.bg, color: r.color }}>{r.emoji} {selected.risk_level} (P{selected.probability}×S{selected.severity}={selected.risk_score})</span>; })()}
+                <StatusBadge status={selected.status} large />
+                {isOverdue(selected) && <span style={{ padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>⏰ เกินกำหนด</span>}
+              </div>
             </div>
 
-            <div style={{ padding: '20px 24px', flex: 1 }}>
-              {/* Risk + Status badges */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-                {(() => { const r = RISK_CONFIG[selectedReport.risk_level] || RISK_CONFIG.LOW; return (
-                  <span style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: r.bg, color: r.color }}>
-                    {r.emoji} {r.label} (P{selectedReport.probability}×S{selectedReport.severity}={selectedReport.risk_score})
-                  </span>
-                ); })()}
-                {(() => { const s = STATUS_CONFIG[selectedReport.status] || STATUS_CONFIG.new; return (
-                  <span style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color }}>{s.label}</span>
-                ); })()}
-              </div>
+            <div style={{ padding: '20px 22px' }}>
+              {/* ── Case file sections ── */}
 
-              {/* Sections */}
-              <DetailSection title="A — ผู้รายงาน">
-                <DetailRow label="ชื่อ-นามสกุล" value={selectedReport.reporter_name} />
-                <DetailRow label="แผนก" value={selectedReport.reporter_dept} />
-                <DetailRow label="วันที่เกิดเหตุ" value={fmtDate(selectedReport.incident_date)} />
-                <DetailRow label="สถานที่" value={selectedReport.location} />
-              </DetailSection>
+              {/* Incident */}
+              <CaseSection title="🔍 เหตุการณ์">
+                <CaseRow label="วันที่" value={fmtDate(selected.incident_date)} />
+                <CaseRow label="สถานที่" value={selected.location} />
+                <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, margin: '8px 0 0', whiteSpace: 'pre-wrap' }}>{selected.incident_description}</p>
+                {selected.saving_factor && <><p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '10px 0 4px', textTransform: 'uppercase' }}>Saving Factor</p><p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0 }}>{selected.saving_factor}</p></>}
+              </CaseSection>
 
-              <DetailSection title="B — เหตุการณ์">
-                <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{selectedReport.incident_description}</p>
-              </DetailSection>
-
-              {selectedReport.images && selectedReport.images.length > 0 && (
-                <DetailSection title="รูปภาพประกอบ">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
-                    {selectedReport.images.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'block', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+              {/* Images */}
+              {selected.images && selected.images.length > 0 && (
+                <CaseSection title="📷 รูปภาพ">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
+                    {selected.images.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', aspectRatio: '1', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
                         <img src={url} alt={`รูปที่ ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </a>
                     ))}
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' }}>คลิกรูปเพื่อดูขนาดเต็ม</p>
-                </DetailSection>
+                </CaseSection>
               )}
 
-              {selectedReport.saving_factor && (
-                <DetailSection title="C — Saving Factor">
-                  <p style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{selectedReport.saving_factor}</p>
-                </DetailSection>
+              {/* Reporter info (admin only) */}
+              {isAdmin && (
+                <CaseSection title="👤 ผู้รายงาน (Admin only)">
+                  <CaseRow label="ชื่อ" value={selected.reporter_name} />
+                  <CaseRow label="แผนก" value={selected.reporter_dept} />
+                  {selected.notified_persons && <CaseRow label="แจ้งให้ทราบ" value={selected.notified_persons} />}
+                  {selected.suggested_action && <CaseRow label="ข้อเสนอแนะ" value={selected.suggested_action} />}
+                </CaseSection>
               )}
 
-              {(selectedReport.notified_persons || selectedReport.suggested_action) && (
-                <DetailSection title="E — แจ้งและแนะนำ">
-                  <DetailRow label="แจ้งให้ทราบแล้ว" value={selectedReport.notified_persons} />
-                  <DetailRow label="คำแนะนำแก้ไข" value={selectedReport.suggested_action} />
-                </DetailSection>
-              )}
+              {/* ── Coordinator update form ── */}
+              <div style={{ padding: 16, borderRadius: 12, border: '1.5px solid var(--border)', marginBottom: 16 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#007aff', margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {isAdmin ? '🔧 อัปเดตเคส' : '🔧 Coordinator — อัปเดตสถานะ'}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Status */}
+                  <FormRow label="สถานะ">
+                    <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                      style={selectStyle}>
+                      {Object.entries(STATUS_CFG).map(([k, v]) => (
+                        // Admin can close; coordinator can't
+                        (k === 'closed' && !isAdmin) ? null :
+                        <option key={k} value={k}>{v.label}</option>
+                      ))}
+                    </select>
+                  </FormRow>
+                  {/* Coordinator */}
+                  <FormRow label="ผู้ประสานงาน">
+                    <input value={editForm.coordinator} onChange={e => setEditForm(f => ({ ...f, coordinator: e.target.value }))}
+                      style={inputStyle} placeholder="ชื่อผู้ประสานงาน" />
+                  </FormRow>
+                  {/* Action summary */}
+                  <FormRow label="สรุปการดำเนินการ">
+                    <textarea value={editForm.action_summary} onChange={e => setEditForm(f => ({ ...f, action_summary: e.target.value }))}
+                      style={{ ...inputStyle, minHeight: 70, resize: 'vertical' as const }} placeholder="สรุปสั้น ๆ ว่าดำเนินการอะไรไปแล้ว..." />
+                  </FormRow>
+                  {/* Responsible + Due */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <FormRow label="ผู้รับผิดชอบ">
+                      <input value={editForm.responsible_person} onChange={e => setEditForm(f => ({ ...f, responsible_person: e.target.value }))}
+                        style={inputStyle} placeholder="ชื่อ..." />
+                    </FormRow>
+                    <FormRow label="กำหนดแล้วเสร็จ">
+                      <input type="date" value={editForm.due_date} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+                        style={inputStyle} />
+                    </FormRow>
+                  </div>
+                  {/* Corrective action */}
+                  <FormRow label="มาตรการแก้ไข">
+                    <textarea value={editForm.immediate_action} onChange={e => setEditForm(f => ({ ...f, immediate_action: e.target.value }))}
+                      style={{ ...inputStyle, minHeight: 60, resize: 'vertical' as const }} placeholder="มาตรการที่กำหนดให้ดำเนินการ..." />
+                  </FormRow>
 
-              {/* Admin action section — shown if admin has filled it */}
-              {(selectedReport.immediate_action || selectedReport.responsible_person || selectedReport.due_date) && (
-                <DetailSection title="การดำเนินการ (Admin)">
-                  <DetailRow label="มาตรการแก้ไข" value={selectedReport.immediate_action} />
-                  <DetailRow label="ผู้รับผิดชอบ" value={selectedReport.responsible_person} />
-                  <DetailRow label="กำหนดแล้วเสร็จ" value={selectedReport.due_date ? fmtDate(selectedReport.due_date) : null} />
-                </DetailSection>
-              )}
+                  {/* Admin-only fields */}
+                  {isAdmin && (
+                    <>
+                      <FormRow label="ระดับการสอบสวน">
+                        <select value={editForm.investigation_level} onChange={e => setEditForm(f => ({ ...f, investigation_level: e.target.value }))} style={selectStyle}>
+                          <option value="">— เลือก —</option>
+                          {INV_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </FormRow>
+                      <FormRow label="Safety Officer">
+                        <input value={editForm.safety_officer} onChange={e => setEditForm(f => ({ ...f, safety_officer: e.target.value }))}
+                          style={inputStyle} placeholder="ชื่อ Safety Officer" />
+                      </FormRow>
+                      <FormRow label="หมายเหตุ Admin">
+                        <textarea value={editForm.admin_notes} onChange={e => setEditForm(f => ({ ...f, admin_notes: e.target.value }))}
+                          style={{ ...inputStyle, minHeight: 60, resize: 'vertical' as const }} placeholder="หมายเหตุภายใน..." />
+                      </FormRow>
+                    </>
+                  )}
 
-              {/* Admin update section */}
-              {auth.isAdmin && (
-                <div style={{ marginTop: 20, padding: 16, borderRadius: 12, border: '1.5px solid var(--accent, #007aff)', background: 'rgba(0,122,255,0.04)' }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#007aff', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🔒 Admin — อัปเดตสถานะ</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>สถานะ</label>
-                      <select value={editForm.status || ''} onChange={e => setEditForm(f => ({ ...f, status: e.target.value as NearMissReport['status'] }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13 }}>
-                        {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>ระดับการสอบสวน</label>
-                      <select value={editForm.investigation_level || ''} onChange={e => setEditForm(f => ({ ...f, investigation_level: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13 }}>
-                        <option value="">— เลือกระดับ —</option>
-                        {INV_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Safety Officer ผู้รับผิดชอบ</label>
-                      <input value={editForm.safety_officer || ''} onChange={e => setEditForm(f => ({ ...f, safety_officer: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }}
-                        placeholder="ชื่อ Safety Officer" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>มาตรการแก้ไข / การดำเนินการ</label>
-                      <textarea value={(editForm as Record<string, string>).immediate_action || ''} onChange={e => setEditForm(f => ({ ...f, immediate_action: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, minHeight: 70, resize: 'vertical', boxSizing: 'border-box' }}
-                        placeholder="มาตรการที่กำหนดให้ดำเนินการ..." />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>ผู้รับผิดชอบ</label>
-                        <input value={(editForm as Record<string, string>).responsible_person || ''} onChange={e => setEditForm(f => ({ ...f, responsible_person: e.target.value }))}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }}
-                          placeholder="ชื่อผู้รับผิดชอบ" />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>กำหนดแล้วเสร็จ</label>
-                        <input type="date" value={(editForm as Record<string, string>).due_date || ''} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
-                          style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>หมายเหตุ Admin</label>
-                      <textarea value={editForm.admin_notes || ''} onChange={e => setEditForm(f => ({ ...f, admin_notes: e.target.value }))}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, minHeight: 80, resize: 'vertical', boxSizing: 'border-box' }}
-                        placeholder="หมายเหตุภายใน..." />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <button onClick={saveAdminFields} disabled={saving}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, border: 'none', background: '#007aff', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
-                        {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-                      </button>
-                      {saveMsg && <span style={{ fontSize: 12, color: saveMsg.includes('สำเร็จ') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{saveMsg}</span>}
-                    </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <button onClick={saveEdits} disabled={saving}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 9, border: 'none', background: '#007aff', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
+                      {saving ? 'บันทึก...' : 'บันทึก'}
+                    </button>
+                    {saveMsg && <span style={{ fontSize: 12, color: saveMsg.startsWith('✓') ? '#22c55e' : '#ef4444', fontWeight: 700 }}>{saveMsg}</span>}
                   </div>
                 </div>
-              )}
-
-              <div style={{ marginTop: 16, fontSize: 11, color: 'var(--text-secondary)' }}>
-                รับเรื่อง: {fmtDateTime(selectedReport.created_at)} · อัปเดต: {fmtDateTime(selectedReport.updated_at)}
               </div>
+
+              {/* Timestamps */}
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                รับเรื่อง: {fmtDateTime(selected.created_at)} · อัปเดตล่าสุด: {fmtDateTime(selected.updated_at)}
+              </p>
             </div>
           </div>
         </div>
@@ -440,41 +494,81 @@ export default function NearMissCompanyPage() {
 }
 
 // ── Sub-components ──
-function KpiCard({ label, value, icon, color, onClick }: { label: string; value: number; icon: React.ReactNode; color: string; onClick?: () => void }) {
+function StatusBadge({ status, large = false }: { status: string; large?: boolean }) {
+  const cfg = STATUS_CFG[status as keyof typeof STATUS_CFG] || STATUS_CFG.new;
   return (
-    <div onClick={onClick} style={{
-      padding: '16px', borderRadius: 12, border: '1px solid var(--border)',
-      background: 'var(--card-solid, var(--bg-secondary))',
-      cursor: onClick ? 'pointer' : 'default',
-      transition: 'transform 0.1s, box-shadow 0.1s',
-    }}
-      onMouseEnter={e => { if (onClick) { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'; } }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ color }}>{icon}</span>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color }}>{value}</div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: large ? '4px 10px' : '2px 8px', borderRadius: 20, fontSize: large ? 12 : 11, fontWeight: 600, background: cfg.bg, color: cfg.color, whiteSpace: 'nowrap' }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
+      {cfg.label}
+    </span>
+  );
+}
+
+function KpiCard({ label, sub, value, color, urgent = false, onClick }: { label: string; sub: string; value: number; color: string; urgent?: boolean; onClick?: () => void }) {
+  return (
+    <div onClick={onClick} style={{ padding: '14px', borderRadius: 12, border: `1.5px solid ${urgent && value > 0 ? color : 'var(--border)'}`, background: urgent && value > 0 ? `${color}0d` : 'var(--card-solid, var(--bg-secondary))', cursor: 'pointer', transition: 'transform 0.1s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; }}>
+      <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{sub}</div>
     </div>
   );
 }
 
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+function CaseSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</p>
-      <div style={{ padding: 14, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>{children}</div>
+    <div style={{ marginBottom: 16 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</p>
+      <div style={{ padding: 12, borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>{children}</div>
     </div>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+function CaseRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, marginBottom: 8, borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, marginBottom: 6, borderBottom: '1px solid var(--border)' }}>
       <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', maxWidth: '60%' }}>{value}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', maxWidth: '65%' }}>{value}</span>
     </div>
   );
 }
+
+function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function EmptyState({ search, companyId }: { search: string; companyId: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '60px 20px', border: '2px dashed var(--border)', borderRadius: 16 }}>
+      {search ? (
+        <>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>🔍</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>ไม่พบรายการที่ตรงกับ "{search}"</p>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>📋</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>ยังไม่มีรายงาน Near Miss</p>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>แชร์ลิงก์ให้พนักงานเริ่มรายงานได้เลย</p>
+          <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
+            style={{ padding: '10px 22px', borderRadius: 10, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            เปิดลิงก์รายงาน
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Inline styles ──
+const btnPrimary: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: '#007aff', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+const btnOutline: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: '1.5px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit' };
+const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' };

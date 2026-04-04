@@ -22,16 +22,22 @@ export async function GET(
   return NextResponse.json(data);
 }
 
-// ── PATCH /api/nearmiss/[id] ── Admin update (status, investigation_level, etc.)
+// ── PATCH /api/nearmiss/[id] ── Coordinator / Admin update
 const ADMIN_WHITELIST = [
+  // Coordinator fields
   'status',
+  'coordinator',
+  'coordinator_assigned_at',
+  'last_action_at',
+  'action_summary',
+  'immediate_action',
+  'responsible_person',
+  'due_date',
+  // Admin-only fields
   'investigation_level',
   'safety_officer',
   'closed_date',
   'admin_notes',
-  'immediate_action',
-  'responsible_person',
-  'due_date',
 ];
 
 export async function PATCH(
@@ -49,6 +55,14 @@ export async function PATCH(
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    }
+
+    // Auto-set last_action_at on every update
+    updates.last_action_at = new Date().toISOString();
+
+    // Auto-set coordinator_assigned_at when coordinator is first assigned
+    if (updates.coordinator && !('coordinator_assigned_at' in body)) {
+      updates.coordinator_assigned_at = new Date().toISOString();
     }
 
     // Auto-set closed_date when status → closed
