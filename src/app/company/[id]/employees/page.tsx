@@ -111,6 +111,7 @@ export default function EmployeesPage() {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCert, setFilterCert] = useState<string>('');
   const [alertFilter, setAlertFilter] = useState<string>('');
 
   /* ── Selected employee (master-detail) ── */
@@ -274,6 +275,23 @@ export default function EmployeesPage() {
     return map;
   }, [allCertificates]);
 
+  /* ── Per-employee cert names (for search by cert name) ── */
+  const empCertNames = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const cert of allCertificates) {
+      const key = cert.employee_id || cert.emp_code;
+      if (!map[key]) map[key] = [];
+      map[key].push((cert.certificate_name || '').toLowerCase());
+    }
+    return map;
+  }, [allCertificates]);
+
+  /* ── Unique certificate names (for filter dropdown) ── */
+  const uniqueCertNames = useMemo(() =>
+    Array.from(new Set(allCertificates.map(c => c.certificate_name).filter(Boolean))).sort(),
+    [allCertificates]
+  );
+
   /* ── KPI Alerts ── */
   const kpiAlerts = useMemo(() => {
     const activeEmps = employees.filter(e => (e.employment_status || 'active') === 'active');
@@ -312,12 +330,24 @@ export default function EmployeesPage() {
     else if (alertFilter === 'no_cert') list = list.filter(e => kpiAlerts.noCertEmpIds.includes(e.id));
     else if (alertFilter === 'incomplete') list = list.filter(e => kpiAlerts.incompleteEmpIds.includes(e.id));
 
-    // Search — normalized, searches name, department, position, emp_code
+    // Certificate filter
+    if (filterCert) {
+      const certQ = filterCert.toLowerCase();
+      list = list.filter(e => {
+        const names = empCertNames[e.id] || empCertNames[e.emp_code] || [];
+        return names.some(n => n.includes(certQ));
+      });
+    }
+
+    // Search — normalized, searches name, department, position, emp_code, cert names
     if (search) {
       const q = normalize(search).toLowerCase();
       list = list.filter(e => {
         const full = `${normalize(e.first_name)} ${normalize(e.last_name)} ${e.first_name} ${e.last_name} ${e.emp_code} ${e.position} ${e.department}`.toLowerCase();
-        return full.includes(q);
+        if (full.includes(q)) return true;
+        // Also search cert names
+        const certs = empCertNames[e.id] || empCertNames[e.emp_code] || [];
+        return certs.some(cn => cn.includes(q));
       });
     }
 
@@ -329,7 +359,7 @@ export default function EmployeesPage() {
     });
 
     return list;
-  }, [employees, search, filterDept, filterStatus, alertFilter, kpiAlerts]);
+  }, [employees, search, filterDept, filterStatus, filterCert, alertFilter, kpiAlerts, empCertNames]);
 
   /* ── Filtered courses ── */
   const filteredCourses = useMemo(() => {
@@ -598,7 +628,7 @@ export default function EmployeesPage() {
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative flex-1 min-w-[200px]">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-                  <input type="text" placeholder="ค้นหา ชื่อ รหัส ตำแหน่ง แผนก..."
+                  <input type="text" placeholder="ค้นหา ชื่อ รหัส ตำแหน่ง แผนก ใบ Certificate..."
                     value={search} onChange={e => setSearch(e.target.value)}
                     className="w-full pr-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: '100%', paddingLeft: 36 }} />
                 </div>
@@ -613,6 +643,13 @@ export default function EmployeesPage() {
                   <option value="active">ทำงานอยู่</option>
                   <option value="resigned">ลาออก</option>
                 </select>
+                {uniqueCertNames.length > 0 && (
+                  <select value={filterCert} onChange={e => setFilterCert(e.target.value)}
+                    className="px-3 py-2 rounded-lg text-sm" style={{ ...inputStyle, width: 'auto', maxWidth: 200 }}>
+                    <option value="">ทุก Certificate</option>
+                    {uniqueCertNames.map(cn => <option key={cn} value={cn}>{cn}</option>)}
+                  </select>
+                )}
                 <div className="flex gap-2 ml-auto">
                   <button onClick={downloadTemplate}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
