@@ -18,6 +18,7 @@ import IncidentDrawer from './components/IncidentDrawer';
 import IncidentForm from './components/IncidentForm';
 import IncidentListView from './components/IncidentListView';
 import CorrectiveActionWorkspace from './components/CorrectiveActionWorkspace';
+import RatesWorkspace from './components/RatesWorkspace';
 import {
   INCIDENT_TYPES,
   MONTHS,
@@ -603,6 +604,15 @@ export default function IncidentsPage() {
                   propFilter={propFilter}
                   setPropFilter={setPropFilter}
                   openDrawer={openDrawer}
+                />
+              )}
+              {incidentCategory === 'rates' && (
+                <RatesWorkspace
+                  dashIncidents={dashIncidents}
+                  manHourRows={manHourRows}
+                  selectedYears={selectedYears}
+                  workRelatedOnly={workRelatedOnly}
+                  injuredPersonsData={injuredPersonsData}
                 />
               )}
               {incidentCategory === 'actions' && (

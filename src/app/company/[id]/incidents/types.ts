@@ -63,7 +63,7 @@ export interface InjuredPerson {
   lost_work_days?: number;
 }
 
-export type IncidentCategory = 'overview' | 'injury' | 'property' | 'actions';
+export type IncidentCategory = 'overview' | 'injury' | 'property' | 'actions' | 'rates';
 
 export interface GlobalFilters {
   selectedYears: number[];

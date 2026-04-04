@@ -132,6 +132,7 @@ export default function GlobalFilters({
           { key: 'overview' as IncidentCategory, label: 'Overview' },
           { key: 'injury' as IncidentCategory, label: 'อุบัติเหตุบาดเจ็บ' },
           { key: 'property' as IncidentCategory, label: 'Property Damage' },
+          { key: 'rates' as IncidentCategory, label: 'TRIR / LTIFR' },
           { key: 'actions' as IncidentCategory, label: 'Corrective Actions' },
         ]).map(tab => (
           <button
