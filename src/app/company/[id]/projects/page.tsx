@@ -78,6 +78,14 @@ function CreateProjectModal({ companyId, onClose, onCreated }: {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [employees, setEmployees] = useState<{ name: string; position?: string }[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/training/employees?companyId=${companyId}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setEmployees(data); })
+      .catch(() => {});
+  }, [companyId]);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -147,15 +155,24 @@ function CreateProjectModal({ companyId, onClose, onCreated }: {
           {/* Title */}
           <div>
             <label style={labelStyle}>ชื่อโครงการ *</label>
-            <input style={inputStyle} value={form.title} placeholder="เช่น ก่อสร้างโรงเก็บขยะ Solar Power Plant B3"
+            <input style={inputStyle} value={form.title}
               onChange={e => set('title', e.target.value)} />
           </div>
 
           {/* Owner */}
           <div>
             <label style={labelStyle}>ผู้รับผิดชอบหลัก *</label>
-            <input style={inputStyle} value={form.owner} placeholder="ชื่อผู้รับผิดชอบ"
-              onChange={e => set('owner', e.target.value)} />
+            {employees.length > 0 ? (
+              <select style={inputStyle} value={form.owner} onChange={e => set('owner', e.target.value)}>
+                <option value="">— เลือกผู้รับผิดชอบ —</option>
+                {employees.map(emp => (
+                  <option key={emp.name} value={emp.name}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
+                ))}
+              </select>
+            ) : (
+              <input style={inputStyle} value={form.owner} placeholder="ชื่อผู้รับผิดชอบ"
+                onChange={e => set('owner', e.target.value)} />
+            )}
           </div>
 
           {/* Plan type + Scope */}
@@ -431,7 +448,12 @@ export default function ProjectsPage() {
                 </h1>
               </div>
               <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                {company?.name || id.toUpperCase()} — Special Projects &amp; Cross-department Initiatives
+                {company?.name || id.toUpperCase()}
+              </p>
+              <p className="text-[12px] mt-1 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+                style={{ background: 'rgba(99,102,241,0.08)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <span>💡</span>
+                <span>โครงการพิเศษคือโครงการที่<strong>ไม่ได้อยู่ในแผนงานประจำปี</strong> เช่น งานก่อสร้าง โครงการข้ามแผนก หรือโครงการพัฒนาพิเศษ</span>
               </p>
             </div>
             {(auth.isAdmin || auth.companyAuth[id]) && (
