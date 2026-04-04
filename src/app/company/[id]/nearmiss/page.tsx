@@ -544,139 +544,218 @@ export default function NearMissCoordinatorPage() {
                 </div>
               )}
 
-              {/* ── TAB: Action (coordinator + admin update) ── */}
-              {activeTab === 'action' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* ── TAB: Action — Progressive disclosure by status ── */}
+              {activeTab === 'action' && (() => {
+                const s = editForm.status;
+                // Which field groups to show based on chosen status
+                const showSummary    = s !== 'new';
+                const showWorkFields = s === 'in_progress' || s === 'pending_review';
+                const showAdminClose = isAdmin && s === 'closed';
 
-                  {/* Status */}
-                  <div>
-                    <label style={labelStyle}>สถานะ</label>
-                    <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))} style={fieldStyle as React.CSSProperties}>
-                      {Object.entries(STATUS_CFG).map(([k, v]) =>
-                        (k === 'closed' && !isAdmin) ? null : <option key={k} value={k}>{v.label}</option>
-                      )}
-                    </select>
-                  </div>
+                // Step order for the visual stepper
+                const STEPS: Array<keyof typeof STATUS_CFG> = ['new', 'acknowledged', 'in_progress', 'pending_review', 'closed'];
+                const currentIdx = STEPS.indexOf(s as keyof typeof STATUS_CFG);
 
-                  {/* Coordinator */}
-                  <div>
-                    <label style={labelStyle}>ผู้ประสานงาน</label>
-                    <input value={editForm.coordinator} onChange={e => setEditForm(f => ({ ...f, coordinator: e.target.value }))}
-                      style={fieldStyle as React.CSSProperties} placeholder="ชื่อผู้รับผิดชอบดูแลเคสนี้" />
-                  </div>
+                // Contextual hint per status
+                const STATUS_HINT: Record<string, string> = {
+                  new:            'รายงานถูกส่งเข้ามา — มอบหมายผู้ประสานงานแล้วเปลี่ยนสถานะ',
+                  acknowledged:   'รับทราบแล้ว — กำลังประเมินก่อนลงมือแก้ไข',
+                  in_progress:    'กำลังดำเนินการ — ระบุผู้รับผิดชอบ กำหนดวันแล้วเสร็จ และมาตรการแก้ไข',
+                  pending_review: 'ดำเนินการแล้ว — รอ จป. ตรวจสอบก่อนปิดเคส',
+                  closed:         'ปิดเคสแล้ว — บันทึกเพื่อการอ้างอิงและสถิติ',
+                };
 
-                  {/* Action summary */}
-                  <div>
-                    <label style={labelStyle}>สรุปการดำเนินการ</label>
-                    <textarea value={editForm.action_summary} onChange={e => setEditForm(f => ({ ...f, action_summary: e.target.value }))}
-                      style={{ ...fieldStyle, minHeight: 80, resize: 'vertical' } as React.CSSProperties}
-                      placeholder="ดำเนินการอะไรไปแล้วบ้าง..." />
-                  </div>
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-                  {/* Responsible + Due date */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div>
-                      <label style={labelStyle}>ผู้รับผิดชอบ</label>
-                      <input value={editForm.responsible_person} onChange={e => setEditForm(f => ({ ...f, responsible_person: e.target.value }))}
-                        style={fieldStyle as React.CSSProperties} placeholder="ชื่อ..." />
+                    {/* ── Workflow stepper ── */}
+                    <div style={{ padding: '14px 16px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>ขั้นตอนการดำเนินการ</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                        {STEPS.map((st, idx) => {
+                          const cfg = STATUS_CFG[st];
+                          const isPast    = idx < currentIdx;
+                          const isCurrent = idx === currentIdx;
+                          const isFuture  = idx > currentIdx;
+                          // Admin-only step
+                          if (st === 'closed' && !isAdmin) return null;
+                          return (
+                            <div key={st} style={{ display: 'flex', alignItems: 'center', flex: idx < STEPS.length - 1 ? 1 : 'none' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
+                                  background: isCurrent ? cfg.color : isPast ? '#22c55e' : '#e2e8f0',
+                                  color: isCurrent || isPast ? '#fff' : '#94a3b8',
+                                  border: isCurrent ? `2px solid ${cfg.color}` : 'none',
+                                  boxShadow: isCurrent ? `0 0 0 3px ${cfg.color}22` : 'none',
+                                  flexShrink: 0,
+                                }}>
+                                  {isPast ? '✓' : idx + 1}
+                                </div>
+                                <span style={{ fontSize: 9, fontWeight: isCurrent ? 700 : 400, color: isCurrent ? cfg.color : isFuture ? '#cbd5e1' : '#64748b', whiteSpace: 'nowrap', letterSpacing: '0.01em' }}>
+                                  {cfg.label.replace('รายงานใหม่','ใหม่').replace('รับเรื่องแล้ว','รับเรื่อง').replace('กำลังดำเนินการ','ดำเนินการ').replace('รอตรวจสอบ','รอตรวจ').replace('ปิดรายการ','ปิด')}
+                                </span>
+                              </div>
+                              {idx < STEPS.length - 1 && (st !== 'pending_review' || isAdmin) && (
+                                <div style={{ flex: 1, height: 2, background: isPast ? '#22c55e' : '#e2e8f0', margin: '0 4px 16px' }} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Status hint */}
+                      <p style={{ fontSize: 12, color: '#64748b', margin: '10px 0 0', lineHeight: 1.5 }}>
+                        💡 {STATUS_HINT[s] || ''}
+                      </p>
                     </div>
+
+                    {/* ── Status selector ── */}
                     <div>
-                      <label style={labelStyle}>กำหนดเสร็จ</label>
-                      <input type="date" value={editForm.due_date} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
-                        style={fieldStyle as React.CSSProperties} />
+                      <label style={labelStyle}>เปลี่ยนสถานะเป็น</label>
+                      <select value={editForm.status}
+                        onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                        style={{ ...fieldStyle, borderColor: STATUS_CFG[s as keyof typeof STATUS_CFG]?.color + '66' } as React.CSSProperties}>
+                        {Object.entries(STATUS_CFG).map(([k, v]) =>
+                          (k === 'closed' && !isAdmin) ? null : <option key={k} value={k}>{v.label}</option>
+                        )}
+                      </select>
                     </div>
-                  </div>
 
-                  {/* Corrective action */}
-                  <div>
-                    <label style={labelStyle}>มาตรการแก้ไข</label>
-                    <textarea value={editForm.immediate_action} onChange={e => setEditForm(f => ({ ...f, immediate_action: e.target.value }))}
-                      style={{ ...fieldStyle, minHeight: 72, resize: 'vertical' } as React.CSSProperties}
-                      placeholder="มาตรการป้องกัน / แก้ไขที่กำหนดไว้..." />
-                  </div>
+                    {/* ── Coordinator — always shown ── */}
+                    <div>
+                      <label style={labelStyle}>ผู้ประสานงาน</label>
+                      <input value={editForm.coordinator}
+                        onChange={e => setEditForm(f => ({ ...f, coordinator: e.target.value }))}
+                        style={fieldStyle as React.CSSProperties}
+                        placeholder="ชื่อผู้รับผิดชอบดูแลเคสนี้" />
+                    </div>
 
-                  {/* Divider for admin */}
-                  {isAdmin && (
-                    <>
-                      <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '4px 0' }} />
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>Admin</p>
-
+                    {/* ── Action summary — shown when started ── */}
+                    {showSummary && (
                       <div>
-                        <label style={labelStyle}>ระดับการสอบสวน</label>
-                        <select value={editForm.investigation_level} onChange={e => setEditForm(f => ({ ...f, investigation_level: e.target.value }))}
-                          style={fieldStyle as React.CSSProperties}>
-                          <option value="">— เลือกระดับ —</option>
-                          {INV_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
+                        <label style={labelStyle}>
+                          {s === 'pending_review' ? 'สรุปสิ่งที่ดำเนินการแล้ว' : 'บันทึกการดำเนินการ'}
+                        </label>
+                        <textarea value={editForm.action_summary}
+                          onChange={e => setEditForm(f => ({ ...f, action_summary: e.target.value }))}
+                          style={{ ...fieldStyle, minHeight: 80, resize: 'vertical' } as React.CSSProperties}
+                          placeholder={s === 'pending_review'
+                            ? 'สรุปว่าได้ดำเนินการอะไรไปแล้วบ้าง เพื่อส่งให้ จป. ตรวจสอบ...'
+                            : 'ความคืบหน้าล่าสุด สิ่งที่ได้ดำเนินการ...'} />
                       </div>
-
-                      <div>
-                        <label style={labelStyle}>Safety Officer</label>
-                        <input value={editForm.safety_officer} onChange={e => setEditForm(f => ({ ...f, safety_officer: e.target.value }))}
-                          style={fieldStyle as React.CSSProperties} placeholder="ชื่อ Safety Officer" />
-                      </div>
-
-                      <div>
-                        <label style={labelStyle}>หมายเหตุภายใน (Admin only)</label>
-                        <textarea value={editForm.admin_notes} onChange={e => setEditForm(f => ({ ...f, admin_notes: e.target.value }))}
-                          style={{ ...fieldStyle, minHeight: 72, resize: 'vertical' } as React.CSSProperties}
-                          placeholder="บันทึกภายในที่ไม่แสดงต่อสาธารณะ..." />
-                      </div>
-                    </>
-                  )}
-
-                  {/* Save */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4, flexWrap: 'wrap' }}>
-                    <button onClick={saveEdits} disabled={saving}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 9, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                      {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
-                      {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-                    </button>
-                    {saveMsg && (
-                      <span style={{ fontSize: 13, color: ['บันทึกแล้ว','ซ่อนรายการแล้ว','แสดงรายการแล้ว'].includes(saveMsg) ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                        {['บันทึกแล้ว','ซ่อนรายการแล้ว','แสดงรายการแล้ว'].includes(saveMsg) ? '✓ ' : '✕ '}{saveMsg}
-                      </span>
                     )}
-                  </div>
 
-                  {/* Hide / Delete actions */}
-                  <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '8px 0' }} />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {/* Hide toggle — coordinator + admin */}
-                    <button onClick={toggleHidden} disabled={saving}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${selected.is_hidden ? '#f97316' : '#e2e8f0'}`, background: selected.is_hidden ? '#fff7ed' : '#f8fafc', color: selected.is_hidden ? '#ea580c' : '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                      {selected.is_hidden ? <Eye size={14} /> : <EyeOff size={14} />}
-                      {selected.is_hidden ? 'แสดงรายการ' : 'ซ่อนรายการ'}
-                    </button>
+                    {/* ── Work fields — in_progress / pending_review only ── */}
+                    {showWorkFields && (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <div>
+                            <label style={labelStyle}>ผู้รับผิดชอบ</label>
+                            <input value={editForm.responsible_person}
+                              onChange={e => setEditForm(f => ({ ...f, responsible_person: e.target.value }))}
+                              style={fieldStyle as React.CSSProperties} placeholder="ชื่อ..." />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>
+                              กำหนดเสร็จ
+                              <span style={{ fontSize: 10, color: '#f97316', marginLeft: 4 }}>*จำเป็น</span>
+                            </label>
+                            <input type="date" value={editForm.due_date}
+                              onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
+                              style={{ ...fieldStyle, borderColor: !editForm.due_date ? '#fbbf24' : '#e2e8f0' } as React.CSSProperties} />
+                          </div>
+                        </div>
 
-                    {/* Delete — admin only */}
-                    {isAdmin && !confirmDelete && (
-                      <button onClick={() => setConfirmDelete(true)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #fca5a5', background: '#fff5f5', color: '#dc2626', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                        <Trash2 size={14} /> ลบถาวร
+                        <div>
+                          <label style={labelStyle}>มาตรการแก้ไข / ป้องกัน</label>
+                          <textarea value={editForm.immediate_action}
+                            onChange={e => setEditForm(f => ({ ...f, immediate_action: e.target.value }))}
+                            style={{ ...fieldStyle, minHeight: 80, resize: 'vertical' } as React.CSSProperties}
+                            placeholder="ระบุมาตรการที่กำหนดให้ดำเนินการเพื่อป้องกันไม่ให้เกิดซ้ำ..." />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── Admin section ── */}
+                    {isAdmin && (
+                      <div style={{ padding: '16px', borderRadius: 10, background: '#fafafa', border: '1px solid #e2e8f0' }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 14px' }}>ส่วน Admin</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <div>
+                            <label style={labelStyle}>ระดับการสอบสวน</label>
+                            <select value={editForm.investigation_level}
+                              onChange={e => setEditForm(f => ({ ...f, investigation_level: e.target.value }))}
+                              style={fieldStyle as React.CSSProperties}>
+                              <option value="">— เลือกระดับ —</option>
+                              {INV_LEVEL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Safety Officer</label>
+                            <input value={editForm.safety_officer}
+                              onChange={e => setEditForm(f => ({ ...f, safety_officer: e.target.value }))}
+                              style={fieldStyle as React.CSSProperties} placeholder="ชื่อ Safety Officer" />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>หมายเหตุภายใน</label>
+                            <textarea value={editForm.admin_notes}
+                              onChange={e => setEditForm(f => ({ ...f, admin_notes: e.target.value }))}
+                              style={{ ...fieldStyle, minHeight: 64, resize: 'vertical' } as React.CSSProperties}
+                              placeholder="บันทึกที่ไม่แสดงต่อสาธารณะ..." />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Save button ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <button onClick={saveEdits} disabled={saving}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 22px', borderRadius: 9, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                        {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
+                        {saving ? 'กำลังบันทึก...' : 'บันทึก'}
                       </button>
-                    )}
-                    {isAdmin && confirmDelete && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: '#fef2f2', border: '1.5px solid #fca5a5' }}>
-                        <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>ยืนยันลบ?</span>
-                        <button onClick={deleteReport} disabled={saving}
-                          style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                          {saving ? 'กำลังลบ...' : 'ลบเลย'}
-                        </button>
-                        <button onClick={() => setConfirmDelete(false)}
-                          style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
-                          ยกเลิก
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      {saveMsg && (
+                        <span style={{ fontSize: 13, fontWeight: 600, color: ['บันทึกแล้ว','ซ่อนรายการแล้ว','แสดงรายการแล้ว'].includes(saveMsg) ? '#16a34a' : '#dc2626' }}>
+                          {['บันทึกแล้ว','ซ่อนรายการแล้ว','แสดงรายการแล้ว'].includes(saveMsg) ? '✓ ' : '✕ '}{saveMsg}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Timestamps */}
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '4px 0 0' }}>
-                    รับเรื่อง: {fmtDateTime(selected.created_at)} · อัปเดต: {fmtDateTime(selected.updated_at)}
-                  </p>
-                </div>
-              )}
+                    {/* ── Hide / Delete ── */}
+                    <div style={{ paddingTop: 4, borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <button onClick={toggleHidden} disabled={saving}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 8, border: `1.5px solid ${selected.is_hidden ? '#f97316' : '#e2e8f0'}`, background: selected.is_hidden ? '#fff7ed' : '#f8fafc', color: selected.is_hidden ? '#ea580c' : '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        {selected.is_hidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                        {selected.is_hidden ? 'แสดงรายการ' : 'ซ่อนรายการ'}
+                      </button>
+                      {isAdmin && !confirmDelete && (
+                        <button onClick={() => setConfirmDelete(true)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 8, border: '1.5px solid #fca5a5', background: '#fff5f5', color: '#dc2626', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                          <Trash2 size={14} /> ลบถาวร
+                        </button>
+                      )}
+                      {isAdmin && confirmDelete && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, background: '#fef2f2', border: '1.5px solid #fca5a5' }}>
+                          <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>ยืนยันลบถาวร?</span>
+                          <button onClick={deleteReport} disabled={saving}
+                            style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: '#dc2626', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                            {saving ? 'ลบ...' : 'ยืนยัน'}
+                          </button>
+                          <button onClick={() => setConfirmDelete(false)}
+                            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
+                            ยกเลิก
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Timestamps */}
+                    <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
+                      รับเรื่อง: {fmtDateTime(selected.created_at)} · อัปเดต: {fmtDateTime(selected.updated_at)}
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </>
