@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST — upsert man-hours (create or update)
+// POST — upsert man-hours (all 12 months, including zeros to clear old data)
 export async function POST(request: NextRequest) {
   try {
     const supabase = getServiceSupabase();
@@ -45,10 +45,10 @@ export async function POST(request: NextRequest) {
       company_id: r.company_id,
       year: r.year,
       month: r.month,
-      employee_count: r.employee_count || 0,
-      employee_manhours: r.employee_manhours || 0,
-      contractor_count: r.contractor_count || 0,
-      contractor_manhours: r.contractor_manhours || 0,
+      employee_count: r.employee_count ?? 0,
+      employee_manhours: r.employee_manhours ?? 0,
+      contractor_count: r.contractor_count ?? 0,
+      contractor_manhours: r.contractor_manhours ?? 0,
       updated_at: new Date().toISOString(),
     }));
 
