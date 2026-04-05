@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -2115,11 +2116,11 @@ export default function CompanyTraining() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label style={labelStyle}>วันเริ่มอบรม</label>
-                        <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
+                        <DateInput value={modalDateStart} onChange={v => setModalDateStart(v)} inputStyle={inputStyle} />
                       </div>
                       <div>
                         <label style={labelStyle}>วันสิ้นสุด</label>
-                        <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
+                        <DateInput value={modalDateEnd} onChange={v => setModalDateEnd(v)} inputStyle={inputStyle} />
                       </div>
                     </div>
                     <div>
@@ -2178,11 +2179,11 @@ export default function CompanyTraining() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label style={labelStyle}>วันเริ่มอบรม</label>
-                        <input type="date" value={modalDateStart} onChange={e => setModalDateStart(e.target.value)} style={inputStyle} />
+                        <DateInput value={modalDateStart} onChange={v => setModalDateStart(v)} inputStyle={inputStyle} />
                       </div>
                       <div>
                         <label style={labelStyle}>วันสิ้นสุด</label>
-                        <input type="date" value={modalDateEnd} onChange={e => setModalDateEnd(e.target.value)} style={inputStyle} />
+                        <DateInput value={modalDateEnd} onChange={v => setModalDateEnd(v)} inputStyle={inputStyle} />
                       </div>
                     </div>
 

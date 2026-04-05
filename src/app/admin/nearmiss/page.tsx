@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fmtDateDDMMMYY } from '@/components/DateInput';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -45,10 +46,7 @@ const STATUS_CONFIG = {
   closed:         { label: 'ปิดแล้ว',       color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
 };
 
-function fmtDate(d: string) {
-  if (!d) return '–';
-  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+function fmtDate(d: string) { return fmtDateDDMMMYY(d, 'th'); }
 function timeAgo(d: string) {
   const diff = Date.now() - new Date(d).getTime();
   const days = Math.floor(diff / 86400000);

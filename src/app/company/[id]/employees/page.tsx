@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -1301,8 +1302,7 @@ export default function EmployeesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-medium block mb-1" style={{ color: '#374151' }}>วันที่ออก</label>
-                    <input type="date" value={certForm.issued_date} onChange={e => setCertForm(f => ({ ...f, issued_date: e.target.value }))}
-                      style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} />
+                    <DateInput value={certForm.issued_date} onChange={v => setCertForm(f => ({ ...f, issued_date: v }))} inputStyle={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} />
                   </div>
                   <div>
                     <label className="text-xs font-medium flex items-center gap-2 mb-1" style={{ color: '#374151' }}>
@@ -1313,8 +1313,7 @@ export default function EmployeesPage() {
                       </label>
                     </label>
                     {!certForm.no_expiry ? (
-                      <input type="date" value={certForm.expiry_date} onChange={e => setCertForm(f => ({ ...f, expiry_date: e.target.value }))}
-                        style={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} />
+                      <DateInput value={certForm.expiry_date} onChange={v => setCertForm(f => ({ ...f, expiry_date: v }))} inputStyle={{ ...inputStyle, background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#1f2937' }} />
                     ) : (
                       <div className="px-3 py-2 rounded-lg text-sm" style={{ background: '#eef2ff', border: '1px solid #c7d2fe', color: '#6366f1', fontWeight: 500 }}>ใช้ได้ตลอดไป (ไม่หมดอายุ)</div>
                     )}

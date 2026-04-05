@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
 import { X, ChevronUp, ChevronDown, Paperclip, ExternalLink, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Activity, MonthStatus } from '@/lib/types';
 import dynamic from 'next/dynamic';
@@ -379,9 +380,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                       <p className="text-xs font-semibold mb-2" style={{ color: '#16a34a' }}>บันทึกการดำเนินงาน</p>
                       <div>
                         <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>วันที่ดำเนินการเสร็จ</label>
-                        <input type="date" value={completionDate} onChange={e => setCompletionDate(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg text-sm mb-2 focus:outline-none"
-                          style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
+                        <DateInput value={completionDate} onChange={v => setCompletionDate(v)} inputStyle={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => { setPendingDone(false); setCompletionDate(''); }}

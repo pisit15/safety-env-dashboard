@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
 import { useParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -217,11 +218,11 @@ function CreateProjectModal({ companyId, onClose, onCreated }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label style={labelStyle}>วันเริ่มต้น *</label>
-              <input type="date" style={inputStyle} value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+              <DateInput value={form.start_date} onChange={v => set('start_date', v)} inputStyle={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>วันสิ้นสุด *</label>
-              <input type="date" style={inputStyle} value={form.end_date} onChange={e => set('end_date', e.target.value)} />
+              <DateInput value={form.end_date} onChange={v => set('end_date', v)} inputStyle={inputStyle} />
             </div>
           </div>
 

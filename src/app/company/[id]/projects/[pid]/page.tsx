@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
 import { useParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -190,8 +191,7 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, isAdmin }: {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold mb-1" style={{ color: '#374151' }}>วันที่เสร็จจริง</label>
-                <input type="date" style={inputStyle} value={form.actual_end}
-                  onChange={e => setForm(f => ({ ...f, actual_end: e.target.value }))} />
+                <DateInput style={inputStyle} value={form.actual_end} onChange={v => setForm(f => ({ ...f, actual_end: v }))} />
               </div>
               <div>
                 <label className="block text-[11px] font-semibold mb-1" style={{ color: '#374151' }}>หมายเหตุ</label>
@@ -289,13 +289,11 @@ function AddMilestoneModal({ projectId, onClose, onAdded }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[12px] font-semibold mb-1" style={{ color: '#374151' }}>วันเริ่ม (แผน)</label>
-              <input type="date" style={inputStyle} value={form.planned_start}
-                onChange={e => setForm(f => ({ ...f, planned_start: e.target.value }))} />
+              <DateInput style={inputStyle} value={form.planned_start} onChange={v => setForm(f => ({ ...f, planned_start: v }))} />
             </div>
             <div>
               <label className="block text-[12px] font-semibold mb-1" style={{ color: '#374151' }}>วันสิ้นสุด (แผน)</label>
-              <input type="date" style={inputStyle} value={form.planned_end}
-                onChange={e => setForm(f => ({ ...f, planned_end: e.target.value }))} />
+              <DateInput style={inputStyle} value={form.planned_end} onChange={v => setForm(f => ({ ...f, planned_end: v }))} />
             </div>
           </div>
           <div className="flex gap-2 pt-2">

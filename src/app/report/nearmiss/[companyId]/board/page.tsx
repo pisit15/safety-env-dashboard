@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { fmtDateDDMMMYY } from '@/components/DateInput';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
 import { RefreshCw, Loader2, AlertTriangle, Link2, ClipboardList, BookOpen } from 'lucide-react';
@@ -45,10 +46,7 @@ interface BoardReport {
   incident_summary: string | null;
 }
 
-function fmtDate(d: string) {
-  if (!d) return '–';
-  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+function fmtDate(d: string) { return fmtDateDDMMMYY(d, 'th'); }
 
 function daysSince(d: string) {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);

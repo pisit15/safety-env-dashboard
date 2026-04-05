@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
 import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus, BookOpen } from 'lucide-react';
+import DateInput from '@/components/DateInput';
 
 // ── Risk matrix helpers
 const riskScore = (p: number, s: number) => p * s;
@@ -268,12 +269,12 @@ export default function NearMissReportPage() {
               />
             </Field>
             <Field label="วันที่เกิดเหตุ *" error={errors.incident_date}>
-              <input
-                type="date"
-                style={inputStyle(!!errors.incident_date)}
+              <DateInput
                 value={form.incident_date}
-                onChange={e => set('incident_date', e.target.value)}
+                onChange={v => set('incident_date', v)}
                 max={new Date().toISOString().slice(0, 10)}
+                inputStyle={inputStyle(!!errors.incident_date)}
+                error={!!errors.incident_date}
               />
             </Field>
             <Field label="สถานที่ / บริเวณ *" error={errors.location}>

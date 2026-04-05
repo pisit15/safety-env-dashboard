@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
+import { fmtDateDDMMMYY } from '@/components/DateInput';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -72,10 +74,7 @@ const INV_LEVEL_OPTIONS = [
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function fmtDate(d: string | null) {
-  if (!d) return '–';
-  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+function fmtDate(d: string | null) { return fmtDateDDMMMYY(d || '', 'th'); }
 function fmtDateTime(d: string | null) {
   if (!d) return '–';
   return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -812,9 +811,7 @@ export default function NearMissCoordinatorPage() {
                               กำหนดเสร็จ
                               <span style={{ fontSize: 10, color: '#f97316', marginLeft: 4 }}>*จำเป็น</span>
                             </label>
-                            <input type="date" value={editForm.due_date}
-                              onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))}
-                              style={{ ...fieldStyle, borderColor: !editForm.due_date ? '#fbbf24' : '#e2e8f0' } as React.CSSProperties} />
+                            <DateInput value={editForm.due_date} onChange={v => setEditForm(f => ({ ...f, due_date: v }))} inputStyle={{ ...fieldStyle, borderColor: !editForm.due_date ? '#fbbf24' : '#e2e8f0' } as React.CSSProperties} />
                           </div>
                         </div>
 

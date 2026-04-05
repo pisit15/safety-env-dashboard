@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DateInput from '@/components/DateInput';
 import { X, Plus } from 'lucide-react';
 import type { Incident } from '../types';
 import {
@@ -182,7 +183,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label text="วันที่เกิดเหตุ" required />
-                <input type="date" value={(formData.incident_date as string) || ''} onChange={e => updateForm('incident_date', e.target.value)} style={inputStyle} />
+                <DateInput value={(formData.incident_date as string) || ''} onChange={v => updateForm('incident_date', v)} inputStyle={inputStyle} />
               </div>
               <div>
                 <Label text="เวลาเกิดเหตุ" />
@@ -197,7 +198,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               </div>
               <div>
                 <Label text="วันที่รายงาน" />
-                <input type="date" value={(formData.report_date as string) || ''} onChange={e => updateForm('report_date', e.target.value)} style={inputStyle} />
+                <DateInput value={(formData.report_date as string) || ''} onChange={v => updateForm('report_date', v)} inputStyle={inputStyle} />
               </div>
               <div className="col-span-2">
                 <Label text="ผู้รายงาน" />
@@ -368,7 +369,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               </div>
               <div>
                 <Label text="วันที่เริ่มสอบสวน" />
-                <input type="date" value={(formData.investigation_start_date as string) || ''} onChange={e => updateForm('investigation_start_date', e.target.value)} style={inputStyle} />
+                <DateInput value={(formData.investigation_start_date as string) || ''} onChange={v => updateForm('investigation_start_date', v)} inputStyle={inputStyle} />
               </div>
               <div>
                 <Label text="หัวหน้าทีมสอบสวน" />
@@ -445,7 +446,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 </div>
                 <div>
                   <Label text="กำหนดเสร็จ" />
-                  <input type="date" value={(formData.ca1_due_date as string) || ''} onChange={e => updateForm('ca1_due_date', e.target.value)} style={inputStyle} />
+                  <DateInput value={(formData.ca1_due_date as string) || ''} onChange={v => updateForm('ca1_due_date', v)} inputStyle={inputStyle} />
                 </div>
                 <div>
                   <Label text="สถานะ" />
@@ -477,7 +478,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 </div>
                 <div>
                   <Label text="กำหนดเสร็จ" />
-                  <input type="date" value={(formData.ca2_due_date as string) || ''} onChange={e => updateForm('ca2_due_date', e.target.value)} style={inputStyle} />
+                  <DateInput value={(formData.ca2_due_date as string) || ''} onChange={v => updateForm('ca2_due_date', v)} inputStyle={inputStyle} />
                 </div>
                 <div>
                   <Label text="สถานะ" />
@@ -495,7 +496,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             <div className="grid grid-cols-2 gap-3 mt-3">
               <div>
                 <Label text="วันที่ปิดรายงาน" />
-                <input type="date" value={(formData.report_closed_date as string) || ''} onChange={e => updateForm('report_closed_date', e.target.value)} style={inputStyle} />
+                <DateInput value={(formData.report_closed_date as string) || ''} onChange={v => updateForm('report_closed_date', v)} inputStyle={inputStyle} />
               </div>
               <div>
                 <Label text="สถานะรายงาน" />
@@ -592,11 +593,11 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                   </div>
                   <div>
                     <SmLabel text="วันที่เริ่มหยุด" />
-                    <input type="date" value={(person.leave_start_date as string) || ''} onChange={e => updateInjuredPerson(idx, 'leave_start_date', e.target.value)} style={smInput} />
+                    <DateInput value={(person.leave_start_date as string) || ''} onChange={v => updateInjuredPerson(idx, 'leave_start_date', v)} inputStyle={smInput} />
                   </div>
                   <div>
                     <SmLabel text="วันที่กลับทำงาน" />
-                    <input type="date" value={(person.return_to_work_date as string) || ''} onChange={e => updateInjuredPerson(idx, 'return_to_work_date', e.target.value)} style={smInput} />
+                    <DateInput value={(person.return_to_work_date as string) || ''} onChange={v => updateInjuredPerson(idx, 'return_to_work_date', v)} inputStyle={smInput} />
                   </div>
                   <div>
                     <SmLabel text="การรักษา" />

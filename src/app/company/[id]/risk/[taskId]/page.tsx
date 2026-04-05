@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import DateInput from '@/components/DateInput';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
@@ -837,7 +838,7 @@ export default function RAFormPage() {
                   </div>
                   <div>
                     <label style={labelStyle}>กำหนดเสร็จ (Deadline)</label>
-                    <input type="date" value={hazardForm.deadline} onChange={e => setHazardForm(p => ({ ...p, deadline: e.target.value }))} style={inputStyle} />
+                    <DateInput value={hazardForm.deadline} onChange={v => setHazardForm(p => ({ ...p, deadline: v }))} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>เอกสารอ้างอิง (Reference SOP/SSOW)</label>
