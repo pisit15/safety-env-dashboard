@@ -79,7 +79,7 @@ export const COMPANIES: CompanyConfig[] = [
     id: 'amt',
     name: 'AMT',
     shortName: 'AMT',
-    fullName: 'Amita Technology (Chonburi) Co., Ltd. - โรงงานแบตเตอรี่ ชลบุรี',
+    fullName: 'Amita Technology (Chachoengsao) Co., Ltd. - โรงงานแบตเตอรี่ ฉะเชิงเทรา',
     sheetId: '1-d8ehNnYsVGn9JR_7ZqhEbpP5-e-ocaD',
     safetySheet: 'Amita Safety Plan Rev1',
     enviSheet: 'Amita Envi Plan Rev1',
