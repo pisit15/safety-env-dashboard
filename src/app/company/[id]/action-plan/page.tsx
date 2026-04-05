@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
@@ -44,9 +44,18 @@ interface ResponsibleOverride {
 
 export default function CompanyDrilldown() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const companyId = params.id as string;
   const auth = useAuth();
-  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>('total');
+  const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>(() => {
+    // Read ?plan=environment from URL (e.g. from sidebar Environment link)
+    if (typeof window !== 'undefined') {
+      const urlPlan = new URLSearchParams(window.location.search).get('plan');
+      if (urlPlan === 'environment') return 'environment';
+      if (urlPlan === 'safety') return 'safety';
+    }
+    return 'total';
+  });
   const [timeRange, setTimeRange] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('company_timeRange') || 'year';
@@ -64,6 +73,13 @@ export default function CompanyDrilldown() {
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Sync planType from URL search params (for sidebar navigation)
+  useEffect(() => {
+    const urlPlan = searchParams.get('plan');
+    if (urlPlan === 'environment') setPlanType('environment');
+    else if (urlPlan === 'safety') setPlanType('safety');
+  }, [searchParams]);
 
   // Persist planType, timeRange, and year to localStorage
   useEffect(() => {
