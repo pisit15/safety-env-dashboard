@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   Filter,
+  BookOpen,
   ChevronDown,
   AlertTriangle,
   Shield,
@@ -290,13 +291,22 @@ export default function RiskRegisterPage() {
                 การจัดการความเสี่ยงของงาน | RL = ความรุนแรง (S) × โอกาสเกิด (P)
               </p>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 rounded-lg text-white font-semibold text-sm"
-              style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', whiteSpace: 'nowrap' }}
-            >
-              <Plus size={16} /> เพิ่มงาน
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/company/${companyId}/risk/guide`}
+                className="flex items-center gap-2 rounded-lg font-semibold text-sm"
+                style={{ padding: '10px 16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                <BookOpen size={16} /> คู่มือ
+              </Link>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 rounded-lg text-white font-semibold text-sm"
+                style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', whiteSpace: 'nowrap' }}
+              >
+                <Plus size={16} /> เพิ่มงาน
+              </button>
+            </div>
           </div>
 
           {/* Summary Cards */}
