@@ -7,7 +7,7 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import {
   FolderKanban, Plus, X, ChevronRight, Search,
-  Calendar, User, Wallet,
+  Calendar, User, Wallet, Lock, LogIn,
   LayoutGrid, LayoutList, AlertTriangle, Clock3,
 } from 'lucide-react';
 
@@ -432,14 +432,76 @@ export default function ProjectsPage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  // Login form state (for auth gate)
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!loginPass) return;
+    setLoginLoading(true);
+    setLoginError('');
+    const result = await auth.companyLogin(id, loginUser, loginPass);
+    setLoginLoading(false);
+    if (!result.success) setLoginError(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
         <Sidebar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <FolderKanban size={48} className="mx-auto mb-4" style={{ color: 'var(--muted)' }} />
-            <p style={{ color: 'var(--text-secondary)' }}>กรุณาเข้าสู่ระบบก่อน</p>
+          <div
+            className="rounded-2xl w-full max-w-[400px] overflow-hidden"
+            style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)' }}
+          >
+            {/* Header */}
+            <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.25)' }}>
+                  <FolderKanban size={20} color="#fff" />
+                </div>
+                <div>
+                  <h3 className="text-[16px] font-bold text-white">โครงการพิเศษ</h3>
+                  <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.7)' }}>กรุณาเข้าสู่ระบบเพื่อดูข้อมูล</p>
+                </div>
+              </div>
+            </div>
+            {/* Form */}
+            <div className="px-6 py-5">
+              <label className="block text-[11px] font-semibold mb-1.5" style={{ color: '#6b7280' }}>ชื่อผู้ใช้</label>
+              <div className="relative mb-4">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                <input type="text" value={loginUser} onChange={e => setLoginUser(e.target.value)}
+                  placeholder="ชื่อผู้ใช้ (ถ้ามี)" autoFocus
+                  className="w-full pl-10 pr-3 py-2.5 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all"
+                  style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }} />
+              </div>
+              <label className="block text-[11px] font-semibold mb-1.5" style={{ color: '#6b7280' }}>รหัสผ่าน</label>
+              <div className="relative mb-4">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  placeholder="รหัสผ่าน"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all"
+                  style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }} />
+              </div>
+              {loginError && (
+                <div className="mb-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{loginError}</div>
+              )}
+              <button onClick={handleLogin} disabled={!loginPass || loginLoading}
+                className="w-full py-3 rounded-lg text-[14px] font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+                style={{
+                  background: loginPass ? 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' : '#e5e7eb',
+                  color: loginPass ? '#fff' : '#9ca3af', cursor: loginPass ? 'pointer' : 'not-allowed',
+                  opacity: loginLoading ? 0.7 : 1, border: 'none',
+                  boxShadow: loginPass ? '0 4px 14px rgba(139,92,246,0.3)' : 'none',
+                }}>
+                {loginLoading ? <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <LogIn size={16} />}
+                {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+              </button>
+            </div>
           </div>
         </main>
       </div>
