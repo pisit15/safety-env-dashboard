@@ -116,13 +116,19 @@ export async function GET(request: Request) {
   const planType = (searchParams.get('plan') || 'environment') as 'safety' | 'environment';
   const useDemo = searchParams.get('demo') === 'true';
   const year = parseInt(searchParams.get('year') || String(DEFAULT_YEAR), 10);
+  const filterCompanyId = searchParams.get('companyId') || null; // P0: single-company mode
 
   if (useDemo) {
     return NextResponse.json(getDemoDashboard());
   }
 
   try {
-    const activeCompanies = await getActiveCompaniesForYearWithDb(year);
+    let activeCompanies = await getActiveCompaniesForYearWithDb(year);
+
+    // P0: If companyId is provided, filter to only that company (skip Google Sheets for all others)
+    if (filterCompanyId) {
+      activeCompanies = activeCompanies.filter(c => c.id === filterCompanyId);
+    }
 
     if (activeCompanies.length === 0) {
       return NextResponse.json(getDemoDashboard());

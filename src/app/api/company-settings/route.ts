@@ -10,13 +10,16 @@ function getServiceSupabase() {
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// GET - Fetch all company settings
-export async function GET() {
+// GET - Fetch company settings (optionally filtered by companyId)
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const companyId = searchParams.get('companyId');
+
     const supabase = getServiceSupabase();
-    const { data, error } = await supabase
-      .from('company_settings')
-      .select('*');
+    let query = supabase.from('company_settings').select('*');
+    if (companyId) query = query.eq('company_id', companyId);
+    const { data, error } = await query;
 
     if (error) {
       // Table doesn't exist — return defaults from static config

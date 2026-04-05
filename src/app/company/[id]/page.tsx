@@ -79,8 +79,9 @@ export default function CompanyDashboard() {
   useEffect(() => {
     setLoading(true);
     const fetches = [
-      fetch('/api/company-settings').then(r => r.json()).then(d => {
-        const s = (d.settings || []).find((s: { company_id: string }) => s.company_id === id);
+      // P1: Filter company-settings to this company only
+      fetch(`/api/company-settings?companyId=${id}`).then(r => r.json()).then(d => {
+        const s = (d.settings || [])[0];
         if (s) { setDbSheetId(s.sheet_id || ''); setDbCompanyName(s.company_name || ''); }
       }).catch(() => {}),
       fetch(`/api/training/plans?companyId=${id}&year=${year}`).then(r => r.json()).then(d => {
@@ -92,7 +93,8 @@ export default function CompanyDashboard() {
       fetch(`/api/manhours?companyId=${id}&year=${year}`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setManhours(d);
       }).catch(() => {}),
-      fetch(`/api/dashboard?plan=total&year=${year}`).then(r => r.json()).then(d => {
+      // P0: Pass companyId to dashboard API — fetches only this company's Google Sheets (not all)
+      fetch(`/api/dashboard?plan=total&year=${year}&companyId=${id}`).then(r => r.json()).then(d => {
         if (d?.companies) {
           const comp = d.companies.find((c: { companyId: string }) => c.companyId === id);
           if (comp) {
