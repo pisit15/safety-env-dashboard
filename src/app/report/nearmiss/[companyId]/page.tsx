@@ -17,8 +17,22 @@ const riskLevel = (score: number) => {
 
 const TOTAL_STEPS = 5;
 
-const PROB_LABELS = ['', '1 – แทบไม่เกิด', '2 – ไม่น่าจะเกิด', '3 – อาจเกิดได้', '4 – น่าจะเกิด', '5 – เกิดแน่นอน'];
-const SEV_LABELS  = ['', '1 – เล็กน้อย', '2 – พอประมาณ', '3 – ปานกลาง', '4 – รุนแรง', '5 – รุนแรงมาก'];
+const PROB_OPTIONS: { level: string; desc: string }[] = [
+  { level: '', desc: '' },
+  { level: '1 – แทบไม่เกิด', desc: 'โอกาสน้อยมาก เกิดได้ 1 ครั้งใน 10 ปี หรือไม่เคยเกิดในองค์กร' },
+  { level: '2 – ไม่น่าจะเกิด', desc: 'มีโอกาสต่ำ อาจเกิด 1 ครั้งใน 5 ปี เคยได้ยินเกิดที่อื่น' },
+  { level: '3 – อาจเกิดได้', desc: 'มีโอกาสปานกลาง อาจเกิด 1 ครั้ง/ปี เคยเกิดในองค์กรมาก่อน' },
+  { level: '4 – น่าจะเกิด', desc: 'มีโอกาสสูง อาจเกิด 1 ครั้ง/เดือน เกิดซ้ำหลายครั้งแล้ว' },
+  { level: '5 – เกิดแน่นอน', desc: 'แทบจะเกิดทุกวันหรือทุกสัปดาห์ ถ้าไม่แก้ไขจะเกิดซ้ำแน่' },
+];
+const SEV_OPTIONS: { level: string; desc: string; color: string }[] = [
+  { level: '', desc: '', color: '' },
+  { level: '1 – เล็กน้อย', desc: 'ปฐมพยาบาลเบื้องต้น ไม่หยุดงาน เช่น รอยขีดข่วน แผลถลอก', color: '#22c55e' },
+  { level: '2 – พอประมาณ', desc: 'บาดเจ็บเล็กน้อย อาจต้องพบแพทย์ หยุดงาน 1-3 วัน', color: '#84cc16' },
+  { level: '3 – ปานกลาง', desc: 'บาดเจ็บต้องรักษาพยาบาล หยุดงานมากกว่า 3 วัน เช่น กระดูกร้าว', color: '#eab308' },
+  { level: '4 – รุนแรง', desc: 'บาดเจ็บสาหัส พิการถาวร สูญเสียอวัยวะ ต้องนอนโรงพยาบาล', color: '#f97316' },
+  { level: '5 – รุนแรงมาก', desc: 'เสียชีวิต หรือทุพพลภาพถาวร หรือเกิดหายนะร้ายแรง', color: '#ef4444' },
+];
 
 export default function NearMissReportPage() {
   const params = useParams();
@@ -448,18 +462,25 @@ export default function NearMissReportPage() {
             {/* Probability */}
             <Field label="โอกาสเกิดซ้ำ (P) *" error={errors.probability}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1, 2, 3, 4, 5].map(v => (
-                  <label key={v} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                    border: `2px solid ${form.probability === v ? '#007aff' : '#e5e7eb'}`,
-                    background: form.probability === v ? 'rgba(0,122,255,0.06)' : '#fff',
-                    transition: 'all 0.15s',
-                  }}>
-                    <input type="radio" name="prob" value={v} checked={form.probability === v} onChange={() => set('probability', v)} style={{ accentColor: '#007aff' }} />
-                    <span style={{ fontSize: 13, color: '#374151', fontWeight: form.probability === v ? 600 : 400 }}>{PROB_LABELS[v]}</span>
-                  </label>
-                ))}
+                {[1, 2, 3, 4, 5].map(v => {
+                  const opt = PROB_OPTIONS[v];
+                  const selected = form.probability === v;
+                  return (
+                    <label key={v} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
+                      border: `2px solid ${selected ? '#007aff' : '#e5e7eb'}`,
+                      background: selected ? 'rgba(0,122,255,0.06)' : '#fff',
+                      transition: 'all 0.15s',
+                    }}>
+                      <input type="radio" name="prob" value={v} checked={selected} onChange={() => set('probability', v)} style={{ accentColor: '#007aff', marginTop: 3 }} />
+                      <div>
+                        <div style={{ fontSize: 13, color: '#374151', fontWeight: selected ? 700 : 500 }}>{opt.level}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </Field>
 
@@ -468,18 +489,28 @@ export default function NearMissReportPage() {
             {/* Severity */}
             <Field label="ความรุนแรง (S) *" error={errors.severity}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1, 2, 3, 4, 5].map(v => (
-                  <label key={v} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                    border: `2px solid ${form.severity === v ? '#007aff' : '#e5e7eb'}`,
-                    background: form.severity === v ? 'rgba(0,122,255,0.06)' : '#fff',
-                    transition: 'all 0.15s',
-                  }}>
-                    <input type="radio" name="sev" value={v} checked={form.severity === v} onChange={() => set('severity', v)} style={{ accentColor: '#007aff' }} />
-                    <span style={{ fontSize: 13, color: '#374151', fontWeight: form.severity === v ? 600 : 400 }}>{SEV_LABELS[v]}</span>
-                  </label>
-                ))}
+                {[1, 2, 3, 4, 5].map(v => {
+                  const opt = SEV_OPTIONS[v];
+                  const selected = form.severity === v;
+                  return (
+                    <label key={v} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
+                      border: `2px solid ${selected ? opt.color : '#e5e7eb'}`,
+                      background: selected ? `${opt.color}10` : '#fff',
+                      transition: 'all 0.15s',
+                    }}>
+                      <input type="radio" name="sev" value={v} checked={selected} onChange={() => set('severity', v)} style={{ accentColor: opt.color }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 13, color: '#374151', fontWeight: selected ? 700 : 500 }}>{opt.level}</span>
+                          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: opt.color, flexShrink: 0 }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </Field>
 
