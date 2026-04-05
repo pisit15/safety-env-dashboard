@@ -296,6 +296,24 @@ export default function RAFormPage() {
     fetchData();
   };
 
+  // Auto-update status based on hazards
+  const autoUpdateStatus = useCallback(async (updatedHazards: Hazard[]) => {
+    if (updatedHazards.length === 0) return;
+    const allDone = updatedHazards.every(h => h.done);
+    const anyDone = updatedHazards.some(h => h.done);
+    let newStatus = 'Pending';
+    if (allDone) newStatus = 'Completed';
+    else if (anyDone) newStatus = 'In Progress';
+    else newStatus = 'In Progress'; // has hazards but none done
+    if (task && task.status !== newStatus && task.status !== 'Outdated') {
+      await fetch('/api/risk/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, status: newStatus }),
+      });
+    }
+  }, [task, taskId]);
+
   // Reset hazard form
   const resetHazardForm = () => {
     setHazardForm({
@@ -368,6 +386,12 @@ export default function RAFormPage() {
       }
       setShowAddHazard(false);
       resetHazardForm();
+      // Refetch hazards and auto-update status
+      const hRes = await fetch(`/api/risk/hazards?taskId=${taskId}`);
+      if (hRes.ok) {
+        const updatedH = await hRes.json();
+        if (Array.isArray(updatedH)) await autoUpdateStatus(updatedH);
+      }
       fetchData();
     } catch { /* ignore */ }
     setSaving(false);
@@ -434,7 +458,7 @@ export default function RAFormPage() {
         <main className="flex-1 p-8 text-center" style={{ background: 'var(--bg-primary)' }}>
           <p style={{ color: 'var(--muted)', marginTop: 80 }}>ไม่พบ Task นี้</p>
           <Link href={`/company/${companyId}/risk`} className="text-sm mt-4 inline-flex items-center gap-1" style={{ color: '#5856d6' }}>
-            <ArrowLeft size={14} /> กลับ Risk Register
+            <ArrowLeft size={14} /> กลับทะเบียนความเสี่ยง
           </Link>
         </main>
       </div>
@@ -451,7 +475,7 @@ export default function RAFormPage() {
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           {/* Back + Header */}
           <Link href={`/company/${companyId}/risk`} className="inline-flex items-center gap-1 text-sm mb-4" style={{ color: '#5856d6', textDecoration: 'none' }}>
-            <ArrowLeft size={14} /> กลับ Risk Register
+            <ArrowLeft size={14} /> กลับทะเบียนความเสี่ยง
           </Link>
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
@@ -469,13 +493,13 @@ export default function RAFormPage() {
               <select
                 value={task.status}
                 onChange={e => updateStatus(e.target.value)}
-                className="rounded-lg text-xs font-semibold appearance-none"
-                style={{ padding: '6px 28px 6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                className="rounded-lg text-xs font-semibold"
+                style={{ padding: '6px 28px 6px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', appearance: 'auto' as React.CSSProperties['appearance'] }}
               >
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Outdated">Outdated</option>
+                <option value="Pending">รอดำเนินการ (Pending)</option>
+                <option value="In Progress">กำลังดำเนินการ (In Progress)</option>
+                <option value="Completed">เสร็จสิ้น (Completed)</option>
+                <option value="Outdated">หมดอายุ (Outdated)</option>
               </select>
             </div>
           </div>
@@ -485,7 +509,7 @@ export default function RAFormPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <span className="rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold" style={{ background: '#5856d6' }}>1</span>
-                Determine the Limits of the Task — กำหนดขอบเขต
+                กำหนดขอบเขตของงาน (Determine the Limits of the Task)
               </h2>
               <button onClick={() => { setEditingTask(!editingTask); setTaskForm(task); }} className="text-xs flex items-center gap-1" style={{ color: '#5856d6' }}>
                 <Edit3 size={12} /> {editingTask ? 'ยกเลิก' : 'แก้ไข'}
@@ -496,17 +520,17 @@ export default function RAFormPage() {
               <div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 12 }}>
                   {[
-                    { key: 'department', label: 'Department' },
-                    { key: 'working_area', label: 'Working Area' },
-                    { key: 'work_position', label: 'Work Position' },
-                    { key: 'process_stage', label: 'Process Stage' },
-                    { key: 'machine', label: 'Machine' },
-                    { key: 'building_area', label: 'Building / Area' },
-                    { key: 'persons_at_risk', label: 'Persons at Risk' },
-                    { key: 'ra_reason', label: 'RA Reason' },
-                    { key: 'start_point', label: 'Start Point' },
-                    { key: 'end_point', label: 'End Point' },
-                    { key: 'responsible_person', label: 'Responsible Person' },
+                    { key: 'department', label: 'แผนก (Department)' },
+                    { key: 'working_area', label: 'พื้นที่ (Working Area)' },
+                    { key: 'work_position', label: 'ตำแหน่งงาน (Work Position)' },
+                    { key: 'process_stage', label: 'ขั้นตอน (Process Stage)' },
+                    { key: 'machine', label: 'เครื่องจักร (Machine)' },
+                    { key: 'building_area', label: 'อาคาร/พื้นที่ (Building / Area)' },
+                    { key: 'persons_at_risk', label: 'ผู้ที่เสี่ยง (Persons at Risk)' },
+                    { key: 'ra_reason', label: 'เหตุผลการประเมิน (RA Reason)' },
+                    { key: 'start_point', label: 'จุดเริ่มต้น (Start Point)' },
+                    { key: 'end_point', label: 'จุดสิ้นสุด (End Point)' },
+                    { key: 'responsible_person', label: 'ผู้รับผิดชอบ (Responsible Person)' },
                   ].map(f => (
                     <div key={f.key}>
                       <label style={labelStyle}>{f.label}</label>
@@ -524,17 +548,17 @@ export default function RAFormPage() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 8 }}>
                 {[
-                  { label: 'Department', value: task.department },
-                  { label: 'Working Area', value: task.working_area },
-                  { label: 'Work Position', value: task.work_position },
-                  { label: 'Process Stage', value: task.process_stage },
-                  { label: 'Machine', value: task.machine },
-                  { label: 'Building / Area', value: task.building_area },
-                  { label: 'Persons at Risk', value: task.persons_at_risk },
-                  { label: 'RA Reason', value: task.ra_reason },
-                  { label: 'Start Point', value: task.start_point },
-                  { label: 'End Point', value: task.end_point },
-                  { label: 'Responsible', value: task.responsible_person },
+                  { label: 'แผนก (Department)', value: task.department },
+                  { label: 'พื้นที่ (Working Area)', value: task.working_area },
+                  { label: 'ตำแหน่งงาน (Work Position)', value: task.work_position },
+                  { label: 'ขั้นตอน (Process Stage)', value: task.process_stage },
+                  { label: 'เครื่องจักร (Machine)', value: task.machine },
+                  { label: 'อาคาร/พื้นที่ (Building / Area)', value: task.building_area },
+                  { label: 'ผู้ที่เสี่ยง (Persons at Risk)', value: task.persons_at_risk },
+                  { label: 'เหตุผลการประเมิน (RA Reason)', value: task.ra_reason },
+                  { label: 'จุดเริ่มต้น (Start Point)', value: task.start_point },
+                  { label: 'จุดสิ้นสุด (End Point)', value: task.end_point },
+                  { label: 'ผู้รับผิดชอบ (Responsible)', value: task.responsible_person },
                 ].map((f, i) => (
                   <div key={i}>
                     <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>{f.label}</span>
@@ -552,21 +576,21 @@ export default function RAFormPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <span className="rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold" style={{ background: '#dc2626' }}>2-4</span>
-                Hazard Identification / Risk Estimation & Evaluation / Risk Reduction
+                ระบุอันตราย / ประเมินความเสี่ยง / ลดความเสี่ยง (Hazard ID / Risk Estimation / Reduction)
               </h2>
               <button
                 onClick={() => { resetHazardForm(); setShowAddHazard(true); }}
                 className="flex items-center gap-1 rounded-lg text-white text-xs font-semibold"
                 style={{ padding: '6px 14px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' }}
               >
-                <Plus size={14} /> เพิ่ม Hazard
+                <Plus size={14} /> เพิ่มอันตราย
               </button>
             </div>
 
             {hazards.length === 0 ? (
               <div className="text-center py-8">
                 <AlertTriangle size={32} style={{ color: 'var(--muted)', margin: '0 auto 8px' }} />
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>ยังไม่มี Hazard</p>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>ยังไม่มีรายการอันตราย</p>
                 <p style={{ fontSize: 11, color: 'var(--muted)' }}>เริ่มระบุอันตรายที่เกี่ยวข้องกับ Task นี้</p>
               </div>
             ) : (
@@ -574,7 +598,7 @@ export default function RAFormPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 900 }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                      {['#', 'Category', 'Hazard Description', 'Existing Controls', 'S', 'P', 'RL', 'Scale', 'New Controls', 'Type', 'S₂', 'P₂', 'RRL', 'Done', ''].map((h, i) => (
+                      {['#', 'ประเภท', 'รายละเอียดอันตราย', 'มาตรการปัจจุบัน', 'S', 'P', 'RL', 'ระดับ', 'มาตรการใหม่', 'ประเภทควบคุม', 'S₂', 'P₂', 'RRL', 'เสร็จ', ''].map((h, i) => (
                         <th key={i} style={{ padding: '8px 8px', textAlign: i >= 4 && i <= 7 || i >= 10 && i <= 12 ? 'center' : 'left', fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -634,35 +658,37 @@ export default function RAFormPage() {
           <div className="glass-card rounded-xl mb-6" style={{ padding: 20, border: '1px solid var(--border)' }}>
             <h2 className="font-bold text-sm flex items-center gap-2 mb-4" style={{ color: 'var(--text-primary)' }}>
               <span className="rounded-full w-6 h-6 flex items-center justify-center text-white text-xs font-bold" style={{ background: '#16a34a' }}>5-6</span>
-              Monitor Effectiveness & Review
+              ติดตามผลและทบทวน (Monitor & Review)
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 16 }}>
               <div>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>Overall Status</span>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{task.status}</p>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>สถานะรวม (Overall Status)</span>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {task.status === 'Pending' ? 'รอดำเนินการ' : task.status === 'In Progress' ? 'กำลังดำเนินการ' : task.status === 'Completed' ? 'เสร็จสิ้น' : task.status === 'Outdated' ? 'หมดอายุ' : task.status}
+                </p>
               </div>
               <div>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>Max Risk Level</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>ระดับความเสี่ยงสูงสุด (Max Risk Level)</span>
                 <p style={{ fontSize: 20, fontWeight: 700, color: getRiskColor(task.risk_scale) }}>
                   {task.max_risk_level || '—'} <span style={{ fontSize: 12 }}>({task.risk_scale})</span>
                 </p>
               </div>
               <div>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>Total Hazards</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>อันตรายทั้งหมด (Total Hazards)</span>
                 <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{hazards.length}</p>
               </div>
               <div>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>Completed Actions</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>ดำเนินการแล้ว (Completed Actions)</span>
                 <p style={{ fontSize: 14, fontWeight: 600, color: '#16a34a' }}>
                   {hazards.filter(h => h.done).length} / {hazards.length}
                 </p>
               </div>
               <div>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>Revision</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>การแก้ไข (Revision)</span>
                 <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Rev. {task.revision_number}</p>
               </div>
               <div>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>Next Review Date</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>วันทบทวนถัดไป (Next Review Date)</span>
                 <p style={{ fontSize: 14, fontWeight: 600, color: task.next_review_date ? 'var(--text-primary)' : 'var(--muted)' }}>
                   {task.next_review_date ? new Date(task.next_review_date).toLocaleDateString('th-TH') : 'ยังไม่กำหนด'}
                 </p>
@@ -673,17 +699,17 @@ export default function RAFormPage() {
           {/* ── Risk Matrix Reference ── */}
           <div className="glass-card rounded-xl mb-6" style={{ padding: 20, border: '1px solid var(--border)' }}>
             <h2 className="font-bold text-sm flex items-center gap-2 mb-4" style={{ color: 'var(--text-primary)' }}>
-              <Info size={16} style={{ color: '#3b82f6' }} /> Risk Scoring Matrix — RL = Severity × Probability
+              <Info size={16} style={{ color: '#3b82f6' }} /> ตารางคะแนนความเสี่ยง (Risk Matrix) — RL = ความรุนแรง × โอกาสเกิด
             </h2>
             <RiskMatrix severity={0} probability={0} />
 
             <div className="mt-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 8 }}>
               <div>
-                <h4 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>Hierarchy of Controls</h4>
+                <h4 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>ลำดับขั้นการควบคุม (Hierarchy of Controls)</h4>
                 {CONTROL_TYPES.map(c => (
                   <div key={c.value} className="flex items-center gap-2 mb-1">
                     <span className="rounded w-4 h-4 flex items-center justify-center text-white text-[9px] font-bold" style={{ background: c.color }}>{c.priority}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text-primary)' }}>{c.value}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-primary)' }}>{c.label}</span>
                   </div>
                 ))}
               </div>

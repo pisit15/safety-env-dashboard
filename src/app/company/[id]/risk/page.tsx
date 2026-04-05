@@ -284,10 +284,10 @@ export default function RiskRegisterPage() {
             <div>
               <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <FileWarning size={24} style={{ color: '#dc2626' }} />
-                Risk Register — ทะเบียนประเมินความเสี่ยง
+                ทะเบียนประเมินความเสี่ยง (Risk Register)
               </h1>
               <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Task Risk Management | RL = Severity × Probability
+                การจัดการความเสี่ยงของงาน | RL = ความรุนแรง (S) × โอกาสเกิด (P)
               </p>
             </div>
             <button
@@ -295,19 +295,19 @@ export default function RiskRegisterPage() {
               className="flex items-center gap-2 rounded-lg text-white font-semibold text-sm"
               style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', whiteSpace: 'nowrap' }}
             >
-              <Plus size={16} /> เพิ่ม Task
+              <Plus size={16} /> เพิ่มงาน
             </button>
           </div>
 
           {/* Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 12, marginBottom: 24 }}>
             {[
-              { label: 'Task ทั้งหมด', value: totalTasks, color: '#3b82f6', icon: FileWarning },
-              { label: 'ประเมินแล้ว', value: completedTasks, color: '#16a34a', icon: CheckCircle2 },
-              { label: 'Critical', value: criticalTasks, color: '#dc2626', icon: AlertTriangle },
-              { label: 'High', value: highTasks, color: '#f59e0b', icon: Shield },
-              { label: 'รอดำเนินการ', value: pendingActions, color: '#8b5cf6', icon: Clock },
-              { label: 'Outdated', value: outdatedTasks, color: '#94a3b8', icon: Clock },
+              { label: 'งานทั้งหมด (Total)', value: totalTasks, color: '#3b82f6', icon: FileWarning },
+              { label: 'เสร็จสิ้น (Completed)', value: completedTasks, color: '#16a34a', icon: CheckCircle2 },
+              { label: 'วิกฤต (Critical)', value: criticalTasks, color: '#dc2626', icon: AlertTriangle },
+              { label: 'สูง (High)', value: highTasks, color: '#f59e0b', icon: Shield },
+              { label: 'รอดำเนินการ (Pending)', value: pendingActions, color: '#8b5cf6', icon: Clock },
+              { label: 'หมดอายุ (Outdated)', value: outdatedTasks, color: '#94a3b8', icon: Clock },
             ].map((card, i) => (
               <div key={i} className="glass-card rounded-xl" style={{ padding: '16px', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -321,13 +321,13 @@ export default function RiskRegisterPage() {
 
           {/* Risk Level Classification */}
           <div className="glass-card rounded-xl mb-6" style={{ padding: 16, border: '1px solid var(--border)' }}>
-            <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--text-primary)' }}>Risk Level Classification</h3>
+            <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--text-primary)' }}>การจำแนกระดับความเสี่ยง (Risk Level Classification)</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 8 }}>
               {[
-                { range: '1 ≤ RL ≤ 4', scale: 'Low', color: '#16a34a', bg: 'rgba(22,163,74,0.08)', action: 'Acceptable, review as part of risk management program.' },
-                { range: '5 ≤ RL ≤ 8', scale: 'Medium', color: '#eab308', bg: 'rgba(234,179,8,0.08)', action: 'Measures needed; progress should be monitored.' },
-                { range: '10 ≤ RL ≤ 30', scale: 'High', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', action: 'Immediate action required. Reduce via elimination/substitution/engineering.' },
-                { range: '32 ≤ RL ≤ 75', scale: 'Critical', color: '#dc2626', bg: 'rgba(220,38,38,0.08)', action: 'STOP activities until adequate measures taken.' },
+                { range: '1 ≤ RL ≤ 4', scale: 'ต่ำ (Low)', color: '#16a34a', bg: 'rgba(22,163,74,0.08)', action: 'ยอมรับได้ ทบทวนตามแผนจัดการความเสี่ยง' },
+                { range: '5 ≤ RL ≤ 8', scale: 'ปานกลาง (Medium)', color: '#eab308', bg: 'rgba(234,179,8,0.08)', action: 'ต้องมีมาตรการ ติดตามความคืบหน้า' },
+                { range: '10 ≤ RL ≤ 30', scale: 'สูง (High)', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', action: 'ต้องดำเนินการทันที ลดด้วยการกำจัด/ทดแทน/วิศวกรรม' },
+                { range: '32 ≤ RL ≤ 75', scale: 'วิกฤต (Critical)', color: '#dc2626', bg: 'rgba(220,38,38,0.08)', action: 'หยุดงานจนกว่าจะมีมาตรการเพียงพอ' },
               ].map((level, i) => (
                 <div key={i} className="rounded-lg" style={{ padding: '10px 14px', background: level.bg, border: `1px solid ${level.color}20` }}>
                   <div className="flex items-center gap-2 mb-1">
@@ -360,11 +360,11 @@ export default function RiskRegisterPage() {
                   className="rounded-lg text-sm appearance-none"
                   style={{ padding: '10px 32px 10px 14px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                 >
-                  <option value="all">ทุก Risk Level</option>
-                  <option value="Critical">Critical</option>
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
+                  <option value="all">ทุกระดับความเสี่ยง</option>
+                  <option value="Critical">วิกฤต (Critical)</option>
+                  <option value="High">สูง (High)</option>
+                  <option value="Medium">ปานกลาง (Medium)</option>
+                  <option value="Low">ต่ำ (Low)</option>
                   <option value="N/A">ยังไม่ประเมิน</option>
                 </select>
                 <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--muted)' }} />
@@ -377,10 +377,10 @@ export default function RiskRegisterPage() {
                   style={{ padding: '10px 32px 10px 14px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
                 >
                   <option value="all">ทุกสถานะ</option>
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Outdated">Outdated</option>
+                  <option value="Pending">รอดำเนินการ (Pending)</option>
+                  <option value="In Progress">กำลังดำเนินการ (In Progress)</option>
+                  <option value="Completed">เสร็จสิ้น (Completed)</option>
+                  <option value="Outdated">หมดอายุ (Outdated)</option>
                 </select>
                 <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--muted)' }} />
               </div>
@@ -395,14 +395,14 @@ export default function RiskRegisterPage() {
               {totalTasks === 0 ? (
                 <>
                   <FileWarning size={40} style={{ color: 'var(--muted)', margin: '0 auto 12px' }} />
-                  <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>ยังไม่มี Task ในทะเบียนความเสี่ยง</p>
-                  <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>เริ่มต้นโดยการเพิ่ม Task ที่ต้องประเมินความเสี่ยง</p>
+                  <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>ยังไม่มีงานในทะเบียนความเสี่ยง</p>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>เริ่มต้นโดยการเพิ่มงานที่ต้องประเมินความเสี่ยง</p>
                   <button
                     onClick={() => setShowAddModal(true)}
                     className="inline-flex items-center gap-2 rounded-lg text-white text-sm font-semibold"
                     style={{ padding: '10px 24px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' }}
                   >
-                    <Plus size={16} /> เพิ่ม Task แรก
+                    <Plus size={16} /> เพิ่มงานแรก
                   </button>
                 </>
               ) : (
@@ -417,7 +417,7 @@ export default function RiskRegisterPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                    {['RA#', 'Department', 'ตำแหน่ง', 'Task', 'Risk Level', 'Scale', 'สถานะ', 'Hazards', 'ผู้รับผิดชอบ', 'อัปเดต', ''].map((h, i) => (
+                    {['RA#', 'แผนก', 'ตำแหน่ง', 'ชื่องาน', 'RL', 'ระดับ', 'สถานะ', 'อันตราย', 'ผู้รับผิดชอบ', 'อัปเดต', ''].map((h, i) => (
                       <th key={i} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -501,7 +501,7 @@ export default function RiskRegisterPage() {
                 style={{ background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' }}>
                 <div className="flex items-center gap-3">
                   <Plus size={20} className="text-white" />
-                  <h3 className="text-white font-bold text-lg">เพิ่ม Task ใหม่</h3>
+                  <h3 className="text-white font-bold text-lg">เพิ่มงานใหม่ (New Task)</h3>
                 </div>
                 <button onClick={() => setShowAddModal(false)} className="text-white/70 hover:text-white">
                   <X size={20} />
@@ -510,11 +510,11 @@ export default function RiskRegisterPage() {
               {/* Body */}
               <div className="px-6 py-5">
                 <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
-                  Step 1: กำหนดขอบเขตของ Task — ข้อมูลพื้นฐานที่ต้องระบุก่อนประเมินความเสี่ยง
+                  ขั้นตอนที่ 1: กำหนดขอบเขตของงาน — ข้อมูลพื้นฐานที่ต้องระบุก่อนประเมินความเสี่ยง
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Department / แผนก *</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>แผนก (Department) *</label>
                     <input
                       placeholder="เช่น Pouch Making"
                       value={newTask.department}
@@ -523,7 +523,7 @@ export default function RiskRegisterPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Working Area / พื้นที่</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>พื้นที่ (Working Area)</label>
                     <input
                       placeholder="เช่น Production Floor"
                       value={newTask.working_area}
@@ -532,7 +532,7 @@ export default function RiskRegisterPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Work Position / ตำแหน่ง</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>ตำแหน่งงาน (Work Position)</label>
                     <input
                       placeholder="เช่น Technician"
                       value={newTask.work_position}
@@ -541,7 +541,7 @@ export default function RiskRegisterPage() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Process Stage / ขั้นตอน</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>ขั้นตอน (Process Stage)</label>
                     <input
                       placeholder="เช่น Material handling"
                       value={newTask.process_stage}
@@ -584,7 +584,7 @@ export default function RiskRegisterPage() {
                     className="rounded-lg text-sm font-semibold text-white flex items-center gap-2"
                     style={{ padding: '9px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', opacity: saving || !newTask.task_name.trim() ? 0.6 : 1 }}
                   >
-                    <Plus size={14} /> {saving ? 'กำลังบันทึก...' : 'เพิ่ม Task'}
+                    <Plus size={14} /> {saving ? 'กำลังบันทึก...' : 'เพิ่มงาน'}
                   </button>
                 </div>
               </div>
