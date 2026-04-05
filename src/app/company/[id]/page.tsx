@@ -84,7 +84,7 @@ export default function CompanyDashboard() {
         const s = (d.settings || [])[0];
         if (s) { setDbSheetId(s.sheet_id || ''); setDbCompanyName(s.company_name || ''); }
       }).catch(() => {}),
-      fetch(`/api/training/plans?companyId=${id}&year=${year}`).then(r => r.json()).then(d => {
+      fetch(`/api/training/plans?companyId=${id}&year=${year}&mode=dashboard`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setTrainingPlans(d);
       }).catch(() => {}),
       fetch(`/api/incidents?companyId=${id}&year=${year}&mode=summary`).then(r => r.json()).then(d => {

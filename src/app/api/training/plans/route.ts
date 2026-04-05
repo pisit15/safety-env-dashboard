@@ -18,13 +18,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
   }
 
-  let query = getSupabase()
-    .from('training_plans')
-    .select('*, training_sessions(*, training_attendees(count))')
-    .eq('company_id', companyId)
-    .eq('year', parseInt(year))
-    .order('planned_month', { ascending: true })
-    .order('course_no', { ascending: true });
+  const mode = searchParams.get('mode'); // 'dashboard' = lightweight
+
+  const supabase = getSupabase();
+  let query;
+
+  if (mode === 'dashboard') {
+    // Lightweight: only fields the company dashboard needs (no attendee counts)
+    query = supabase
+      .from('training_plans')
+      .select('id, course_name, planned_month, training_sessions(status)')
+      .eq('company_id', companyId)
+      .eq('year', parseInt(year))
+      .order('planned_month', { ascending: true });
+  } else {
+    // Full: includes sessions + attendee counts (for training detail page)
+    query = supabase
+      .from('training_plans')
+      .select('*, training_sessions(*, training_attendees(count))')
+      .eq('company_id', companyId)
+      .eq('year', parseInt(year))
+      .order('planned_month', { ascending: true })
+      .order('course_no', { ascending: true });
+  }
 
   const { data, error } = await query;
 
