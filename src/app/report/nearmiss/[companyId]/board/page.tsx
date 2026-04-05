@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
-import { RefreshCw, Loader2, AlertTriangle, Link2, ClipboardList } from 'lucide-react';
+import { RefreshCw, Loader2, AlertTriangle, Link2, ClipboardList, BookOpen } from 'lucide-react';
 
 // ── Status config (5-step) ──
 const STATUS = {
@@ -129,6 +129,10 @@ export default function EmployeeBoardPage() {
               <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: '#007aff', fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }}>
                 <ClipboardList size={14} /> รายงาน Near Miss
+              </button>
+              <button onClick={() => window.open(`/report/nearmiss/${companyId}/handbook`, '_blank')}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#6366f1', cursor: 'pointer' }}>
+                <BookOpen size={13} /> คู่มือ
               </button>
               <button onClick={copyLink}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>

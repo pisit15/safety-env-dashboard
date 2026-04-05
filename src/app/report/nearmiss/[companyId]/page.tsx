@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
-import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus } from 'lucide-react';
+import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus, BookOpen } from 'lucide-react';
 
 // ── Risk matrix helpers
 const riskScore = (p: number, s: number) => p * s;
@@ -208,6 +208,16 @@ export default function NearMissReportPage() {
         <div style={{ fontSize: 28, marginBottom: 8 }}>⚠️</div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>รายงาน Near Miss</h1>
         <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>{company.name}</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+          <button onClick={() => window.open(`/report/nearmiss/${companyId}/handbook`, '_blank')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#6366f1', cursor: 'pointer' }}>
+            <BookOpen size={13} /> คู่มือ Near Miss
+          </button>
+          <button onClick={() => window.open(`/report/nearmiss/${companyId}/board`, '_blank')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+            📋 ดู Board
+          </button>
+        </div>
       </div>
 
       {/* Progress bar */}
