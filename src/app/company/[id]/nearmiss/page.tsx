@@ -8,7 +8,7 @@ import { COMPANIES } from '@/lib/companies';
 import {
   AlertTriangle, ExternalLink,
   RefreshCw, X, Save, Loader2, Search, QrCode, ChevronRight,
-  User, FileText, Image as ImageIcon, Settings, EyeOff, Eye, Trash2,
+  User, Users, FileText, Image as ImageIcon, Settings, EyeOff, Eye, Trash2,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -255,17 +255,79 @@ export default function NearMissCoordinatorPage() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-          <div style={{ textAlign: 'center', maxWidth: 320, padding: 32 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>🔒</div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>กรุณาเข้าสู่ระบบ</h2>
-            {company && <p style={{ fontSize: 13, fontWeight: 600, color: '#007aff', margin: '0 0 8px' }}>{company.fullName || company.name}</p>}
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 24px' }}>ต้องเข้าสู่ระบบก่อนจึงจะดูและจัดการรายงาน Near Miss ได้</p>
-            <button
-              onClick={() => { const el = document.querySelector('[data-login-btn]') as HTMLButtonElement; el?.click(); }}
-              style={{ padding: '11px 28px', borderRadius: 10, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              เข้าสู่ระบบ
-            </button>
+        <main style={{ flex: 1, background: 'var(--bg-primary)', padding: '32px 24px' }}>
+          <div style={{ maxWidth: 560, margin: '0 auto' }}>
+            {/* Public Quick Links — accessible without login */}
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>Near Miss Report</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 32 }}>
+              {/* Card: Report Near Miss */}
+              <a
+                href={`/report/nearmiss/${companyId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 16,
+                  background: 'var(--card-solid)', border: '1px solid var(--border)',
+                  textDecoration: 'none', transition: 'box-shadow 0.2s',
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                }}>
+                  <FileText size={22} color="#fff" />
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>รายงาน Near Miss</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>แจ้งเหตุการณ์เกือบเกิดอุบัติเหตุ สำหรับพนักงานทุกคน ไม่ต้องเข้าสู่ระบบ</p>
+                </div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#ef4444' }}>
+                  <ExternalLink size={11} /> เปิดแบบฟอร์มรายงาน
+                </span>
+              </a>
+
+              {/* Card: Employee Board */}
+              <a
+                href={boardUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: 10, padding: 20, borderRadius: 16,
+                  background: 'var(--card-solid)', border: '1px solid var(--border)',
+                  textDecoration: 'none', transition: 'box-shadow 0.2s',
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                }}>
+                  <Users size={22} color="#fff" />
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>Employee Near Miss Board</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>ดูสถิติและรายงาน Near Miss ของพนักงาน ไม่ต้องเข้าสู่ระบบ</p>
+                </div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#10b981' }}>
+                  <ExternalLink size={11} /> เปิด Dashboard
+                </span>
+              </a>
+            </div>
+
+            {/* Login Section */}
+            <div style={{
+              textAlign: 'center', padding: 32, borderRadius: 16,
+              border: '2px dashed var(--border)', background: 'var(--bg-secondary)',
+            }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>🔒</div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>ระบบจัดการ Near Miss (Admin)</h3>
+              {company && <p style={{ fontSize: 12, fontWeight: 600, color: '#007aff', margin: '0 0 8px' }}>{company.fullName || company.name}</p>}
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 20px' }}>เข้าสู่ระบบเพื่อจัดการและวิเคราะห์ข้อมูล Near Miss</p>
+              <button
+                onClick={() => { const el = document.querySelector('[data-login-btn]') as HTMLButtonElement; el?.click(); }}
+                style={{ padding: '11px 28px', borderRadius: 10, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                เข้าสู่ระบบ
+              </button>
+            </div>
           </div>
         </main>
       </div>
