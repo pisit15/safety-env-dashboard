@@ -91,6 +91,10 @@ const FAQ_DATA = [
     a: 'Near Miss คือเหตุการณ์ที่เกือบจะเกิดการบาดเจ็บหรือความเสียหาย แต่ "โชคดี" ที่ไม่เกิดขึ้น ขณะที่อุบัติเหตุ (Accident) คือเหตุการณ์ที่ส่งผลให้เกิดการบาดเจ็บ เจ็บป่วย หรือความเสียหายต่อทรัพย์สินจริง สาเหตุพื้นฐานของทั้งสองมักเหมือนกัน',
   },
   {
+    q: 'เห็นพื้นเปียกลื่นไม่มีป้ายเตือน ถือเป็น Near Miss ไหม?',
+    a: 'ยังไม่ใช่ Near Miss ครับ — "พื้นเปียกไม่มีป้ายเตือน" เป็น Unsafe Condition (สภาพไม่ปลอดภัย) จะกลายเป็น Near Miss ต่อเมื่อมี "เหตุการณ์" เกิดขึ้น เช่น มีคนเดินผ่านแล้วลื่นเกือบล้มแต่ทรงตัวได้ทัน อย่างไรก็ตาม พบ Unsafe Condition ก็ควรรายงานเช่นกัน อย่ารอให้มีคนเกือบเจ็บก่อน',
+  },
+  {
     q: 'ใครมีหน้าที่รายงาน Near Miss?',
     a: 'พนักงานทุกคนมีหน้าที่รายงาน Near Miss เมื่อพบเห็น ไม่ว่าจะเป็นพนักงานประจำ พนักงานชั่วคราว หรือผู้รับเหมา การรายงานไม่ได้จำกัดเฉพาะเจ้าหน้าที่ความปลอดภัยเท่านั้น',
   },
@@ -118,11 +122,11 @@ const FAQ_DATA = [
 
 /* ── Near Miss Examples ── */
 const NM_EXAMPLES = [
-  { category: 'การกระทำที่ไม่ปลอดภัย (Unsafe Acts)', examples: ['จอดรถชิดทางเดินคนเดินเกินไป', 'ยกของหนักโดยไม่ใช้อุปกรณ์ช่วยยก', 'ปีนบันไดโดยไม่มีผู้ช่วย'], color: '#ef4444', bg: 'rgba(239,68,68,0.06)' },
-  { category: 'สภาพที่ไม่ปลอดภัย (Unsafe Conditions)', examples: ['พื้นเปียกลื่นไม่มีป้ายเตือน', 'แสงสว่างไม่เพียงพอในเส้นทางอพยพ', 'ราวกันตกชำรุดแต่ยังไม่ซ่อม'], color: '#f97316', bg: 'rgba(249,115,22,0.06)' },
-  { category: 'ความผิดพลาดของกระบวนการ (Process Failures)', examples: ['ลืมปิดวาล์วหลังเสร็จงาน', 'ข้ามขั้นตอน Lockout/Tagout', 'ใช้เครื่องมือผิดประเภทกับงาน'], color: '#8b5cf6', bg: 'rgba(139,92,246,0.06)' },
-  { category: 'เหตุการณ์อันตราย (Dangerous Occurrences)', examples: ['ของตกจากที่สูงแต่ไม่มีคนอยู่ด้านล่าง', 'ไฟฟ้าลัดวงจรแต่ยังไม่เกิดไฟไหม้', 'สารเคมีรั่วซึมเล็กน้อยที่ข้อต่อท่อ'], color: '#3b82f6', bg: 'rgba(59,130,246,0.06)' },
-  { category: 'อันตรายแอบแฝง (Hidden Hazards)', examples: ['สายไฟเก่าเริ่มลอก แต่ยังมีกระแสไฟ', 'เครื่องจักรส่งเสียงผิดปกติ', 'ท่อลมอัดมีรอยบวมแต่ยังไม่แตก'], color: '#059669', bg: 'rgba(5,150,105,0.06)' },
+  { category: 'เหตุการณ์จากการกระทำที่ไม่ปลอดภัย (Unsafe Acts → Near Miss)', examples: ['คนขับรถโฟล์คลิฟท์เลี้ยวเร็วเกินไป เกือบชนคนเดินข้ามทาง', 'ยกของหนักด้วยมือโดยไม่ใช้อุปกรณ์ ของเกือบหล่นทับเท้า', 'ปีนบันไดโดยไม่มีผู้จับ บันไดเอียงเกือบล้ม แต่จับราวไว้ทัน'], color: '#ef4444', bg: 'rgba(239,68,68,0.06)' },
+  { category: 'เหตุการณ์จากสภาพไม่ปลอดภัย (Unsafe Condition → Near Miss)', examples: ['พื้นเปียกลื่น มีพนักงานเดินผ่านแล้วลื่นเกือบล้ม แต่ทรงตัวได้', 'แสงสว่างไม่พอ มีคนสะดุดสิ่งกีดขวางเกือบล้ม', 'ราวกันตกหัก มีคนพิงแล้วเกือบตกแต่ดึงตัวกลับทัน'], color: '#f97316', bg: 'rgba(249,115,22,0.06)' },
+  { category: 'ความผิดพลาดของกระบวนการ (Process Failures)', examples: ['ลืมปิดวาล์วหลังเสร็จงาน แรงดันเพิ่มขึ้นเกือบระเบิดแต่ระบบนิรภัยตัดก่อน', 'ข้ามขั้นตอน Lockout/Tagout เครื่องจักรเกือบหมุนขณะมีคนซ่อม', 'ใช้เครื่องมือผิดประเภท ชิ้นงานหลุดเกือบกระเด็นโดนคน'], color: '#8b5cf6', bg: 'rgba(139,92,246,0.06)' },
+  { category: 'เหตุการณ์อันตราย (Dangerous Occurrences)', examples: ['ของตกจากที่สูงกระแทกพื้นแต่ไม่มีคนอยู่ตรงนั้น', 'ไฟฟ้าลัดวงจรมีประกายไฟแต่ดับเองก่อนลุกลาม', 'สารเคมีรั่วซึมจากท่อ แต่ถูกพบและปิดกั้นก่อนใครสัมผัส'], color: '#3b82f6', bg: 'rgba(59,130,246,0.06)' },
+  { category: 'พฤติกรรมเสี่ยง (Non-Conformance / At-Risk Behavior)', examples: ['ทำงานโดยไม่สวม PPE ที่กำหนด เกือบโดนเศษชิ้นงานกระเด็นเข้าตา', 'ทำงานบนที่สูงโดยไม่คาดเข็มขัดนิรภัย เกือบเสียหลัก', 'ใช้โทรศัพท์ขณะขับรถในโรงงาน เกือบชนเสาแต่เบรกทัน'], color: '#059669', bg: 'rgba(5,150,105,0.06)' },
 ];
 
 /* ── Risk Matrix data ── */
@@ -263,6 +267,80 @@ export default function NearMissHandbookPage() {
                 โอกาสในการเรียนรู้ที่ &quot;ไม่ต้องจ่ายด้วยการบาดเจ็บ&quot;
               </p>
             </div>
+
+            {/* ── Near Miss vs Unsafe Condition vs Hazard ── */}
+            <div style={{ background: '#fffbeb', border: '2px solid #f59e0b', borderRadius: 14, padding: '20px', marginTop: 16 }}>
+              <p style={{ fontSize: 15, fontWeight: 800, color: '#92400e', margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                ⚠️ Near Miss ≠ สภาพไม่ปลอดภัย — อย่าสับสน!
+              </p>
+              <p style={{ ...bodyText, marginBottom: 16 }}>
+                พนักงานหลายคนมักสับสนระหว่าง 3 คำนี้ ซึ่งมีความหมายแตกต่างกัน:
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Hazard */}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(234,179,8,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🔶</div>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#92400e', margin: '0 0 4px' }}>Hazard / อันตรายแอบแฝง</p>
+                    <p style={{ fontSize: 13, color: '#374151', margin: '0 0 6px', lineHeight: 1.6 }}>
+                      สิ่งที่มีศักยภาพก่อให้เกิดอันตรายซึ่ง <strong>&quot;มีอยู่แล้ว&quot;</strong> ในสภาพแวดล้อม ยังไม่มีเหตุการณ์เกิดขึ้น
+                    </p>
+                    <p style={{ fontSize: 12, color: '#6b7280', margin: 0, fontStyle: 'italic' }}>
+                      ตัวอย่าง: สายไฟชำรุดที่ยังไม่มีใครสัมผัส, บันไดผุแต่ยังไม่มีใครใช้, สารเคมีเก็บผิดที่แต่ยังไม่มีใครเปิด
+                    </p>
+                  </div>
+                </div>
+
+                {/* Unsafe Condition */}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(249,115,22,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🟠</div>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#c2410c', margin: '0 0 4px' }}>Unsafe Condition / สภาพการณ์ที่ไม่ปลอดภัย</p>
+                    <p style={{ fontSize: 13, color: '#374151', margin: '0 0 6px', lineHeight: 1.6 }}>
+                      <strong>&quot;สถานะ&quot;</strong> ของสภาพแวดล้อมที่เบี่ยงเบนไปจากมาตรฐานความปลอดภัย เป็นเงื่อนไขที่อาจนำไปสู่อุบัติเหตุ
+                      แต่ยังไม่มี &quot;เหตุการณ์&quot; ที่เกือบทำให้เกิดอันตรายเกิดขึ้น
+                    </p>
+                    <p style={{ fontSize: 12, color: '#6b7280', margin: 0, fontStyle: 'italic' }}>
+                      ตัวอย่าง: พื้นเปียกลื่นไม่มีป้ายเตือน (แต่ยังไม่มีใครลื่น), ราวกันตกหัก (แต่ยังไม่มีใครเดินมา), แสงสว่างไม่พอ (แต่ยังไม่มีใครสะดุด)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Near Miss */}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', background: 'rgba(99,102,241,0.06)', borderRadius: 12, border: '2px solid #6366f1' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(99,102,241,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🔴</div>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#4338ca', margin: '0 0 4px' }}>Near Miss / เหตุการณ์เฉียดอันตราย ✅</p>
+                    <p style={{ fontSize: 13, color: '#374151', margin: '0 0 6px', lineHeight: 1.6 }}>
+                      ต้องมี <strong>&quot;เหตุการณ์&quot; เกิดขึ้นจริง</strong> — มีลำดับเหตุการณ์ (sequence of events) ที่กำลังพัฒนาไปสู่อันตราย
+                      แต่ถูกหยุดยั้งก่อนจะเกิดการบาดเจ็บหรือความเสียหาย ไม่ว่าจะด้วยโชค หรือการแก้ไขของคนหรือระบบ
+                    </p>
+                    <p style={{ fontSize: 12, color: '#6b7280', margin: 0, fontStyle: 'italic' }}>
+                      ตัวอย่าง: พื้นเปียก + <strong>มีคนลื่นเกือบล้ม</strong>แต่ทรงตัวได้, ของตกจากที่สูง + <strong>ตกลงมาถึงพื้น</strong>แต่ไม่มีคนอยู่ตรงนั้น, รถโฟล์คลิฟท์ <strong>เกือบชนคนเดินข้ามทาง</strong>แต่เบรกทัน
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visual flow */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18, flexWrap: 'wrap' }}>
+                <div style={{ padding: '8px 14px', borderRadius: 8, background: '#fef3c7', fontSize: 12, fontWeight: 700, color: '#92400e' }}>Hazard (สิ่งอันตราย)</div>
+                <span style={{ fontSize: 18, color: '#9ca3af' }}>→</span>
+                <div style={{ padding: '8px 14px', borderRadius: 8, background: '#ffedd5', fontSize: 12, fontWeight: 700, color: '#c2410c' }}>Unsafe Condition (สภาพไม่ปลอดภัย)</div>
+                <span style={{ fontSize: 18, color: '#9ca3af' }}>→</span>
+                <div style={{ padding: '8px 14px', borderRadius: 8, background: '#e0e7ff', fontSize: 12, fontWeight: 700, color: '#4338ca', border: '2px solid #6366f1' }}>Near Miss (เกือบเกิดเหตุ)</div>
+                <span style={{ fontSize: 18, color: '#9ca3af' }}>→</span>
+                <div style={{ padding: '8px 14px', borderRadius: 8, background: '#fef2f2', fontSize: 12, fontWeight: 700, color: '#dc2626' }}>Accident (อุบัติเหตุ)</div>
+              </div>
+
+              <div style={{ marginTop: 14, padding: '12px 16px', background: 'rgba(99,102,241,0.08)', borderRadius: 10 }}>
+                <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.7 }}>
+                  <strong>🔑 จำง่ายๆ:</strong> Near Miss ต้องมี <strong>&quot;เหตุการณ์&quot;</strong> เกิดขึ้น ไม่ใช่แค่ &quot;สภาพ&quot; ที่มีอยู่
+                  — แต่ถ้าพบ Unsafe Condition ก็ควรรายงานเช่นกัน เพราะรอไว้อาจกลายเป็น Near Miss หรืออุบัติเหตุได้
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* ═══════════════════════════════════════════════════════
@@ -323,28 +401,39 @@ export default function NearMissHandbookPage() {
               </div>
             ))}
 
-            {/* ── What is / is NOT Near Miss ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
+            {/* ── What is / is NOT Near Miss — 3 columns ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 18 }}>
               <div style={{ borderRadius: 12, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.04)', padding: 16 }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: '#ef4444', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <XCircle size={16} /> ไม่ใช่ Near Miss
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: '#6b7280' }}>
-                  <span>• มีผู้บาดเจ็บจริง (แม้เพียงเล็กน้อย)</span>
-                  <span>• ทรัพย์สินเสียหายจริง</span>
-                  <span>• สภาพปกติที่ไม่มีความเสี่ยง</span>
+                  <span>• มีผู้บาดเจ็บจริง → เป็น <strong>อุบัติเหตุ</strong></span>
+                  <span>• ทรัพย์สินเสียหายจริง → เป็น <strong>อุบัติเหตุ</strong></span>
+                  <span>• สภาพปกติ ไม่มีความเสี่ยง</span>
                   <span>• ข้อร้องเรียนทั่วไปที่ไม่เกี่ยวกับความปลอดภัย</span>
                 </div>
               </div>
-              <div style={{ borderRadius: 12, border: '1px solid rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.04)', padding: 16 }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CheckCircle size={16} /> ใช่ Near Miss
+              <div style={{ borderRadius: 12, border: '1px solid rgba(249,115,22,0.2)', background: 'rgba(249,115,22,0.04)', padding: 16 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#f97316', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <AlertTriangle size={16} /> ไม่ใช่ Near Miss แต่ควรรายงาน
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: '#6b7280' }}>
-                  <span>• เกือบเกิดอุบัติเหตุแต่ไม่เกิดจริง</span>
-                  <span>• เห็นสภาพอันตรายที่อาจก่อเหตุ</span>
-                  <span>• อุปกรณ์ทำงานผิดปกติแต่ยังไม่พัง</span>
-                  <span>• ไม่ปฏิบัติตามขั้นตอนแต่ยังไม่เกิดเหตุ</span>
+                  <span>• พบสภาพไม่ปลอดภัยแต่ <strong>ยังไม่มีเหตุการณ์เกิดขึ้น</strong></span>
+                  <span>• อุปกรณ์ชำรุดแต่ยังไม่มีใครใช้</span>
+                  <span>• ป้ายเตือนหายไปแต่ยังไม่มีคนเข้าพื้นที่</span>
+                  <span style={{ fontSize: 12, fontStyle: 'italic', color: '#f97316' }}>→ จัดเป็น Unsafe Condition / Hazard</span>
+                </div>
+              </div>
+              <div style={{ borderRadius: 12, border: '2px solid rgba(34,197,94,0.4)', background: 'rgba(34,197,94,0.04)', padding: 16 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#22c55e', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CheckCircle size={16} /> ใช่ Near Miss ✅
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: '#6b7280' }}>
+                  <span>• มี<strong>เหตุการณ์เกิดขึ้นจริง</strong>แต่ไม่เกิดอันตราย</span>
+                  <span>• ของตก/หล่น/ลื่น/เฉี่ยว แต่ไม่โดนคน</span>
+                  <span>• มีคนเกือบได้รับอันตรายแต่รอดมาได้</span>
+                  <span>• ระบบ/อุปกรณ์ทำงานผิดพลาดขณะใช้งาน แต่ยังไม่เกิดความเสียหาย</span>
                 </div>
               </div>
             </div>
