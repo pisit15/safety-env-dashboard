@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import {
   Shield,
+  Leaf,
   ClipboardList,
   GraduationCap,
   AlertTriangle,
@@ -19,24 +20,76 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Users,
   LogOut,
   Home,
   Clock,
   FolderKanban,
+  type LucideIcon,
 } from 'lucide-react';
 
-// ready: true = all companies, 'hasSheet' = only with Google Sheet, false = not yet
-const PROJECTS = [
-  { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' as const },
-  { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training', ready: true as const },
-  { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true as const },
-  { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: true as const },
-  { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, hqHref: '', companyPath: '/manhours', ready: 'companyOnly' as const },
-  { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' as const },
-  { id: 'nearmiss', label: 'Near Miss Report', icon: FileText, hqHref: '/admin/nearmiss', companyPath: '/nearmiss', ready: true as const },
-  { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false as const },
-  { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false as const },
+// ── Menu item type ──────────────────────────────────────────────
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  hqHref: string;          // HQ-level path (empty = companyOnly)
+  companyPath: string;      // appended to /company/{id}
+  ready: true | false | 'hasSheet' | 'companyOnly';
+}
+
+// ── Grouped menu structure ──────────────────────────────────────
+interface MenuGroup {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  color: string;            // accent color for the group header
+  defaultOpen: boolean;
+  items: MenuItem[];
+}
+
+const MENU_GROUPS: MenuGroup[] = [
+  {
+    id: 'general',
+    label: 'ทั่วไป',
+    icon: Home,
+    color: 'var(--text-secondary)',
+    defaultOpen: true,
+    items: [
+      { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true },
+      { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, hqHref: '', companyPath: '/manhours', ready: 'companyOnly' },
+      { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' },
+    ],
+  },
+  {
+    id: 'safety',
+    label: 'Safety',
+    icon: Shield,
+    color: '#ff6b35',
+    defaultOpen: true,
+    items: [
+      { id: 'action-plan', label: 'แผนงาน Safety', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' },
+      { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, hqHref: '/training', companyPath: '/training', ready: true },
+      { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: true },
+      { id: 'nearmiss', label: 'Near Miss', icon: FileText, hqHref: '/admin/nearmiss', companyPath: '/nearmiss', ready: true },
+      { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false },
+      { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false },
+    ],
+  },
+  {
+    id: 'environment',
+    label: 'Environment',
+    icon: Leaf,
+    color: '#34c759',
+    defaultOpen: true,
+    items: [
+      { id: 'action-plan-env', label: 'แผนงาน Environment', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan?plan=environment', ready: 'hasSheet' },
+      // Future items:
+      // { id: 'env-audit', label: 'ตรวจสอบสิ่งแวดล้อม', icon: Search, hqHref: '', companyPath: '/env-audit', ready: false },
+      // { id: 'env-compliance', label: 'ใบอนุญาต / Compliance', icon: FileText, hqHref: '', companyPath: '/env-compliance', ready: false },
+    ],
+  },
 ];
 
 export default function Sidebar() {
@@ -68,6 +121,22 @@ export default function Sidebar() {
       .catch(() => {});
   }, []);
 
+  // Group collapse state — persisted in localStorage
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_collapsed_groups');
+      if (saved) setCollapsedGroups(JSON.parse(saved));
+    } catch {}
+  }, []);
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups(prev => {
+      const next = { ...prev, [groupId]: !prev[groupId] };
+      try { localStorage.setItem('sidebar_collapsed_groups', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
   // Determine which companies the user has access to
   const loggedInCompanyIds = Object.keys(auth.companyAuth);
 
@@ -79,6 +148,56 @@ export default function Sidebar() {
   const isAnyAuth = auth.isAdmin || loggedInCompanyIds.length > 0;
   const displayName = auth.isAdmin ? auth.adminName : (loggedInCompanyIds.length > 0 ? auth.companyAuth[loggedInCompanyIds[0]]?.displayName : '');
   const displayRole = auth.isAdmin ? 'Admin' : (loggedInCompanyIds.length > 0 ? auth.companyAuth[loggedInCompanyIds[0]]?.companyName : '');
+
+  // Helper: resolve menu item → href, isActive, isReady
+  const resolveItem = (item: MenuItem) => {
+    const companyForLinks = auth.isAdmin ? null : (currentCompanyId || loggedInCompanyIds[0]);
+    const currentCompany = companyForLinks ? COMPANIES.find(c => c.id === companyForLinks) : null;
+
+    const isCompanyOnly = item.ready === 'companyOnly';
+    const isReady = isCompanyOnly
+      ? !!currentCompanyId
+      : auth.isAdmin
+        ? true
+        : item.ready === 'hasSheet' ? !!(currentCompany?.sheetId || (companyForLinks && dbSheetMap[companyForLinks])) : item.ready;
+
+    // Skip companyOnly items when admin is on HQ page
+    const hidden = isCompanyOnly && !currentCompanyId;
+
+    // Build href — strip query params for path matching
+    const companyPathBase = item.companyPath.split('?')[0];
+    const href = isReady
+      ? (isCompanyOnly
+        ? `/company/${currentCompanyId}${item.companyPath}`
+        : auth.isAdmin ? (item.hqHref || '#') : companyForLinks ? `/company/${companyForLinks}${item.companyPath}` : '#')
+      : '#';
+
+    const isActive = isCompanyOnly
+      ? pathname === `/company/${currentCompanyId}${companyPathBase}`
+      : auth.isAdmin
+        ? (item.hqHref ? (pathname === item.hqHref || pathname.startsWith(item.hqHref + '/')) : false)
+        : companyForLinks ? pathname === `/company/${companyForLinks}${companyPathBase}` : false;
+
+    return { href, isActive, isReady: !!isReady, hidden };
+  };
+
+  // Check if any item in a group is active (to auto-highlight group header)
+  const isGroupActive = (group: MenuGroup) => {
+    return group.items.some(item => {
+      const { isActive } = resolveItem(item);
+      return isActive;
+    });
+  };
+
+  // Check if group has any visible items
+  const hasVisibleItems = (group: MenuGroup) => {
+    return group.items.some(item => {
+      const { hidden, isReady } = resolveItem(item);
+      return !hidden;
+    });
+  };
+
+  const showMenus = auth.isAdmin || loggedInCompanyIds.length > 0 || currentCompanyId;
 
   return (
     <aside
@@ -116,10 +235,10 @@ export default function Sidebar() {
       {/* Divider */}
       <div className="mx-4 h-px" style={{ background: 'var(--border)' }} />
 
-      {/* Projects navigation */}
+      {/* Navigation */}
       <div className="flex-1 overflow-y-auto px-3 pt-4">
         {/* Home link — always visible */}
-        <div className="mb-2">
+        <div className="mb-3">
           <Link href={currentCompanyId ? `/company/${currentCompanyId}` : '/'}>
             <div
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
@@ -135,72 +254,76 @@ export default function Sidebar() {
           </Link>
         </div>
 
-        {/* Project menus — visible when on a company page or logged in */}
-        {(auth.isAdmin || loggedInCompanyIds.length > 0 || currentCompanyId) && (
-          <>
-            <p className={`text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2 ${collapsed ? 'hidden' : ''}`}
-              style={{ color: 'var(--muted)' }}>
-              {auth.isAdmin ? 'HQ Overview' : 'เมนู'}
-            </p>
-            <div className="space-y-0.5">
-              {PROJECTS.map((p) => {
-                // Determine the link target
-                const companyForLinks = auth.isAdmin ? null : (currentCompanyId || loggedInCompanyIds[0]);
-                const currentCompany = companyForLinks ? COMPANIES.find(c => c.id === companyForLinks) : null;
+        {/* Grouped menus */}
+        {showMenus && MENU_GROUPS.map(group => {
+          if (!hasVisibleItems(group)) return null;
+          const groupActive = isGroupActive(group);
+          const isOpen = !collapsedGroups[group.id];
+          const GroupIcon = group.icon;
 
-                // Resolve ready state for this company
-                const isCompanyOnly = (p.ready as string) === 'companyOnly';
-                const isReady = isCompanyOnly
-                  ? !!currentCompanyId // Only show on company pages
-                  : auth.isAdmin
-                    ? true // Admin always sees all HQ links
-                    : p.ready === 'hasSheet' ? !!(currentCompany?.sheetId || (companyForLinks && dbSheetMap[companyForLinks])) : p.ready;
+          return (
+            <div key={group.id} className="mb-1">
+              {/* Group header — clickable to collapse/expand */}
+              {!collapsed ? (
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.08em] font-bold transition-colors"
+                  style={{ color: groupActive ? group.color : 'var(--muted)' }}
+                >
+                  <GroupIcon size={13} strokeWidth={2.2} />
+                  <span className="flex-1 text-left">{group.label}</span>
+                  <ChevronDown
+                    size={12}
+                    className="transition-transform duration-200"
+                    style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                  />
+                </button>
+              ) : (
+                <div className="flex justify-center py-1.5 mb-0.5" title={group.label}>
+                  <GroupIcon size={14} style={{ color: groupActive ? group.color : 'var(--muted)' }} />
+                </div>
+              )}
 
-                // Skip companyOnly items when admin is on HQ page (no currentCompanyId)
-                if (isCompanyOnly && !currentCompanyId) return null;
+              {/* Group items */}
+              {(isOpen || collapsed) && (
+                <div className={`space-y-0.5 ${!collapsed ? 'ml-1' : ''}`}>
+                  {group.items.map(item => {
+                    const { href, isActive, isReady, hidden } = resolveItem(item);
+                    if (hidden) return null;
+                    const Icon = item.icon;
 
-                const href = isReady
-                  ? (isCompanyOnly
-                    ? `/company/${currentCompanyId}${p.companyPath}`
-                    : auth.isAdmin ? p.hqHref : companyForLinks ? `/company/${companyForLinks}${p.companyPath}` : '#')
-                  : '#';
-                const isActive = isCompanyOnly
-                  ? pathname === `/company/${currentCompanyId}${p.companyPath}`
-                  : auth.isAdmin
-                    ? (pathname === p.hqHref || pathname.startsWith(p.hqHref + '/'))
-                    : companyForLinks ? pathname === `/company/${companyForLinks}${p.companyPath}` : false;
-                const Icon = p.icon;
+                    const content = (
+                      <div
+                        className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
+                        style={{
+                          color: !isReady ? 'var(--muted)' : isActive ? group.color : 'var(--text-secondary)',
+                          fontWeight: isActive ? 600 : 400,
+                          background: isActive ? `${group.color}12` : 'transparent',
+                          cursor: isReady ? 'pointer' : 'default',
+                          opacity: isReady ? 1 : 0.5,
+                        }}
+                      >
+                        <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
+                        {!collapsed && (
+                          <span className="truncate">{item.label}</span>
+                        )}
+                        {!collapsed && !isReady && (
+                          <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 'auto' }}>เร็วๆ นี้</span>
+                        )}
+                      </div>
+                    );
 
-                const content = (
-                  <div
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-200 ${collapsed ? 'justify-center' : ''}`}
-                    style={{
-                      color: !isReady ? 'var(--muted)' : isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                      fontWeight: isActive ? 600 : 400,
-                      background: isActive ? 'var(--accent-glow)' : 'transparent',
-                      cursor: isReady ? 'pointer' : 'default',
-                      opacity: isReady ? 1 : 0.5,
-                    }}
-                  >
-                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
-                    {!collapsed && (
-                      <span className="truncate">{p.label}</span>
-                    )}
-                    {!collapsed && !isReady && (
-                      <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 'auto' }}>เร็วๆ นี้</span>
-                    )}
-                  </div>
-                );
-
-                return isReady ? (
-                  <Link key={p.id} href={href}>{content}</Link>
-                ) : (
-                  <div key={p.id}>{content}</div>
-                );
-              })}
+                    return isReady ? (
+                      <Link key={item.id} href={href}>{content}</Link>
+                    ) : (
+                      <div key={item.id}>{content}</div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </>
-        )}
+          );
+        })}
 
         {/* HQ Overview link — visible when on a company page (for any logged-in user) */}
         {currentCompanyId && isAnyAuth && !collapsed && (
