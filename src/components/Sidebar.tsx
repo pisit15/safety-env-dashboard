@@ -115,6 +115,19 @@ export default function Sidebar() {
     setMobileOpen(false);
   }, [pathname]);
 
+  // On mobile: flip parent flex container to column so spacer pushes content down
+  useEffect(() => {
+    if (!isMobile) return;
+    const spacer = document.getElementById('sidebar-mobile-spacer');
+    const parent = spacer?.parentElement;
+    if (parent) {
+      parent.style.flexDirection = 'column';
+    }
+    return () => {
+      if (parent) parent.style.flexDirection = '';
+    };
+  }, [isMobile]);
+
   // Prevent body scroll when drawer is open
   useEffect(() => {
     if (mobileOpen) {
@@ -473,8 +486,8 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Spacer to push content below fixed bar */}
-        <div style={{ height: 56, flexShrink: 0 }} />
+        {/* Spacer to push content below fixed bar (parent is flipped to column via useEffect) */}
+        <div id="sidebar-mobile-spacer" style={{ height: 56, flexShrink: 0, width: '100%' }} />
 
         {/* Overlay */}
         {mobileOpen && (
