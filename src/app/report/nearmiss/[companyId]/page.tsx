@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { COMPANIES } from '@/lib/companies';
-import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus, BookOpen } from 'lucide-react';
-import DateInput from '@/components/DateInput';
+import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus, BookOpen, Clock, Phone } from 'lucide-react';
+import DateInput, { fmtDateDDMMMYY } from '@/components/DateInput';
 
 // ── Risk matrix helpers
 const riskScore = (p: number, s: number) => p * s;
@@ -87,7 +87,9 @@ export default function NearMissReportPage() {
   const [form, setForm] = useState({
     reporter_name: '',
     reporter_dept: '',
+    reporter_phone: '',
     incident_date: new Date().toISOString().slice(0, 10),
+    incident_time: '',
     location: '',
     incident_description: '',
     saving_factor: '',
@@ -193,7 +195,7 @@ export default function NearMissReportPage() {
           </button>
 
           <button
-            onClick={() => { setSubmitted(false); setStep(1); setImages([]); setForm({ reporter_name: '', reporter_dept: '', incident_date: new Date().toISOString().slice(0, 10), location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, notified_persons: '', suggested_action: '', _hp: '' }); startTime.current = Date.now(); }}
+            onClick={() => { setSubmitted(false); setStep(1); setImages([]); setForm({ reporter_name: '', reporter_dept: '', reporter_phone: '', incident_date: new Date().toISOString().slice(0, 10), incident_time: '', location: '', incident_description: '', saving_factor: '', probability: 0, severity: 0, notified_persons: '', suggested_action: '', _hp: '' }); startTime.current = Date.now(); }}
             style={{ ...primaryBtnStyle, background: 'transparent', border: '1.5px solid #e5e7eb', color: '#6b7280', width: '100%', justifyContent: 'center', display: 'flex' }}>
             รายงานอีกครั้ง
           </button>
@@ -222,26 +224,32 @@ export default function NearMissReportPage() {
       </div>
 
       {/* Progress bar */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-          {['ผู้รายงาน', 'เหตุการณ์', 'ปัจจัยที่ช่วย', 'ความเสี่ยง', 'แจ้งและแนะนำ'].map((label, i) => (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+      <div style={{ marginBottom: 28, maxWidth: 480, margin: '0 auto 28px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, position: 'relative' }}>
+          {/* Connector line behind circles */}
+          <div style={{ position: 'absolute', top: 15, left: '10%', right: '10%', height: 2, background: '#e5e7eb', zIndex: 0 }} />
+          <div style={{ position: 'absolute', top: 15, left: '10%', height: 2, background: '#007aff', zIndex: 0, transition: 'width 0.4s ease', width: `${((step - 1) / (TOTAL_STEPS - 1)) * 80}%` }} />
+          {['ผู้รายงาน', 'เหตุการณ์', 'ปัจจัย', 'ความเสี่ยง', 'แจ้งเตือน'].map((label, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, zIndex: 1 }}>
               <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: step > i + 1 ? '#22c55e' : step === i + 1 ? '#007aff' : '#e5e7eb',
+                width: 30, height: 30, borderRadius: '50%',
+                background: step > i + 1 ? '#22c55e' : step === i + 1 ? '#007aff' : '#fff',
                 color: step >= i + 1 ? '#fff' : '#9ca3af',
+                border: step <= i + 1 && step !== i + 1 ? '2px solid #d1d5db' : '2px solid transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 600, marginBottom: 4,
-                transition: 'background 0.3s',
+                fontSize: 12, fontWeight: 700, marginBottom: 6,
+                transition: 'all 0.3s',
+                boxShadow: step === i + 1 ? '0 0 0 4px rgba(0,122,255,0.15)' : 'none',
               }}>
                 {step > i + 1 ? '✓' : i + 1}
               </div>
-              <span style={{ fontSize: 10, color: step === i + 1 ? '#007aff' : '#9ca3af', fontWeight: step === i + 1 ? 600 : 400 }}>{label}</span>
+              <span style={{
+                fontSize: 11, fontWeight: step === i + 1 ? 700 : 500,
+                color: step > i + 1 ? '#22c55e' : step === i + 1 ? '#007aff' : '#9ca3af',
+                transition: 'color 0.3s',
+              }}>{label}</span>
             </div>
           ))}
-        </div>
-        <div style={{ height: 3, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${((step - 1) / (TOTAL_STEPS - 1)) * 100}%`, background: '#007aff', borderRadius: 2, transition: 'width 0.4s ease' }} />
         </div>
       </div>
 
@@ -260,23 +268,50 @@ export default function NearMissReportPage() {
                 autoFocus
               />
             </Field>
-            <Field label="แผนก / หน่วยงาน">
-              <input
-                style={inputStyle(false)}
-                placeholder="เช่น แผนกผลิต, แผนกซ่อมบำรุง"
-                value={form.reporter_dept}
-                onChange={e => set('reporter_dept', e.target.value)}
-              />
-            </Field>
-            <Field label="วันที่เกิดเหตุ *" error={errors.incident_date}>
-              <DateInput
-                value={form.incident_date}
-                onChange={v => set('incident_date', v)}
-                max={new Date().toISOString().slice(0, 10)}
-                inputStyle={inputStyle(!!errors.incident_date)}
-                error={!!errors.incident_date}
-              />
-            </Field>
+            <div className="grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="แผนก / หน่วยงาน">
+                <input
+                  style={inputStyle(false)}
+                  placeholder="เช่น แผนกผลิต"
+                  value={form.reporter_dept}
+                  onChange={e => set('reporter_dept', e.target.value)}
+                />
+              </Field>
+              <Field label="เบอร์โทรติดต่อ">
+                <div style={{ position: 'relative' }}>
+                  <Phone size={14} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  <input
+                    type="tel"
+                    style={{ ...inputStyle(false), paddingLeft: 34 }}
+                    placeholder="0xx-xxx-xxxx"
+                    value={form.reporter_phone}
+                    onChange={e => set('reporter_phone', e.target.value)}
+                  />
+                </div>
+              </Field>
+            </div>
+            <div className="grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="วันที่เกิดเหตุ *" error={errors.incident_date}>
+                <DateInput
+                  value={form.incident_date}
+                  onChange={v => set('incident_date', v)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  inputStyle={inputStyle(!!errors.incident_date)}
+                  error={!!errors.incident_date}
+                />
+              </Field>
+              <Field label="เวลาที่เกิดเหตุ (โดยประมาณ)">
+                <div style={{ position: 'relative' }}>
+                  <Clock size={14} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }} />
+                  <input
+                    type="time"
+                    style={{ ...inputStyle(false), paddingLeft: 34 }}
+                    value={form.incident_time}
+                    onChange={e => set('incident_time', e.target.value)}
+                  />
+                </div>
+              </Field>
+            </div>
             <Field label="สถานที่ / บริเวณ *" error={errors.location}>
               <input
                 style={inputStyle(!!errors.location)}
@@ -303,11 +338,12 @@ export default function NearMissReportPage() {
           <div>
             <StepHeader icon="📋" title="เกิดอะไรขึ้น" sub="Section B" />
             <Field label="อธิบายเหตุการณ์ที่เกิดขึ้น *" error={errors.incident_description}>
-              <textarea
+              <TextareaWithCount
                 style={{ ...inputStyle(!!errors.incident_description), minHeight: 140, resize: 'vertical' }}
                 placeholder="อธิบายสิ่งที่เกิดขึ้น เกิดขึ้นได้อย่างไร ใครเกี่ยวข้อง..."
                 value={form.incident_description}
                 onChange={e => set('incident_description', e.target.value)}
+                maxLength={1500}
                 autoFocus
               />
             </Field>
@@ -390,11 +426,12 @@ export default function NearMissReportPage() {
               อะไรที่ทำให้เหตุการณ์นี้ไม่กลายเป็นอุบัติเหตุจริง? เช่น อุปกรณ์ป้องกัน, การตอบสนองที่รวดเร็ว, สภาพแวดล้อม ฯลฯ
             </p>
             <Field label="ปัจจัยที่ช่วย (ไม่บังคับ)">
-              <textarea
+              <TextareaWithCount
                 style={{ ...inputStyle(false), minHeight: 120, resize: 'vertical' }}
                 placeholder="เช่น มีราวกันตก, สวมอุปกรณ์ PPE ครบ, เพื่อนร่วมงานช่วยทัน..."
                 value={form.saving_factor}
                 onChange={e => set('saving_factor', e.target.value)}
+                maxLength={1000}
                 autoFocus
               />
             </Field>
@@ -465,21 +502,23 @@ export default function NearMissReportPage() {
             </p>
 
             <Field label="ได้แจ้งให้ใครทราบแล้วบ้าง (ไม่บังคับ)">
-              <textarea
+              <TextareaWithCount
                 style={{ ...inputStyle(false), minHeight: 90, resize: 'vertical' }}
                 placeholder="เช่น หัวหน้างาน, จป.ประจำแผนก, ผู้จัดการโรงงาน..."
                 value={form.notified_persons}
                 onChange={e => set('notified_persons', e.target.value)}
+                maxLength={500}
                 autoFocus
               />
             </Field>
 
             <Field label="คำแนะนำวิธีการแก้ไข / ป้องกัน (ไม่บังคับ)">
-              <textarea
+              <TextareaWithCount
                 style={{ ...inputStyle(false), minHeight: 90, resize: 'vertical' }}
                 placeholder="หากคุณมีไอเดียหรือข้อเสนอแนะเพื่อป้องกันไม่ให้เกิดซ้ำ กรอกได้เลย..."
                 value={form.suggested_action}
                 onChange={e => set('suggested_action', e.target.value)}
+                maxLength={1000}
               />
             </Field>
 
@@ -494,7 +533,8 @@ export default function NearMissReportPage() {
               <p style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>สรุปรายงาน</p>
               <SummaryRow label="ผู้รายงาน" value={form.reporter_name} />
               {form.reporter_dept && <SummaryRow label="แผนก" value={form.reporter_dept} />}
-              <SummaryRow label="วันที่เกิดเหตุ" value={form.incident_date} />
+              {form.reporter_phone && <SummaryRow label="เบอร์โทร" value={form.reporter_phone} />}
+              <SummaryRow label="วันที่เกิดเหตุ" value={`${fmtDateDDMMMYY(form.incident_date)}${form.incident_time ? ` เวลา ${form.incident_time} น.` : ''}`} />
               <SummaryRow label="สถานที่" value={form.location} />
               {score > 0 && risk && (
                 <SummaryRow label="ระดับความเสี่ยง" value={`${risk.emoji} ${risk.label} (${score})`} />
@@ -537,6 +577,14 @@ export default function NearMissReportPage() {
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        input:focus, textarea:focus, select:focus {
+          border-color: #007aff !important;
+          box-shadow: 0 0 0 3px rgba(0,122,255,0.1) !important;
+        }
+        input[type="radio"]:focus { box-shadow: none !important; }
+        @media (max-width: 480px) {
+          .grid-2col { grid-template-columns: 1fr !important; }
+        }
       `}</style>
     </div>
   );
@@ -573,6 +621,27 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, marginBottom: 8, borderBottom: '1px solid #e5e7eb' }}>
       <span style={{ fontSize: 12, color: '#6b7280' }}>{label}</span>
       <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', textAlign: 'right', maxWidth: '60%' }}>{value}</span>
+    </div>
+  );
+}
+
+function TextareaWithCount({ value, onChange, maxLength = 1000, style, ...props }: {
+  value: string; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  maxLength?: number; style?: React.CSSProperties;
+  placeholder?: string; autoFocus?: boolean;
+}) {
+  const len = value.length;
+  const nearMax = len > maxLength * 0.85;
+  return (
+    <div style={{ position: 'relative' }}>
+      <textarea style={style} value={value} onChange={onChange} maxLength={maxLength} {...props} />
+      <div style={{
+        position: 'absolute', bottom: 8, right: 12,
+        fontSize: 10, color: nearMax ? '#f59e0b' : '#c9cdd3',
+        fontWeight: nearMax ? 600 : 400, pointerEvents: 'none',
+      }}>
+        {len}/{maxLength}
+      </div>
     </div>
   );
 }
