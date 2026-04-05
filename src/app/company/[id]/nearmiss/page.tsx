@@ -8,7 +8,7 @@ import { COMPANIES } from '@/lib/companies';
 import {
   AlertTriangle, ExternalLink,
   RefreshCw, X, Save, Loader2, Search, QrCode, ChevronRight,
-  User, Users, FileText, Image as ImageIcon, Settings, EyeOff, Eye, Trash2,
+  User, Users, FileText, Image as ImageIcon, Settings, EyeOff, Eye, Trash2, Lock, LogIn,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -97,6 +97,21 @@ export default function NearMissCoordinatorPage() {
   const ca = auth.getCompanyAuth(companyId);
   const isLoggedIn = auth.isAdmin || ca.isLoggedIn;
   const isAdmin = auth.isAdmin;
+
+  // Login form state
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!loginPass) return;
+    setLoginLoading(true);
+    setLoginError('');
+    const result = await auth.companyLogin(companyId, loginUser, loginPass);
+    setLoginLoading(false);
+    if (!result.success) setLoginError(result.error || 'เข้าสู่ระบบไม่สำเร็จ');
+  };
 
   const [reports, setReports]     = useState<NearMissReport[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -313,20 +328,56 @@ export default function NearMissCoordinatorPage() {
               </a>
             </div>
 
-            {/* Login Section */}
-            <div style={{
-              textAlign: 'center', padding: 32, borderRadius: 16,
-              border: '2px dashed var(--border)', background: 'var(--bg-secondary)',
-            }}>
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>🔒</div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>ระบบจัดการ Near Miss (Admin)</h3>
-              {company && <p style={{ fontSize: 12, fontWeight: 600, color: '#007aff', margin: '0 0 8px' }}>{company.fullName || company.name}</p>}
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 20px' }}>เข้าสู่ระบบเพื่อจัดการและวิเคราะห์ข้อมูล Near Miss</p>
-              <button
-                onClick={() => { const el = document.querySelector('[data-login-btn]') as HTMLButtonElement; el?.click(); }}
-                style={{ padding: '11px 28px', borderRadius: 10, border: 'none', background: '#007aff', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                เข้าสู่ระบบ
-              </button>
+            {/* Login Form */}
+            <div
+              className="rounded-2xl w-full overflow-hidden"
+              style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)' }}
+            >
+              <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.25)' }}>
+                    <AlertTriangle size={20} color="#fff" />
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold text-white">ระบบจัดการ Near Miss (Admin)</h3>
+                    <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.7)' }}>{company?.fullName || company?.name || ''}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-5">
+                <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, margin: '0 0 16px' }}>เข้าสู่ระบบเพื่อจัดการและวิเคราะห์ข้อมูล Near Miss</p>
+                <label className="block text-[11px] font-semibold mb-1.5" style={{ color: '#6b7280' }}>ชื่อผู้ใช้</label>
+                <div className="relative mb-4">
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                  <input type="text" value={loginUser} onChange={e => setLoginUser(e.target.value)}
+                    placeholder="ชื่อผู้ใช้ (ถ้ามี)" autoFocus
+                    className="w-full pl-10 pr-3 py-2.5 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                    style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }} />
+                </div>
+                <label className="block text-[11px] font-semibold mb-1.5" style={{ color: '#6b7280' }}>รหัสผ่าน</label>
+                <div className="relative mb-4">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                  <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    placeholder="รหัสผ่าน"
+                    className="w-full pl-10 pr-3 py-2.5 rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
+                    style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }} />
+                </div>
+                {loginError && (
+                  <div className="mb-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{loginError}</div>
+                )}
+                <button onClick={handleLogin} disabled={!loginPass || loginLoading}
+                  className="w-full py-3 rounded-lg text-[14px] font-semibold transition-all duration-200 flex items-center justify-center gap-2"
+                  style={{
+                    background: loginPass ? 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)' : '#e5e7eb',
+                    color: loginPass ? '#fff' : '#9ca3af', cursor: loginPass ? 'pointer' : 'not-allowed',
+                    opacity: loginLoading ? 0.7 : 1, border: 'none',
+                    boxShadow: loginPass ? '0 4px 14px rgba(0,122,255,0.3)' : 'none',
+                  }}>
+                  {loginLoading ? <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <LogIn size={16} />}
+                  {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+                </button>
+              </div>
             </div>
           </div>
         </main>
