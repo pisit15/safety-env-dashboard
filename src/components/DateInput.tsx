@@ -1,25 +1,11 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef } from 'react';
 
 /**
  * DateInput — Custom date input that displays DD/MMM/YY format
- * Uses native date picker underneath for browser compatibility
- *
- * Props:
- *  - value: string (YYYY-MM-DD format)
- *  - onChange: (value: string) => void
- *  - style?: React.CSSProperties (applied to wrapper)
- *  - inputStyle?: React.CSSProperties (applied to the visible text input)
- *  - max?: string (YYYY-MM-DD)
- *  - min?: string (YYYY-MM-DD)
- *  - required?: boolean
- *  - placeholder?: string
- *  - disabled?: boolean
- *  - id?: string
- *  - name?: string
- *  - error?: boolean (shows red border)
- *  - locale?: 'th' | 'en'  (default: 'th')
+ * Strategy: Use a real native date input (visible, clickable, with picker icon)
+ * but make its text transparent, then overlay a formatted label on top.
  */
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -30,13 +16,13 @@ function formatDateDDMMMYY(isoStr: string, locale: 'th' | 'en' = 'th'): string {
   const parts = isoStr.split('-');
   if (parts.length !== 3) return isoStr;
   const y = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10) - 1; // 0-based
+  const m = parseInt(parts[1], 10) - 1;
   const d = parseInt(parts[2], 10);
   if (isNaN(y) || isNaN(m) || isNaN(d)) return isoStr;
 
   const months = locale === 'th' ? TH_MONTHS : EN_MONTHS;
   const yy = locale === 'th'
-    ? String((y + 543) % 100).padStart(2, '0')  // Buddhist year last 2 digits
+    ? String((y + 543) % 100).padStart(2, '0')
     : String(y % 100).padStart(2, '0');
   const dd = String(d).padStart(2, '0');
   return `${dd}/${months[m]}/${yy}`;
@@ -75,78 +61,31 @@ export default function DateInput({
   locale = 'th',
   autoFocus,
 }: DateInputProps) {
-  const hiddenRef = useRef<HTMLInputElement>(null);
-  const [displayValue, setDisplayValue] = useState('');
-
-  useEffect(() => {
-    setDisplayValue(formatDateDDMMMYY(value, locale));
-  }, [value, locale]);
-
-  const openPicker = () => {
-    if (disabled) return;
-    try {
-      hiddenRef.current?.showPicker();
-    } catch {
-      // fallback: focus which opens picker on most browsers
-      hiddenRef.current?.focus();
-      hiddenRef.current?.click();
-    }
-  };
+  const inputRef = useRef<HTMLInputElement>(null);
+  const displayText = value ? formatDateDDMMMYY(value, locale) : '';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value;
-    onChange(v);
+    onChange(e.target.value);
   };
 
-  const baseStyle: React.CSSProperties = {
-    position: 'relative',
-    display: 'inline-block',
-    width: '100%',
-    ...style,
-  };
-
-  const visibleStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: 14,
-    borderRadius: 10,
-    border: `1.5px solid ${error ? '#ef4444' : '#e5e7eb'}`,
-    background: '#f9fafb',
-    color: value ? '#111827' : '#9ca3af',
-    fontWeight: value ? 500 : 400,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-    ...inputStyle,
-  };
-
-  const hiddenStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    opacity: 0,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    // Allow the hidden input to receive clicks for the date picker
-    zIndex: 1,
-  };
+  // Extract padding from inputStyle for the overlay to match
+  const padding = (inputStyle as Record<string, unknown>)?.padding ?? '10px 12px';
+  const fontSize = (inputStyle as Record<string, unknown>)?.fontSize ?? 14;
+  const borderRadius = (inputStyle as Record<string, unknown>)?.borderRadius ?? 10;
+  const borderColor = error ? '#ef4444' : ((inputStyle as Record<string, unknown>)?.borderColor ?? '#e5e7eb');
+  const bg = (inputStyle as Record<string, unknown>)?.background ?? (inputStyle as Record<string, unknown>)?.backgroundColor ?? '#f9fafb';
 
   return (
-    <div style={baseStyle}>
-      {/* Visible formatted display */}
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        ...style,
+      }}
+    >
+      {/* Real native date input — text is transparent so we can show our own format */}
       <input
-        type="text"
-        readOnly
-        value={displayValue}
-        placeholder={placeholder}
-        style={visibleStyle}
-        tabIndex={-1}
-        onClick={openPicker}
-      />
-      {/* Hidden native date input for picker */}
-      <input
-        ref={hiddenRef}
+        ref={inputRef}
         type="date"
         id={id}
         name={name}
@@ -157,8 +96,47 @@ export default function DateInput({
         required={required}
         disabled={disabled}
         autoFocus={autoFocus}
-        style={hiddenStyle}
+        style={{
+          width: '100%',
+          padding: padding as string,
+          fontSize: fontSize as number,
+          borderRadius: borderRadius as number,
+          border: `1.5px solid ${borderColor as string}`,
+          background: bg as string,
+          color: 'transparent',       // hide native text
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          outline: 'none',
+          boxSizing: 'border-box',
+          fontFamily: 'inherit',
+          // Keep the calendar icon visible
+          colorScheme: 'light',
+          ...inputStyle,
+          // Force transparent text (override inputStyle color)
+          // @ts-expect-error: color override
+          color: 'transparent',
+        }}
       />
+      {/* Overlay label showing DD/MMM/YY — does not block clicks (pointerEvents: none) */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          padding: padding as string,
+          fontSize: fontSize as number,
+          fontWeight: value ? 500 : 400,
+          color: value ? '#111827' : '#9ca3af',
+          pointerEvents: 'none',     // clicks pass through to the real input
+          fontFamily: 'inherit',
+          userSelect: 'none',
+        }}
+      >
+        {displayText || placeholder}
+      </div>
     </div>
   );
 }
@@ -166,7 +144,6 @@ export default function DateInput({
 /** Utility: format ISO date string to DD/MMM/YY (Thai) — for use in tables/display */
 export function fmtDateDDMMMYY(isoStr: string, locale: 'th' | 'en' = 'th'): string {
   if (!isoStr) return '–';
-  // Handle ISO datetime strings
   const dateOnly = isoStr.includes('T') ? isoStr.split('T')[0] : isoStr;
   return formatDateDDMMMYY(dateOnly, locale) || '–';
 }
