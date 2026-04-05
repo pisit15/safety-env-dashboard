@@ -6,32 +6,37 @@ import { COMPANIES } from '@/lib/companies';
 import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Camera, X, ImagePlus, BookOpen, Clock, Phone } from 'lucide-react';
 import DateInput, { fmtDateDDMMMYY } from '@/components/DateInput';
 
-// ── Risk matrix helpers
-const riskScore = (p: number, s: number) => p * s;
+// ── Risk matrix helpers (Severity uses non-linear scale: 1,2,4,8,15)
+const SEV_SCORE_MAP: Record<number, number> = { 1: 1, 2: 2, 3: 4, 4: 8, 5: 15, 6: 15 };
+const riskScore = (p: number, sIdx: number) => p * (SEV_SCORE_MAP[sIdx] ?? sIdx);
 const riskLevel = (score: number) => {
-  if (score >= 15) return { label: 'HIGH', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', emoji: '🔴' };
-  if (score >= 9)  return { label: 'MED-HIGH', color: '#f97316', bg: 'rgba(249,115,22,0.1)', emoji: '🟠' };
-  if (score >= 4)  return { label: 'MEDIUM',   color: '#eab308', bg: 'rgba(234,179,8,0.1)',  emoji: '🟡' };
-  return               { label: 'LOW',      color: '#22c55e', bg: 'rgba(34,197,94,0.1)',  emoji: '🟢' };
+  if (score >= 30) return { label: 'สูงมาก (Very High)', color: '#dc2626', bg: 'rgba(220,38,38,0.1)', emoji: '🔴' };
+  if (score >= 15) return { label: 'สูง (High)',         color: '#ef4444', bg: 'rgba(239,68,68,0.1)', emoji: '🟠' };
+  if (score >= 8)  return { label: 'ปานกลาง (Medium)',   color: '#f97316', bg: 'rgba(249,115,22,0.1)', emoji: '🟡' };
+  if (score >= 4)  return { label: 'ต่ำ (Low)',          color: '#eab308', bg: 'rgba(234,179,8,0.1)',  emoji: '🟢' };
+  return                   { label: 'ต่ำมาก (Very Low)', color: '#22c55e', bg: 'rgba(34,197,94,0.1)',  emoji: '⚪' };
 };
 
 const TOTAL_STEPS = 5;
 
-const PROB_OPTIONS: { level: string; desc: string }[] = [
-  { level: '', desc: '' },
-  { level: '1 – แทบไม่เกิด', desc: 'โอกาสน้อยมาก เกิดได้ 1 ครั้งใน 10 ปี หรือไม่เคยเกิดในองค์กร' },
-  { level: '2 – ไม่น่าจะเกิด', desc: 'มีโอกาสต่ำ อาจเกิด 1 ครั้งใน 5 ปี เคยได้ยินเกิดที่อื่น' },
-  { level: '3 – อาจเกิดได้', desc: 'มีโอกาสปานกลาง อาจเกิด 1 ครั้ง/ปี เคยเกิดในองค์กรมาก่อน' },
-  { level: '4 – น่าจะเกิด', desc: 'มีโอกาสสูง อาจเกิด 1 ครั้ง/เดือน เกิดซ้ำหลายครั้งแล้ว' },
-  { level: '5 – เกิดแน่นอน', desc: 'แทบจะเกิดทุกวันหรือทุกสัปดาห์ ถ้าไม่แก้ไขจะเกิดซ้ำแน่' },
+// ── Probability (P1–P5) ── ค่า 1–5
+const PROB_OPTIONS: { code: string; level: string; eng: string; desc: string }[] = [
+  { code: '', level: '', eng: '', desc: '' },
+  { code: 'P1', level: '1 – แทบไม่เกิด', eng: 'Highly Unlikely', desc: 'น้อยกว่า 1 ใน 10,000 ครั้ง' },
+  { code: 'P2', level: '2 – ไม่น่าเกิด', eng: 'Unlikely', desc: 'น้อยกว่า 1 ใน 1,000 ครั้ง' },
+  { code: 'P3', level: '3 – อาจเกิดได้', eng: 'Possible', desc: 'น้อยกว่า 1 ใน 100 ครั้ง' },
+  { code: 'P4', level: '4 – มีโอกาสสูง', eng: 'Very Likely', desc: 'น้อยกว่า 1 ใน 10 ครั้ง' },
+  { code: 'P5', level: '5 – คาดว่าจะเกิด', eng: 'Expectable', desc: 'มากกว่า 50% (เกิดบ่อย)' },
 ];
-const SEV_OPTIONS: { level: string; desc: string; color: string }[] = [
-  { level: '', desc: '', color: '' },
-  { level: '1 – เล็กน้อย', desc: 'ปฐมพยาบาลเบื้องต้น ไม่หยุดงาน เช่น รอยขีดข่วน แผลถลอก', color: '#22c55e' },
-  { level: '2 – พอประมาณ', desc: 'บาดเจ็บเล็กน้อย อาจต้องพบแพทย์ หยุดงาน 1-3 วัน', color: '#84cc16' },
-  { level: '3 – ปานกลาง', desc: 'บาดเจ็บต้องรักษาพยาบาล หยุดงานมากกว่า 3 วัน เช่น กระดูกร้าว', color: '#eab308' },
-  { level: '4 – รุนแรง', desc: 'บาดเจ็บสาหัส พิการถาวร สูญเสียอวัยวะ ต้องนอนโรงพยาบาล', color: '#f97316' },
-  { level: '5 – รุนแรงมาก', desc: 'เสียชีวิต หรือทุพพลภาพถาวร หรือเกิดหายนะร้ายแรง', color: '#ef4444' },
+
+// ── Severity (S1–S6) ── ค่า 1,2,4,8,15
+const SEV_OPTIONS: { code: string; score: number; level: string; eng: string; desc: string; color: string }[] = [
+  { code: '', score: 0, level: '', eng: '', desc: '', color: '' },
+  { code: 'S1', score: 1, level: 'ปฐมพยาบาล', eng: 'First Aid Case (FAC)', desc: 'บาดแผลเล็กน้อย รอยขีดข่วน', color: '#22c55e' },
+  { code: 'S2', score: 2, level: 'รักษาพยาบาล', eng: 'Medical Treatment (MTC)', desc: 'ต้องพบแพทย์ เย็บแผล กระดูกร้าว', color: '#84cc16' },
+  { code: 'S3', score: 4, level: 'หยุดงาน', eng: 'Restricted Work / Lost Time (RWC/LTI)', desc: 'บาดเจ็บต้องหยุดงาน ย้ายงาน', color: '#eab308' },
+  { code: 'S4', score: 8, level: 'พิการถาวร', eng: 'Life Altering', desc: 'สูญเสียอวัยวะ สายตา การได้ยิน', color: '#f97316' },
+  { code: 'S5', score: 15, level: 'เสียชีวิต', eng: 'Fatality', desc: 'เสียชีวิตจากอุบัติเหตุ', color: '#ef4444' },
 ];
 
 export default function NearMissReportPage() {
@@ -460,7 +465,7 @@ export default function NearMissReportPage() {
               ประเมินว่าถ้าเกิดเหตุการณ์เดิมอีกครั้ง จะมีโอกาสและความรุนแรงมากน้อยเพียงใด
             </p>
             {/* Probability */}
-            <Field label="โอกาสเกิดซ้ำ (P) *" error={errors.probability}>
+            <Field label="โอกาสที่จะเกิด — Probability (P) *" error={errors.probability}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[1, 2, 3, 4, 5].map(v => {
                   const opt = PROB_OPTIONS[v];
@@ -474,9 +479,13 @@ export default function NearMissReportPage() {
                       transition: 'all 0.15s',
                     }}>
                       <input type="radio" name="prob" value={v} checked={selected} onChange={() => set('probability', v)} style={{ accentColor: '#007aff', marginTop: 3 }} />
-                      <div>
-                        <div style={{ fontSize: 13, color: '#374151', fontWeight: selected ? 700 : 500 }}>{opt.level}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#007aff', background: 'rgba(0,122,255,0.1)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>{opt.code}</span>
+                          <span style={{ fontSize: 13, color: '#374151', fontWeight: selected ? 700 : 500 }}>{opt.level}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{opt.eng}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4, fontWeight: 500 }}>{opt.desc}</div>
                       </div>
                     </label>
                   );
@@ -487,7 +496,7 @@ export default function NearMissReportPage() {
             <div style={{ marginTop: 20 }} />
 
             {/* Severity */}
-            <Field label="ความรุนแรง (S) *" error={errors.severity}>
+            <Field label="ความรุนแรง — Severity (S) *" error={errors.severity}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[1, 2, 3, 4, 5].map(v => {
                   const opt = SEV_OPTIONS[v];
@@ -500,13 +509,16 @@ export default function NearMissReportPage() {
                       background: selected ? `${opt.color}10` : '#fff',
                       transition: 'all 0.15s',
                     }}>
-                      <input type="radio" name="sev" value={v} checked={selected} onChange={() => set('severity', v)} style={{ accentColor: opt.color }} />
+                      <input type="radio" name="sev" value={v} checked={selected} onChange={() => set('severity', v)} style={{ accentColor: opt.color, marginTop: 3 }} />
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: opt.color, background: `${opt.color}18`, padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>{opt.code}</span>
                           <span style={{ fontSize: 13, color: '#374151', fontWeight: selected ? 700 : 500 }}>{opt.level}</span>
-                          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: opt.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 11, color: '#9ca3af' }}>({opt.eng})</span>
                         </div>
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 3, lineHeight: 1.4 }}>
+                          <span style={{ fontWeight: 500 }}>ค่า: {opt.score}</span> — {opt.desc}
+                        </div>
                       </div>
                     </label>
                   );
@@ -517,7 +529,7 @@ export default function NearMissReportPage() {
             {/* Risk result */}
             {score > 0 && risk && (
               <div style={{ marginTop: 20, padding: '16px 20px', borderRadius: 14, background: risk.bg, border: `2px solid ${risk.color}`, textAlign: 'center' }}>
-                <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>ระดับความเสี่ยง (P × S = {form.probability} × {form.severity} = {score})</div>
+                <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>ระดับความเสี่ยง (P{form.probability} × S{form.severity} = {form.probability} × {SEV_SCORE_MAP[form.severity] ?? form.severity} = {score})</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: risk.color }}>{risk.emoji} {risk.label}</div>
               </div>
             )}
