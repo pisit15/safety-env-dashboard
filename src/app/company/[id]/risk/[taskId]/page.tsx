@@ -75,32 +75,39 @@ interface Hazard {
 
 // ── Constants ──
 const SEVERITY_OPTIONS = [
-  { value: 1, label: 'S1 — FAC', score: '(1)', desc: 'First Aid Case' },
-  { value: 2, label: 'S2 — MTC', score: '(2)', desc: 'Medical Treatment' },
-  { value: 4, label: 'S3/S4 — RWC/LTI', score: '(4)', desc: 'Restricted Work / Lost Time' },
-  { value: 8, label: 'S5 — Life Altering', score: '(8)', desc: 'Permanent disability' },
-  { value: 15, label: 'S6 — Fatality', score: '(15)', desc: 'Death' },
+  { value: 1, label: 'S1 — ปฐมพยาบาล (FAC)', score: '(1)', desc: 'First Aid Case' },
+  { value: 2, label: 'S2 — รักษาพยาบาล (MTC)', score: '(2)', desc: 'Medical Treatment' },
+  { value: 4, label: 'S3/S4 — หยุดงาน (RWC/LTI)', score: '(4)', desc: 'Restricted Work / Lost Time' },
+  { value: 8, label: 'S5 — พิการถาวร (Life Altering)', score: '(8)', desc: 'Permanent disability' },
+  { value: 15, label: 'S6 — เสียชีวิต (Fatality)', score: '(15)', desc: 'Death' },
 ];
 
 const PROBABILITY_OPTIONS = [
-  { value: 1, label: 'P1 — Highly Unlikely', desc: '> 1/10,000' },
-  { value: 2, label: 'P2 — Unlikely', desc: '> 1/1,000' },
-  { value: 3, label: 'P3 — Possible', desc: '> 1/100' },
-  { value: 4, label: 'P4 — Very Likely', desc: '> 1/10' },
-  { value: 5, label: 'P5 — Expectable', desc: '> 50%' },
+  { value: 1, label: 'P1 — แทบไม่เกิด (Highly Unlikely)', desc: '> 1/10,000' },
+  { value: 2, label: 'P2 — ไม่น่าเกิด (Unlikely)', desc: '> 1/1,000' },
+  { value: 3, label: 'P3 — อาจเกิดได้ (Possible)', desc: '> 1/100' },
+  { value: 4, label: 'P4 — มีโอกาสสูง (Very Likely)', desc: '> 1/10' },
+  { value: 5, label: 'P5 — คาดว่าจะเกิด (Expectable)', desc: '> 50%' },
 ];
 
 const HAZARD_CATEGORIES = [
-  'Mechanical', 'Electrical', 'Chemical', 'Ergonomic',
-  'Physical', 'Environmental', 'Transport', 'Fire/Explosion', 'Other',
+  { value: 'Mechanical', label: 'เครื่องจักร (Mechanical)' },
+  { value: 'Electrical', label: 'ไฟฟ้า (Electrical)' },
+  { value: 'Chemical', label: 'สารเคมี (Chemical)' },
+  { value: 'Ergonomic', label: 'การยศาสตร์ (Ergonomic)' },
+  { value: 'Physical', label: 'กายภาพ (Physical)' },
+  { value: 'Environmental', label: 'สิ่งแวดล้อม (Environmental)' },
+  { value: 'Transport', label: 'การขนส่ง (Transport)' },
+  { value: 'Fire/Explosion', label: 'ไฟไหม้/ระเบิด (Fire/Explosion)' },
+  { value: 'Other', label: 'อื่นๆ (Other)' },
 ];
 
 const CONTROL_TYPES = [
-  { value: 'Elimination', priority: 1, color: '#16a34a' },
-  { value: 'Substitution', priority: 2, color: '#22c55e' },
-  { value: 'Engineering Controls', priority: 3, color: '#3b82f6' },
-  { value: 'Administrative Controls', priority: 4, color: '#f59e0b' },
-  { value: 'PPE', priority: 5, color: '#dc2626' },
+  { value: 'Elimination', label: 'กำจัด (Elimination)', priority: 1, color: '#16a34a' },
+  { value: 'Substitution', label: 'ทดแทน (Substitution)', priority: 2, color: '#22c55e' },
+  { value: 'Engineering Controls', label: 'วิศวกรรม (Engineering Controls)', priority: 3, color: '#3b82f6' },
+  { value: 'Administrative Controls', label: 'บริหารจัดการ (Administrative Controls)', priority: 4, color: '#f59e0b' },
+  { value: 'PPE', label: 'อุปกรณ์ป้องกัน (PPE)', priority: 5, color: '#dc2626' },
 ];
 
 // ── Helpers ──
@@ -217,7 +224,7 @@ export default function RAFormPage() {
     existing_controls: '',
     severity: 1,
     probability: 1,
-    new_control_measures: '',
+    new_control_measures: '' as string,
     control_type: '',
     responsible_person: '',
     deadline: '',
@@ -226,6 +233,7 @@ export default function RAFormPage() {
     residual_probability: 0,
     reference_doc: '',
   });
+  const [controlMeasureItems, setControlMeasureItems] = useState<string[]>(['']);
 
   // Fetch task + hazards
   const fetchData = useCallback(async () => {
@@ -296,6 +304,7 @@ export default function RAFormPage() {
       responsible_person: '', deadline: '', done: false,
       residual_severity: 0, residual_probability: 0, reference_doc: '',
     });
+    setControlMeasureItems(['']);
     setEditingHazard(null);
   };
 
@@ -317,6 +326,9 @@ export default function RAFormPage() {
       residual_probability: h.residual_probability || 0,
       reference_doc: h.reference_doc || '',
     });
+    // Parse existing measures into items
+    const items = h.new_control_measures ? h.new_control_measures.split('\n').filter(Boolean) : [''];
+    setControlMeasureItems(items.length > 0 ? items : ['']);
     setShowAddHazard(true);
   };
 
@@ -324,9 +336,10 @@ export default function RAFormPage() {
   const saveHazard = async () => {
     if (!hazardForm.hazard_description.trim()) return;
     setSaving(true);
+    // Join control measure items into newline-separated string
+    const combinedMeasures = controlMeasureItems.filter(m => m.trim()).join('\n');
     try {
       if (editingHazard) {
-        // Update
         await fetch('/api/risk/hazards', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -334,12 +347,12 @@ export default function RAFormPage() {
             id: editingHazard.id,
             taskId,
             ...hazardForm,
+            new_control_measures: combinedMeasures,
             residual_severity: hazardForm.residual_severity || null,
             residual_probability: hazardForm.residual_probability || null,
           }),
         });
       } else {
-        // Create
         await fetch('/api/risk/hazards', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -347,6 +360,7 @@ export default function RAFormPage() {
             taskId,
             companyId,
             ...hazardForm,
+            new_control_measures: combinedMeasures,
             residual_severity: hazardForm.residual_severity || null,
             residual_probability: hazardForm.residual_probability || null,
           }),
@@ -685,14 +699,14 @@ export default function RAFormPage() {
             onClick={() => { setShowAddHazard(false); resetHazardForm(); }}
           >
             <div
-              className="rounded-2xl w-full max-w-[640px] overflow-hidden"
-              style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}
+              className="rounded-2xl w-full max-w-[900px] overflow-hidden"
+              style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '92vh', overflowY: 'auto' }}
               onClick={e => e.stopPropagation()}
             >
               <div className="px-6 pt-5 pb-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' }}>
                 <h3 className="text-white font-bold text-lg flex items-center gap-2">
                   {editingHazard ? <Edit3 size={18} /> : <Plus size={18} />}
-                  {editingHazard ? 'แก้ไข Hazard' : 'เพิ่ม Hazard ใหม่'}
+                  {editingHazard ? 'แก้ไขอันตราย (Hazard)' : 'เพิ่มอันตรายใหม่ (Hazard)'}
                 </h3>
                 <button onClick={() => { setShowAddHazard(false); resetHazardForm(); }} className="text-white/70 hover:text-white"><X size={20} /></button>
               </div>
@@ -700,41 +714,41 @@ export default function RAFormPage() {
                 {/* Hazard info */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12, marginBottom: 16 }}>
                   <div>
-                    <label style={labelStyle}>Hazard Category</label>
+                    <label style={labelStyle}>ประเภทอันตราย (Hazard Category)</label>
                     <select value={hazardForm.hazard_category} onChange={e => setHazardForm(p => ({ ...p, hazard_category: e.target.value }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
                       <option value="">— เลือก —</option>
-                      {HAZARD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      {HAZARD_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Hazard Description *</label>
+                    <label style={labelStyle}>รายละเอียดอันตราย (Hazard Description) *</label>
                     <input placeholder="อธิบายอันตรายที่พบ" value={hazardForm.hazard_description} onChange={e => setHazardForm(p => ({ ...p, hazard_description: e.target.value }))} style={inputStyle} />
                   </div>
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>Existing Controls — มาตรการควบคุมปัจจุบัน</label>
+                  <label style={labelStyle}>มาตรการควบคุมปัจจุบัน (Existing Controls)</label>
                   <input placeholder="มาตรการที่มีอยู่แล้ว" value={hazardForm.existing_controls} onChange={e => setHazardForm(p => ({ ...p, existing_controls: e.target.value }))} style={inputStyle} />
                 </div>
 
                 {/* Severity × Probability */}
                 <div className="rounded-lg mb-4" style={{ padding: 16, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                  <h4 style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 12 }}>Risk Estimation — RL = S × P</h4>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 12 }}>การประเมินความเสี่ยง (Risk Estimation) — RL = S × P</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
-                      <label style={labelStyle}>Severity (S)</label>
+                      <label style={labelStyle}>ความรุนแรง (Severity - S)</label>
                       <select value={hazardForm.severity} onChange={e => setHazardForm(p => ({ ...p, severity: parseInt(e.target.value) }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
-                        {SEVERITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} — {o.desc}</option>)}
+                        {SEVERITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={labelStyle}>Probability (P)</label>
+                      <label style={labelStyle}>โอกาสเกิด (Probability - P)</label>
                       <select value={hazardForm.probability} onChange={e => setHazardForm(p => ({ ...p, probability: parseInt(e.target.value) }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
-                        {PROBABILITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} — {o.desc}</option>)}
+                        {PROBABILITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-4">
-                    <span style={{ fontSize: 12, color: '#6b7280' }}>Risk Level:</span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>ระดับความเสี่ยง (Risk Level):</span>
                     <span className="rounded px-3 py-1 font-bold" style={{ fontSize: 16, color: getRiskColor(rlScale), background: getRiskBg(rlScale) }}>
                       {rl} — {rlScale}
                     </span>
@@ -744,48 +758,80 @@ export default function RAFormPage() {
                   </div>
                 </div>
 
-                {/* New Controls */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <label style={labelStyle}>New Control Measures — มาตรการใหม่</label>
-                    <input placeholder="มาตรการเพิ่มเติมที่ต้องดำเนินการ" value={hazardForm.new_control_measures} onChange={e => setHazardForm(p => ({ ...p, new_control_measures: e.target.value }))} style={inputStyle} />
+                {/* New Controls — multi-item */}
+                <div className="rounded-lg mb-4" style={{ padding: 16, background: '#fffbeb', border: '1px solid #fde68a' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={labelStyle}>มาตรการควบคุมใหม่ (New Control Measures)</label>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>ประเภทการควบคุม (Control Type)</label>
+                      <select value={hazardForm.control_type} onChange={e => setHazardForm(p => ({ ...p, control_type: e.target.value }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
+                        <option value="">— เลือก —</option>
+                        {CONTROL_TYPES.map(c => <option key={c.value} value={c.value}>{c.priority}. {c.label}</option>)}
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Control Type (Hierarchy)</label>
-                    <select value={hazardForm.control_type} onChange={e => setHazardForm(p => ({ ...p, control_type: e.target.value }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
-                      <option value="">— เลือก —</option>
-                      {CONTROL_TYPES.map(c => <option key={c.value} value={c.value}>{c.priority}. {c.value}</option>)}
-                    </select>
-                  </div>
+                  {controlMeasureItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 mb-2">
+                      <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600, minWidth: 20 }}>{idx + 1}.</span>
+                      <input
+                        placeholder={`มาตรการข้อที่ ${idx + 1}`}
+                        value={item}
+                        onChange={e => {
+                          const updated = [...controlMeasureItems];
+                          updated[idx] = e.target.value;
+                          setControlMeasureItems(updated);
+                        }}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      {controlMeasureItems.length > 1 && (
+                        <button
+                          onClick={() => setControlMeasureItems(controlMeasureItems.filter((_, i) => i !== idx))}
+                          style={{ padding: '6px 8px', color: '#dc2626', background: '#fee2e2', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12 }}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setControlMeasureItems([...controlMeasureItems, ''])}
+                    className="flex items-center gap-1"
+                    style={{ fontSize: 12, color: '#92400e', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginTop: 4 }}
+                  >
+                    <Plus size={14} /> เพิ่มมาตรการอีกข้อ
+                  </button>
                 </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
                   <div>
-                    <label style={labelStyle}>Responsible Person</label>
+                    <label style={labelStyle}>ผู้รับผิดชอบ (Responsible Person)</label>
                     <input value={hazardForm.responsible_person} onChange={e => setHazardForm(p => ({ ...p, responsible_person: e.target.value }))} style={inputStyle} />
                   </div>
                   <div>
-                    <label style={labelStyle}>Deadline</label>
+                    <label style={labelStyle}>กำหนดเสร็จ (Deadline)</label>
                     <input type="date" value={hazardForm.deadline} onChange={e => setHazardForm(p => ({ ...p, deadline: e.target.value }))} style={inputStyle} />
                   </div>
                   <div>
-                    <label style={labelStyle}>Reference (SOP/SSOW)</label>
+                    <label style={labelStyle}>เอกสารอ้างอิง (Reference SOP/SSOW)</label>
                     <input value={hazardForm.reference_doc} onChange={e => setHazardForm(p => ({ ...p, reference_doc: e.target.value }))} style={inputStyle} />
                   </div>
                 </div>
 
                 {/* Residual Risk */}
                 <div className="rounded-lg mb-4" style={{ padding: 16, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                  <h4 style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 12 }}>Residual Risk — ความเสี่ยงคงเหลือ (หลังดำเนินมาตรการ)</h4>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 12 }}>ความเสี่ยงคงเหลือ (Residual Risk) — หลังดำเนินมาตรการ</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>
-                      <label style={labelStyle}>Residual Severity (S₂)</label>
+                      <label style={labelStyle}>ความรุนแรงคงเหลือ (Residual Severity - S₂)</label>
                       <select value={hazardForm.residual_severity} onChange={e => setHazardForm(p => ({ ...p, residual_severity: parseInt(e.target.value) }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
                         <option value={0}>— ยังไม่ระบุ —</option>
                         {SEVERITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={labelStyle}>Residual Probability (P₂)</label>
+                      <label style={labelStyle}>โอกาสเกิดคงเหลือ (Residual Probability - P₂)</label>
                       <select value={hazardForm.residual_probability} onChange={e => setHazardForm(p => ({ ...p, residual_probability: parseInt(e.target.value) }))} style={{ ...inputStyle, appearance: 'auto' as React.CSSProperties['appearance'] }}>
                         <option value={0}>— ยังไม่ระบุ —</option>
                         {PROBABILITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -794,7 +840,7 @@ export default function RAFormPage() {
                   </div>
                   {rrl > 0 && (
                     <div className="mt-3 flex items-center gap-4">
-                      <span style={{ fontSize: 12, color: '#166534' }}>Residual Risk Level:</span>
+                      <span style={{ fontSize: 12, color: '#166534' }}>ระดับความเสี่ยงคงเหลือ (Residual Risk Level):</span>
                       <span className="rounded px-3 py-1 font-bold" style={{ fontSize: 16, color: getRiskColor(rrlScale || 'N/A'), background: getRiskBg(rrlScale || 'N/A') }}>
                         {rrl} — {rrlScale}
                       </span>
@@ -812,7 +858,7 @@ export default function RAFormPage() {
                 <div className="flex justify-end gap-3">
                   <button onClick={() => { setShowAddHazard(false); resetHazardForm(); }} className="rounded-lg text-sm" style={{ padding: '9px 20px', background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb' }}>ยกเลิก</button>
                   <button onClick={saveHazard} disabled={saving || !hazardForm.hazard_description.trim()} className="rounded-lg text-sm text-white flex items-center gap-2" style={{ padding: '9px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', opacity: saving || !hazardForm.hazard_description.trim() ? 0.6 : 1 }}>
-                    <Save size={14} /> {saving ? 'กำลังบันทึก...' : editingHazard ? 'อัปเดต' : 'เพิ่ม Hazard'}
+                    <Save size={14} /> {saving ? 'กำลังบันทึก...' : editingHazard ? 'อัปเดต' : 'เพิ่มอันตราย'}
                   </button>
                 </div>
               </div>
