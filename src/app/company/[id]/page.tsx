@@ -17,7 +17,6 @@ import {
   CalendarCheck,
   AlertCircle,
   CheckCircle2,
-  Activity,
   RefreshCw,
 } from 'lucide-react';
 
@@ -138,32 +137,24 @@ export default function CompanyDashboard() {
   if (incidentSummary && incidentSummary.total_incidents > 0) pendingItems.push({ label: 'อุบัติเหตุสะสมปีนี้', detail: `${incidentSummary.total_incidents} ครั้ง`, color: '#dc2626', href: `/company/${id}/incidents`, priority: 4 });
   pendingItems.sort((a, b) => a.priority - b.priority);
 
-  // Module links (only active ones)
-  const modules = [
-    { id: 'action-plan', label: 'แผนงานประจำปี', icon: ClipboardList, path: `/company/${id}/action-plan`, color: '#007aff', ready: hasSheet },
-    { id: 'training', label: 'แผนอบรมประจำปี', icon: GraduationCap, path: `/company/${id}/training`, color: '#5856d6', ready: true },
-    { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, path: `/company/${id}/incidents`, color: '#ff3b30', ready: true },
-    { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, path: `/company/${id}/manhours`, color: '#ff9500', ready: true },
-  ];
-
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
-      <main className="flex-1 overflow-y-auto" style={{ padding: '24px 28px 40px' }}>
+      <main className="flex-1 overflow-y-auto" style={{ padding: 'clamp(16px, 3vw, 24px) clamp(12px, 3vw, 28px) 40px' }}>
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontSize: 'clamp(18px, 4vw, 24px)', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
               {companyName}
             </h1>
             {fullName && (
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0', maxWidth: 500 }}>{fullName}</p>
+              <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0', maxWidth: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullName}</p>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {lastUpdated && (
               <span style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <RefreshCw size={10} /> อัปเดต {lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                <RefreshCw size={10} /> {lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
             <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontWeight: 600 }}>
@@ -173,7 +164,7 @@ export default function CompanyDashboard() {
         </div>
 
         {/* ── KPI Cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 12, marginBottom: 20 }}>
           {/* Action Plan Progress */}
           <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -252,74 +243,39 @@ export default function CompanyDashboard() {
           </div>
         </div>
 
-        {/* ── Pending Actions + Module Access ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: pendingItems.length > 0 ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 24 }}>
-          {/* Pending Actions */}
-          {pendingItems.length > 0 && (
-            <div style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AlertCircle size={14} style={{ color: '#f59e0b' }} /> งานที่ต้องติดตาม
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {pendingItems.map((item, i) => (
-                  <Link key={i} href={item.href} style={{ textDecoration: 'none' }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s',
-                    }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = item.color; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{item.label}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.detail}</span>
-                        <ArrowRight size={12} style={{ color: 'var(--muted)' }} />
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Module Quick Access */}
-          <div style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Activity size={14} style={{ color: 'var(--accent)' }} /> เข้าถึงโมดูลหลัก
+        {/* ── Pending Actions (full width) ── */}
+        {pendingItems.length > 0 && (
+          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', marginBottom: 20 }}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <AlertCircle size={14} style={{ color: '#f59e0b' }} /> งานที่ต้องติดตาม
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {modules.map(m => {
-                const Icon = m.icon;
-                return (
-                  <Link key={m.id} href={m.ready ? m.path : '#'} style={{ textDecoration: 'none' }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                      borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)',
-                      cursor: m.ready ? 'pointer' : 'not-allowed', opacity: m.ready ? 1 : 0.4,
-                      transition: 'all 0.15s',
-                    }}
-                      onMouseEnter={e => { if (m.ready) { (e.currentTarget as HTMLElement).style.borderColor = m.color; (e.currentTarget as HTMLElement).style.boxShadow = `0 2px 8px ${m.color}15`; } }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${m.color}10`, flexShrink: 0 }}>
-                        <Icon size={15} style={{ color: m.color }} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{m.label}</div>
-                      </div>
-                      {m.ready && <ArrowRight size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 8 }}>
+              {pendingItems.map((item, i) => (
+                <Link key={i} href={item.href} style={{ textDecoration: 'none' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = item.color; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{item.label}</span>
                     </div>
-                  </Link>
-                );
-              })}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.detail}</span>
+                      <ArrowRight size={12} style={{ color: 'var(--muted)' }} />
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
-        </div>
+        )}
 
         {/* ── Recent Activity / Training Schedule ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 16 }}>
           {/* Upcoming Training */}
           <div style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
             <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
