@@ -75,7 +75,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, hqHref: '/incidents', companyPath: '/incidents', ready: true },
       { id: 'nearmiss', label: 'Near Miss', icon: FileText, hqHref: '/admin/nearmiss', companyPath: '/nearmiss', ready: true },
       { id: 'safety-patrol', label: 'Safety Patrol', icon: Search, hqHref: '/safety-patrol', companyPath: '/safety-patrol', ready: false },
-      { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: false },
+      { id: 'risk', label: 'ประเมินความเสี่ยง', icon: FileWarning, hqHref: '/risk', companyPath: '/risk', ready: 'companyOnly' },
     ],
   },
   {
