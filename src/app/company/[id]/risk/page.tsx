@@ -433,7 +433,6 @@ export default function RiskRegisterPage() {
                       <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>{task.work_position || '—'}</td>
                       <td style={{ padding: '10px 12px', maxWidth: 250 }}>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>{task.task_name}</div>
-                        {task.task_name_th && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{task.task_name_th}</div>}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                         <span style={{ fontWeight: 700, fontSize: 16, color: getRiskColor(task.risk_scale) }}>
@@ -553,20 +552,11 @@ export default function RiskRegisterPage() {
                 </div>
 
                 <div style={{ marginTop: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Task Name / ชื่อ Task (EN) *</label>
-                  <input
-                    placeholder="เช่น Loading roll film from pallet to lifter"
-                    value={newTask.task_name}
-                    onChange={e => setNewTask(p => ({ ...p, task_name: e.target.value }))}
-                    style={{ width: '100%', padding: '9px 12px', fontSize: 13, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 8, color: '#1f2937' }}
-                  />
-                </div>
-                <div style={{ marginTop: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>ชื่อ Task (TH)</label>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>ชื่องาน (Task Name) *</label>
                   <input
                     placeholder="เช่น งานย้ายม้วนฟิล์มจากพาเลทไปยังหน้าเครื่องจักร"
-                    value={newTask.task_name_th}
-                    onChange={e => setNewTask(p => ({ ...p, task_name_th: e.target.value }))}
+                    value={newTask.task_name}
+                    onChange={e => setNewTask(p => ({ ...p, task_name: e.target.value }))}
                     style={{ width: '100%', padding: '9px 12px', fontSize: 13, background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 8, color: '#1f2937' }}
                   />
                 </div>
