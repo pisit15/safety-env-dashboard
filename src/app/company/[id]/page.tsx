@@ -13,11 +13,15 @@ import {
   Clock,
   ArrowRight,
   TrendingUp,
+  TrendingDown,
   Users,
   CalendarCheck,
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  ExternalLink,
+  FileText,
+  Plus,
 } from 'lucide-react';
 
 // ─── Types ───
@@ -75,24 +79,19 @@ export default function CompanyDashboard() {
   useEffect(() => {
     setLoading(true);
     const fetches = [
-      // Company settings
       fetch('/api/company-settings').then(r => r.json()).then(d => {
         const s = (d.settings || []).find((s: { company_id: string }) => s.company_id === id);
         if (s) { setDbSheetId(s.sheet_id || ''); setDbCompanyName(s.company_name || ''); }
       }).catch(() => {}),
-      // Training plans
       fetch(`/api/training/plans?companyId=${id}&year=${year}`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setTrainingPlans(d);
       }).catch(() => {}),
-      // Incidents summary
       fetch(`/api/incidents?companyId=${id}&year=${year}&mode=summary`).then(r => r.json()).then(d => {
         if (d && typeof d.total_incidents === 'number') setIncidentSummary(d);
       }).catch(() => {}),
-      // Manhours
       fetch(`/api/manhours?companyId=${id}&year=${year}`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setManhours(d);
       }).catch(() => {}),
-      // Action plan (dashboard API for this company)
       fetch(`/api/dashboard?plan=total&year=${year}`).then(r => r.json()).then(d => {
         if (d?.companies) {
           const comp = d.companies.find((c: { companyId: string }) => c.companyId === id);
@@ -113,7 +112,7 @@ export default function CompanyDashboard() {
 
   // Computed KPIs
   const now = new Date();
-  const currentMonth = now.getMonth() + 1; // 1-12
+  const currentMonth = now.getMonth() + 1;
 
   // Training stats
   const totalCourses = trainingPlans.length;
@@ -124,148 +123,102 @@ export default function CompanyDashboard() {
     const s = p.training_sessions?.[0]?.status;
     return p.planned_month < currentMonth && s !== 'completed' && s !== 'cancelled';
   }).length;
+  const trainingPct = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
 
   // Manhours stats
-  const latestManhour = manhours.sort((a, b) => b.month - a.month)[0];
+  const sortedManhours = [...manhours].sort((a, b) => a.month - b.month);
+  const latestManhour = sortedManhours[sortedManhours.length - 1];
   const totalManhours = manhours.reduce((sum, m) => sum + (m.employee_manhours || 0) + (m.contractor_manhours || 0), 0);
+  const hasAnyManhourData = manhours.length > 0;
+  const currentMonthManhour = manhours.find(m => m.month === currentMonth);
+  const prevMonthManhour = manhours.find(m => m.month === currentMonth - 1);
 
-  // Pending actions
-  const pendingItems: { label: string; detail: string; color: string; href: string; priority: number }[] = [];
-  if (actionPlanOverdue > 0) pendingItems.push({ label: 'แผนงานเกินกำหนด', detail: `${actionPlanOverdue} กิจกรรม`, color: '#dc2626', href: `/company/${id}/action-plan`, priority: 1 });
-  if (overdueTraining > 0) pendingItems.push({ label: 'อบรมค้างจัดตามแผน', detail: `${overdueTraining} หลักสูตร`, color: '#f59e0b', href: `/company/${id}/training`, priority: 2 });
-  if (scheduledThisMonth > 0) pendingItems.push({ label: `อบรมที่กำหนดเดือน ${MONTH_LABELS[currentMonth - 1]}`, detail: `${scheduledThisMonth} หลักสูตร`, color: '#3b82f6', href: `/company/${id}/training`, priority: 3 });
-  if (incidentSummary && incidentSummary.total_incidents > 0) pendingItems.push({ label: 'อุบัติเหตุสะสมปีนี้', detail: `${incidentSummary.total_incidents} ครั้ง`, color: '#dc2626', href: `/company/${id}/incidents`, priority: 4 });
-  pendingItems.sort((a, b) => a.priority - b.priority);
+  // Manhours trend
+  const currentMH = currentMonthManhour ? (currentMonthManhour.employee_manhours || 0) + (currentMonthManhour.contractor_manhours || 0) : 0;
+  const prevMH = prevMonthManhour ? (prevMonthManhour.employee_manhours || 0) + (prevMonthManhour.contractor_manhours || 0) : 0;
+  const mhTrend = prevMH > 0 ? Math.round(((currentMH - prevMH) / prevMH) * 100) : null;
+
+  // ── Hero: Urgent Action Items ─────────────────────────────────
+  const urgentItems: { label: string; count: number; unit: string; color: string; bgColor: string; borderColor: string; href: string; icon: React.ReactNode }[] = [];
+  if (actionPlanOverdue > 0) urgentItems.push({
+    label: 'แผนงานเกินกำหนด',
+    count: actionPlanOverdue, unit: 'กิจกรรม',
+    color: '#dc2626', bgColor: 'rgba(220,38,38,0.06)', borderColor: 'rgba(220,38,38,0.2)',
+    href: `/company/${id}/action-plan`, icon: <AlertTriangle size={18} style={{ color: '#dc2626' }} />,
+  });
+  if (overdueTraining > 0) urgentItems.push({
+    label: 'อบรมค้างจัดตามแผน',
+    count: overdueTraining, unit: 'หลักสูตร',
+    color: '#f59e0b', bgColor: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.2)',
+    href: `/company/${id}/training`, icon: <GraduationCap size={18} style={{ color: '#f59e0b' }} />,
+  });
+  if (incidentSummary && incidentSummary.total_incidents > 0) urgentItems.push({
+    label: 'อุบัติเหตุสะสมปีนี้',
+    count: incidentSummary.total_incidents, unit: 'ครั้ง',
+    color: '#dc2626', bgColor: 'rgba(220,38,38,0.04)', borderColor: 'rgba(220,38,38,0.15)',
+    href: `/company/${id}/incidents`, icon: <AlertCircle size={18} style={{ color: '#dc2626' }} />,
+  });
+
+  // ── Pending (non-urgent) items ─────────────────────────────────
+  const infoItems: { label: string; detail: string; color: string; href: string }[] = [];
+  if (scheduledThisMonth > 0) infoItems.push({ label: `อบรมกำหนดเดือน ${MONTH_LABELS[currentMonth - 1]}`, detail: `${scheduledThisMonth} หลักสูตร`, color: '#3b82f6', href: `/company/${id}/training` });
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
       <main className="flex-1 overflow-y-auto" style={{ padding: 'clamp(16px, 3vw, 24px) clamp(12px, 3vw, 28px) 40px' }}>
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: 'clamp(18px, 4vw, 24px)', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-              {companyName}
-            </h1>
-            {fullName && (
-              <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0', maxWidth: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullName}</p>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {lastUpdated && (
-              <span style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <RefreshCw size={10} /> {lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+                {companyName}
+              </h1>
+              <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontWeight: 600, border: '1px solid var(--border)' }}>
+                ปี {year}
               </span>
+              {lastUpdated && (
+                <span style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <RefreshCw size={10} /> {lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+            {fullName && (
+              <p style={{ fontSize: 11, color: 'var(--muted)', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fullName}</p>
             )}
-            <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontWeight: 600 }}>
-              ปี {year}
-            </span>
           </div>
         </div>
 
-        {/* ── KPI Cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 12, marginBottom: 20 }}>
-          {/* Action Plan Progress */}
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>แผนงานประจำปี</span>
-              <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,122,255,0.08)' }}>
-                <ClipboardList size={14} style={{ color: '#007aff' }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-              {loading ? '—' : actionPlanPct !== null ? `${actionPlanPct}%` : 'ไม่มีข้อมูล'}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-              {actionPlanTotal > 0 ? `สำเร็จ ${actionPlanDone} / ${actionPlanTotal} กิจกรรม` : 'ยังไม่มีแผนงาน'}
-            </div>
-            {actionPlanTotal > 0 && (
-              <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 2, width: `${actionPlanPct || 0}%`, background: (actionPlanPct || 0) >= 70 ? '#16a34a' : (actionPlanPct || 0) >= 40 ? '#f59e0b' : '#dc2626', transition: 'width 0.5s ease' }} />
-              </div>
-            )}
-          </div>
-
-          {/* Training */}
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>อบรมประจำปี</span>
-              <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(88,86,214,0.08)' }}>
-                <GraduationCap size={14} style={{ color: '#5856d6' }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-              {loading ? '—' : `${completedCourses}/${totalCourses}`}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-              หลักสูตรอบรมแล้ว{thisMonthTraining > 0 ? ` • เดือนนี้ ${thisMonthTraining} หลักสูตร` : ''}
-            </div>
-            {totalCourses > 0 && (
-              <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 2, width: `${Math.round((completedCourses / totalCourses) * 100)}%`, background: '#5856d6', transition: 'width 0.5s ease' }} />
-              </div>
-            )}
-          </div>
-
-          {/* Incidents */}
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>อุบัติเหตุสะสม</span>
-              <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: incidentSummary && incidentSummary.total_incidents > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(22,163,74,0.08)' }}>
-                {incidentSummary && incidentSummary.total_incidents > 0
-                  ? <AlertTriangle size={14} style={{ color: '#dc2626' }} />
-                  : <CheckCircle2 size={14} style={{ color: '#16a34a' }} />
-                }
-              </div>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: incidentSummary && incidentSummary.total_incidents > 0 ? '#dc2626' : 'var(--text-primary)', lineHeight: 1 }}>
-              {loading ? '—' : incidentSummary ? incidentSummary.total_incidents : 0}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-              {incidentSummary ? `บาดเจ็บ ${incidentSummary.total_injuries || 0} • LTI ${incidentSummary.total_lti || 0}` : 'ไม่มีอุบัติเหตุ'}
-            </div>
-          </div>
-
-          {/* Manhours */}
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>ชั่วโมงทำงานสะสม</span>
-              <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,149,0,0.08)' }}>
-                <Clock size={14} style={{ color: '#ff9500' }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-              {loading ? '—' : totalManhours > 0 ? totalManhours.toLocaleString() : '0'}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-              {latestManhour ? `ล่าสุด ${MONTH_LABELS[latestManhour.month - 1]} • พนักงาน ${latestManhour.employee_count || 0} คน` : 'ยังไม่มีข้อมูล'}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Pending Actions (full width) ── */}
-        {pendingItems.length > 0 && (
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', marginBottom: 20 }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <AlertCircle size={14} style={{ color: '#f59e0b' }} /> งานที่ต้องติดตาม
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 8 }}>
-              {pendingItems.map((item, i) => (
+        {/* ── HERO: Urgent Actions ── */}
+        {!loading && urgentItems.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 12 }}>
+              {urgentItems.map((item, i) => (
                 <Link key={i} href={item.href} style={{ textDecoration: 'none' }}>
                   <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                    background: 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s',
+                    padding: '16px 18px', borderRadius: 12,
+                    background: item.bgColor, border: `1.5px solid ${item.borderColor}`,
+                    cursor: 'pointer', transition: 'all 0.2s',
                   }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = item.color; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{item.label}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.detail}</span>
-                      <ArrowRight size={12} style={{ color: 'var(--muted)' }} />
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 16px ${item.borderColor}`; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${item.color}15`, flexShrink: 0 }}>
+                        {item.icon}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: item.color, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                          <span style={{ fontSize: 28, fontWeight: 800, color: item.color, lineHeight: 1 }}>
+                            {item.count}
+                          </span>
+                          <span style={{ fontSize: 12, color: item.color, opacity: 0.7 }}>{item.unit}</span>
+                        </div>
+                      </div>
+                      <ArrowRight size={16} style={{ color: item.color, opacity: 0.5, marginTop: 12 }} />
                     </div>
                   </div>
                 </Link>
@@ -274,13 +227,217 @@ export default function CompanyDashboard() {
           </div>
         )}
 
-        {/* ── Recent Activity / Training Schedule ── */}
+        {/* ── Info items (non-urgent) ── */}
+        {!loading && infoItems.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+            {infoItems.map((item, i) => (
+              <Link key={i} href={item.href} style={{ textDecoration: 'none' }}>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--card-solid)', cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = item.color; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{item.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: item.color }}>{item.detail}</span>
+                  <ArrowRight size={11} style={{ color: 'var(--muted)' }} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* ── KPI Cards ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 12, marginBottom: 20 }}>
+          {/* Action Plan Progress */}
+          <Link href={hasSheet ? `/company/${id}/action-plan` : '#'} style={{ textDecoration: 'none' }}>
+            <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: hasSheet ? 'pointer' : 'default', transition: 'border-color 0.15s', height: '100%' }}
+              onMouseEnter={e => { if (hasSheet) (e.currentTarget as HTMLElement).style.borderColor = '#007aff'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>แผนงานประจำปี</span>
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,122,255,0.08)' }}>
+                  <ClipboardList size={14} style={{ color: '#007aff' }} />
+                </div>
+              </div>
+              {loading ? (
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>—</div>
+              ) : !hasSheet ? (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.4 }}>ยังไม่ได้เชื่อมต่อ</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>ต้องตั้งค่า Google Sheet ก่อน</div>
+                </>
+              ) : actionPlanTotal === 0 ? (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.4 }}>ยังไม่มีแผนงาน</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>เพิ่มกิจกรรมในแผนงานประจำปี</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: (actionPlanPct || 0) >= 70 ? '#16a34a' : (actionPlanPct || 0) >= 40 ? '#f59e0b' : '#dc2626', lineHeight: 1 }}>
+                      {actionPlanPct}
+                    </span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)' }}>%</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    สำเร็จ {actionPlanDone} / {actionPlanTotal} กิจกรรม
+                  </div>
+                  <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 2, width: `${actionPlanPct || 0}%`, background: (actionPlanPct || 0) >= 70 ? '#16a34a' : (actionPlanPct || 0) >= 40 ? '#f59e0b' : '#dc2626', transition: 'width 0.5s ease' }} />
+                  </div>
+                </>
+              )}
+            </div>
+          </Link>
+
+          {/* Training */}
+          <Link href={`/company/${id}/training`} style={{ textDecoration: 'none' }}>
+            <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s', height: '100%' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#5856d6'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>อบรมประจำปี</span>
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(88,86,214,0.08)' }}>
+                  <GraduationCap size={14} style={{ color: '#5856d6' }} />
+                </div>
+              </div>
+              {loading ? (
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>—</div>
+              ) : totalCourses === 0 ? (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.4 }}>ยังไม่มีแผนอบรม</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>เพิ่มหลักสูตรในแผนอบรมประจำปี</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: trainingPct >= 80 ? '#16a34a' : trainingPct >= 50 ? '#5856d6' : '#f59e0b', lineHeight: 1 }}>
+                      {completedCourses}
+                    </span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>/ {totalCourses}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>หลักสูตรอบรมแล้ว</span>
+                    {overdueTraining > 0 && (
+                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 700 }}>
+                        ค้าง {overdueTraining}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 2, width: `${trainingPct}%`, background: trainingPct >= 80 ? '#16a34a' : '#5856d6', transition: 'width 0.5s ease' }} />
+                  </div>
+                </>
+              )}
+            </div>
+          </Link>
+
+          {/* Incidents */}
+          <Link href={`/company/${id}/incidents`} style={{ textDecoration: 'none' }}>
+            <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s', height: '100%' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = incidentSummary && incidentSummary.total_incidents > 0 ? '#dc2626' : '#16a34a'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>อุบัติเหตุสะสม</span>
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: incidentSummary && incidentSummary.total_incidents > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(22,163,74,0.08)' }}>
+                  {incidentSummary && incidentSummary.total_incidents > 0
+                    ? <AlertTriangle size={14} style={{ color: '#dc2626' }} />
+                    : <CheckCircle2 size={14} style={{ color: '#16a34a' }} />
+                  }
+                </div>
+              </div>
+              {loading ? (
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>—</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: incidentSummary && incidentSummary.total_incidents > 0 ? '#dc2626' : '#16a34a', lineHeight: 1 }}>
+                    {incidentSummary ? incidentSummary.total_incidents : 0}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    {incidentSummary && incidentSummary.total_incidents > 0
+                      ? `บาดเจ็บ ${incidentSummary.total_injuries || 0} • LTI ${incidentSummary.total_lti || 0}`
+                      : <span style={{ color: '#16a34a', fontWeight: 600 }}>ไม่มีอุบัติเหตุ</span>
+                    }
+                  </div>
+                </>
+              )}
+            </div>
+          </Link>
+
+          {/* Manhours */}
+          <Link href={`/company/${id}/manhours`} style={{ textDecoration: 'none' }}>
+            <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s', height: '100%' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ff9500'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>ชั่วโมงทำงานสะสม</span>
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,149,0,0.08)' }}>
+                  <Clock size={14} style={{ color: '#ff9500' }} />
+                </div>
+              </div>
+              {loading ? (
+                <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>—</div>
+              ) : !hasAnyManhourData ? (
+                <>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.4 }}>ยังไม่มีข้อมูลนำเข้า</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#ff9500', fontWeight: 600, marginTop: 6 }}>
+                    <Plus size={11} /> บันทึกชั่วโมงทำงาน
+                  </div>
+                </>
+              ) : !currentMonthManhour ? (
+                <>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                    {totalManhours.toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    ล่าสุด {MONTH_LABELS[(latestManhour?.month || 1) - 1]}
+                  </div>
+                  <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontWeight: 600, marginTop: 6, display: 'inline-block' }}>
+                    ยังไม่บันทึก {MONTH_LABELS[currentMonth - 1]}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                      {totalManhours.toLocaleString()}
+                    </span>
+                    {mhTrend !== null && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 700, color: mhTrend >= 0 ? '#16a34a' : '#dc2626' }}>
+                        {mhTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                        {mhTrend >= 0 ? '+' : ''}{mhTrend}%
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    พนักงาน {latestManhour?.employee_count || 0} คน
+                  </div>
+                </>
+              )}
+            </div>
+          </Link>
+        </div>
+
+        {/* ── Training + Manhours Detail ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 16 }}>
           {/* Upcoming Training */}
           <div style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <CalendarCheck size={14} style={{ color: '#5856d6' }} /> อบรมที่กำลังจะมาถึง
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CalendarCheck size={14} style={{ color: '#5856d6' }} /> อบรมที่กำลังจะมาถึง
+              </h2>
+              <Link href={`/company/${id}/training`} style={{ fontSize: 11, fontWeight: 600, color: '#5856d6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+                ดูทั้งหมด <ArrowRight size={11} />
+              </Link>
+            </div>
             {(() => {
               const upcoming = trainingPlans
                 .filter(p => {
@@ -289,43 +446,79 @@ export default function CompanyDashboard() {
                 })
                 .sort((a, b) => a.planned_month - b.planned_month)
                 .slice(0, 5);
-              if (upcoming.length === 0) return <p style={{ fontSize: 12, color: 'var(--muted)' }}>ไม่มีการอบรมที่รอจัด</p>;
-              return upcoming.map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < upcoming.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#5856d6', background: 'rgba(88,86,214,0.08)', padding: '2px 8px', borderRadius: 4, flexShrink: 0 }}>
-                    {MONTH_LABELS[t.planned_month - 1]}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {t.course_name}
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
-                    {t.training_sessions?.[0]?.status === 'scheduled' ? 'กำหนดวันแล้ว' : 'รอกำหนดวัน'}
-                  </span>
+              if (totalCourses === 0) return (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>ยังไม่มีแผนอบรมประจำปี</p>
+                  <Link href={`/company/${id}/training`} style={{ fontSize: 11, fontWeight: 600, color: '#5856d6', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Plus size={12} /> เพิ่มหลักสูตร
+                  </Link>
                 </div>
-              ));
+              );
+              if (upcoming.length === 0) return (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <CheckCircle2 size={20} style={{ color: '#16a34a', margin: '0 auto 8px' }} />
+                  <p style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, margin: 0 }}>จัดอบรมครบทุกหลักสูตรแล้ว</p>
+                </div>
+              );
+              return upcoming.map((t, i) => {
+                const status = t.training_sessions?.[0]?.status;
+                const isScheduled = status === 'scheduled';
+                const statusLabel = isScheduled ? 'กำหนดวันแล้ว' : 'รอกำหนดวัน';
+                const statusColor = isScheduled ? '#16a34a' : '#f59e0b';
+                const statusBg = isScheduled ? 'rgba(22,163,74,0.08)' : 'rgba(245,158,11,0.08)';
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < upcoming.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#5856d6', background: 'rgba(88,86,214,0.08)', padding: '3px 8px', borderRadius: 4, flexShrink: 0 }}>
+                      {MONTH_LABELS[t.planned_month - 1]}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.course_name}
+                    </span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: statusColor, background: statusBg, padding: '2px 8px', borderRadius: 4, flexShrink: 0 }}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                );
+              });
             })()}
           </div>
 
           {/* Manhours Trend (mini) */}
           <div style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Users size={14} style={{ color: '#ff9500' }} /> ชั่วโมงทำงานรายเดือน
-            </h2>
-            {manhours.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--muted)' }}>ยังไม่มีข้อมูลชั่วโมงทำงาน</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Users size={14} style={{ color: '#ff9500' }} /> ชั่วโมงทำงานรายเดือน
+              </h2>
+              <Link href={`/company/${id}/manhours`} style={{ fontSize: 11, fontWeight: 600, color: '#ff9500', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+                ดูทั้งหมด <ArrowRight size={11} />
+              </Link>
+            </div>
+            {!hasAnyManhourData ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <Clock size={20} style={{ color: 'var(--muted)', margin: '0 auto 8px' }} />
+                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>ยังไม่มีข้อมูลชั่วโมงทำงาน</p>
+                <Link href={`/company/${id}/manhours`} style={{ fontSize: 11, fontWeight: 600, color: '#ff9500', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Plus size={12} /> บันทึกชั่วโมงทำงาน
+                </Link>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {manhours.sort((a, b) => a.month - b.month).slice(-6).map((m, i) => {
+                {sortedManhours.slice(-6).map((m, i) => {
                   const total = (m.employee_manhours || 0) + (m.contractor_manhours || 0);
                   const maxTotal = Math.max(...manhours.map(x => (x.employee_manhours || 0) + (x.contractor_manhours || 0)), 1);
                   const pct = Math.round((total / maxTotal) * 100);
+                  const isCurrentMonth = m.month === currentMonth;
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 10, color: 'var(--muted)', width: 32, textAlign: 'right', flexShrink: 0 }}>{MONTH_LABELS[m.month - 1]}</span>
+                      <span style={{ fontSize: 10, color: isCurrentMonth ? '#ff9500' : 'var(--muted)', fontWeight: isCurrentMonth ? 700 : 400, width: 32, textAlign: 'right', flexShrink: 0 }}>
+                        {MONTH_LABELS[m.month - 1]}
+                      </span>
                       <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: 'linear-gradient(90deg, #ff9500, #ffb84d)', transition: 'width 0.5s ease' }} />
+                        <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: isCurrentMonth ? 'linear-gradient(90deg, #ff9500, #ff6b00)' : 'linear-gradient(90deg, #ff9500, #ffb84d)', transition: 'width 0.5s ease' }} />
                       </div>
-                      <span style={{ fontSize: 10, color: 'var(--text-secondary)', width: 52, textAlign: 'right', flexShrink: 0 }}>{total.toLocaleString()}</span>
+                      <span style={{ fontSize: 10, color: isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: isCurrentMonth ? 600 : 400, width: 52, textAlign: 'right', flexShrink: 0 }}>
+                        {total.toLocaleString()}
+                      </span>
                     </div>
                   );
                 })}
