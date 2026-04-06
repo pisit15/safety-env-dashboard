@@ -72,6 +72,7 @@ export default function HQOverview() {
   // KPI Quarterly Score state
   const [kpiData, setKpiData] = useState<YearlyKPISummary[] | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
+  const [kpiQuarterFilter, setKpiQuarterFilter] = useState<number | null>(null); // null = all, 0-3 = Q1-Q4
 
   // Persist planType, timeRange, and selectedYear to localStorage
   useEffect(() => {
@@ -1169,7 +1170,7 @@ export default function HQOverview() {
           </div>
         )}
 
-        {/* KPI Quarterly Score — Company Comparison */}
+        {/* KPI Quarterly Score — Company Comparison (Phase 3 Enhanced) */}
         {kpiData && kpiData.length > 0 && (
           <div className="glass-card p-6 mb-6 animate-fade-in-up" style={{ opacity: 0, animationDelay: '0.35s' }}>
             <div className="flex items-center justify-between mb-5">
@@ -1177,22 +1178,29 @@ export default function HQOverview() {
                 <span className="w-0.5 h-4 rounded-full" style={{ background: '#5856d6' }}></span>
                 <Award size={14} style={{ color: '#5856d6' }} />
                 KPI Score รายไตรมาส — {planType === 'total' ? 'แผนรวม' : planType === 'safety' ? 'Safety' : 'Environment'} {selectedYear}
+                {kpiQuarterFilter !== null && (
+                  <span className="ml-2 px-2 py-0.5 rounded-md text-[11px]" style={{ background: 'rgba(88,86,214,0.2)', color: '#5856d6' }}>
+                    Q{kpiQuarterFilter + 1}
+                    <button onClick={() => setKpiQuarterFilter(null)} className="ml-1 hover:opacity-70">×</button>
+                  </span>
+                )}
               </h3>
-              {kpiLoading && (
-                <span className="text-[11px] animate-pulse" style={{ color: 'var(--accent)' }}>กำลังคำนวณ KPI...</span>
-              )}
-              <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--muted)' }}>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#34c759' }}></span> 5 (100%)</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#30d158' }}></span> 4 (≥90%)</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff9f0a' }}></span> 3 (≥80%)</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff6b35' }}></span> 2 (≥70%)</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff3b30' }}></span> 1 ({'<70%'})</span>
+              <div className="flex items-center gap-2">
+                {kpiLoading && (
+                  <span className="text-[11px] animate-pulse" style={{ color: 'var(--accent)' }}>กำลังคำนวณ KPI...</span>
+                )}
+                <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--muted)' }}>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#34c759' }}></span> 5 (100%)</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#30d158' }}></span> 4 (≥90%)</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff9f0a' }}></span> 3 (≥80%)</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff6b35' }}></span> 2 (≥70%)</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff3b30' }}></span> 1 ({'<70%'})</span>
+                </div>
               </div>
             </div>
 
-            {/* KPI HQ Summary Row — aggregate Q1-Q4 across all companies */}
+            {/* KPI HQ Summary Row — clickable Q1-Q4 filter cards */}
             {(() => {
-              // Compute aggregate KPI per quarter
               const quarterAgg = [0, 1, 2, 3].map(qi => {
                 let totalNum = 0, totalDen = 0;
                 kpiData.forEach(comp => {
@@ -1215,31 +1223,53 @@ export default function HQOverview() {
 
               return (
                 <div className="grid grid-cols-5 gap-3 mb-5">
-                  {quarterAgg.map((q, qi) => (
-                    <div key={qi} className="p-3 rounded-xl text-center transition-all" style={{
-                      background: q.isFuture ? 'var(--bg-tertiary)' : 'rgba(88,86,214,0.06)',
-                      border: `1px solid ${q.isFuture ? 'var(--border)' : 'rgba(88,86,214,0.2)'}`,
-                      opacity: q.isFuture ? 0.5 : 1,
-                    }}>
-                      <div className="text-[11px] font-medium mb-1" style={{ color: 'var(--muted)' }}>
-                        Q{qi + 1}
-                      </div>
-                      <div className="text-2xl font-bold mb-0.5" style={{ color: q.isFuture ? 'var(--muted)' : getScoreColor(q.score) }}>
-                        {q.isFuture ? '-' : q.score}
-                      </div>
-                      <div className="text-[10px]" style={{ color: q.isFuture ? 'var(--muted)' : 'var(--text-secondary)' }}>
-                        {q.isFuture ? 'ยังไม่ถึง' : `${q.pct}%`}
-                      </div>
-                      <div className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                        {q.isFuture ? '' : `${q.totalNum}/${q.totalDen}`}
-                      </div>
-                    </div>
-                  ))}
+                  {quarterAgg.map((q, qi) => {
+                    const isSelected = kpiQuarterFilter === qi;
+                    return (
+                      <button
+                        key={qi}
+                        onClick={() => !q.isFuture && setKpiQuarterFilter(isSelected ? null : qi)}
+                        disabled={q.isFuture}
+                        className="p-3 rounded-xl text-center transition-all duration-200"
+                        style={{
+                          background: isSelected ? 'rgba(88,86,214,0.18)' : q.isFuture ? 'var(--bg-tertiary)' : 'rgba(88,86,214,0.06)',
+                          border: isSelected ? '2px solid #5856d6' : `1px solid ${q.isFuture ? 'var(--border)' : 'rgba(88,86,214,0.2)'}`,
+                          opacity: q.isFuture ? 0.4 : 1,
+                          cursor: q.isFuture ? 'not-allowed' : 'pointer',
+                          transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                          boxShadow: isSelected ? '0 4px 16px rgba(88,86,214,0.25)' : 'none',
+                        }}
+                      >
+                        <div className="text-[11px] font-medium mb-1" style={{ color: isSelected ? '#5856d6' : 'var(--muted)' }}>
+                          Q{qi + 1}
+                        </div>
+                        <div className="text-2xl font-bold mb-0.5" style={{ color: q.isFuture ? 'var(--muted)' : getScoreColor(q.score) }}>
+                          {q.isFuture ? '-' : q.score}
+                        </div>
+                        <div className="text-[10px]" style={{ color: q.isFuture ? 'var(--muted)' : 'var(--text-secondary)' }}>
+                          {q.isFuture ? 'ยังไม่ถึง' : `${q.pct}%`}
+                        </div>
+                        <div className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                          {q.isFuture ? '' : `${q.totalNum}/${q.totalDen}`}
+                        </div>
+                        {isSelected && (
+                          <div className="text-[8px] mt-1 font-semibold" style={{ color: '#5856d6' }}>คลิกเพื่อยกเลิก</div>
+                        )}
+                      </button>
+                    );
+                  })}
                   {/* Yearly */}
-                  <div className="p-3 rounded-xl text-center" style={{
-                    background: 'rgba(88,86,214,0.12)',
-                    border: '2px solid rgba(88,86,214,0.3)',
-                  }}>
+                  <button
+                    onClick={() => setKpiQuarterFilter(null)}
+                    className="p-3 rounded-xl text-center transition-all duration-200"
+                    style={{
+                      background: kpiQuarterFilter === null ? 'rgba(88,86,214,0.18)' : 'rgba(88,86,214,0.08)',
+                      border: kpiQuarterFilter === null ? '2px solid rgba(88,86,214,0.5)' : '2px solid rgba(88,86,214,0.15)',
+                      cursor: 'pointer',
+                      transform: kpiQuarterFilter === null ? 'scale(1.03)' : 'scale(1)',
+                      boxShadow: kpiQuarterFilter === null ? '0 4px 16px rgba(88,86,214,0.2)' : 'none',
+                    }}
+                  >
                     <div className="text-[11px] font-semibold mb-1" style={{ color: '#5856d6' }}>
                       เฉลี่ยทั้งปี
                     </div>
@@ -1252,116 +1282,209 @@ export default function HQOverview() {
                     <div className="text-[9px] mt-0.5" style={{ color: '#5856d6' }}>
                       {getScoreLabel(yearlyScore)}
                     </div>
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Quarter Detail Breakdown — shown when a quarter is selected */}
+            {kpiQuarterFilter !== null && (() => {
+              const qi = kpiQuarterFilter;
+              const qLabel = ['Q1 (ม.ค.–มี.ค.)', 'Q2 (เม.ย.–มิ.ย.)', 'Q3 (ก.ค.–ก.ย.)', 'Q4 (ต.ค.–ธ.ค.)'][qi];
+              return (
+                <div className="mb-5 p-4 rounded-xl" style={{ background: 'rgba(88,86,214,0.04)', border: '1px solid rgba(88,86,214,0.15)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-[12px] font-semibold flex items-center gap-2" style={{ color: '#5856d6' }}>
+                      รายละเอียด {qLabel}
+                    </h4>
+                    <button onClick={() => setKpiQuarterFilter(null)} className="text-[10px] px-2 py-1 rounded-md transition-all" style={{ color: 'var(--muted)', background: 'var(--bg-tertiary)' }}>
+                      ดูทุกไตรมาส
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="apple-table">
+                      <thead>
+                        <tr>
+                          <th style={{ minWidth: 130 }}>บริษัท</th>
+                          <th className="text-center">Score</th>
+                          <th className="text-center">รวม</th>
+                          <th className="text-center" style={{ color: '#34c759' }}>เสร็จ</th>
+                          <th className="text-center" style={{ color: '#ff453a' }}>Overdue</th>
+                          <th className="text-center" style={{ color: '#5ac8fa' }}>เลื่อน</th>
+                          <th className="text-center" style={{ color: '#ff9f0a' }}>ยกเลิก</th>
+                          <th className="text-center" style={{ color: '#8e8e93' }}>N/A</th>
+                          <th className="text-center">ฐาน</th>
+                          <th className="text-center">%</th>
+                          <th className="text-center">สถานะ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kpiData
+                          .sort((a, b) => {
+                            const aQ = a.quarters?.[qi];
+                            const bQ = b.quarters?.[qi];
+                            return (bQ?.percentage || 0) - (aQ?.percentage || 0);
+                          })
+                          .map((comp, idx) => {
+                            const q = comp.quarters?.[qi];
+                            if (!q || q.isFutureQuarter) return null;
+                            const companyInfo = data?.companies.find((c: any) => c.companyId === comp.companyId);
+                            const companyName = companyInfo?.shortName || companyInfo?.companyName || comp.companyId;
+                            return (
+                              <tr key={comp.companyId} style={{
+                                background: q.score <= 1 ? 'rgba(255,59,48,0.04)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.03)',
+                              }}>
+                                <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                  <Link href={`/company/${comp.companyId}/action-plan`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
+                                    {companyName}
+                                  </Link>
+                                  {q.highCancelledRate && <span className="ml-1 px-1 py-0.5 rounded text-[7px] font-bold" style={{ background: '#ff9f0a', color: '#fff' }}>ยกเลิกสูง</span>}
+                                  {q.highPostponedRate && <span className="ml-1 px-1 py-0.5 rounded text-[7px] font-bold" style={{ background: '#5ac8fa', color: '#fff' }}>เลื่อนสูง</span>}
+                                </td>
+                                <td className="text-center">
+                                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold" style={{
+                                    background: getScoreColor(q.score), color: '#fff',
+                                  }}>
+                                    {q.score}
+                                  </span>
+                                </td>
+                                <td className="text-center">{q.totalItems}</td>
+                                <td className="text-center" style={{ color: '#34c759', fontWeight: 600 }}>{q.doneCount}</td>
+                                <td className="text-center" style={{ color: q.overdueCount > 0 ? '#ff453a' : 'var(--muted)', fontWeight: q.overdueCount > 0 ? 600 : 400 }}>{q.overdueCount || '-'}</td>
+                                <td className="text-center" style={{ color: q.postponedCount > 0 ? '#5ac8fa' : 'var(--muted)' }}>{q.postponedCount || '-'}</td>
+                                <td className="text-center" style={{ color: q.cancelledCount > 0 ? '#ff9f0a' : 'var(--muted)' }}>{q.cancelledCount || '-'}</td>
+                                <td className="text-center" style={{ color: 'var(--muted)' }}>{q.notApplicableCount || '-'}</td>
+                                <td className="text-center" style={{ color: 'var(--text-secondary)' }}>{q.denominator}</td>
+                                <td className="text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <div className="w-12 h-[4px] rounded-full" style={{ background: 'var(--border)' }}>
+                                      <div className="h-[4px] rounded-full transition-all duration-500" style={{
+                                        width: `${Math.min(q.percentage, 100)}%`,
+                                        backgroundColor: getScoreColor(q.score),
+                                      }} />
+                                    </div>
+                                    <span className="text-[11px] font-semibold" style={{ color: getScoreColor(q.score) }}>
+                                      {q.percentage}%
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="text-center">
+                                  <span className="text-[10px] font-semibold" style={{ color: getScoreColor(q.score) }}>
+                                    {q.scoreLabel}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               );
             })()}
 
-            {/* Company KPI Comparison Table */}
-            <div className="overflow-x-auto">
-              <table className="apple-table">
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: 140 }}>บริษัท</th>
-                    <th className="text-center" style={{ minWidth: 90 }}>Q1</th>
-                    <th className="text-center" style={{ minWidth: 90 }}>Q2</th>
-                    <th className="text-center" style={{ minWidth: 90 }}>Q3</th>
-                    <th className="text-center" style={{ minWidth: 90 }}>Q4</th>
-                    <th className="text-center" style={{ minWidth: 90 }}>เฉลี่ยปี</th>
-                    <th className="text-center" style={{ minWidth: 60 }}>สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kpiData
-                    .sort((a, b) => (b.yearlyAvgPct || 0) - (a.yearlyAvgPct || 0))
-                    .map((comp, idx) => {
-                      // Find company name from dashboard data
-                      const companyInfo = data?.companies.find((c: any) => c.companyId === comp.companyId);
-                      const companyName = companyInfo?.shortName || companyInfo?.companyName || comp.companyId;
+            {/* Company KPI Comparison Table — shown when no quarter filter */}
+            {kpiQuarterFilter === null && (
+              <div className="overflow-x-auto">
+                <table className="apple-table">
+                  <thead>
+                    <tr>
+                      <th style={{ minWidth: 140 }}>บริษัท</th>
+                      <th className="text-center" style={{ minWidth: 90 }}>Q1</th>
+                      <th className="text-center" style={{ minWidth: 90 }}>Q2</th>
+                      <th className="text-center" style={{ minWidth: 90 }}>Q3</th>
+                      <th className="text-center" style={{ minWidth: 90 }}>Q4</th>
+                      <th className="text-center" style={{ minWidth: 90 }}>เฉลี่ยปี</th>
+                      <th className="text-center" style={{ minWidth: 60 }}>สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kpiData
+                      .sort((a, b) => (b.yearlyAvgPct || 0) - (a.yearlyAvgPct || 0))
+                      .map((comp, idx) => {
+                        const companyInfo = data?.companies.find((c: any) => c.companyId === comp.companyId);
+                        const companyName = companyInfo?.shortName || companyInfo?.companyName || comp.companyId;
+                        const hasConsecutiveLow = comp.quarters?.some(q => q.consecutiveLow);
+                        const hasHighCancelled = comp.quarters?.some(q => q.highCancelledRate && !q.isFutureQuarter);
+                        const hasHighPostponed = comp.quarters?.some(q => q.highPostponedRate && !q.isFutureQuarter);
+                        const lowScore = comp.yearlyAvgScore <= 1;
 
-                      // Alert flags
-                      const hasConsecutiveLow = comp.quarters?.some(q => q.consecutiveLow);
-                      const hasHighCancelled = comp.quarters?.some(q => q.highCancelledRate && !q.isFutureQuarter);
-                      const hasHighPostponed = comp.quarters?.some(q => q.highPostponedRate && !q.isFutureQuarter);
-                      const lowScore = comp.yearlyAvgScore <= 1;
-
-                      return (
-                        <tr key={comp.companyId} style={{
-                          background: lowScore ? 'rgba(255,59,48,0.06)' : hasConsecutiveLow ? 'rgba(255,107,53,0.06)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.03)',
-                        }}>
-                          <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <Link href={`/company/${comp.companyId}/action-plan`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
-                                {companyName}
-                              </Link>
-                              {hasConsecutiveLow && (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#ff3b30', color: '#fff' }}>
-                                  <TrendingDown size={9} className="inline mr-0.5" style={{ verticalAlign: 'middle' }} />ต่ำต่อเนื่อง
-                                </span>
-                              )}
-                              {hasHighCancelled && (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#ff9f0a', color: '#fff' }}>
-                                  ยกเลิกสูง
-                                </span>
-                              )}
-                              {hasHighPostponed && (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#5ac8fa', color: '#fff' }}>
-                                  เลื่อนสูง
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          {comp.quarters?.map((q, qi) => (
-                            <td key={qi} className="text-center" style={{ padding: '8px 4px' }}>
-                              {q.isFutureQuarter ? (
-                                <span className="text-[11px]" style={{ color: 'var(--muted)' }}>-</span>
-                              ) : (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold" style={{
-                                    background: getScoreColor(q.score),
-                                    color: '#fff',
-                                    boxShadow: `0 2px 8px ${getScoreColor(q.score)}40`,
-                                  }}>
-                                    {q.score}
+                        return (
+                          <tr key={comp.companyId} style={{
+                            background: lowScore ? 'rgba(255,59,48,0.06)' : hasConsecutiveLow ? 'rgba(255,107,53,0.06)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.03)',
+                          }}>
+                            <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Link href={`/company/${comp.companyId}/action-plan`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
+                                  {companyName}
+                                </Link>
+                                {hasConsecutiveLow && (
+                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#ff3b30', color: '#fff' }}>
+                                    <TrendingDown size={9} className="inline mr-0.5" style={{ verticalAlign: 'middle' }} />ต่ำต่อเนื่อง
                                   </span>
-                                  <span className="text-[9px]" style={{ color: 'var(--muted)' }}>
-                                    {q.percentage}%
+                                )}
+                                {hasHighCancelled && (
+                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#ff9f0a', color: '#fff' }}>
+                                    ยกเลิกสูง
                                   </span>
-                                  <span className="text-[8px]" style={{ color: 'var(--muted)' }}>
-                                    {q.doneCount}/{q.denominator}
+                                )}
+                                {hasHighPostponed && (
+                                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#5ac8fa', color: '#fff' }}>
+                                    เลื่อนสูง
                                   </span>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </td>
-                          ))}
-                          {/* Yearly average */}
-                          <td className="text-center" style={{ padding: '8px 4px' }}>
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-sm font-bold" style={{
-                                background: getScoreColor(comp.yearlyAvgScore),
-                                color: '#fff',
-                                boxShadow: `0 2px 10px ${getScoreColor(comp.yearlyAvgScore)}50`,
-                                border: '2px solid rgba(255,255,255,0.2)',
-                              }}>
-                                {comp.yearlyAvgScore}
+                            {comp.quarters?.map((q, qi) => (
+                              <td key={qi} className="text-center" style={{ padding: '8px 4px' }}>
+                                {q.isFutureQuarter ? (
+                                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>-</span>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold" style={{
+                                      background: getScoreColor(q.score),
+                                      color: '#fff',
+                                      boxShadow: `0 2px 8px ${getScoreColor(q.score)}40`,
+                                    }}>
+                                      {q.score}
+                                    </span>
+                                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>
+                                      {q.percentage}%
+                                    </span>
+                                    <span className="text-[8px]" style={{ color: 'var(--muted)' }}>
+                                      {q.doneCount}/{q.denominator}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                            <td className="text-center" style={{ padding: '8px 4px' }}>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-sm font-bold" style={{
+                                  background: getScoreColor(comp.yearlyAvgScore),
+                                  color: '#fff',
+                                  boxShadow: `0 2px 10px ${getScoreColor(comp.yearlyAvgScore)}50`,
+                                  border: '2px solid rgba(255,255,255,0.2)',
+                                }}>
+                                  {comp.yearlyAvgScore}
+                                </span>
+                                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                  {comp.yearlyAvgPct}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="text-center">
+                              <span className="text-[10px] font-semibold" style={{ color: getScoreColor(comp.yearlyAvgScore) }}>
+                                {comp.yearlyScoreLabel}
                               </span>
-                              <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                                {comp.yearlyAvgPct}%
-                              </span>
-                            </div>
-                          </td>
-                          {/* Status label */}
-                          <td className="text-center">
-                            <span className="text-[10px] font-semibold" style={{ color: getScoreColor(comp.yearlyAvgScore) }}>
-                              {comp.yearlyScoreLabel}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* KPI Alert Summary */}
             {(() => {
@@ -1503,6 +1626,7 @@ export default function HQOverview() {
                   <th className="text-center">ยกเลิก</th>
                   <th className="text-center">N/A</th>
                   <th className="text-center" style={{ color: '#ff453a' }}>Overdue</th>
+                  <th className="text-center" style={{ color: '#5856d6' }}>KPI</th>
                   <th
                     className="text-center cursor-pointer hover:opacity-70 transition-opacity"
                     onClick={() => {
@@ -1597,6 +1721,23 @@ export default function HQOverview() {
                             });
                           }
                           return oc > 0 ? oc : '-';
+                        })()}
+                      </td>
+                      <td className="text-center" style={{ padding: '6px 2px' }}>
+                        {(() => {
+                          const compKpi = kpiData?.find(k => k.companyId === c.companyId);
+                          if (!compKpi) return <span style={{ color: 'var(--muted)' }}>-</span>;
+                          return (
+                            <div className="flex items-center justify-center gap-1">
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[10px] font-bold" style={{
+                                background: getScoreColor(compKpi.yearlyAvgScore),
+                                color: '#fff',
+                              }}>
+                                {compKpi.yearlyAvgScore}
+                              </span>
+                              <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{compKpi.yearlyAvgPct}%</span>
+                            </div>
+                          );
                         })()}
                       </td>
                       <td className="text-center">
