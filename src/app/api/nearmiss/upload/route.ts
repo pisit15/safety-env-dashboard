@@ -38,23 +38,8 @@ export async function POST(request: NextRequest) {
     const random = Math.random().toString(36).slice(2, 8);
     const fileName = `${companyId}/${timestamp}-${random}.${ext}`;
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage (bucket 'nearmiss-images' + RLS policies created via Supabase dashboard)
     const supabase = getSupabase();
-
-    // Ensure bucket exists (auto-create if missing)
-    const { data: buckets } = await supabase.storage.listBuckets();
-    if (!buckets?.find(b => b.name === BUCKET)) {
-      const { error: createErr } = await supabase.storage.createBucket(BUCKET, {
-        public: true,
-        fileSizeLimit: MAX_SIZE_BYTES,
-        allowedMimeTypes: ALLOWED_TYPES,
-      });
-      if (createErr && !createErr.message?.includes('already exists')) {
-        console.error('Bucket create error:', createErr);
-        return NextResponse.json({ error: 'ไม่สามารถสร้าง storage bucket ได้' }, { status: 500 });
-      }
-    }
-
     const arrayBuffer = await file.arrayBuffer();
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
