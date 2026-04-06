@@ -53,7 +53,8 @@ export default function NearMissReportPage() {
 
   // Image upload state
   const [images, setImages] = useState<{ url: string; name: string; uploading?: boolean; error?: string }[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageSelect = useCallback(async (files: FileList | null) => {
     if (!files) return;
@@ -383,18 +384,29 @@ export default function NearMissReportPage() {
                 <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                   {/* Take photo — opens camera on mobile */}
                   <button type="button"
-                    onClick={() => { if (fileInputRef.current) { fileInputRef.current.capture = 'environment'; fileInputRef.current.accept = 'image/*'; fileInputRef.current.click(); } }}
+                    onClick={() => cameraInputRef.current?.click()}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid #007aff', background: 'rgba(0,122,255,0.06)', color: '#007aff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                     <Camera size={16} /> ถ่ายรูป
                   </button>
-                  {/* Browse gallery */}
+                  {/* Browse gallery — separate input WITHOUT capture attribute */}
                   <button type="button"
-                    onClick={() => { if (fileInputRef.current) { (fileInputRef.current as HTMLInputElement & { capture: string }).capture = ''; fileInputRef.current.accept = 'image/*'; fileInputRef.current.click(); } }}
+                    onClick={() => galleryInputRef.current?.click()}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#f9fafb', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                     <ImagePlus size={16} /> เลือกจากคลัง
                   </button>
+                  {/* Camera input — with capture attribute to open camera */}
                   <input
-                    ref={fileInputRef}
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={e => handleImageSelect(e.target.files)}
+                    onClick={e => { (e.target as HTMLInputElement).value = ''; }}
+                  />
+                  {/* Gallery input — NO capture attribute so it opens file picker / gallery */}
+                  <input
+                    ref={galleryInputRef}
                     type="file"
                     accept="image/*"
                     multiple
