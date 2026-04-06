@@ -9,6 +9,7 @@ import KPICard from '@/components/KPICard';
 import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
+import { YearlyKPISummary, QuarterlyKPI, getScoreColor, getScoreLabel } from '@/lib/kpi-calculator';
 import { useAuth } from '@/components/AuthContext';
 import dynamic from 'next/dynamic';
 
@@ -74,6 +75,11 @@ export default function CompanyDrilldown() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  // KPI quarterly state
+  const [kpiData, setKpiData] = useState<YearlyKPISummary | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(false);
+  const [showKpiDetail, setShowKpiDetail] = useState(false);
+
   // Sync planType from URL search params (for sidebar navigation)
   useEffect(() => {
     const urlPlan = searchParams.get('plan');
@@ -91,6 +97,19 @@ export default function CompanyDrilldown() {
   useEffect(() => {
     localStorage.setItem('dashboard_year', String(selectedYear));
   }, [selectedYear]);
+
+  // Fetch KPI quarterly data
+  useEffect(() => {
+    if (!companyId) return;
+    setKpiLoading(true);
+    fetch(`/api/kpi/quarterly?companyId=${companyId}&planType=${planType}&year=${selectedYear}`)
+      .then(r => r.json())
+      .then((d: YearlyKPISummary) => {
+        if (d && d.quarters) setKpiData(d);
+        setKpiLoading(false);
+      })
+      .catch(() => setKpiLoading(false));
+  }, [companyId, planType, selectedYear]);
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -1750,6 +1769,179 @@ export default function CompanyDrilldown() {
                 <KPICard label="Conditional / ยังไม่เกิดเหตุ" value={activities.filter(a => a.isConditional).length} color="var(--muted)" subtext="ไม่นับ overdue" />
               </div>
               </>
+            )}
+
+            {/* ── KPI Quarterly Score Section ──────────────────── */}
+            {kpiData && kpiData.quarters && (
+              <div className="mb-5 animate-fade-in-up">
+                <div
+                  className="flex items-center justify-between cursor-pointer select-none mb-3"
+                  onClick={() => setShowKpiDetail(!showKpiDetail)}
+                >
+                  <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <TrendingUp size={14} style={{ color: 'var(--accent)' }} />
+                    KPI รายไตรมาส
+                    <span className="text-[11px] font-normal" style={{ color: 'var(--muted)' }}>
+                      — เฉลี่ย {kpiData.yearlyAvgPct}% (คะแนน {kpiData.yearlyAvgScore}/5 {kpiData.yearlyScoreLabel})
+                    </span>
+                  </h3>
+                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                    {showKpiDetail ? '▲ ซ่อน' : '▼ ดูรายละเอียด'}
+                  </span>
+                </div>
+
+                {/* Compact quarter score bars */}
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {kpiData.quarters.map((q: QuarterlyKPI) => {
+                    const isActive = !q.isFutureQuarter && q.totalItems > 0;
+                    return (
+                      <div
+                        key={q.quarter}
+                        className="rounded-lg p-3 relative overflow-hidden"
+                        style={{
+                          background: isActive ? 'var(--card-solid)' : 'var(--bg-secondary)',
+                          border: `1px solid ${isActive ? q.scoreColor + '40' : 'var(--border)'}`,
+                          opacity: isActive ? 1 : 0.5,
+                        }}
+                      >
+                        {/* Progress bar background */}
+                        {isActive && (
+                          <div
+                            style={{
+                              position: 'absolute', left: 0, bottom: 0,
+                              width: `${Math.min(q.percentage, 100)}%`, height: 3,
+                              background: q.scoreColor,
+                              borderRadius: '0 2px 0 0',
+                              transition: 'width 0.5s ease',
+                            }}
+                          />
+                        )}
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                            {q.quarter}
+                          </span>
+                          {isActive && (
+                            <span
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: q.scoreColor + '20', color: q.scoreColor }}
+                            >
+                              {q.score}/5
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[18px] font-bold" style={{ color: isActive ? q.scoreColor : 'var(--muted)' }}>
+                          {isActive ? `${q.percentage}%` : '—'}
+                        </div>
+                        <div className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                          {isActive
+                            ? `${q.doneCount}/${q.denominator} สำเร็จ`
+                            : q.isFutureQuarter ? 'ยังไม่ถึงกำหนด' : 'ไม่มีข้อมูล'
+                          }
+                        </div>
+                        {/* Alert badges */}
+                        {isActive && (q.highPostponedRate || q.highCancelledRate || q.consecutiveLow) && (
+                          <div className="flex gap-1 mt-1">
+                            {q.highPostponedRate && (
+                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: 'rgba(0,122,255,0.1)', color: '#007aff' }}>
+                                เลื่อนมาก
+                              </span>
+                            )}
+                            {q.highCancelledRate && (
+                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}>
+                                ยกเลิกมาก
+                              </span>
+                            )}
+                            {q.consecutiveLow && (
+                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}>
+                                ต่ำติดต่อกัน
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Expandable detail section */}
+                {showKpiDetail && (
+                  <div className="rounded-lg p-4 mt-2" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                          <th style={{ padding: '6px 8px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>ไตรมาส</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>รายการ</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#34c759', fontWeight: 600 }}>สำเร็จ</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#ff3b30', fontWeight: 600 }}>เกินกำหนด</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#007aff', fontWeight: 600 }}>เลื่อน</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#ff3b30', fontWeight: 600 }}>ยกเลิก</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#8e8e93', fontWeight: 600 }}>N/A</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>ฐาน</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>%</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>คะแนน</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kpiData.quarters.map((q: QuarterlyKPI) => {
+                          const isActive = !q.isFutureQuarter && q.totalItems > 0;
+                          return (
+                            <tr key={q.quarter} style={{ borderBottom: '1px solid var(--border)', opacity: isActive ? 1 : 0.4 }}>
+                              <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-primary)' }}>{q.label}</td>
+                              <td style={{ padding: '8px', textAlign: 'center' }}>{q.totalItems}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: '#34c759', fontWeight: 600 }}>{q.doneCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: q.overdueCount > 0 ? '#ff3b30' : 'var(--muted)' }}>{q.overdueCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: q.postponedCount > 0 ? '#007aff' : 'var(--muted)' }}>{q.postponedCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: q.cancelledCount > 0 ? '#ff3b30' : 'var(--muted)' }}>{q.cancelledCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: 'var(--muted)' }}>{q.notApplicableCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', fontWeight: 500 }}>{q.denominator}{q.isEmptyBase ? ' ⚠' : ''}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', fontWeight: 700, color: isActive ? q.scoreColor : 'var(--muted)' }}>{isActive ? `${q.percentage}%` : '—'}</td>
+                              <td style={{ padding: '8px', textAlign: 'center' }}>
+                                {isActive ? (
+                                  <span
+                                    className="px-2 py-0.5 rounded text-[11px] font-bold"
+                                    style={{ background: q.scoreColor + '20', color: q.scoreColor }}
+                                  >
+                                    {q.score} — {q.scoreLabel}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Yearly average row */}
+                        <tr style={{ borderTop: '2px solid var(--border)', fontWeight: 700 }}>
+                          <td style={{ padding: '8px', color: 'var(--text-primary)' }}>เฉลี่ยทั้งปี</td>
+                          <td colSpan={7}></td>
+                          <td style={{ padding: '8px', textAlign: 'center', color: kpiData.yearlyScoreColor }}>{kpiData.yearlyAvgPct}%</td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <span
+                              className="px-2 py-0.5 rounded text-[11px] font-bold"
+                              style={{ background: kpiData.yearlyScoreColor + '20', color: kpiData.yearlyScoreColor }}
+                            >
+                              {kpiData.yearlyAvgScore} — {kpiData.yearlyScoreLabel}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {/* Scoring legend */}
+                    <div className="flex items-center gap-3 mt-3 flex-wrap">
+                      <span className="text-[10px]" style={{ color: 'var(--muted)' }}>เกณฑ์:</span>
+                      {[
+                        { s: 5, l: '100%', c: '#34c759' },
+                        { s: 4, l: '≥90%', c: '#30d158' },
+                        { s: 3, l: '≥80%', c: '#ff9f0a' },
+                        { s: 2, l: '≥70%', c: '#ff6b35' },
+                        { s: 1, l: '<70%', c: '#ff3b30' },
+                      ].map(x => (
+                        <span key={x.s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: x.c + '15', color: x.c }}>
+                          {x.s} = {x.l}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Total tab: Attention section — ต้องติดตามก่อน */}
