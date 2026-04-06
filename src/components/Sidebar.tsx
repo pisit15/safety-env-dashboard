@@ -28,6 +28,7 @@ import {
   FolderKanban,
   Menu,
   X,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -418,6 +419,13 @@ export default function Sidebar() {
                 <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: 'var(--text-primary)' }}>{displayName}</p>
                 <p className="text-[10px] font-medium truncate" style={{ color: 'var(--muted)' }}>{displayRole}</p>
               </div>
+              {!auth.isAdmin && loggedInCompanyIds.length > 0 && (
+                <Link href="/change-password" title="เปลี่ยนรหัสผ่าน">
+                  <div className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)' }}>
+                    <KeyRound size={14} />
+                  </div>
+                </Link>
+              )}
               <button
                 onClick={() => {
                   if (auth.isAdmin) auth.adminLogout();

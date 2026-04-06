@@ -124,8 +124,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           displayName: data.displayName || data.companyName,
           token: data.token,
         };
-        setCompanyAuth(prev => ({ ...prev, [companyId]: entry }));
+        const newAuths: AuthState['companyAuth'] = { [companyId]: entry };
         sessionStorage.setItem(`auth_${companyId}`, JSON.stringify(data));
+
+        // ── Auto-login linked companies (multi-company access) ──
+        if (data.linkedCompanies && Array.isArray(data.linkedCompanies)) {
+          for (const linked of data.linkedCompanies) {
+            const linkedEntry = {
+              companyId: linked.companyId,
+              companyName: linked.companyName,
+              username: linked.username || data.username || '',
+              displayName: linked.displayName || linked.companyName,
+              token: linked.token,
+            };
+            newAuths[linked.companyId] = linkedEntry;
+            sessionStorage.setItem(`auth_${linked.companyId}`, JSON.stringify({
+              success: true,
+              ...linked,
+              username: linked.username || data.username || '',
+            }));
+          }
+        }
+
+        setCompanyAuth(prev => ({ ...prev, ...newAuths }));
         return { success: true, data };
       }
       return { success: false, error: data.error || 'รหัสผ่านไม่ถูกต้อง' };

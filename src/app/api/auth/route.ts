@@ -10,6 +10,49 @@ function getSupabase() {
   );
 }
 
+/**
+ * Helper: Look up multi-company access for a user and return linked company login data.
+ */
+async function getLinkedCompanies(masterUsername: string, masterCompanyId: string) {
+  const supabase = getSupabase();
+  try {
+    const { data: mappings, error } = await supabase
+      .from('user_company_access')
+      .select('access_company_id, display_name')
+      .eq('master_username', masterUsername)
+      .eq('master_company_id', masterCompanyId)
+      .eq('is_active', true);
+
+    if (error || !mappings || mappings.length === 0) return [];
+
+    const linked: Array<{
+      companyId: string;
+      companyName: string;
+      displayName: string;
+      username: string;
+      token: string;
+    }> = [];
+
+    for (const m of mappings) {
+      const accessCompanyId = m.access_company_id;
+      const company = await getCompanyByIdWithDb(accessCompanyId);
+      const companyName = company?.name || accessCompanyId.toUpperCase();
+      const token = Buffer.from(`${accessCompanyId}:${masterUsername}:${Date.now()}`).toString('base64');
+      linked.push({
+        companyId: accessCompanyId,
+        companyName,
+        displayName: m.display_name || masterUsername,
+        username: masterUsername,
+        token,
+      });
+    }
+
+    return linked;
+  } catch {
+    return [];
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     let body: { companyId?: string; password?: string; username?: string };
@@ -49,6 +92,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'บัญชีถูกปิดใช้งาน' }, { status: 401 });
           }
           const token = Buffer.from(`${companyId}:${matched.username}:${Date.now()}`).toString('base64');
+
+          // Lookup linked companies for multi-company access
+          const linkedCompanies = await getLinkedCompanies(matched.username, companyId);
+
           return NextResponse.json({
             success: true,
             companyId: matched.company_id,
@@ -56,6 +103,7 @@ export async function POST(request: NextRequest) {
             username: matched.username,
             displayName: matched.display_name || matched.username,
             token,
+            linkedCompanies,
           });
         }
         // Users exist for this company but password didn't match
