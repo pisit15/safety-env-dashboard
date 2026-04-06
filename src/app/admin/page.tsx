@@ -61,7 +61,7 @@ export default function AdminPage() {
   const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -133,6 +133,22 @@ export default function AdminPage() {
   const [hrPinInput, setHrPinInput] = useState('');
   const [hrPinSaving, setHrPinSaving] = useState(false);
   const [hrPinMsg, setHrPinMsg] = useState('');
+
+  // Multi-company access state
+  interface MultiCompanyMapping {
+    id: number; master_username: string; master_company_id: string;
+    access_company_id: string; display_name: string; is_active: boolean;
+    created_at: string; updated_at: string;
+  }
+  const [mcMappings, setMcMappings] = useState<MultiCompanyMapping[]>([]);
+  const [mcLoading, setMcLoading] = useState(false);
+  const [showNewMcForm, setShowNewMcForm] = useState(false);
+  const [mcMasterCompany, setMcMasterCompany] = useState('');
+  const [mcMasterUsername, setMcMasterUsername] = useState('');
+  const [mcAccessCompany, setMcAccessCompany] = useState('');
+  const [mcDisplayName, setMcDisplayName] = useState('');
+  const [mcSaving, setMcSaving] = useState(false);
+  const [mcUsersForCompany, setMcUsersForCompany] = useState<CompanyUser[]>([]);
 
   // Check admin session on mount
   useEffect(() => {
@@ -377,6 +393,61 @@ export default function AdminPage() {
     setDsdActiveToggling(null);
   };
 
+  // Fetch multi-company access mappings
+  const fetchMcMappings = useCallback(async () => {
+    setMcLoading(true);
+    try {
+      const res = await fetch('/api/user-company-access');
+      const data = await res.json();
+      setMcMappings(data.mappings || []);
+    } catch { /* ignore */ }
+    setMcLoading(false);
+  }, []);
+
+  // Fetch users for a specific company (for username dropdown)
+  const fetchMcUsers = async (companyId: string) => {
+    if (!companyId) { setMcUsersForCompany([]); return; }
+    try {
+      const res = await fetch(`/api/company-users?companyId=${companyId}`);
+      const data = await res.json();
+      setMcUsersForCompany(data.users || []);
+    } catch { setMcUsersForCompany([]); }
+  };
+
+  const handleAddMcMapping = async () => {
+    if (!mcMasterCompany || !mcMasterUsername || !mcAccessCompany) return;
+    setMcSaving(true);
+    try {
+      const res = await fetch('/api/user-company-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          masterUsername: mcMasterUsername,
+          masterCompanyId: mcMasterCompany,
+          accessCompanyId: mcAccessCompany,
+          displayName: mcDisplayName || mcMasterUsername,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowNewMcForm(false);
+        setMcMasterCompany(''); setMcMasterUsername(''); setMcAccessCompany(''); setMcDisplayName('');
+        fetchMcMappings();
+      } else {
+        alert(data.error || 'เพิ่มไม่สำเร็จ');
+      }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+    setMcSaving(false);
+  };
+
+  const handleDeleteMcMapping = async (id: number) => {
+    if (!confirm('ลบสิทธิ์เข้าถึงนี้?')) return;
+    try {
+      await fetch(`/api/user-company-access?id=${id}`, { method: 'DELETE' });
+      fetchMcMappings();
+    } catch { alert('เกิดข้อผิดพลาด'); }
+  };
+
   useEffect(() => {
     if (!isAdminLoggedIn) return;
     if (activeTab === 'audit') fetchAudit();
@@ -387,7 +458,8 @@ export default function AdminPage() {
     if (activeTab === 'admins') fetchAdminAccounts();
     if (activeTab === 'dsd') fetchDsdCourses();
     if (activeTab === 'companies') fetchCompanySettings();
-  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses, fetchCompanySettings]);
+    if (activeTab === 'multicompany') fetchMcMappings();
+  }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses, fetchCompanySettings, fetchMcMappings]);
 
   const handleApproveReject = async (id: number, status: 'approved' | 'rejected') => {
     await fetch('/api/edit-requests', {
@@ -739,6 +811,7 @@ export default function AdminPage() {
             { key: 'users', label: 'ผู้ใช้บริษัท', minRole: 'super_admin' },
             { key: 'admins', label: 'จัดการ Admin', minRole: 'super_admin' },
             { key: 'dsd', label: 'กรมพัฒน์ฯ', minRole: 'admin' },
+            { key: 'multicompany', label: 'Multi-Company', minRole: 'super_admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
           ].filter(tab => {
             if (tab.minRole === 'viewer') return true;
@@ -1539,6 +1612,197 @@ export default function AdminPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Multi-Company Access Tab ── */}
+        {activeTab === 'multicompany' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                  Multi-Company Access
+                </h2>
+                <p className="text-[12px]" style={{ color: 'var(--muted)' }}>
+                  กำหนดให้ user 1 คน เข้าถึงได้หลายบริษัท — Login ครั้งเดียว เข้าได้ทุกบริษัทที่ผูกไว้
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNewMcForm(!showNewMcForm)}
+                className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white"
+                style={{ background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)' }}
+              >
+                + เพิ่มสิทธิ์
+              </button>
+            </div>
+
+            {/* New mapping form */}
+            {showNewMcForm && (
+              <div className="rounded-xl p-5 mb-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <h3 className="text-[14px] font-bold mb-4" style={{ color: 'var(--text-primary)' }}>เพิ่มสิทธิ์เข้าถึงข้ามบริษัท</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Master company */}
+                  <div>
+                    <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>บริษัทต้นทาง (Login ที่นี่)</label>
+                    <select
+                      value={mcMasterCompany}
+                      onChange={e => { setMcMasterCompany(e.target.value); setMcMasterUsername(''); fetchMcUsers(e.target.value); }}
+                      className="w-full px-3 py-2 rounded-lg text-[13px]"
+                      style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="">เลือกบริษัท...</option>
+                      {COMPANIES.map(c => <option key={c.id} value={c.id}>{c.shortName || c.id.toUpperCase()} — {c.name}</option>)}
+                    </select>
+                  </div>
+                  {/* Master username */}
+                  <div>
+                    <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Username ของ user</label>
+                    {mcUsersForCompany.length > 0 ? (
+                      <select
+                        value={mcMasterUsername}
+                        onChange={e => setMcMasterUsername(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg text-[13px]"
+                        style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                      >
+                        <option value="">เลือก user...</option>
+                        {mcUsersForCompany.filter(u => u.is_active).map(u => (
+                          <option key={u.id} value={u.username}>{u.username} — {u.display_name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={mcMasterUsername}
+                        onChange={e => setMcMasterUsername(e.target.value)}
+                        placeholder="พิมพ์ username"
+                        className="w-full px-3 py-2 rounded-lg text-[13px]"
+                        style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                      />
+                    )}
+                  </div>
+                  {/* Access company */}
+                  <div>
+                    <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>บริษัทที่ต้องการเข้าถึงเพิ่ม</label>
+                    <select
+                      value={mcAccessCompany}
+                      onChange={e => setMcAccessCompany(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-[13px]"
+                      style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="">เลือกบริษัท...</option>
+                      {COMPANIES.filter(c => c.id !== mcMasterCompany).map(c => (
+                        <option key={c.id} value={c.id}>{c.shortName || c.id.toUpperCase()} — {c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Display name override */}
+                  <div>
+                    <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>ชื่อแสดง (ไม่บังคับ)</label>
+                    <input
+                      value={mcDisplayName}
+                      onChange={e => setMcDisplayName(e.target.value)}
+                      placeholder="ใช้ชื่อ username ถ้าไม่ระบุ"
+                      className="w-full px-3 py-2 rounded-lg text-[13px]"
+                      style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddMcMapping}
+                    disabled={mcSaving || !mcMasterCompany || !mcMasterUsername || !mcAccessCompany}
+                    className="px-4 py-2 rounded-lg text-[13px] font-semibold text-white"
+                    style={{
+                      background: mcSaving || !mcMasterCompany || !mcMasterUsername || !mcAccessCompany ? '#94a3b8' : '#007aff',
+                      cursor: mcSaving ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {mcSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+                  </button>
+                  <button
+                    onClick={() => setShowNewMcForm(false)}
+                    className="px-4 py-2 rounded-lg text-[13px]"
+                    style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Mappings table */}
+            {mcLoading ? (
+              <p className="text-center py-8 text-[13px]" style={{ color: 'var(--muted)' }}>กำลังโหลด...</p>
+            ) : mcMappings.length === 0 ? (
+              <div className="text-center py-12 rounded-xl" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีการตั้งค่า Multi-Company</p>
+                <p className="text-[12px]" style={{ color: 'var(--muted)' }}>กดปุ่ม &quot;+ เพิ่มสิทธิ์&quot; เพื่อกำหนดให้ user เข้าถึงหลายบริษัท</p>
+              </div>
+            ) : (
+              <div style={{ borderRadius: 10, border: '1px solid var(--border)', overflow: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>#</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>User</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>บริษัทต้นทาง</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>→</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>เข้าถึงเพิ่ม</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>ชื่อแสดง</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mcMappings.map((m, i) => {
+                      const masterCompany = COMPANIES.find(c => c.id === m.master_company_id);
+                      const accessCompany = COMPANIES.find(c => c.id === m.access_company_id);
+                      return (
+                        <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{i + 1}</td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{m.master_username}</span>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold" style={{ background: '#007aff20', color: '#007aff' }}>
+                              {masterCompany?.shortName || m.master_company_id.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--muted)' }}>→</td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold" style={{ background: '#34c75920', color: '#34c759' }}>
+                              {accessCompany?.shortName || m.access_company_id.toUpperCase()}
+                            </span>
+                            <span className="text-[11px] ml-1.5" style={{ color: 'var(--muted)' }}>
+                              {accessCompany?.name || ''}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', fontSize: 12 }}>{m.display_name || '-'}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => handleDeleteMcMapping(m.id)}
+                              className="px-2 py-1 rounded text-[11px] font-medium"
+                              style={{ color: '#ef4444', background: '#ef444410' }}
+                            >
+                              ลบ
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Help text */}
+            <div className="mt-4 rounded-xl p-4" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <p className="text-[12px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>วิธีใช้งาน:</p>
+              <p className="text-[11px]" style={{ color: 'var(--muted)', lineHeight: 1.7 }}>
+                1. เลือก &quot;บริษัทต้นทาง&quot; และ &quot;Username&quot; ของ user ที่ต้องการ<br/>
+                2. เลือก &quot;บริษัทที่ต้องการเข้าถึงเพิ่ม&quot;<br/>
+                3. เมื่อ user login ที่บริษัทต้นทาง ระบบจะ auto-login ทุกบริษัทที่ผูกไว้อัตโนมัติ<br/>
+                4. สามารถเพิ่มได้หลายบริษัทต่อ 1 user (เพิ่มทีละ 1 รายการ)
+              </p>
+            </div>
           </div>
         )}
 
