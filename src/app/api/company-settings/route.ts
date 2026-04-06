@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
 
     // Build upsert payload — only include fields that were sent
     const payload: Record<string, string> = { company_id, updated_at: new Date().toISOString() };
-    const allowedFields = ['group_name', 'bu', 'company_name', 'sheet_id', 'safety_sheet', 'envi_sheet'];
+    const allowedFields = ['group_name', 'bu', 'company_name', 'full_name', 'sheet_id', 'safety_sheet', 'envi_sheet'];
     for (const f of allowedFields) {
       if (f in fields) {
         payload[f] = fields[f] ?? '';

@@ -72,7 +72,7 @@ export const COMPANIES: CompanyConfig[] = [
   { id: 'eslo', name: 'ESLO', shortName: 'ESLO', fullName: 'EA Solar (Lopburi) - โรงไฟฟ้าพลังงานแสงอาทิตย์ ลพบุรี', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'esn', name: 'ESN', shortName: 'ESN', fullName: 'EA Solar (Nakhon Ratchasima) - โรงไฟฟ้าพลังงานแสงอาทิตย์ นครราชสีมา', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'esl', name: 'ESL', shortName: 'ESL', fullName: 'EA Solar (Lampang) - โรงไฟฟ้าพลังงานแสงอาทิตย์ ลำปาง', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
-  { id: 'esp', name: 'ESP', shortName: 'ESP', fullName: 'EA Solar (Phetchabun) - โรงไฟฟ้าพลังงานแสงอาทิตย์ เพชรบูรณ์', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
+  { id: 'esp', name: 'ESP', shortName: 'ESP', fullName: 'EA Solar (Phitsanulok) - โรงไฟฟ้าพลังงานแสงอาทิตย์ พิษณุโลก', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'esm', name: 'ESM', shortName: 'ESM', fullName: 'EA Smart Mobility Co., Ltd. - อีวี สมาร์ท โมบิลิตี้', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'EV' },
   { id: 'hnm', name: 'HNM', shortName: 'HNM', fullName: 'Hanami Energy Co., Ltd. - ฮานามิ เอนเนอร์ยี่', sheetId: '', safetySheet: '', enviSheet: '', group: '', bu: 'Renewable Energy' },
   {

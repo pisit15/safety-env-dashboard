@@ -11,6 +11,7 @@ import { CompanyConfig } from './types';
 interface DbSetting {
   company_id: string;
   company_name: string;
+  full_name?: string;
   group_name: string;
   bu: string;
   sheet_id: string;
@@ -57,6 +58,7 @@ function mergeCompany(company: CompanyConfig, dbSetting: DbSetting | undefined):
     ...company,
     name: dbSetting.company_name || company.name,
     shortName: dbSetting.company_name || company.shortName,
+    fullName: dbSetting.full_name || company.fullName,
     sheetId: dbSetting.sheet_id || company.sheetId,
     safetySheet: dbSetting.safety_sheet || company.safetySheet,
     enviSheet: dbSetting.envi_sheet || company.enviSheet,

@@ -121,7 +121,7 @@ export default function AdminPage() {
 
   // Company settings (from DB)
   interface CompanySetting {
-    company_id: string; company_name: string; group_name: string; bu: string;
+    company_id: string; company_name: string; full_name: string; group_name: string; bu: string;
     sheet_id: string; safety_sheet: string; envi_sheet: string;
   }
   const [companySettings, setCompanySettings] = useState<CompanySetting[]>([]);
@@ -290,7 +290,7 @@ export default function AdminPage() {
       }
       const c = COMPANIES.find(co => co.id === companyId);
       const newEntry: CompanySetting = {
-        company_id: companyId, company_name: c?.name || '', group_name: c?.group || '',
+        company_id: companyId, company_name: c?.name || '', full_name: c?.fullName || '', group_name: c?.group || '',
         bu: c?.bu || '', sheet_id: c?.sheetId || '', safety_sheet: c?.safetySheet || '', envi_sheet: c?.enviSheet || '',
         [field]: value,
       };
@@ -1818,6 +1818,7 @@ export default function AdminPage() {
                 <thead>
                   <tr style={{ borderColor: 'var(--border)' }}>
                     <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 120 }}>บริษัท</th>
+                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 280 }}>ชื่อเต็ม</th>
                     <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 100 }}>Group</th>
                     <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 130 }}>BU</th>
                     <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 200 }}>Google Sheet ID</th>
@@ -1856,6 +1857,7 @@ export default function AdminPage() {
                     const rows: React.ReactNode[] = [];
                     sorted.forEach(c => {
                     const currentName = getSettingValue(c.id, 'company_name', c.name);
+                    const currentFullName = getSettingValue(c.id, 'full_name', c.fullName || '');
                     const currentGroup = getSettingValue(c.id, 'group_name', c.group || '');
                     const currentBu = getSettingValue(c.id, 'bu', c.bu || '');
                     const currentSheetId = getSettingValue(c.id, 'sheet_id', c.sheetId || '');
@@ -1870,7 +1872,7 @@ export default function AdminPage() {
                       const bStyle = currentBu ? buColors[currentBu] : null;
                       rows.push(
                         <tr key={`bu-header-${currentBu || 'none'}`} style={{ background: bStyle ? bStyle.bg + '33' : 'var(--bg-tertiary)' }}>
-                          <td colSpan={8} className="py-2 px-3">
+                          <td colSpan={9} className="py-2 px-3">
                             <span className="text-[11px] font-semibold" style={{ color: bStyle?.color || 'var(--text-muted)' }}>
                               {currentBu || 'ไม่ระบุ BU'}
                             </span>
@@ -1899,6 +1901,17 @@ export default function AdminPage() {
                               {isSavingThis && <span className="ml-2 text-[9px]" style={{ color: 'var(--accent)' }}>บันทึก...</span>}
                             </span>
                           )}
+                        </td>
+                        {/* Full Name */}
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            value={currentFullName}
+                            onChange={e => handleSettingChange(c.id, 'full_name', e.target.value)}
+                            placeholder="ชื่อเต็มบริษัท..."
+                            className="text-[10px] w-full px-2 py-1 rounded border"
+                            style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)', minWidth: 250 }}
+                          />
                         </td>
                         {/* Group */}
                         <td className="py-2 px-3 text-center">

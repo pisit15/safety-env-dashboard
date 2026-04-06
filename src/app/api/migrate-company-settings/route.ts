@@ -44,6 +44,7 @@ CREATE POLICY "Allow all for service role" ON company_settings FOR ALL USING (tr
         ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sheet_id text DEFAULT '';
         ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS safety_sheet text DEFAULT '';
         ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS envi_sheet text DEFAULT '';
+        ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS full_name text DEFAULT '';
       EXCEPTION WHEN OTHERS THEN NULL;
       END $$;
     `;
@@ -51,6 +52,16 @@ CREATE POLICY "Allow all for service role" ON company_settings FOR ALL USING (tr
       await supabase.rpc('exec_sql', { sql: alterSQL });
     } catch {
       // rpc might not exist, columns might already exist
+    }
+
+    // Check if full_name column exists by trying to select it
+    const { error: fnErr } = await supabase.from('company_settings').select('full_name').limit(1);
+    if (fnErr && fnErr.message.includes('full_name')) {
+      return NextResponse.json({
+        success: false,
+        message: 'full_name column is missing. Please run this SQL in Supabase SQL Editor:',
+        sql: "ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS full_name text DEFAULT '';\nNOTIFY pgrst, 'reload schema';",
+      });
     }
 
     // Seed data from COMPANIES config
