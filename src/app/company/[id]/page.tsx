@@ -60,6 +60,7 @@ export default function CompanyDashboard() {
   // DB settings
   const [dbSheetId, setDbSheetId] = useState<string | null>(null);
   const [dbCompanyName, setDbCompanyName] = useState('');
+  const [dbFullName, setDbFullName] = useState('');
   // KPI data
   const [trainingPlans, setTrainingPlans] = useState<TrainingPlan[]>([]);
   const [incidentSummary, setIncidentSummary] = useState<IncidentSummary | null>(null);
@@ -73,7 +74,7 @@ export default function CompanyDashboard() {
 
   const hasSheet = !!(dbSheetId || company?.sheetId);
   const companyName = dbCompanyName || company?.shortName || id.toUpperCase();
-  const fullName = company?.fullName || '';
+  const fullName = dbFullName || company?.fullName || '';
 
   // Fetch all data in parallel
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function CompanyDashboard() {
       // P1: Filter company-settings to this company only
       fetch(`/api/company-settings?companyId=${id}`).then(r => r.json()).then(d => {
         const s = (d.settings || [])[0];
-        if (s) { setDbSheetId(s.sheet_id || ''); setDbCompanyName(s.company_name || ''); }
+        if (s) { setDbSheetId(s.sheet_id || ''); setDbCompanyName(s.company_name || ''); setDbFullName(s.full_name || ''); }
       }).catch(() => {}),
       fetch(`/api/training/plans?companyId=${id}&year=${year}&mode=dashboard`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setTrainingPlans(d);
