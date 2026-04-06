@@ -2099,7 +2099,7 @@ export default function CompanyDrilldown() {
                               return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? 'var(--success)' : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
-                          <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
                             const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
@@ -2119,7 +2119,7 @@ export default function CompanyDrilldown() {
                             const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
                             const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
-                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(act.no, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>);
+                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>);
                           })}
                         </tr>
                         ))
@@ -2359,7 +2359,7 @@ export default function CompanyDrilldown() {
                               borderRadius: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '4px' : '0px',
                               padding: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '2px 5px' : '10px 8px'
                             }}
-                            onClick={() => handleResponsibleClick(act.no, act.activity, getEffectiveResponsible(act))}
+                            onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))}
                             title="คลิกเพื่อเปลี่ยนผู้รับผิดชอบ"
                           >
                             {getEffectiveResponsible(act)}
@@ -2398,7 +2398,7 @@ export default function CompanyDrilldown() {
                                   border: hasOverride && !isCurrent ? '1px solid rgba(255,159,10,0.3)' : undefined,
                                   borderRadius: hasOverride && !isCurrent ? '4px' : '0px'
                                 }}
-                                onClick={() => handleCellClick(act.no, k, act.activity)}
+                                onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}
                               >
                                 <span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>
                                 {attCount > 0 && (
