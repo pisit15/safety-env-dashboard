@@ -497,7 +497,7 @@ export default function NearMissCoordinatorPage() {
                 <X size={12} /> ล้าง
               </button>
             )}
-            {isAdmin && (
+            {isLoggedIn && (
               <button onClick={() => { setShowHidden(v => !v); }}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 8, border: `1.5px solid ${showHidden ? '#f97316' : 'var(--border)'}`, background: showHidden ? 'rgba(249,115,22,0.08)' : 'var(--bg-secondary)', color: showHidden ? '#f97316' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 {showHidden ? <Eye size={13} /> : <EyeOff size={13} />}
@@ -679,9 +679,9 @@ export default function NearMissCoordinatorPage() {
                     </Section>
                   )}
 
-                  {/* Reporter (admin only) */}
-                  {isAdmin && (
-                    <Section title="ข้อมูลผู้รายงาน" icon={<User size={13} />} adminOnly>
+                  {/* Reporter info */}
+                  {isLoggedIn && (
+                    <Section title="ข้อมูลผู้รายงาน" icon={<User size={13} />}>
                       <InfoCard>
                         <InfoRow label="ชื่อ"    value={selected.reporter_name} />
                         <InfoRow label="แผนก"   value={selected.reporter_dept} />
@@ -701,7 +701,7 @@ export default function NearMissCoordinatorPage() {
                 // Which field groups to show based on chosen status
                 const showSummary    = s !== 'new';
                 const showWorkFields = s === 'in_progress' || s === 'pending_review';
-                const showAdminClose = isAdmin && s === 'closed';
+                const showAdminClose = isLoggedIn && s === 'closed';
 
                 // Step order for the visual stepper
                 const STEPS: Array<keyof typeof STATUS_CFG> = ['new', 'acknowledged', 'in_progress', 'pending_review', 'closed'];
@@ -729,7 +729,7 @@ export default function NearMissCoordinatorPage() {
                           const isCurrent = idx === currentIdx;
                           const isFuture  = idx > currentIdx;
                           // Admin-only step
-                          if (st === 'closed' && !isAdmin) return null;
+                          if (st === 'closed' && !isLoggedIn) return null;
                           return (
                             <div key={st} style={{ display: 'flex', alignItems: 'center', flex: idx < STEPS.length - 1 ? 1 : 'none' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -747,7 +747,7 @@ export default function NearMissCoordinatorPage() {
                                   {cfg.label.replace('รายงานใหม่','ใหม่').replace('รับเรื่องแล้ว','รับเรื่อง').replace('กำลังดำเนินการ','ดำเนินการ').replace('รอตรวจสอบ','รอตรวจ').replace('ปิดรายการ','ปิด')}
                                 </span>
                               </div>
-                              {idx < STEPS.length - 1 && (st !== 'pending_review' || isAdmin) && (
+                              {idx < STEPS.length - 1 && (st !== 'pending_review' || isLoggedIn) && (
                                 <div style={{ flex: 1, height: 2, background: isPast ? '#22c55e' : '#e2e8f0', margin: '0 4px 16px' }} />
                               )}
                             </div>
@@ -767,7 +767,7 @@ export default function NearMissCoordinatorPage() {
                         onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
                         style={{ ...fieldStyle, borderColor: STATUS_CFG[s as keyof typeof STATUS_CFG]?.color + '66' } as React.CSSProperties}>
                         {Object.entries(STATUS_CFG).map(([k, v]) =>
-                          (k === 'closed' && !isAdmin) ? null : <option key={k} value={k}>{v.label}</option>
+                          (k === 'closed' && !isLoggedIn) ? null : <option key={k} value={k}>{v.label}</option>
                         )}
                       </select>
                     </div>
@@ -825,10 +825,10 @@ export default function NearMissCoordinatorPage() {
                       </>
                     )}
 
-                    {/* ── Admin section ── */}
-                    {isAdmin && (
+                    {/* ── Admin / Coordinator section ── */}
+                    {isLoggedIn && (
                       <div style={{ padding: '16px', borderRadius: 10, background: '#fafafa', border: '1px solid #e2e8f0' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 14px' }}>ส่วน Admin</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 14px' }}>รายละเอียดเพิ่มเติม</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                           <div>
                             <label style={labelStyle}>ระดับการสอบสวน</label>
