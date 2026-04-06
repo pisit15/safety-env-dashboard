@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceSupabase } from '@/lib/supabase';
 import { COMPANIES } from '@/lib/companies';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
+  const supabase = getServiceSupabase();
 
     // Check if table exists
     const { error: testError } = await supabase.from('company_settings').select('company_id').limit(1);

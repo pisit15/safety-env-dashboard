@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabase';
 import ExcelJS from 'exceljs';
 import { DEFAULT_YEAR } from '@/lib/companies';
 import { getCompanyForYearWithDb } from '@/lib/company-settings';
 import { fetchActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
 
 const STATUS_LABELS: Record<string, string> = {
   done: 'เสร็จแล้ว',

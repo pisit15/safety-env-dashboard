@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceSupabase } from '@/lib/supabase';
 import { Pool } from 'pg';
 
 export const dynamic = 'force-dynamic';

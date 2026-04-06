@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
+import { getSupabase } from '@/lib/supabase';
 import { COMPANIES, getActiveCompanies, getActiveCompaniesForYear, DEFAULT_YEAR } from '@/lib/companies';
 import { getActiveCompaniesForYearWithDb, getCompaniesWithDbOverrides } from '@/lib/company-settings';
 import { getCompanySummary, fetchActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
 import { getDemoDashboard } from '@/lib/demo-data';
 import { DashboardData, CompanySummary, MonthlyProgress, Activity, MonthStatus } from '@/lib/types';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
-}
 
 export const dynamic = 'force-dynamic';
 

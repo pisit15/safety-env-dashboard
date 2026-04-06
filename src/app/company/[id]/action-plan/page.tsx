@@ -561,11 +561,12 @@ export default function CompanyDrilldown() {
         updatedBy: loginDisplayName || loginCompanyName,
       };
 
-      await fetch('/api/status', {
+      const res = await fetch('/api/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+      if (!res.ok) throw new Error('บันทึกสถานะไม่สำเร็จ');
       const key = `${editingCell.actNo}:${editingCell.month}`;
       setOverrides(prev => ({ ...prev, [key]: newStatus }));
       setNoteOverrides(prev => ({ ...prev, [key]: finalNote }));
@@ -597,9 +598,10 @@ export default function CompanyDrilldown() {
         ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
         : planType;
       const actualActNo = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
-      await fetch(`/api/status?companyId=${companyId}&planType=${actualPlanType}&activityNo=${actualActNo}&month=${editingCell.month}`, {
+      const res = await fetch(`/api/status?companyId=${companyId}&planType=${actualPlanType}&activityNo=${actualActNo}&month=${editingCell.month}`, {
         method: 'DELETE',
       });
+      if (!res.ok) throw new Error('ลบสถานะไม่สำเร็จ');
       setOverrides(prev => {
         const copy = { ...prev };
         delete copy[`${editingCell.actNo}:${editingCell.month}`];
@@ -681,7 +683,7 @@ export default function CompanyDrilldown() {
         ? (editingResponsible.actNo.startsWith('S:') ? 'safety' : editingResponsible.actNo.startsWith('E:') ? 'environment' : planType)
         : planType;
       const actualActNo = planType === 'total' ? editingResponsible.actNo.replace(/^[SE]:/, '') : editingResponsible.actNo;
-      await fetch('/api/responsible', {
+      const res = await fetch('/api/responsible', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -692,6 +694,7 @@ export default function CompanyDrilldown() {
           updatedBy: loginDisplayName || loginCompanyName,
         }),
       });
+      if (!res.ok) throw new Error('บันทึกผู้รับผิดชอบไม่สำเร็จ');
       setResponsibleOverrides(prev => ({
         ...prev,
         [editingResponsible.actNo]: newResponsible.trim(),
@@ -783,7 +786,7 @@ export default function CompanyDrilldown() {
     const actualActNo = editingCell.actNo.replace(/^[SE]:/, '');
     setSavingNote(true);
     try {
-      await fetch('/api/status', {
+      const res = await fetch('/api/status', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -795,6 +798,7 @@ export default function CompanyDrilldown() {
           updatedBy: loginDisplayName || loginCompanyName,
         }),
       });
+      if (!res.ok) throw new Error('บันทึกหมายเหตุไม่สำเร็จ');
       const key = `${editingCell.actNo}:${editingCell.month}`;
       setNoteOverrides(prev => ({ ...prev, [key]: statusNote }));
     } catch {

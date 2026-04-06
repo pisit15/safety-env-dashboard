@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getSupabase } from '@/lib/supabase';
 import { COMPANIES, getActiveCompanies } from '@/lib/companies';
 import { getActiveCompaniesWithDb } from '@/lib/company-settings';
 import { getCompanySummary, fetchActivities, MONTH_KEYS } from '@/lib/sheets';
 import { Activity, MonthStatus } from '@/lib/types';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  );
-}
 
 export const dynamic = 'force-dynamic';
 

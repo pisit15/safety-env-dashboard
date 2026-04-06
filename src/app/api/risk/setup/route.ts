@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +114,7 @@ CREATE TRIGGER trg_risk_hazards_updated
   }
 
   try {
-    const supabase = createClient(supabaseUrl, serviceKey);
+  const supabase = getServiceSupabase();
 
     // Try rpc exec_sql
     const { error } = await supabase.rpc('exec_sql', { sql });

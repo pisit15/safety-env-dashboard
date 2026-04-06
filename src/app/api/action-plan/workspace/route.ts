@@ -9,24 +9,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '@/lib/supabase';
 import { DEFAULT_YEAR } from '@/lib/companies';
 import { getCompanyForYearWithDb } from '@/lib/company-settings';
 import { fetchActivities, getCompanySummary } from '@/lib/sheets';
 import { Activity, CompanySummary } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-
-function getSupabase() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
-    global: {
-      fetch: (url: RequestInfo | URL, options?: RequestInit) =>
-        fetch(url, { ...options, cache: 'no-store' as RequestCache }),
-    },
-  });
-}
 
 interface StatusRow {
   activity_no: string;

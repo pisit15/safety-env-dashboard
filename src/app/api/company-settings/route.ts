@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceSupabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANIES } from '@/lib/companies';
-
-function getServiceSupabase() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
-}
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

@@ -5,12 +5,7 @@
  * incident_description (full text), images, submitter_ip, form_duration_ms.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
-}
+import { getSupabase } from '@/lib/supabase';
 
 // Only these fields are safe to expose publicly
 const PUBLIC_SELECT = [

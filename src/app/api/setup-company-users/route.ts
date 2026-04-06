@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getServiceSupabase } from '@/lib/supabase';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
 
     // Verify table exists
     const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = getServiceSupabase();
     const { data, error } = await supabase.from('company_users').select('id', { count: 'exact' });
 
     return NextResponse.json({

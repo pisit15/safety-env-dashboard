@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceSupabase } from '@/lib/supabase';
 
 // One-time setup endpoint — creates company_credentials table and migrates data
 // Call once then remove or protect
@@ -13,9 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    db: { schema: 'public' },
-  });
+  const supabase = getServiceSupabase();
 
   // Create table using raw SQL via rpc if available, or just try insert
   // Since we can't run DDL via REST API, we'll check if table exists first

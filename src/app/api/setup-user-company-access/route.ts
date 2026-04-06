@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getServiceSupabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-
-function getServiceSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
 
 /**
  * GET — Create user_company_access table
