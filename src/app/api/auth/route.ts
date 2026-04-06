@@ -113,6 +113,70 @@ export async function POST(request: NextRequest) {
       // Table might not exist — fall through
     }
 
+    // ── 1b. Reverse multi-company lookup ──
+    // User might be trying to login to a LINKED company directly.
+    // Check if there's a user_company_access mapping where access_company_id = current companyId,
+    // then verify credentials against the MASTER company.
+    try {
+      const { data: reverseMappings } = await getSupabase()
+        .from('user_company_access')
+        .select('master_username, master_company_id, display_name')
+        .eq('access_company_id', companyId)
+        .eq('is_active', true);
+
+      if (reverseMappings && reverseMappings.length > 0) {
+        for (const rm of reverseMappings) {
+          // Only check if username matches (or no username provided)
+          if (username && rm.master_username.toLowerCase() !== username.toLowerCase()) continue;
+
+          // Try to authenticate against the master company
+          const { data: masterUsers } = await getSupabase()
+            .from('company_users')
+            .select('id, company_id, username, password, display_name, is_active')
+            .eq('company_id', rm.master_company_id)
+            .eq('username', rm.master_username);
+
+          if (masterUsers && masterUsers.length > 0) {
+            const masterUser = masterUsers.find((u: any) => u.password === password);
+            if (masterUser && masterUser.is_active) {
+              // Authenticated via master company — grant access to this linked company
+              const token = Buffer.from(`${companyId}:${masterUser.username}:${Date.now()}`).toString('base64');
+              const masterCompany = await getCompanyByIdWithDb(rm.master_company_id);
+
+              // Also get all linked companies for this user (including the master company itself)
+              const allLinked = await getLinkedCompanies(masterUser.username, rm.master_company_id);
+
+              // Add master company to linked list
+              const masterToken = Buffer.from(`${rm.master_company_id}:${masterUser.username}:${Date.now()}`).toString('base64');
+              const linkedCompanies = [
+                {
+                  companyId: rm.master_company_id,
+                  companyName: masterCompany?.name || rm.master_company_id.toUpperCase(),
+                  displayName: masterUser.display_name || masterUser.username,
+                  username: masterUser.username,
+                  token: masterToken,
+                },
+                // Add other linked companies except the current one (which is the primary login)
+                ...allLinked.filter(l => l.companyId !== companyId),
+              ];
+
+              return NextResponse.json({
+                success: true,
+                companyId,
+                companyName: company?.name || companyId.toUpperCase(),
+                username: masterUser.username,
+                displayName: rm.display_name || masterUser.display_name || masterUser.username,
+                token,
+                linkedCompanies,
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // Table might not exist — fall through
+    }
+
     // ── 2. Fallback: company_credentials (legacy single-user) ──
     const { data: cred, error: credErr } = await getSupabase()
       .from('company_credentials')
