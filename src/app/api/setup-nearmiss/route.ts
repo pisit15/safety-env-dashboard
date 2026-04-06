@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
 
   // Check each column that the API needs
   const columnsToCheck = [
+    'reporter_dept',
+    'reporter_phone',
     'incident_time',
     'saving_factor',
     'notified_persons',
@@ -33,6 +35,10 @@ export async function GET(request: NextRequest) {
     'form_duration_ms',
     'report_no',
     'is_hidden',
+    'coordinator',
+    'due_date',
+    'admin_notes',
+    'risk_level',
   ];
 
   const missingColumns: string[] = [];
