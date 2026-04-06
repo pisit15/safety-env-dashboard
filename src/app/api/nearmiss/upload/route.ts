@@ -40,6 +40,21 @@ export async function POST(request: NextRequest) {
 
     // Upload to Supabase Storage
     const supabase = getSupabase();
+
+    // Ensure bucket exists (auto-create if missing)
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.find(b => b.name === BUCKET)) {
+      const { error: createErr } = await supabase.storage.createBucket(BUCKET, {
+        public: true,
+        fileSizeLimit: MAX_SIZE_BYTES,
+        allowedMimeTypes: ALLOWED_TYPES,
+      });
+      if (createErr && !createErr.message?.includes('already exists')) {
+        console.error('Bucket create error:', createErr);
+        return NextResponse.json({ error: 'ไม่สามารถสร้าง storage bucket ได้' }, { status: 500 });
+      }
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
@@ -50,8 +65,8 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('Storage upload error:', uploadError);
-      return NextResponse.json({ error: 'อัปโหลดไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });
+      console.error('Storage upload error:', JSON.stringify(uploadError));
+      return NextResponse.json({ error: `อัปโหลดไม่สำเร็จ: ${uploadError.message}` }, { status: 500 });
     }
 
     // Get public URL
