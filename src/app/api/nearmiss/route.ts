@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Near miss insert error:', error);
-      return NextResponse.json({ error: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง' }, { status: 500 });
+      return NextResponse.json({ error: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง', _debug: { msg: error.message, code: error.code, hint: error.hint } }, { status: 500 });
     }
 
     // Log IP
