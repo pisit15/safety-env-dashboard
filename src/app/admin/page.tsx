@@ -1817,15 +1817,15 @@ export default function AdminPage() {
               <table className="apple-table w-full text-[11px]" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ borderColor: 'var(--border)' }}>
-                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '6%' }}>บริษัท</th>
-                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '22%' }}>ชื่อเต็ม</th>
-                    <th className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '8%' }}>Group</th>
-                    <th className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '12%' }}>BU</th>
-                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '14%' }}>Google Sheet ID</th>
-                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '13%' }}>Safety Sheet</th>
-                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '13%' }}>Envi Sheet</th>
-                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '7%', whiteSpace: 'nowrap' }}>สถานะ</th>
-                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '5%' }}></th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '5%' }}>บริษัท</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '20%' }}>ชื่อเต็ม</th>
+                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '7%' }}>Group</th>
+                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '11%' }}>BU</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '13%' }}>Google Sheet ID</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '12%' }}>Safety Sheet</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '12%' }}>Envi Sheet</th>
+                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '8%', whiteSpace: 'nowrap' }}>สถานะ</th>
+                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '4%' }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1993,16 +1993,17 @@ export default function AdminPage() {
                           )}
                         </td>
                         {/* Status */}
-                        <td className="py-2 px-3 text-center">
-                          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{
+                        <td className="py-2 px-1 text-center">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{
                             background: hasSheet ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
-                            color: hasSheet ? '#30d158' : 'var(--text-muted)'
+                            color: hasSheet ? '#30d158' : 'var(--text-muted)',
+                            whiteSpace: 'nowrap',
                           }}>
                             {hasSheet ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
                           </span>
                         </td>
                         {/* Edit button */}
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-2 px-1 text-center">
                           <button
                             onClick={() => setEditingCompany(isEditing ? null : c.id)}
                             className="text-[10px] px-2 py-1 rounded-lg transition-colors"
