@@ -82,12 +82,12 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
   const [ownerMode, setOwnerMode] = useState<'select' | 'type'>(loggedInUser ? 'select' : 'type');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [employees, setEmployees] = useState<{ name: string; position?: string }[]>([]);
+  const [companyUsers, setCompanyUsers] = useState<{ username: string; display_name?: string }[]>([]);
 
   useEffect(() => {
-    fetch(`/api/training/employees?companyId=${companyId}`)
+    fetch(`/api/company-users?companyId=${companyId}`)
       .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setEmployees(data); })
+      .then(data => { if (data?.users && Array.isArray(data.users)) setCompanyUsers(data.users); })
       .catch(() => {});
   }, [companyId]);
 
@@ -178,8 +178,8 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
                 }}>
                   <option value="">— เลือกผู้รับผิดชอบ —</option>
                   {loggedInUser && <option value={loggedInUser}>👤 {loggedInUser} (ฉัน)</option>}
-                  {employees.filter(emp => emp.name !== loggedInUser).map(emp => (
-                    <option key={emp.name} value={emp.name}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
+                  {companyUsers.filter(u => u.username !== loggedInUser).map(u => (
+                    <option key={u.username} value={u.display_name || u.username}>👤 {u.display_name || u.username}</option>
                   ))}
                   <option value="__type__">✏️ พิมพ์ชื่อเอง...</option>
                 </select>
@@ -188,7 +188,7 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
               <div style={{ display: 'flex', gap: 6 }}>
                 <input style={{ ...inputStyle, flex: 1 }} value={form.owner} placeholder="พิมพ์ชื่อผู้รับผิดชอบ"
                   onChange={e => set('owner', e.target.value)} autoFocus />
-                {(employees.length > 0 || loggedInUser) && (
+                {(companyUsers.length > 0 || loggedInUser) && (
                   <button type="button" onClick={() => { setOwnerMode('select'); set('owner', loggedInUser); }}
                     style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, background: '#e5e7eb', color: '#374151', whiteSpace: 'nowrap', border: 'none', cursor: 'pointer' }}>
                     เลือกจากรายชื่อ
