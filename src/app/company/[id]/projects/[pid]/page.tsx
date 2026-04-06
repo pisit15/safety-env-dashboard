@@ -54,8 +54,8 @@ const MILESTONE_STATUS_CONFIG = {
 
 const PLAN_TYPE_LABEL: Record<string, string> = { safety: '🛡️ Safety', environment: '🌿 Environment' };
 const CATEGORY_LABELS: Record<string, string> = {
-  compliance: 'Compliance', infrastructure: 'โครงสร้างพื้นฐาน',
-  csr: 'CSR', capex: 'CAPEX', training: 'Training', other: 'อื่นๆ',
+  compliance: 'การปฏิบัติตามกฎหมาย', infrastructure: 'โครงสร้างพื้นฐาน',
+  csr: 'ความรับผิดชอบต่อสังคม (CSR)', capex: 'งบลงทุน (CAPEX)', training: 'การฝึกอบรม', other: 'อื่นๆ',
 };
 
 function fmt(d: string | null) {

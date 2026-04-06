@@ -50,8 +50,8 @@ const PLAN_TYPE_CONFIG = {
 
 const CATEGORY_OPTIONS = ['compliance', 'infrastructure', 'csr', 'capex', 'training', 'other'];
 const CATEGORY_LABELS: Record<string, string> = {
-  compliance: 'Compliance', infrastructure: 'โครงสร้างพื้นฐาน',
-  csr: 'CSR', capex: 'CAPEX', training: 'Training', other: 'อื่นๆ',
+  compliance: 'การปฏิบัติตามกฎหมาย', infrastructure: 'โครงสร้างพื้นฐาน',
+  csr: 'ความรับผิดชอบต่อสังคม (CSR)', capex: 'งบลงทุน (CAPEX)', training: 'การฝึกอบรม', other: 'อื่นๆ',
 };
 
 function formatDate(d: string) {
@@ -68,16 +68,18 @@ function formatBudget(n: number) {
 }
 
 // ─── Create Project Modal ─────────────────────────────────────
-function CreateProjectModal({ companyId, onClose, onCreated }: {
+function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
   companyId: string;
+  loggedInUser: string;
   onClose: () => void;
   onCreated: (p: SpecialProject) => void;
 }) {
   const [form, setForm] = useState({
-    title: '', description: '', owner: '', plan_type: '',
+    title: '', description: '', owner: loggedInUser, plan_type: '',
     project_scope: 'internal', requesting_dept: '', category: '',
     start_date: '', end_date: '', budget_planned: '', notes: '',
   });
+  const [ownerMode, setOwnerMode] = useState<'select' | 'type'>(loggedInUser ? 'select' : 'type');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [employees, setEmployees] = useState<{ name: string; position?: string }[]>([]);
@@ -164,16 +166,35 @@ function CreateProjectModal({ companyId, onClose, onCreated }: {
           {/* Owner */}
           <div>
             <label style={labelStyle}>ผู้รับผิดชอบหลัก *</label>
-            {employees.length > 0 ? (
-              <select style={inputStyle} value={form.owner} onChange={e => set('owner', e.target.value)}>
-                <option value="">— เลือกผู้รับผิดชอบ —</option>
-                {employees.map(emp => (
-                  <option key={emp.name} value={emp.name}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
-                ))}
-              </select>
+            {ownerMode === 'select' ? (
+              <div>
+                <select style={inputStyle} value={form.owner} onChange={e => {
+                  if (e.target.value === '__type__') {
+                    setOwnerMode('type');
+                    set('owner', '');
+                  } else {
+                    set('owner', e.target.value);
+                  }
+                }}>
+                  <option value="">— เลือกผู้รับผิดชอบ —</option>
+                  {loggedInUser && <option value={loggedInUser}>👤 {loggedInUser} (ฉัน)</option>}
+                  {employees.filter(emp => emp.name !== loggedInUser).map(emp => (
+                    <option key={emp.name} value={emp.name}>{emp.name}{emp.position ? ` (${emp.position})` : ''}</option>
+                  ))}
+                  <option value="__type__">✏️ พิมพ์ชื่อเอง...</option>
+                </select>
+              </div>
             ) : (
-              <input style={inputStyle} value={form.owner} placeholder="ชื่อผู้รับผิดชอบ"
-                onChange={e => set('owner', e.target.value)} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input style={{ ...inputStyle, flex: 1 }} value={form.owner} placeholder="พิมพ์ชื่อผู้รับผิดชอบ"
+                  onChange={e => set('owner', e.target.value)} autoFocus />
+                {(employees.length > 0 || loggedInUser) && (
+                  <button type="button" onClick={() => { setOwnerMode('select'); set('owner', loggedInUser); }}
+                    style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, background: '#e5e7eb', color: '#374151', whiteSpace: 'nowrap', border: 'none', cursor: 'pointer' }}>
+                    เลือกจากรายชื่อ
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -730,6 +751,7 @@ export default function ProjectsPage() {
       {showCreate && (
         <CreateProjectModal
           companyId={id}
+          loggedInUser={auth.companyAuth[id]?.displayName || auth.companyAuth[id]?.username || ''}
           onClose={() => setShowCreate(false)}
           onCreated={p => { setProjects(prev => [p, ...prev]); setShowCreate(false); }}
         />
