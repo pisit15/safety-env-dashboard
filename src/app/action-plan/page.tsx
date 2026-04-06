@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Shield, Leaf, BarChart3, Calendar, Key, LogOut, AlertTriangle, ChevronUp, ChevronDown, RotateCcw, Info } from 'lucide-react';
+import { Shield, Leaf, BarChart3, Calendar, Key, LogOut, AlertTriangle, ChevronUp, ChevronDown, RotateCcw, Info, TrendingUp, TrendingDown, Award } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
 import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { YearlyKPISummary, QuarterlyKPI, getScoreColor, getScoreLabel } from '@/lib/kpi-calculator';
 import Link from 'next/link';
 
 export default function HQOverview() {
@@ -67,6 +68,10 @@ export default function HQOverview() {
 
   // Phase A: Ranking chart toggle
   const [rankingMode, setRankingMode] = useState<'pctDone' | 'notStarted' | 'budget'>('pctDone');
+
+  // KPI Quarterly Score state
+  const [kpiData, setKpiData] = useState<YearlyKPISummary[] | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(false);
 
   // Persist planType, timeRange, and selectedYear to localStorage
   useEffect(() => {
@@ -162,6 +167,28 @@ export default function HQOverview() {
         })
         .catch(() => setLoading(false));
     }
+  }, [planType, selectedYear]);
+
+  // ── Fetch KPI Quarterly Scores ──
+  useEffect(() => {
+    setKpiLoading(true);
+    fetch(`/api/kpi/quarterly?planType=${planType}&year=${selectedYear}`)
+      .then(res => res.json())
+      .then((d: any) => {
+        if (d.companies) {
+          setKpiData(d.companies as YearlyKPISummary[]);
+        } else if (d.quarters) {
+          // Single company response — wrap in array
+          setKpiData([d as YearlyKPISummary]);
+        } else {
+          setKpiData([]);
+        }
+        setKpiLoading(false);
+      })
+      .catch(() => {
+        setKpiData([]);
+        setKpiLoading(false);
+      });
   }, [planType, selectedYear]);
 
   // ── Compute filtered KPI data based on timeRange ──
@@ -1139,6 +1166,247 @@ export default function HQOverview() {
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* KPI Quarterly Score — Company Comparison */}
+        {kpiData && kpiData.length > 0 && (
+          <div className="glass-card p-6 mb-6 animate-fade-in-up" style={{ opacity: 0, animationDelay: '0.35s' }}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: '#5856d6' }}></span>
+                <Award size={14} style={{ color: '#5856d6' }} />
+                KPI Score รายไตรมาส — {planType === 'total' ? 'แผนรวม' : planType === 'safety' ? 'Safety' : 'Environment'} {selectedYear}
+              </h3>
+              {kpiLoading && (
+                <span className="text-[11px] animate-pulse" style={{ color: 'var(--accent)' }}>กำลังคำนวณ KPI...</span>
+              )}
+              <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--muted)' }}>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#34c759' }}></span> 5 (100%)</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#30d158' }}></span> 4 (≥90%)</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff9f0a' }}></span> 3 (≥80%)</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff6b35' }}></span> 2 (≥70%)</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff3b30' }}></span> 1 ({'<70%'})</span>
+              </div>
+            </div>
+
+            {/* KPI HQ Summary Row — aggregate Q1-Q4 across all companies */}
+            {(() => {
+              // Compute aggregate KPI per quarter
+              const quarterAgg = [0, 1, 2, 3].map(qi => {
+                let totalNum = 0, totalDen = 0;
+                kpiData.forEach(comp => {
+                  const q = comp.quarters?.[qi];
+                  if (q && !q.isFutureQuarter) {
+                    totalNum += q.numerator;
+                    totalDen += q.denominator;
+                  }
+                });
+                const pct = totalDen > 0 ? Math.round((totalNum / totalDen) * 1000) / 10 : 0;
+                const score = pct >= 100 ? 5 : pct >= 90 ? 4 : pct >= 80 ? 3 : pct >= 70 ? 2 : 1;
+                const isFuture = kpiData.every(c => c.quarters?.[qi]?.isFutureQuarter);
+                return { pct, score, totalNum, totalDen, isFuture };
+              });
+              const activeQs = quarterAgg.filter(q => !q.isFuture && q.totalDen > 0);
+              const yearlyPct = activeQs.length > 0
+                ? Math.round(activeQs.reduce((s, q) => s + q.pct, 0) / activeQs.length * 10) / 10
+                : 0;
+              const yearlyScore = yearlyPct >= 100 ? 5 : yearlyPct >= 90 ? 4 : yearlyPct >= 80 ? 3 : yearlyPct >= 70 ? 2 : 1;
+
+              return (
+                <div className="grid grid-cols-5 gap-3 mb-5">
+                  {quarterAgg.map((q, qi) => (
+                    <div key={qi} className="p-3 rounded-xl text-center transition-all" style={{
+                      background: q.isFuture ? 'var(--bg-tertiary)' : 'rgba(88,86,214,0.06)',
+                      border: `1px solid ${q.isFuture ? 'var(--border)' : 'rgba(88,86,214,0.2)'}`,
+                      opacity: q.isFuture ? 0.5 : 1,
+                    }}>
+                      <div className="text-[11px] font-medium mb-1" style={{ color: 'var(--muted)' }}>
+                        Q{qi + 1}
+                      </div>
+                      <div className="text-2xl font-bold mb-0.5" style={{ color: q.isFuture ? 'var(--muted)' : getScoreColor(q.score) }}>
+                        {q.isFuture ? '-' : q.score}
+                      </div>
+                      <div className="text-[10px]" style={{ color: q.isFuture ? 'var(--muted)' : 'var(--text-secondary)' }}>
+                        {q.isFuture ? 'ยังไม่ถึง' : `${q.pct}%`}
+                      </div>
+                      <div className="text-[9px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                        {q.isFuture ? '' : `${q.totalNum}/${q.totalDen}`}
+                      </div>
+                    </div>
+                  ))}
+                  {/* Yearly */}
+                  <div className="p-3 rounded-xl text-center" style={{
+                    background: 'rgba(88,86,214,0.12)',
+                    border: '2px solid rgba(88,86,214,0.3)',
+                  }}>
+                    <div className="text-[11px] font-semibold mb-1" style={{ color: '#5856d6' }}>
+                      เฉลี่ยทั้งปี
+                    </div>
+                    <div className="text-2xl font-bold mb-0.5" style={{ color: getScoreColor(yearlyScore) }}>
+                      {yearlyScore}
+                    </div>
+                    <div className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      {yearlyPct}%
+                    </div>
+                    <div className="text-[9px] mt-0.5" style={{ color: '#5856d6' }}>
+                      {getScoreLabel(yearlyScore)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Company KPI Comparison Table */}
+            <div className="overflow-x-auto">
+              <table className="apple-table">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 140 }}>บริษัท</th>
+                    <th className="text-center" style={{ minWidth: 90 }}>Q1</th>
+                    <th className="text-center" style={{ minWidth: 90 }}>Q2</th>
+                    <th className="text-center" style={{ minWidth: 90 }}>Q3</th>
+                    <th className="text-center" style={{ minWidth: 90 }}>Q4</th>
+                    <th className="text-center" style={{ minWidth: 90 }}>เฉลี่ยปี</th>
+                    <th className="text-center" style={{ minWidth: 60 }}>สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kpiData
+                    .sort((a, b) => (b.yearlyAvgPct || 0) - (a.yearlyAvgPct || 0))
+                    .map((comp, idx) => {
+                      // Find company name from dashboard data
+                      const companyInfo = data?.companies.find((c: any) => c.companyId === comp.companyId);
+                      const companyName = companyInfo?.shortName || companyInfo?.companyName || comp.companyId;
+
+                      // Alert flags
+                      const hasConsecutiveLow = comp.quarters?.some(q => q.consecutiveLow);
+                      const hasHighCancelled = comp.quarters?.some(q => q.highCancelledRate && !q.isFutureQuarter);
+                      const hasHighPostponed = comp.quarters?.some(q => q.highPostponedRate && !q.isFutureQuarter);
+                      const lowScore = comp.yearlyAvgScore <= 1;
+
+                      return (
+                        <tr key={comp.companyId} style={{
+                          background: lowScore ? 'rgba(255,59,48,0.06)' : hasConsecutiveLow ? 'rgba(255,107,53,0.06)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.03)',
+                        }}>
+                          <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Link href={`/company/${comp.companyId}/action-plan`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
+                                {companyName}
+                              </Link>
+                              {hasConsecutiveLow && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#ff3b30', color: '#fff' }}>
+                                  <TrendingDown size={9} className="inline mr-0.5" style={{ verticalAlign: 'middle' }} />ต่ำต่อเนื่อง
+                                </span>
+                              )}
+                              {hasHighCancelled && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#ff9f0a', color: '#fff' }}>
+                                  ยกเลิกสูง
+                                </span>
+                              )}
+                              {hasHighPostponed && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: '#5ac8fa', color: '#fff' }}>
+                                  เลื่อนสูง
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {comp.quarters?.map((q, qi) => (
+                            <td key={qi} className="text-center" style={{ padding: '8px 4px' }}>
+                              {q.isFutureQuarter ? (
+                                <span className="text-[11px]" style={{ color: 'var(--muted)' }}>-</span>
+                              ) : (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold" style={{
+                                    background: getScoreColor(q.score),
+                                    color: '#fff',
+                                    boxShadow: `0 2px 8px ${getScoreColor(q.score)}40`,
+                                  }}>
+                                    {q.score}
+                                  </span>
+                                  <span className="text-[9px]" style={{ color: 'var(--muted)' }}>
+                                    {q.percentage}%
+                                  </span>
+                                  <span className="text-[8px]" style={{ color: 'var(--muted)' }}>
+                                    {q.doneCount}/{q.denominator}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                          ))}
+                          {/* Yearly average */}
+                          <td className="text-center" style={{ padding: '8px 4px' }}>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-sm font-bold" style={{
+                                background: getScoreColor(comp.yearlyAvgScore),
+                                color: '#fff',
+                                boxShadow: `0 2px 10px ${getScoreColor(comp.yearlyAvgScore)}50`,
+                                border: '2px solid rgba(255,255,255,0.2)',
+                              }}>
+                                {comp.yearlyAvgScore}
+                              </span>
+                              <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                                {comp.yearlyAvgPct}%
+                              </span>
+                            </div>
+                          </td>
+                          {/* Status label */}
+                          <td className="text-center">
+                            <span className="text-[10px] font-semibold" style={{ color: getScoreColor(comp.yearlyAvgScore) }}>
+                              {comp.yearlyScoreLabel}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* KPI Alert Summary */}
+            {(() => {
+              const atRisk = kpiData.filter(c => c.yearlyAvgScore <= 1);
+              const improving = kpiData.filter(c => {
+                const qs = c.quarters?.filter(q => !q.isFutureQuarter && q.totalItems > 0) || [];
+                return qs.length >= 2 && qs[qs.length - 1].score > qs[qs.length - 2].score;
+              });
+              const declining = kpiData.filter(c => {
+                const qs = c.quarters?.filter(q => !q.isFutureQuarter && q.totalItems > 0) || [];
+                return qs.length >= 2 && qs[qs.length - 1].score < qs[qs.length - 2].score;
+              });
+              if (atRisk.length === 0 && improving.length === 0 && declining.length === 0) return null;
+              return (
+                <div className="mt-4 pt-4 flex flex-wrap gap-3" style={{ borderTop: '1px solid var(--border)' }}>
+                  {atRisk.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}>
+                      <AlertTriangle size={12} />
+                      <span className="font-semibold">วิกฤต:</span> {atRisk.map(c => {
+                        const info = data?.companies.find((x: any) => x.companyId === c.companyId);
+                        return info?.shortName || info?.companyName || c.companyId;
+                      }).join(', ')}
+                    </div>
+                  )}
+                  {declining.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]" style={{ background: 'rgba(255,107,53,0.1)', color: '#ff6b35' }}>
+                      <TrendingDown size={12} />
+                      <span className="font-semibold">แนวโน้มลดลง:</span> {declining.map(c => {
+                        const info = data?.companies.find((x: any) => x.companyId === c.companyId);
+                        return info?.shortName || info?.companyName || c.companyId;
+                      }).join(', ')}
+                    </div>
+                  )}
+                  {improving.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px]" style={{ background: 'rgba(52,199,89,0.1)', color: '#34c759' }}>
+                      <TrendingUp size={12} />
+                      <span className="font-semibold">แนวโน้มดีขึ้น:</span> {improving.map(c => {
+                        const info = data?.companies.find((x: any) => x.companyId === c.companyId);
+                        return info?.shortName || info?.companyName || c.companyId;
+                      }).join(', ')}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
