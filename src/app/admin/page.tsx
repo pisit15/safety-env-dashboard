@@ -1817,15 +1817,15 @@ export default function AdminPage() {
               <table className="apple-table w-full text-[11px]" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ borderColor: 'var(--border)' }}>
-                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 70 }}>บริษัท</th>
-                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>ชื่อเต็ม</th>
-                    <th className="text-center py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 90 }}>Group</th>
-                    <th className="text-center py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 120 }}>BU</th>
-                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 140 }}>Google Sheet ID</th>
-                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 130 }}>Safety Sheet</th>
-                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 130 }}>Envi Sheet</th>
-                    <th className="text-center py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 60 }}>สถานะ</th>
-                    <th className="text-center py-3 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: 40 }}></th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '6%' }}>บริษัท</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '22%' }}>ชื่อเต็ม</th>
+                    <th className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '8%' }}>Group</th>
+                    <th className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '12%' }}>BU</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '14%' }}>Google Sheet ID</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '13%' }}>Safety Sheet</th>
+                    <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '13%' }}>Envi Sheet</th>
+                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '7%', whiteSpace: 'nowrap' }}>สถานะ</th>
+                    <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '5%' }}></th>
                   </tr>
                 </thead>
                 <tbody>
