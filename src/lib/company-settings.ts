@@ -59,9 +59,9 @@ function mergeCompany(company: CompanyConfig, dbSetting: DbSetting | undefined):
     name: dbSetting.company_name || company.name,
     shortName: dbSetting.company_name || company.shortName,
     fullName: dbSetting.full_name || company.fullName,
-    sheetId: dbSetting.sheet_id || company.sheetId,
-    safetySheet: dbSetting.safety_sheet || company.safetySheet,
-    enviSheet: dbSetting.envi_sheet || company.enviSheet,
+    sheetId: (dbSetting.sheet_id || company.sheetId)?.trim(),
+    safetySheet: (dbSetting.safety_sheet || company.safetySheet)?.trim(),
+    enviSheet: (dbSetting.envi_sheet || company.enviSheet)?.trim(),
     group: (dbSetting.group_name as CompanyConfig['group']) || company.group,
     bu: (dbSetting.bu as CompanyConfig['bu']) || company.bu,
   };

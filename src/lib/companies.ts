@@ -74,7 +74,7 @@ export const COMPANIES: CompanyConfig[] = [
   { id: 'esl', name: 'ESL', shortName: 'ESL', fullName: 'EA Solar (Lampang) - โรงไฟฟ้าพลังงานแสงอาทิตย์ ลำปาง', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'esp', name: 'ESP', shortName: 'ESP', fullName: 'EA Solar (Phitsanulok) - โรงไฟฟ้าพลังงานแสงอาทิตย์ พิษณุโลก', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'Renewable Energy' },
   { id: 'esm', name: 'ESM', shortName: 'ESM', fullName: 'EA Smart Mobility Co., Ltd. - อีวี สมาร์ท โมบิลิตี้', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: 'EV' },
-  { id: 'hnm', name: 'HNM', shortName: 'HNM', fullName: 'Hanami Energy Co., Ltd. - ฮานามิ เอนเนอร์ยี่', sheetId: '', safetySheet: '', enviSheet: '', group: '', bu: 'Renewable Energy' },
+  { id: 'hnm', name: 'HNM', shortName: 'HNM', fullName: 'Hanami Energy Co., Ltd. - ฮานามิ เอนเนอร์ยี่', sheetId: '1bcWlZUD157xsKTMrkphn-k78hykr6HRT', safetySheet: 'Safety', enviSheet: 'Environment', group: 'Non-Factory', bu: 'Renewable Energy' },
   {
     id: 'amt',
     name: 'AMT',
