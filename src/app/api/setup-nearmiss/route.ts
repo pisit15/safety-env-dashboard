@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
 
-  if (action === 'fix') {
+  if (action === 'fix' || action === 'apply') {
     const sqls: string[] = [];
 
     for (const col of missingColumns) {

@@ -72,34 +72,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Build insert payload (only include non-empty optional fields)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const insertRow: Record<string, any> = {
+      company_id: companyId,
+      reporter_name,
+      incident_date,
+      location,
+      incident_description,
+      probability: prob,
+      severity: sev,
+      images: Array.isArray(images) ? images.filter((u: string) => typeof u === 'string' && u.startsWith('https://')) : [],
+      status: 'new',
+    };
+    // Optional columns — only add if truthy to avoid errors if column doesn't exist yet
+    if (reporter_dept) insertRow.reporter_dept = reporter_dept;
+    if (reporter_phone) insertRow.reporter_phone = reporter_phone;
+    if (incident_time) insertRow.incident_time = incident_time;
+    if (saving_factor) insertRow.saving_factor = saving_factor;
+    if (notified_persons) insertRow.notified_persons = notified_persons;
+    if (suggested_action) insertRow.suggested_action = suggested_action;
+    if (ip && ip !== 'unknown') insertRow.submitter_ip = ip;
+    if (typeof _duration_ms === 'number') insertRow.form_duration_ms = _duration_ms;
+
     // ── Insert report
     const { data, error } = await supabase
       .from('near_miss_reports')
-      .insert({
-        company_id: companyId,
-        reporter_name,
-        reporter_dept: reporter_dept || null,
-        reporter_phone: reporter_phone || null,
-        incident_date,
-        incident_time: incident_time || null,
-        location,
-        incident_description,
-        saving_factor: saving_factor || null,
-        probability: prob,
-        severity: sev,
-        notified_persons: notified_persons || null,
-        suggested_action: suggested_action || null,
-        images: Array.isArray(images) ? images.filter((u: string) => typeof u === 'string' && u.startsWith('https://')) : [],
-        submitter_ip: ip,
-        form_duration_ms: typeof _duration_ms === 'number' ? _duration_ms : null,
-        status: 'new',
-      })
+      .insert(insertRow)
       .select('id, report_no')
       .single();
 
     if (error) {
       console.error('Near miss insert error:', error);
-      return NextResponse.json({ error: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง', debug: error.message, code: error.code, details: error.details }, { status: 500 });
+      return NextResponse.json({ error: 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง' }, { status: 500 });
     }
 
     // Log IP
