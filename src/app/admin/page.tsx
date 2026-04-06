@@ -1813,19 +1813,19 @@ export default function AdminPage() {
               <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>รายชื่อบริษัท ({COMPANIES.length})</h3>
               <span className="text-[10px] ml-2" style={{ color: 'var(--text-muted)' }}>คลิกที่แถวเพื่อแก้ไข</span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="apple-table w-full text-[11px]">
+            <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
+              <table className="apple-table w-full text-[11px]" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ borderColor: 'var(--border)' }}>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 120 }}>บริษัท</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 280 }}>ชื่อเต็ม</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 100 }}>Group</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 130 }}>BU</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 200 }}>Google Sheet ID</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 160 }}>Safety Sheet</th>
-                    <th className="text-left py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 160 }}>Envi Sheet</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 80 }}>สถานะ</th>
-                    <th className="text-center py-3 px-3 font-semibold" style={{ color: 'var(--text-secondary)', minWidth: 60 }}></th>
+                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 70 }}>บริษัท</th>
+                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>ชื่อเต็ม</th>
+                    <th className="text-center py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 90 }}>Group</th>
+                    <th className="text-center py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 120 }}>BU</th>
+                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 140 }}>Google Sheet ID</th>
+                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 130 }}>Safety Sheet</th>
+                    <th className="text-left py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 130 }}>Envi Sheet</th>
+                    <th className="text-center py-3 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: 60 }}>สถานะ</th>
+                    <th className="text-center py-3 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: 40 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1910,7 +1910,7 @@ export default function AdminPage() {
                             onChange={e => handleSettingChange(c.id, 'full_name', e.target.value)}
                             placeholder="ชื่อเต็มบริษัท..."
                             className="text-[10px] w-full px-2 py-1 rounded border"
-                            style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)', minWidth: 250 }}
+                            style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
                           />
                         </td>
                         {/* Group */}

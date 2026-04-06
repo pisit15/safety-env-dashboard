@@ -93,7 +93,7 @@ export const COMPANIES: CompanyConfig[] = [
       },
     },
   },
-  { id: 'mmc', name: 'MMC', shortName: 'MMC', fullName: 'Mine Mobility Co., Ltd. - ไมน์ โมบิลิตี้ (รถ EV)', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'EV' },
+  { id: 'mmc', name: 'MMC', shortName: 'MMC', fullName: 'Mine Mobility Co., Ltd. - ไมน์ โมบิลิตี้ (รถ EV)', sheetId: '1fecc1K2t59fwXxFIpL01D7mOSCW-4sqk', safetySheet: 'New MMC Safety Plan', enviSheet: 'MMC Envi Plan', group: 'Factory', bu: 'EV' },
   { id: 'wmp', name: 'WMP', shortName: 'WMP', fullName: 'Waste Management (Pinthong) - จัดการขยะ ปิ่นทอง', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Waste Management' },
   { id: 'mmr', name: 'MMR', shortName: 'MMR', fullName: 'Mine Mobility Research Co., Ltd. - วิจัยและพัฒนา EV', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
   { id: 'gtr', name: 'GTR', shortName: 'GTR', fullName: 'Green Technology Research Co., Ltd. - วิจัยเทคโนโลยีสีเขียว', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
