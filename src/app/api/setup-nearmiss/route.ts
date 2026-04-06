@@ -118,9 +118,43 @@ export async function GET(request: NextRequest) {
       `);
     }
 
+    if (action === 'apply') {
+      // Try to execute SQL directly via Supabase Management API
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!serviceKey) {
+        return NextResponse.json({ status: 'error', message: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+      }
+      const combinedSql = sqls.join('\n');
+      // Use Supabase REST RPC or direct pg endpoint
+      const pgRes = await fetch(`${supabaseUrl}/rest/v1/rpc/exec_sql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ sql: combinedSql }),
+      });
+
+      if (pgRes.ok) {
+        return NextResponse.json({ status: 'applied', message: 'SQL executed successfully', sql: combinedSql, results });
+      }
+
+      // If rpc not available, try using the query endpoint
+      const pgText = await pgRes.text();
+      return NextResponse.json({
+        status: 'rpc_failed',
+        message: 'exec_sql rpc not available. Run SQL manually in Supabase SQL Editor.',
+        rpc_error: pgText,
+        sql: combinedSql,
+        results,
+      });
+    }
+
     return NextResponse.json({
       status: 'fix_required',
-      message: 'Run these SQL statements in Supabase SQL Editor',
+      message: 'Run these SQL statements in Supabase SQL Editor, or use ?action=apply to try auto-fix.',
       missing: missingColumns,
       sql: sqls.join('\n\n'),
       results,
