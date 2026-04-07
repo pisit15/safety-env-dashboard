@@ -268,7 +268,7 @@ export default function SHEWorkforcePage() {
   const Modal = ({ show, title, onClose, onSave, children }: { show: boolean; title: string; onClose: () => void; onSave: () => void; children: React.ReactNode }) => {
     if (!show) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
         <div className="rounded-2xl w-full max-w-[500px] overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
           <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #0f3460 0%, #533483 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h3 style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{title}</h3>
