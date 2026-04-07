@@ -21,11 +21,11 @@ function formatDateDDMMMYY(isoStr: string, locale: 'th' | 'en' = 'th'): string {
   if (isNaN(y) || isNaN(m) || isNaN(d)) return isoStr;
 
   const months = locale === 'th' ? TH_MONTHS : EN_MONTHS;
-  const yy = locale === 'th'
-    ? String((y + 543) % 100).padStart(2, '0')
-    : String(y % 100).padStart(2, '0');
+  const yearStr = locale === 'th'
+    ? String(y + 543)
+    : String(y);
   const dd = String(d).padStart(2, '0');
-  return `${dd}/${months[m]}/${yy}`;
+  return `${dd}/${months[m]}/${yearStr}`;
 }
 
 interface DateInputProps {

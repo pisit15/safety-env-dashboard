@@ -79,7 +79,14 @@ function fmtDateTime(d: string | null) {
   if (!d) return '–';
   return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
-function daysSince(d: string) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000); }
+function daysSince(d: string) {
+  // Use Thai timezone (UTC+7) for accurate day calculation
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+  const then = new Date(new Date(d).toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+  now.setHours(0, 0, 0, 0);
+  then.setHours(0, 0, 0, 0);
+  return Math.floor((now.getTime() - then.getTime()) / 86400000);
+}
 function isOverdue(r: NearMissReport) { return !!r.due_date && r.status !== 'closed' && new Date(r.due_date) < new Date(); }
 function isDueSoon(r: NearMissReport) {
   if (!r.due_date || r.status === 'closed') return false;
