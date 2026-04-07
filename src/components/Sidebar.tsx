@@ -42,6 +42,7 @@ interface MenuItem {
   hqHref: string;
   companyPath: string;
   ready: true | false | 'hasSheet' | 'companyOnly';
+  superOnly?: boolean;
 }
 
 interface MenuGroup {
@@ -67,7 +68,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, hqHref: '', companyPath: '/manhours', ready: 'companyOnly' },
       { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' },
       { id: 'guide', label: 'คู่มือการใช้งาน', icon: BookOpen, hqHref: '', companyPath: '/guide', ready: 'companyOnly' },
-      { id: 'she-workforce', label: 'SHE Workforce', icon: Briefcase, hqHref: '/she-workforce', companyPath: '/she-workforce', ready: true },
+      { id: 'she-workforce', label: 'SHE Workforce', icon: Briefcase, hqHref: '/she-workforce', companyPath: '/she-workforce', ready: true, superOnly: true },
     ],
   },
   {
@@ -205,7 +206,7 @@ export default function Sidebar() {
       : auth.isAdmin
         ? true
         : item.ready === 'hasSheet' ? !!(currentCompany?.sheetId || (companyForLinks && dbSheetMap[companyForLinks])) : item.ready;
-    const hidden = isCompanyOnly && !currentCompanyId;
+    const hidden = (isCompanyOnly && !currentCompanyId) || (item.superOnly && auth.adminRole !== 'super_admin');
     const companyPathBase = item.companyPath.split('?')[0];
     const href = isReady
       ? (isCompanyOnly
@@ -218,7 +219,7 @@ export default function Sidebar() {
         ? (item.hqHref ? (pathname === item.hqHref || pathname.startsWith(item.hqHref + '/')) : false)
         : companyForLinks ? pathname === `/company/${companyForLinks}${companyPathBase}` : false;
     return { href, isActive, isReady: !!isReady, hidden };
-  }, [auth.isAdmin, currentCompanyId, loggedInCompanyIds, dbSheetMap, pathname]);
+  }, [auth.isAdmin, auth.adminRole, currentCompanyId, loggedInCompanyIds, dbSheetMap, pathname]);
 
   const isGroupActive = (group: MenuGroup) => group.items.some(item => resolveItem(item).isActive);
   const hasVisibleItems = (group: MenuGroup) => group.items.some(item => !resolveItem(item).hidden);
