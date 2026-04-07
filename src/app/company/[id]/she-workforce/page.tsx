@@ -507,9 +507,11 @@ export default function SHEWorkforcePage() {
                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
                               <th style={{ ...thStyle, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 3 }}>ชื่อ</th>
                               {requirements.map(r => (
-                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80, borderBottom: r.is_required ? '3px solid #007aff' : '3px solid #d1d5db' }}>
+                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80, borderBottom: r.is_required ? '3px solid #007aff' : '3px solid #d1d5db', cursor: 'pointer' }}
+                                  onClick={() => { setEditR({ ...r }); setShowRModal(true); }}>
                                   <div style={{ fontSize: 11, lineHeight: 1.3 }}>{r.short_name}</div>
                                   <div style={{ fontSize: 10, color: r.is_required ? '#007aff' : 'var(--text-secondary)', fontWeight: r.is_required ? 600 : 400 }}>{r.is_required ? 'บังคับ' : 'ไม่บังคับ'}</div>
+                                  <Pencil size={10} style={{ marginTop: 2, opacity: 0.4 }} />
                                 </th>
                               ))}
                             </tr>
