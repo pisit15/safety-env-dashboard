@@ -212,21 +212,21 @@ export default function GuidePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { status: 'เสร็จแล้ว', num: true, denom: true, approval: false, color: '#34c759' },
-                      { status: 'เกินกำหนด', num: false, denom: true, approval: false, color: '#ff3b30' },
-                      { status: 'แผน/ยังไม่เริ่ม', num: false, denom: true, approval: false, color: '#007aff' },
-                      { status: 'เลื่อน', num: false, denom: false, approval: false, color: '#ff9500' },
-                      { status: 'ยกเลิก', num: false, denom: false, approval: true, color: '#ff3b30' },
-                      { status: 'N/A', num: false, denom: false, approval: true, color: '#8e8e93' },
-                    ].map(row => (
+                    {([
+                      { status: 'เสร็จแล้ว', num: true, denom: 'yes' as const, approval: false, color: '#34c759' },
+                      { status: 'เกินกำหนด', num: false, denom: 'yes' as const, approval: false, color: '#ff3b30' },
+                      { status: 'แผน/ยังไม่เริ่ม', num: false, denom: 'yes' as const, approval: false, color: '#007aff' },
+                      { status: 'เลื่อน', num: false, denom: 'move' as const, approval: false, color: '#ff9500' },
+                      { status: 'ยกเลิก', num: false, denom: 'no' as const, approval: true, color: '#ff3b30' },
+                      { status: 'N/A', num: false, denom: 'no' as const, approval: true, color: '#8e8e93' },
+                    ]).map(row => (
                       <tr key={row.status} style={{ borderTop: '1px solid var(--border)' }}>
                         <td style={{ padding: '10px 14px', fontWeight: 600, color: row.color }}>{row.status}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                           {row.num ? <span style={{ color: '#34c759', fontWeight: 700 }}>✓ นับ</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          {row.denom ? <span style={{ color: '#007aff', fontWeight: 700 }}>✓ นับ</span> : <span style={{ color: '#ff9500', fontWeight: 600 }}>หักออก</span>}
+                          {row.denom === 'yes' ? <span style={{ color: '#007aff', fontWeight: 700 }}>✓ นับ</span> : row.denom === 'move' ? <span style={{ color: '#ff9500', fontWeight: 600 }}>ย้ายเดือน</span> : <span style={{ color: '#ff3b30', fontWeight: 600 }}>หักออก</span>}
                         </td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                           {row.approval ? <span style={{ color: '#ff3b30', fontWeight: 700 }}>ต้องขอ</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
