@@ -1751,26 +1751,8 @@ export default function CompanyDrilldown() {
             </div>
           </div>
         </div>
-        {/* Export buttons — right-aligned row below header */}
-        <div className="flex flex-wrap items-center justify-end gap-3 mb-2 animate-fade-in-up" style={{ animationDelay: '0.03s' }}>
-          <button
-            onClick={handleExport}
-            className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
-          >
-            <Download size={14} className="inline mr-1" /> Export .xlsx
-          </button>
-          <ExportPdfButton
-            targetId="pdf-content"
-            filename={`${companyName}-ActionPlan-${selectedYear}`}
-            title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
-            subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
-            orientation="landscape"
-            label="Export PDF"
-          />
-        </div>
-
-        {/* Time Range Selector */}
-        <div className="flex items-center gap-2 mb-5 animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+        {/* Time Range Selector + Export buttons */}
+        <div className="flex items-center gap-2 mb-5 flex-wrap animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
           <Calendar size={14} style={{ color: 'var(--muted)' }} />
           <span className="text-[12px] font-medium" style={{ color: 'var(--muted)' }}>ช่วงเวลา:</span>
           <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
@@ -1811,6 +1793,23 @@ export default function CompanyDrilldown() {
               {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
             </span>
           )}
+          {/* Export buttons */}
+          <div style={{ marginLeft: 'auto' }} className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
+            >
+              <Download size={14} className="inline mr-1" /> Export .xlsx
+            </button>
+            <ExportPdfButton
+              targetId="pdf-content"
+              filename={`${companyName}-ActionPlan-${selectedYear}`}
+              title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
+              subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
+              orientation="landscape"
+              label="Export PDF"
+            />
+          </div>
         </div>
 
         {loading ? (
