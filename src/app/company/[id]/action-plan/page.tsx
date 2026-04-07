@@ -1727,6 +1727,31 @@ export default function CompanyDrilldown() {
                 <Leaf size={14} className="inline mr-1" /> Environment
               </button>
             </div>
+            {/* Export icon buttons */}
+            <button
+              onClick={handleExport}
+              title="Export .xlsx"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: 10, border: 'none',
+                cursor: 'pointer',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(10,132,255,0.1)'; e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              <Download size={16} />
+            </button>
+            <ExportPdfButton
+              targetId="pdf-content"
+              filename={`${companyName}-ActionPlan-${selectedYear}`}
+              title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
+              subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
+              orientation="landscape"
+              compact
+            />
           </div>
         </div>
         {/* Time Range Selector + Export buttons */}
@@ -1783,33 +1808,6 @@ export default function CompanyDrilldown() {
               {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
             </span>
           )}
-          {/* Export icon buttons */}
-          <div style={{ marginLeft: 'auto' }} className="flex items-center gap-1.5">
-            <button
-              onClick={handleExport}
-              title="Export .xlsx"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 36, height: 36, borderRadius: 10, border: 'none',
-                cursor: 'pointer',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-secondary)',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(10,132,255,0.1)'; e.currentTarget.style.color = 'var(--accent)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-            >
-              <Download size={16} />
-            </button>
-            <ExportPdfButton
-              targetId="pdf-content"
-              filename={`${companyName}-ActionPlan-${selectedYear}`}
-              title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
-              subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
-              orientation="landscape"
-              compact
-            />
-          </div>
         </div>
 
         {loading ? (
