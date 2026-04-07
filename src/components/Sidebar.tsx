@@ -238,15 +238,7 @@ export default function Sidebar() {
       {/* ── Brand Header ── */}
       <div style={{ padding: isCollapsed ? '20px 12px 16px' : '20px 20px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 10,
-            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(34,197,94,0.3)',
-            flexShrink: 0,
-          }}>
-            <img src="/ea-logo.svg" alt="EA" style={{ height: 22, objectFit: 'contain', filter: 'brightness(10)' }} />
-          </div>
+          <img src="/ea-logo.svg" alt="EA" style={{ height: 38, objectFit: 'contain', flexShrink: 0 }} />
           {!isCollapsed && (
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{
@@ -726,14 +718,7 @@ export default function Sidebar() {
           >
             <Menu size={22} />
           </button>
-          <div style={{
-            width: 28, height: 28, borderRadius: 7,
-            background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 1px 4px rgba(34,197,94,0.3)',
-          }}>
-            <img src="/ea-logo.svg" alt="EA" style={{ height: 16, objectFit: 'contain', filter: 'brightness(10)' }} />
-          </div>
+          <img src="/ea-logo.svg" alt="EA" style={{ height: 28, objectFit: 'contain' }} />
           <span style={{
             fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
             letterSpacing: '-0.02em',
