@@ -1783,13 +1783,23 @@ export default function CompanyDrilldown() {
               {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
             </span>
           )}
-          {/* Export buttons */}
-          <div style={{ marginLeft: 'auto' }} className="flex items-center gap-2">
+          {/* Export icon buttons */}
+          <div style={{ marginLeft: 'auto' }} className="flex items-center gap-1.5">
             <button
               onClick={handleExport}
-              className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
+              title="Export .xlsx"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: 10, border: 'none',
+                cursor: 'pointer',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(10,132,255,0.1)'; e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
             >
-              <Download size={14} className="inline mr-1" /> Export .xlsx
+              <Download size={16} />
             </button>
             <ExportPdfButton
               targetId="pdf-content"
@@ -1797,7 +1807,7 @@ export default function CompanyDrilldown() {
               title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
               subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
               orientation="landscape"
-              label="Export PDF"
+              compact
             />
           </div>
         </div>

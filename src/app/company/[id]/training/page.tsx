@@ -1265,14 +1265,14 @@ export default function CompanyTraining() {
           {/* Spacer */}
           <div style={{ flex: 1 }} />
 
-          {/* Export PDF */}
+          {/* Export PDF — icon only */}
           <ExportPdfButton
             targetId="pdf-content"
             filename={`${company?.shortName || companyId}-Training-${selectedYear}`}
             title={`${company?.name || companyId.toUpperCase()} — Training Plan ${selectedYear}`}
             subtitle="Safety & Environment Dashboard — รายงานแผนอบรมประจำปี"
             orientation="landscape"
-            label="Export PDF"
+            compact
           />
 
           {/* Update mode specific controls */}
