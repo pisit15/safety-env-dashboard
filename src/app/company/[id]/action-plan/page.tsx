@@ -1749,6 +1749,21 @@ export default function CompanyDrilldown() {
                 );
               })}
             </div>
+            {/* Export buttons */}
+            <button
+              onClick={handleExport}
+              className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
+            >
+              <Download size={14} className="inline mr-1" /> Export .xlsx
+            </button>
+            <ExportPdfButton
+              targetId="pdf-content"
+              filename={`${companyName}-ActionPlan-${selectedYear}`}
+              title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
+              subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
+              orientation="landscape"
+              label="Export PDF"
+            />
           </div>
         </div>
 
@@ -2883,24 +2898,6 @@ export default function CompanyDrilldown() {
             </div>
           </div>
         )}
-
-        {/* Export buttons — bottom of page */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mt-6 mb-4">
-          <button
-            onClick={handleExport}
-            className="btn-primary px-4 py-2 rounded-xl text-sm font-medium"
-          >
-            <Download size={15} className="inline mr-1.5" /> Export .xlsx
-          </button>
-          <ExportPdfButton
-            targetId="pdf-content"
-            filename={`${companyName}-ActionPlan-${selectedYear}`}
-            title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
-            subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
-            orientation="landscape"
-            label="Export PDF"
-          />
-        </div>
 
         {/* Login Modal */}
         {showLoginModal && (
