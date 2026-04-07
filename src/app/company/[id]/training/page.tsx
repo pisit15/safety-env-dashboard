@@ -1155,7 +1155,7 @@ export default function CompanyTraining() {
       <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }} id="pdf-content">
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
               📋 แผนอบรมประจำปี — {company?.name || companyId.toUpperCase()}
             </h1>
@@ -1179,6 +1179,37 @@ export default function CompanyTraining() {
                 </span>
               </button>
             )}
+            {/* Spacer to push right items */}
+            <div style={{ flex: 1 }} />
+            {/* View mode toggle */}
+            <div style={{ display: 'flex', padding: 2, borderRadius: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              {[
+                { key: 'overview' as const, label: '📊 ภาพรวม' },
+                { key: 'update' as const, label: '📝 อัปเดต' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => { setViewMode(opt.key); setActiveKpi(null); }}
+                  style={{
+                    padding: '4px 14px', borderRadius: 5, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    background: viewMode === opt.key ? 'var(--accent)' : 'transparent',
+                    color: viewMode === opt.key ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {/* Export PDF */}
+            <ExportPdfButton
+              targetId="pdf-content"
+              filename={`${company?.shortName || companyId}-Training-${selectedYear}`}
+              title={`${company?.name || companyId.toUpperCase()} — Training Plan ${selectedYear}`}
+              subtitle="Safety & Environment Dashboard — รายงานแผนอบรมประจำปี"
+              orientation="landscape"
+              label="Export PDF"
+            />
           </div>
           <p style={{ color: "var(--text-secondary)", margin: "4px 0 0", fontSize: 14 }}>
             Training Plan {selectedYear} • จัดการแผนอบรม อัปเดตสถานะ และบันทึกผู้เข้าอบรม
@@ -1195,29 +1226,6 @@ export default function CompanyTraining() {
           >
             {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-
-          <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-
-          {/* View mode toggle */}
-          <div style={{ display: 'flex', padding: 2, borderRadius: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-            {[
-              { key: 'overview' as const, label: '📊 ภาพรวม' },
-              { key: 'update' as const, label: '📝 อัปเดต' },
-            ].map(opt => (
-              <button
-                key={opt.key}
-                onClick={() => { setViewMode(opt.key); setActiveKpi(null); }}
-                style={{
-                  padding: '4px 14px', borderRadius: 5, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  background: viewMode === opt.key ? 'var(--accent)' : 'transparent',
-                  color: viewMode === opt.key ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
 
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
@@ -1265,16 +1273,6 @@ export default function CompanyTraining() {
 
           {/* Spacer */}
           <div style={{ flex: 1 }} />
-
-          {/* Export PDF */}
-          <ExportPdfButton
-            targetId="pdf-content"
-            filename={`${company?.shortName || companyId}-Training-${selectedYear}`}
-            title={`${company?.name || companyId.toUpperCase()} — Training Plan ${selectedYear}`}
-            subtitle="Safety & Environment Dashboard — รายงานแผนอบรมประจำปี"
-            orientation="landscape"
-            label="Export PDF"
-          />
 
           {/* Update mode specific controls */}
           {viewMode === 'update' && (
