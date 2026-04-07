@@ -1201,15 +1201,6 @@ export default function CompanyTraining() {
                 </button>
               ))}
             </div>
-            {/* Export PDF */}
-            <ExportPdfButton
-              targetId="pdf-content"
-              filename={`${company?.shortName || companyId}-Training-${selectedYear}`}
-              title={`${company?.name || companyId.toUpperCase()} — Training Plan ${selectedYear}`}
-              subtitle="Safety & Environment Dashboard — รายงานแผนอบรมประจำปี"
-              orientation="landscape"
-              label="Export PDF"
-            />
           </div>
           <p style={{ color: "var(--text-secondary)", margin: "4px 0 0", fontSize: 14 }}>
             Training Plan {selectedYear} • จัดการแผนอบรม อัปเดตสถานะ และบันทึกผู้เข้าอบรม
@@ -1273,6 +1264,16 @@ export default function CompanyTraining() {
 
           {/* Spacer */}
           <div style={{ flex: 1 }} />
+
+          {/* Export PDF */}
+          <ExportPdfButton
+            targetId="pdf-content"
+            filename={`${company?.shortName || companyId}-Training-${selectedYear}`}
+            title={`${company?.name || companyId.toUpperCase()} — Training Plan ${selectedYear}`}
+            subtitle="Safety & Environment Dashboard — รายงานแผนอบรมประจำปี"
+            orientation="landscape"
+            label="Export PDF"
+          />
 
           {/* Update mode specific controls */}
           {viewMode === 'update' && (
