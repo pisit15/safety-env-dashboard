@@ -24,6 +24,7 @@ interface Personnel {
   phone: string;
   email: string;
   is_active: boolean;
+  is_she_team: boolean;
 }
 
 interface LegalReq {
@@ -83,7 +84,7 @@ const ANNUAL_MINUTES_PER_PERSON = 97440;
 
 // ── Helper ─────────────────────────────────────────────────────
 function emptyPersonnel(companyId: string): Personnel {
-  return { company_id: companyId, bu: '', full_name: '', nick_name: '', position: '', responsibility: '', department: 'HSE', employment_type: 'permanent', phone: '', email: '', is_active: true };
+  return { company_id: companyId, bu: '', full_name: '', nick_name: '', position: '', responsibility: '', department: 'HSE', employment_type: 'permanent', phone: '', email: '', is_active: true, is_she_team: true };
 }
 function emptyReq(companyId: string): LegalReq {
   return { company_id: companyId, name: '', short_name: '', category: 'safety', required_count: 0, description: '', law_reference: '', sort_order: 0, is_active: true, is_required: true };
@@ -433,9 +434,14 @@ export default function SHEWorkforcePage() {
                       <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                       <input placeholder="ค้นหาชื่อ, ตำแหน่ง..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ ...inputStyle, paddingLeft: 36, background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                     </div>
-                    <button onClick={() => { setEditP(emptyPersonnel(companyId)); setShowPModal(true); }} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                      <Plus size={16} /> เพิ่มบุคลากร
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => { setEditP({ ...emptyPersonnel(companyId), is_she_team: false, department: '' }); setShowPModal(true); }} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13 }}>
+                        <Plus size={14} /> ผู้ได้รับแต่งตั้ง
+                      </button>
+                      <button onClick={() => { setEditP(emptyPersonnel(companyId)); setShowPModal(true); }} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                        <Plus size={16} /> เพิ่มบุคลากร SHE
+                      </button>
+                    </div>
                   </div>
 
                   <div className="glass-card rounded-xl" style={{ border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -443,29 +449,36 @@ export default function SHEWorkforcePage() {
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                           <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                            {['#', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร', 'อีเมล', ''].map((h, i) => (
+                            {['#', 'ชื่อ-นามสกุล', 'ประเภท', 'แผนก', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร', ''].map((h, i) => (
                               <th key={i} style={thStyle}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {filteredP.length === 0 ? (
-                            <tr><td colSpan={9} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
                               <Users size={32} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
                               <div>ยังไม่มีข้อมูลบุคลากร</div>
                             </td></tr>
                           ) : filteredP.map((p, i) => (
-                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: p.is_she_team === false ? '#fef3c710' : undefined }}>
                               <td style={{ ...tdStyle, color: 'var(--text-secondary)', width: 40 }}>{i + 1}</td>
-                              <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>{p.full_name}</td>
-                              <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{p.nick_name || '-'}</td>
+                              <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {p.full_name}
+                                {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
+                              </td>
+                              <td style={tdStyle}>
+                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? '#34c75915' : '#ff950015', color: p.is_she_team !== false ? '#34c759' : '#ff9500' }}>
+                                  {p.is_she_team !== false ? 'ทีม SHE' : 'แต่งตั้ง'}
+                                </span>
+                              </td>
+                              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.department || '-'}</td>
                               <td style={tdStyle}><span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{p.position || '-'}</span></td>
                               <td style={tdStyle}>
                                 {p.responsibility && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${RESP_COLORS[p.responsibility] || '#6b7280'}15`, color: RESP_COLORS[p.responsibility] || '#6b7280', fontWeight: 600 }}>{p.responsibility}</span>}
                               </td>
                               <td style={tdStyle}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${EMP_TYPE_COLORS[p.employment_type] || '#6b7280'}15`, color: EMP_TYPE_COLORS[p.employment_type] || '#6b7280', fontWeight: 600 }}>{EMP_TYPES[p.employment_type] || p.employment_type}</span></td>
                               <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.phone || '-'}</td>
-                              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.email || '-'}</td>
                               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                                 <button onClick={() => { setEditP({ ...p }); setShowPModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color="var(--accent)" /></button>
                                 <button onClick={() => p.id && deletePersonnel(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color="#ff3b30" /></button>
@@ -519,7 +532,10 @@ export default function SHEWorkforcePage() {
                           <tbody>
                             {personnel.map(p => (
                               <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                <td style={{ ...tdStyle, fontWeight: 600, position: 'sticky', left: 0, background: 'var(--card-solid)', zIndex: 1, color: 'var(--text-primary)' }}>{p.full_name}</td>
+                                <td style={{ ...tdStyle, fontWeight: 600, position: 'sticky', left: 0, background: 'var(--card-solid)', zIndex: 1, color: 'var(--text-primary)' }}>
+                                  {p.full_name}
+                                  {p.is_she_team === false && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 10, background: '#ff950015', color: '#ff9500', fontWeight: 600, marginLeft: 4 }}>{p.department || 'แต่งตั้ง'}</span>}
+                                </td>
                                 {requirements.map(r => {
                                   const lic = licenses.find(l => l.personnel_id === p.id && l.requirement_type_id === r.id);
                                   const has = lic?.has_license;
@@ -661,8 +677,22 @@ export default function SHEWorkforcePage() {
         <Modal show={showPModal} title={editP?.id ? 'แก้ไขบุคลากร' : 'เพิ่มบุคลากร'} onClose={() => { setShowPModal(false); setEditP(null); }} onSave={savePersonnel}>
           {editP && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div><FieldLabel>ชื่อ-นามสกุล *</FieldLabel><input style={inputStyle} value={editP.full_name} onChange={e => setEditP({ ...editP, full_name: e.target.value })} /></div>
-              <div><FieldLabel>ชื่อเล่น</FieldLabel><input style={inputStyle} value={editP.nick_name} onChange={e => setEditP({ ...editP, nick_name: e.target.value })} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editP.is_she_team !== false ? '#34c75910' : '#ff950010', border: `1px solid ${editP.is_she_team !== false ? '#34c75930' : '#ff950030'}`, cursor: 'pointer' }} onClick={() => setEditP({ ...editP, is_she_team: !editP.is_she_team, department: !editP.is_she_team ? 'HSE' : editP.department })}>
+                <div style={{ width: 40, height: 22, borderRadius: 11, background: editP.is_she_team !== false ? '#34c759' : '#ff9500', position: 'relative', transition: 'background 0.2s' }}>
+                  <div style={{ width: 18, height: 18, borderRadius: 9, background: '#fff', position: 'absolute', top: 2, left: editP.is_she_team !== false ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{editP.is_she_team !== false ? 'บุคลากรทีม SHE' : 'ผู้ได้รับแต่งตั้ง (นอกแผนก SHE)'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{editP.is_she_team !== false ? 'สังกัดแผนกความปลอดภัยและสิ่งแวดล้อม' : 'สังกัดแผนกอื่น แต่ได้รับแต่งตั้งตามกฎหมาย'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div><FieldLabel>ชื่อ-นามสกุล *</FieldLabel><input style={inputStyle} value={editP.full_name} onChange={e => setEditP({ ...editP, full_name: e.target.value })} /></div>
+                <div><FieldLabel>ชื่อเล่น</FieldLabel><input style={inputStyle} value={editP.nick_name} onChange={e => setEditP({ ...editP, nick_name: e.target.value })} /></div>
+              </div>
+              {editP.is_she_team === false && (
+                <div><FieldLabel>แผนกที่สังกัด *</FieldLabel><input style={inputStyle} placeholder="เช่น Production, Engineering, QA" value={editP.department} onChange={e => setEditP({ ...editP, department: e.target.value })} /></div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div><FieldLabel>ตำแหน่ง</FieldLabel>
                   <div style={{ position: 'relative' }}>
