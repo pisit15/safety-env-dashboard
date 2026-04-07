@@ -29,6 +29,7 @@ import {
   Menu,
   X,
   KeyRound,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -62,6 +63,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true },
       { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, hqHref: '', companyPath: '/manhours', ready: 'companyOnly' },
       { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' },
+      { id: 'guide', label: 'คู่มือการใช้งาน', icon: BookOpen, hqHref: '', companyPath: '/guide', ready: 'companyOnly' },
     ],
   },
   {
