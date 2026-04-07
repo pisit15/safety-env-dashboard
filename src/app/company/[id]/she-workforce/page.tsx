@@ -37,6 +37,7 @@ interface LegalReq {
   law_reference: string;
   sort_order: number;
   is_active: boolean;
+  is_required: boolean;
 }
 
 interface License {
@@ -85,7 +86,7 @@ function emptyPersonnel(companyId: string): Personnel {
   return { company_id: companyId, bu: '', full_name: '', nick_name: '', position: '', responsibility: '', department: 'HSE', employment_type: 'permanent', phone: '', email: '', is_active: true };
 }
 function emptyReq(companyId: string): LegalReq {
-  return { company_id: companyId, name: '', short_name: '', category: 'safety', required_count: 0, description: '', law_reference: '', sort_order: 0, is_active: true };
+  return { company_id: companyId, name: '', short_name: '', category: 'safety', required_count: 0, description: '', law_reference: '', sort_order: 0, is_active: true, is_required: true };
 }
 function emptyWorkload(companyId: string): Workload {
   return { company_id: companyId, function_name: '', job_level1: '', job_level2: '', job_level3: '', job_rank: 'B', job_type: 'fixed', time_usage_min: 0, frequency: 'daily', frequency_count: 1 };
@@ -481,8 +482,12 @@ export default function SHEWorkforcePage() {
               {/* ═══════ TAB 2: ใบอนุญาต ═══════ */}
               {activeTab === 2 && (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>คลิกที่ช่องเพื่อเปลี่ยนสถานะใบอนุญาต</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
+                      <span>คลิกที่ช่องเพื่อเปลี่ยนสถานะใบอนุญาต</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#007aff', display: 'inline-block' }} /> บริษัทต้องมี</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#d1d5db', display: 'inline-block' }} /> บุคลากรมี (ไม่บังคับ)</span>
+                    </div>
                     <button onClick={() => { setEditR(emptyReq(companyId)); setShowRModal(true); }} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Plus size={16} /> เพิ่มประเภทใบอนุญาต
                     </button>
@@ -502,9 +507,9 @@ export default function SHEWorkforcePage() {
                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
                               <th style={{ ...thStyle, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 3 }}>ชื่อ</th>
                               {requirements.map(r => (
-                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80 }}>
+                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80, borderBottom: r.is_required ? '3px solid #007aff' : '3px solid #d1d5db' }}>
                                   <div style={{ fontSize: 11, lineHeight: 1.3 }}>{r.short_name}</div>
-                                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 400 }}>({r.category})</div>
+                                  <div style={{ fontSize: 10, color: r.is_required ? '#007aff' : 'var(--text-secondary)', fontWeight: r.is_required ? 600 : 400 }}>{r.is_required ? 'บังคับ' : 'ไม่บังคับ'}</div>
                                 </th>
                               ))}
                             </tr>
@@ -538,10 +543,12 @@ export default function SHEWorkforcePage() {
                               <td style={{ ...tdStyle, fontWeight: 700, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 1, color: 'var(--text-primary)' }}>รวม</td>
                               {requirements.map(r => {
                                 const count = licenses.filter(l => l.requirement_type_id === r.id && l.has_license).length;
+                                const isOk = !r.is_required || count >= (r.required_count || 1);
                                 return (
                                   <td key={r.id} style={{ ...tdStyle, textAlign: 'center', fontWeight: 700 }}>
-                                    <span style={{ color: count > 0 ? '#34c759' : '#ff3b30' }}>{count}</span>
-                                    {r.required_count > 0 && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>/{r.required_count}</span>}
+                                    <span style={{ color: r.is_required ? (isOk ? '#34c759' : '#ff3b30') : 'var(--text-secondary)' }}>{count}</span>
+                                    {r.is_required && r.required_count > 0 && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>/{r.required_count}</span>}
+                                    {r.is_required && r.required_count === 0 && count === 0 && <span style={{ color: '#ff3b30', fontSize: 10, display: 'block' }}>ขาด</span>}
                                   </td>
                                 );
                               })}
@@ -708,6 +715,15 @@ export default function SHEWorkforcePage() {
                   </div>
                 </div>
                 <div><FieldLabel>จำนวนที่กฎหมายกำหนด</FieldLabel><input style={inputStyle} type="number" min="0" value={editR.required_count} onChange={e => setEditR({ ...editR, required_count: parseInt(e.target.value) || 0 })} /></div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editR.is_required ? '#007aff10' : '#f3f4f6', border: `1px solid ${editR.is_required ? '#007aff30' : '#e5e7eb'}`, cursor: 'pointer' }} onClick={() => setEditR({ ...editR, is_required: !editR.is_required })}>
+                <div style={{ width: 40, height: 22, borderRadius: 11, background: editR.is_required ? '#007aff' : '#d1d5db', position: 'relative', transition: 'background 0.2s' }}>
+                  <div style={{ width: 18, height: 18, borderRadius: 9, background: '#fff', position: 'absolute', top: 2, left: editR.is_required ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{editR.is_required ? 'บริษัทต้องมี (บังคับ)' : 'บุคลากรมี (ไม่บังคับ)'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{editR.is_required ? 'นับเข้า compliance ตามกฎหมาย' : 'บุคลากรมีใบอนุญาตนี้ แต่บริษัทไม่จำเป็นต้องมี'}</div>
+                </div>
               </div>
               <div><FieldLabel>อ้างอิงกฎหมาย</FieldLabel><input style={inputStyle} placeholder="พ.ร.บ. ความปลอดภัยฯ พ.ศ. 2554" value={editR.law_reference} onChange={e => setEditR({ ...editR, law_reference: e.target.value })} /></div>
               <div><FieldLabel>คำอธิบาย</FieldLabel><textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={editR.description} onChange={e => setEditR({ ...editR, description: e.target.value })} /></div>
