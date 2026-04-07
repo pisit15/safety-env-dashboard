@@ -1132,7 +1132,7 @@ export default function CompanyDrilldown() {
   }, [companyId]);
 
   // Phase 4: Submit cancellation request
-  const handleRequestCancellation = async (requestedStatus: 'cancelled' | 'not_applicable', reason: string): Promise<boolean> => {
+  const handleRequestCancellation = async (requestedStatus: 'cancelled' | 'not_applicable' | 'not_planned' | 'planned', reason: string): Promise<boolean> => {
     if (!editingCell || !reason.trim()) return false;
     const actualPT = planType === 'total'
       ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)

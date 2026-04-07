@@ -1643,12 +1643,20 @@ export default function HQOverview() {
                           <td style={{ padding: '8px 10px' }}>{req.activity_no}</td>
                           <td style={{ padding: '8px 10px' }}>{monthNames[req.month] || req.month}</td>
                           <td style={{ padding: '8px 10px' }}>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
-                              background: req.requested_status === 'cancelled' ? 'rgba(255,59,48,0.12)' : 'rgba(142,142,147,0.15)',
-                              color: req.requested_status === 'cancelled' ? '#ff3b30' : '#8e8e93',
-                            }}>
-                              {req.requested_status === 'cancelled' ? 'ยกเลิก' : 'N/A'}
-                            </span>
+                            {(() => {
+                              const statusMap: Record<string, { label: string; color: string; bg: string }> = {
+                                cancelled: { label: 'ยกเลิก', color: '#ff3b30', bg: 'rgba(255,59,48,0.12)' },
+                                not_applicable: { label: 'N/A', color: '#8e8e93', bg: 'rgba(142,142,147,0.15)' },
+                                not_planned: { label: 'นำออกจากแผน', color: '#ff9500', bg: 'rgba(255,149,0,0.12)' },
+                                planned: { label: 'เพิ่มเข้าแผน', color: '#007aff', bg: 'rgba(0,122,255,0.12)' },
+                              };
+                              const s = statusMap[req.requested_status] || statusMap.cancelled;
+                              return (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: s.bg, color: s.color }}>
+                                  {s.label}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td style={{ padding: '8px 10px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>{req.reason}</td>
                           <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{req.requested_by || '-'}</td>

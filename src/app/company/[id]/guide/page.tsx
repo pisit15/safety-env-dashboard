@@ -219,6 +219,8 @@ export default function GuidePage() {
                       { status: 'เลื่อน', num: false, denom: 'move' as const, approval: false, color: '#ff9500' },
                       { status: 'ยกเลิก', num: false, denom: 'no' as const, approval: true, color: '#ff3b30' },
                       { status: 'N/A', num: false, denom: 'no' as const, approval: true, color: '#8e8e93' },
+                      { status: 'มีแผน→ไม่มีแผน', num: false, denom: 'no' as const, approval: true, color: '#ff9500' },
+                      { status: 'ไม่มีแผน→มีแผน', num: false, denom: 'yes' as const, approval: true, color: '#007aff' },
                     ]).map(row => (
                       <tr key={row.status} style={{ borderTop: '1px solid var(--border)' }}>
                         <td style={{ padding: '10px 14px', fontWeight: 600, color: row.color }}>{row.status}</td>
@@ -354,6 +356,24 @@ export default function GuidePage() {
                   <p style={{ ...paraStyle, marginBottom: 4 }}>2. ระบุ <strong style={{ color: 'var(--text-primary)' }}>สถานะใหม่ที่ต้องการ</strong> และ <strong style={{ color: 'var(--text-primary)' }}>เหตุผล</strong></p>
                   <p style={{ ...paraStyle, marginBottom: 4 }}>3. กด "ส่งคำขอ" → รอ Admin ตรวจสอบ</p>
                   <p style={{ ...paraStyle, marginBottom: 0 }}>4. Admin อนุมัติ → สถานะถูกอัปเดตตามคำขอ</p>
+                </div>
+              </div>
+
+              {/* Case 3: Plan scope changes */}
+              <div style={{ ...cardStyle, border: '1px solid rgba(255,149,0,0.2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ ...badgeStyle('rgba(255,149,0,0.12)', '#ff9500'), fontSize: 13, fontWeight: 700 }}>
+                    ขอเปลี่ยนขอบเขตแผน (มีแผน ↔ ไม่มีแผน)
+                  </span>
+                </div>
+                <p style={{ ...paraStyle, marginBottom: 6 }}>
+                  แผนงานตั้งต้นคือแผนที่ได้รับ<strong style={{ color: 'var(--text-primary)' }}>อนุมัติจากผู้บริหาร</strong>แล้ว
+                  การเพิ่มหรือนำกิจกรรมออกจากแผนจึงต้องขออนุมัติ:
+                </p>
+                <div style={{ paddingLeft: 16, borderLeft: '3px solid rgba(255,149,0,0.2)', marginLeft: 4 }}>
+                  <p style={{ ...paraStyle, marginBottom: 4 }}><strong style={{ color: '#ff9500' }}>นำออกจากแผน</strong> (มีแผน → ไม่มีแผน): ลดจำนวนรายการทั้งหมด กระทบฐาน KPI</p>
+                  <p style={{ ...paraStyle, marginBottom: 4 }}><strong style={{ color: '#007aff' }}>เพิ่มเข้าแผน</strong> (ไม่มีแผน → มีแผน): เพิ่มจำนวนรายการ เพิ่มฐาน KPI</p>
+                  <p style={{ ...paraStyle, marginBottom: 0 }}>ทั้งสองกรณี ระบบจะแสดงฟอร์มให้กรอกเหตุผล และส่งคำขอให้ Admin พิจารณา</p>
                 </div>
               </div>
 

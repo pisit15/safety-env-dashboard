@@ -96,7 +96,7 @@ export interface DrawerProps {
   onNavigate: (actNo: string, month: string, actName: string) => void;
   onClickResponsible: (actNo: string, actName: string, current: string) => void;
   onRequestEdit: (reason: string) => void;
-  onRequestCancellation: (requestedStatus: 'cancelled' | 'not_applicable', reason: string) => Promise<boolean>;
+  onRequestCancellation: (requestedStatus: 'cancelled' | 'not_applicable' | 'not_planned' | 'planned', reason: string) => Promise<boolean>;
   pendingCancellationStatus: string | null; // show pending badge if request exists
 }
 
@@ -129,7 +129,7 @@ export default function ActivityDrawer(props: DrawerProps) {
   const [addingLink, setAddingLink] = useState(false);
   const [showEditRequest, setShowEditRequest] = useState(false);
   const [editRequestReason, setEditRequestReason] = useState('');
-  const [pendingCancel, setPendingCancel] = useState<'cancelled' | 'not_applicable' | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<'cancelled' | 'not_applicable' | 'not_planned' | 'planned' | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [submittingCancel, setSubmittingCancel] = useState(false);
 
@@ -206,6 +206,18 @@ export default function ActivityDrawer(props: DrawerProps) {
       setPendingCancel(status);
       setCancelReason('');
       return;
+    }
+    // Intercept planned↔not_planned changes for non-admin users → require approval
+    // The base plan is approved by management, so changes to plan scope need admin review
+    if ((status === 'not_planned' || status === 'planned') && !isAdmin) {
+      const isChangingPlanScope =
+        (status === 'not_planned' && currentStatus !== 'not_planned') ||
+        (status === 'planned' && currentStatus === 'not_planned');
+      if (isChangingPlanScope) {
+        setPendingCancel(status);
+        setCancelReason('');
+        return;
+      }
     }
     onSaveStatus(status);
   };
@@ -455,38 +467,47 @@ export default function ActivityDrawer(props: DrawerProps) {
                     </div>
                   )}
 
-                  {/* Phase 4: Cancellation/N/A Request Form */}
-                  {pendingCancel && (
-                    <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: pendingCancel === 'cancelled' ? 'rgba(255,59,48,0.06)' : 'rgba(142,142,147,0.08)', border: `1px solid ${pendingCancel === 'cancelled' ? 'rgba(255,59,48,0.2)' : 'rgba(142,142,147,0.2)'}` }}>
-                      <p className="text-[11px] font-semibold" style={{ color: pendingCancel === 'cancelled' ? '#ff3b30' : '#636366' }}>
-                        {pendingCancel === 'cancelled' ? '⚠️ ขอยกเลิกกิจกรรม' : '⊘ ขอระบุไม่เข้าเงื่อนไข'} — ต้องได้รับอนุมัติจาก Admin
-                      </p>
-                      <textarea
-                        value={cancelReason}
-                        onChange={e => setCancelReason(e.target.value)}
-                        placeholder="ระบุเหตุผลที่ต้องการยกเลิก/ไม่เข้าเงื่อนไข..."
-                        className="w-full px-3 py-2 rounded-lg text-[12px] resize-none"
-                        rows={2}
-                        style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827', outline: 'none' }}
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={() => { setPendingCancel(null); setCancelReason(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
-                        <button onClick={handleSubmitCancellationRequest} disabled={!cancelReason.trim() || submittingCancel}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: pendingCancel === 'cancelled' ? '#ff3b30' : '#636366', color: '#fff', opacity: !cancelReason.trim() || submittingCancel ? 0.5 : 1 }}>
-                          {submittingCancel ? 'กำลังส่ง...' : 'ส่งคำขออนุมัติ'}
-                        </button>
+                  {/* Phase 4: Approval Request Form (cancel, N/A, plan changes) */}
+                  {pendingCancel && (() => {
+                    const labels: Record<string, { title: string; placeholder: string; color: string; bg: string; border: string }> = {
+                      cancelled: { title: '⚠️ ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: '#ff3b30', bg: 'rgba(255,59,48,0.06)', border: 'rgba(255,59,48,0.2)' },
+                      not_applicable: { title: '⊘ ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: '#636366', bg: 'rgba(142,142,147,0.08)', border: 'rgba(142,142,147,0.2)' },
+                      not_planned: { title: '📋 ขอนำออกจากแผน (→ ไม่มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: '#ff9500', bg: 'rgba(255,149,0,0.06)', border: 'rgba(255,149,0,0.2)' },
+                      planned: { title: '📋 ขอเพิ่มเข้าแผน (→ มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: '#007aff', bg: 'rgba(0,122,255,0.06)', border: 'rgba(0,122,255,0.2)' },
+                    };
+                    const cfg = labels[pendingCancel] || labels.cancelled;
+                    return (
+                      <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
+                        <p className="text-[11px] font-semibold" style={{ color: cfg.color }}>
+                          {cfg.title} — ต้องได้รับอนุมัติจาก Admin
+                        </p>
+                        <textarea
+                          value={cancelReason}
+                          onChange={e => setCancelReason(e.target.value)}
+                          placeholder={cfg.placeholder}
+                          className="w-full px-3 py-2 rounded-lg text-[12px] resize-none"
+                          rows={2}
+                          style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827', outline: 'none' }}
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => { setPendingCancel(null); setCancelReason(''); }}
+                            className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                          <button onClick={handleSubmitCancellationRequest} disabled={!cancelReason.trim() || submittingCancel}
+                            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                            style={{ background: cfg.color, color: '#fff', opacity: !cancelReason.trim() || submittingCancel ? 0.5 : 1 }}>
+                            {submittingCancel ? 'กำลังส่ง...' : 'ส่งคำขออนุมัติ'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
-                  {/* Pending cancellation badge */}
+                  {/* Pending approval badge */}
                   {pendingCancellationStatus && !pendingCancel && (
                     <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
                       <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#ff9500' }} />
                       <span className="text-[11px]" style={{ color: '#ff9500' }}>
-                        คำขอ{pendingCancellationStatus === 'cancelled' ? 'ยกเลิก' : 'ไม่เข้าเงื่อนไข'}รอการอนุมัติจาก Admin
+                        คำขอ{pendingCancellationStatus === 'cancelled' ? 'ยกเลิก' : pendingCancellationStatus === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancellationStatus === 'not_planned' ? 'นำออกจากแผน' : pendingCancellationStatus === 'planned' ? 'เพิ่มเข้าแผน' : pendingCancellationStatus}รอการอนุมัติจาก Admin
                       </span>
                     </div>
                   )}

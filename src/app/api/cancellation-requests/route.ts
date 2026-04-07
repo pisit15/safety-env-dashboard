@@ -4,9 +4,9 @@ import { getSupabase } from '@/lib/supabase';
 /**
  * Phase 4: Cancellation/N/A Approval Workflow
  *
- * When a user wants to set status to 'cancelled' or 'not_applicable',
- * it creates a request that must be approved by admin before the
- * status_override is actually applied.
+ * When a user wants to set status to 'cancelled', 'not_applicable',
+ * 'not_planned', or 'planned', it creates a request that must be
+ * approved by admin before the status_override is actually applied.
  *
  * Table: cancellation_requests
  * - id SERIAL PRIMARY KEY
@@ -14,7 +14,7 @@ import { getSupabase } from '@/lib/supabase';
  * - plan_type TEXT NOT NULL
  * - activity_no TEXT NOT NULL
  * - month TEXT NOT NULL
- * - requested_status TEXT NOT NULL ('cancelled' | 'not_applicable')
+ * - requested_status TEXT NOT NULL ('cancelled' | 'not_applicable' | 'not_planned' | 'planned')
  * - reason TEXT NOT NULL
  * - requested_by TEXT NOT NULL
  * - status TEXT DEFAULT 'pending' ('pending' | 'approved' | 'rejected')
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (!['cancelled', 'not_applicable'].includes(requestedStatus)) {
+    if (!['cancelled', 'not_applicable', 'not_planned', 'planned'].includes(requestedStatus)) {
       return NextResponse.json({ error: 'Invalid requested status' }, { status: 400 });
     }
 
