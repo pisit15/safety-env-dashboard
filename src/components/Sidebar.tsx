@@ -48,6 +48,7 @@ interface MenuGroup {
   label: string;
   icon: LucideIcon;
   color: string;
+  accentBg: string;
   defaultOpen: boolean;
   items: MenuItem[];
 }
@@ -57,7 +58,8 @@ const MENU_GROUPS: MenuGroup[] = [
     id: 'general',
     label: 'ทั่วไป',
     icon: Home,
-    color: 'var(--text-secondary)',
+    color: '#6b7280',
+    accentBg: 'rgba(107,114,128,0.08)',
     defaultOpen: true,
     items: [
       { id: 'employees', label: 'จัดการพนักงาน', icon: Users, hqHref: '/employees', companyPath: '/employees', ready: true },
@@ -70,7 +72,8 @@ const MENU_GROUPS: MenuGroup[] = [
     id: 'safety',
     label: 'Safety',
     icon: Shield,
-    color: '#ff6b35',
+    color: '#f97316',
+    accentBg: 'rgba(249,115,22,0.06)',
     defaultOpen: true,
     items: [
       { id: 'action-plan', label: 'แผนงาน Safety', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan', ready: 'hasSheet' },
@@ -85,7 +88,8 @@ const MENU_GROUPS: MenuGroup[] = [
     id: 'environment',
     label: 'Environment',
     icon: Leaf,
-    color: '#34c759',
+    color: '#22c55e',
+    accentBg: 'rgba(34,197,94,0.06)',
     defaultOpen: true,
     items: [
       { id: 'action-plan-env', label: 'แผนงาน Environment', icon: ClipboardList, hqHref: '/action-plan', companyPath: '/action-plan?plan=environment', ready: 'hasSheet' },
@@ -180,6 +184,9 @@ export default function Sidebar() {
     });
   };
 
+  // Hover state
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
   const loggedInCompanyIds = Object.keys(auth.companyAuth);
   const companyMatch = pathname.match(/^\/company\/([^/]+)/);
   const currentCompanyId = companyMatch ? companyMatch[1] : null;
@@ -221,25 +228,44 @@ export default function Sidebar() {
 
   // ── Shared sidebar content ─────────────────────────────────────
   const sidebarContent = (
-    <>
-      {/* Header */}
-      <div className="p-5 pb-4">
-        <div className="flex items-center gap-3">
-          <img src="/ea-logo.svg" alt="EA" className="h-8 object-contain" />
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: 'var(--card-solid)',
+    }}>
+      {/* ── Brand Header ── */}
+      <div style={{ padding: isCollapsed ? '20px 12px 16px' : '20px 20px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10,
+            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(34,197,94,0.3)',
+            flexShrink: 0,
+          }}>
+            <img src="/ea-logo.svg" alt="EA" style={{ height: 22, objectFit: 'contain', filter: 'brightness(10)' }} />
+          </div>
           {!isCollapsed && (
-            <div>
-              <h1 className="text-[15px] font-semibold tracking-tight leading-tight" style={{ color: 'var(--text-primary)' }}>Safety & Env</h1>
-              <p className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>Dashboard</p>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h1 style={{
+                fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em',
+                color: 'var(--text-primary)', margin: 0, lineHeight: 1.2,
+              }}>Safety & Env</h1>
+              <p style={{
+                fontSize: 11, fontWeight: 500, color: 'var(--muted)',
+                margin: '1px 0 0', letterSpacing: '0.01em',
+              }}>Dashboard</p>
             </div>
           )}
           {/* Mobile close button */}
           {isMobile && (
             <button
               onClick={() => setMobileOpen(false)}
-              className="ml-auto p-1.5 rounded-lg"
-              style={{ color: 'var(--muted)' }}
+              style={{
+                marginLeft: 'auto', padding: 6, borderRadius: 8, border: 'none',
+                background: 'var(--bg-secondary)', color: 'var(--muted)', cursor: 'pointer',
+              }}
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           )}
         </div>
@@ -247,36 +273,61 @@ export default function Sidebar() {
         {!isMobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="mt-3 flex items-center gap-1 text-[11px] font-medium transition-colors"
-            style={{ color: 'var(--muted)' }}
+            style={{
+              marginTop: 12, display: 'flex', alignItems: 'center', gap: 4,
+              fontSize: 11, fontWeight: 500, color: 'var(--muted)',
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            }}
           >
-            {collapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /> ย่อเมนู</>}
+            {collapsed ? <ChevronRight size={13} /> : <><ChevronLeft size={13} /> ย่อเมนู</>}
           </button>
         )}
       </div>
 
-      <div className="mx-4 h-px" style={{ background: 'var(--border)' }} />
-
-      {/* Navigation */}
-      <div className="flex-1 overflow-y-auto px-3 pt-4">
-        {/* Home link */}
-        <div className="mb-3">
+      {/* ── Navigation ── */}
+      <div style={{
+        flex: 1, overflowY: 'auto', padding: isCollapsed ? '0 8px' : '0 12px',
+        WebkitOverflowScrolling: 'touch',
+      }}>
+        {/* Home / Select project */}
+        <div style={{ marginBottom: 8 }}>
           <Link href={currentCompanyId ? `/company/${currentCompanyId}` : '/'}>
             <div
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
+              onMouseEnter={() => setHoveredItem('home')}
+              onMouseLeave={() => setHoveredItem(null)}
               style={{
-                color: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 'var(--accent)' : 'var(--text-secondary)',
-                fontWeight: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 600 : 400,
-                background: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 'var(--accent-glow)' : 'transparent',
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: isCollapsed ? '10px 0' : '10px 12px',
+                borderRadius: 10,
+                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                color: (pathname === '/' || pathname === `/company/${currentCompanyId}`)
+                  ? '#007aff' : 'var(--text-secondary)',
+                fontWeight: (pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 600 : 500,
+                fontSize: 13,
+                background: (pathname === '/' || pathname === `/company/${currentCompanyId}`)
+                  ? 'rgba(0,122,255,0.08)'
+                  : hoveredItem === 'home' ? 'var(--bg-secondary)' : 'transparent',
+                transition: 'all 0.15s ease',
+                cursor: 'pointer',
               }}
             >
-              <Home size={18} strokeWidth={(pathname === '/' || pathname === `/company/${currentCompanyId}`) ? 2.2 : 1.8} className="flex-shrink-0" />
+              <div style={{
+                width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: (pathname === '/' || pathname === `/company/${currentCompanyId}`)
+                  ? 'rgba(0,122,255,0.12)' : 'var(--bg-secondary)',
+                color: (pathname === '/' || pathname === `/company/${currentCompanyId}`)
+                  ? '#007aff' : 'var(--muted)',
+                transition: 'all 0.15s ease',
+                flexShrink: 0,
+              }}>
+                <Home size={16} strokeWidth={2} />
+              </div>
               {!isCollapsed && <span>{currentCompanyId && !auth.isAdmin ? 'เลือกโครงการ' : 'Home'}</span>}
             </div>
           </Link>
         </div>
 
-        {/* Grouped menus */}
+        {/* ── Menu Groups ── */}
         {showMenus && MENU_GROUPS.map(group => {
           if (!hasVisibleItems(group)) return null;
           const groupActive = isGroupActive(group);
@@ -284,63 +335,160 @@ export default function Sidebar() {
           const GroupIcon = group.icon;
 
           return (
-            <div key={group.id} className="mb-1">
+            <div key={group.id} style={{ marginBottom: 6 }}>
+              {/* Group Header */}
               {!isCollapsed ? (
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.08em] font-bold transition-colors"
-                  style={{ color: groupActive ? group.color : 'var(--muted)' }}
+                  onMouseEnter={() => setHoveredItem(`group-${group.id}`)}
+                  onMouseLeave={() => setHoveredItem(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '8px 12px', borderRadius: 10, border: 'none',
+                    cursor: 'pointer',
+                    background: hoveredItem === `group-${group.id}` ? group.accentBg : 'transparent',
+                    transition: 'all 0.15s ease',
+                  }}
                 >
-                  <GroupIcon size={13} strokeWidth={2.2} />
-                  <span className="flex-1 text-left">{group.label}</span>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: groupActive ? `${group.color}18` : 'transparent',
+                    color: groupActive ? group.color : 'var(--muted)',
+                    transition: 'all 0.15s ease',
+                  }}>
+                    <GroupIcon size={13} strokeWidth={2.2} />
+                  </div>
+                  <span style={{
+                    flex: 1, textAlign: 'left', fontSize: 11, fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    color: groupActive ? group.color : 'var(--muted)',
+                    transition: 'color 0.15s ease',
+                  }}>{group.label}</span>
                   <ChevronDown
                     size={12}
-                    className="transition-transform duration-200"
-                    style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                    style={{
+                      color: 'var(--muted)',
+                      transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                      transition: 'transform 0.2s ease',
+                    }}
                   />
                 </button>
               ) : (
-                <div className="flex justify-center py-1.5 mb-0.5" title={group.label}>
-                  <GroupIcon size={14} style={{ color: groupActive ? group.color : 'var(--muted)' }} />
+                <div style={{
+                  display: 'flex', justifyContent: 'center', padding: '6px 0',
+                  marginBottom: 2,
+                }} title={group.label}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: groupActive ? `${group.color}12` : 'transparent',
+                    color: groupActive ? group.color : 'var(--muted)',
+                  }}>
+                    <GroupIcon size={15} strokeWidth={2} />
+                  </div>
                 </div>
               )}
 
+              {/* Group Items */}
               {(isOpen || isCollapsed) && (
-                <div className={`space-y-0.5 ${!isCollapsed ? 'ml-1' : ''}`}>
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: 1,
+                  marginLeft: isCollapsed ? 0 : 4,
+                  paddingLeft: isCollapsed ? 0 : 0,
+                  marginTop: 2,
+                }}>
                   {group.items.map(item => {
                     const { href, isActive, isReady, hidden } = resolveItem(item);
                     if (hidden) return null;
                     const Icon = item.icon;
 
-                    // Hide "เร็วๆ นี้" items on mobile to reduce noise
+                    // Hide "เร็วๆ นี้" items on mobile
                     if (isMobile && !isReady) return null;
+
+                    const itemKey = `${group.id}-${item.id}`;
+                    const isHovered = hoveredItem === itemKey;
 
                     const content = (
                       <div
-                        className={`flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
+                        onMouseEnter={() => setHoveredItem(itemKey)}
+                        onMouseLeave={() => setHoveredItem(null)}
                         style={{
-                          color: !isReady ? 'var(--muted)' : isActive ? group.color : 'var(--text-secondary)',
-                          fontWeight: isActive ? 600 : 400,
-                          background: isActive ? `${group.color}12` : 'transparent',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: isCollapsed ? '9px 0' : '9px 12px',
+                          borderRadius: 10,
+                          justifyContent: isCollapsed ? 'center' : 'flex-start',
                           cursor: isReady ? 'pointer' : 'default',
-                          opacity: isReady ? 1 : 0.5,
+                          opacity: isReady ? 1 : 0.4,
+                          transition: 'all 0.15s ease',
+                          position: 'relative' as const,
+                          // Active: colored pill background
+                          background: isActive
+                            ? `${group.color}10`
+                            : (isHovered && isReady) ? 'var(--bg-secondary)' : 'transparent',
                         }}
                       >
-                        <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} className="flex-shrink-0" />
-                        {!isCollapsed && <span className="truncate">{item.label}</span>}
-                        {!isCollapsed && !isReady && (
-                          <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 'auto' }}>เร็วๆ นี้</span>
+                        {/* Active indicator bar */}
+                        {isActive && !isCollapsed && (
+                          <div style={{
+                            position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+                            width: 3, height: 20, borderRadius: 2,
+                            background: group.color,
+                          }} />
+                        )}
+
+                        {/* Icon container */}
+                        <div style={{
+                          width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: isActive
+                            ? `${group.color}15`
+                            : (isHovered && isReady) ? 'var(--bg-secondary)' : 'transparent',
+                          color: isActive ? group.color : isReady ? 'var(--text-secondary)' : 'var(--muted)',
+                          transition: 'all 0.15s ease',
+                          flexShrink: 0,
+                        }}>
+                          <Icon size={16} strokeWidth={isActive ? 2.2 : 1.7} />
+                        </div>
+
+                        {!isCollapsed && (
+                          <>
+                            <span style={{
+                              fontSize: 13, fontWeight: isActive ? 600 : 450,
+                              color: isActive ? group.color : isReady ? 'var(--text-primary)' : 'var(--muted)',
+                              flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              letterSpacing: '-0.005em',
+                              transition: 'color 0.15s ease',
+                            }}>
+                              {item.label}
+                            </span>
+                            {!isReady && (
+                              <span style={{
+                                fontSize: 9, fontWeight: 600, color: 'var(--muted)',
+                                padding: '2px 6px', borderRadius: 4,
+                                background: 'var(--bg-secondary)',
+                                letterSpacing: '0.02em',
+                              }}>เร็วๆ นี้</span>
+                            )}
+                          </>
                         )}
                       </div>
                     );
 
                     return isReady ? (
-                      <Link key={item.id} href={href}>{content}</Link>
+                      <Link key={item.id} href={href} style={{ textDecoration: 'none' }}>{content}</Link>
                     ) : (
                       <div key={item.id}>{content}</div>
                     );
                   })}
                 </div>
+              )}
+
+              {/* Subtle separator between groups */}
+              {!isCollapsed && (
+                <div style={{
+                  margin: '6px 12px 4px',
+                  height: 1,
+                  background: 'var(--border)',
+                  opacity: 0.5,
+                }} />
               )}
             </div>
           );
@@ -348,82 +496,163 @@ export default function Sidebar() {
 
         {/* HQ Overview link */}
         {currentCompanyId && isAnyAuth && !isCollapsed && (
-          <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-            <p className="text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2"
-              style={{ color: 'var(--muted)' }}>
-              ภาพรวม HQ
-            </p>
-            <div className="space-y-0.5">
-              <Link href="/training">
-                <div
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200"
-                  style={{
-                    color: pathname === '/training' ? 'var(--accent)' : 'var(--text-secondary)',
-                    fontWeight: pathname === '/training' ? 600 : 400,
-                    background: pathname === '/training' ? 'var(--accent-glow)' : 'transparent',
-                  }}
-                >
-                  <GraduationCap size={18} strokeWidth={1.8} className="flex-shrink-0" />
-                  <span>ภาพรวมแผนอบรม</span>
+          <div style={{ marginTop: 8, paddingTop: 4 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.06em', color: 'var(--muted)',
+              padding: '6px 12px 6px',
+            }}>ภาพรวม HQ</div>
+            <Link href="/training" style={{ textDecoration: 'none' }}>
+              <div
+                onMouseEnter={() => setHoveredItem('hq-training')}
+                onMouseLeave={() => setHoveredItem(null)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  color: pathname === '/training' ? '#007aff' : 'var(--text-secondary)',
+                  fontWeight: pathname === '/training' ? 600 : 500,
+                  fontSize: 13,
+                  background: pathname === '/training'
+                    ? 'rgba(0,122,255,0.08)'
+                    : hoveredItem === 'hq-training' ? 'var(--bg-secondary)' : 'transparent',
+                  transition: 'all 0.15s ease',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{
+                  width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: pathname === '/training' ? 'rgba(0,122,255,0.12)' : 'var(--bg-secondary)',
+                  color: pathname === '/training' ? '#007aff' : 'var(--muted)',
+                  flexShrink: 0,
+                }}>
+                  <GraduationCap size={16} strokeWidth={1.8} />
                 </div>
-              </Link>
-            </div>
+                <span>ภาพรวมแผนอบรม</span>
+              </div>
+            </Link>
           </div>
         )}
 
         {/* Admin section */}
-        {auth.isAdmin && (
-          <div className={`mt-5 pt-4 ${isCollapsed ? 'hidden' : ''}`}>
-            <div className="mx-3 mb-3 h-px" style={{ background: 'var(--border)' }} />
-            <p className="text-[10px] uppercase tracking-[0.1em] font-semibold px-3 pb-2"
-              style={{ color: 'var(--muted)' }}>
-              จัดการ
-            </p>
-            <Link href="/admin">
+        {auth.isAdmin && !isCollapsed && (
+          <div style={{ marginTop: 8, paddingTop: 4 }}>
+            <div style={{
+              margin: '0 12px 6px', height: 1,
+              background: 'var(--border)', opacity: 0.5,
+            }} />
+            <div style={{
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.06em', color: 'var(--muted)',
+              padding: '6px 12px 6px',
+            }}>จัดการ</div>
+            <Link href="/admin" style={{ textDecoration: 'none' }}>
               <div
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] cursor-pointer transition-all duration-200"
+                onMouseEnter={() => setHoveredItem('admin')}
+                onMouseLeave={() => setHoveredItem(null)}
                 style={{
-                  color: pathname === '/admin' ? 'var(--accent)' : 'var(--text-secondary)',
-                  fontWeight: pathname === '/admin' ? 600 : 400,
-                  background: pathname === '/admin' ? 'var(--accent-glow)' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  color: pathname === '/admin' ? '#5856d6' : 'var(--text-secondary)',
+                  fontWeight: pathname === '/admin' ? 600 : 500,
+                  fontSize: 13,
+                  background: pathname === '/admin'
+                    ? 'rgba(88,86,214,0.08)'
+                    : hoveredItem === 'admin' ? 'var(--bg-secondary)' : 'transparent',
+                  transition: 'all 0.15s ease',
+                  cursor: 'pointer',
                 }}
               >
-                <Settings size={18} strokeWidth={pathname === '/admin' ? 2.2 : 1.8} />
+                <div style={{
+                  width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: pathname === '/admin' ? 'rgba(88,86,214,0.12)' : 'var(--bg-secondary)',
+                  color: pathname === '/admin' ? '#5856d6' : 'var(--muted)',
+                  flexShrink: 0,
+                }}>
+                  <Settings size={16} strokeWidth={pathname === '/admin' ? 2.2 : 1.7} />
+                </div>
                 <span>Admin / ตั้งค่า</span>
               </div>
             </Link>
           </div>
         )}
+
+        {/* Bottom spacer */}
+        <div style={{ height: 16 }} />
       </div>
 
-      {/* Theme toggle + User info */}
-      <div className={`${isCollapsed ? 'hidden' : ''}`} style={{ borderTop: '1px solid var(--border)' }}>
-        <div className="px-4 pt-3 pb-2">
+      {/* ── Footer: Theme + User ── */}
+      {!isCollapsed && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px' }}>
+          {/* Theme toggle */}
           <button
             onClick={cycleTheme}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-[12px] font-medium transition-all duration-200"
-            style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}
+            onMouseEnter={() => setHoveredItem('theme')}
+            onMouseLeave={() => setHoveredItem(null)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              padding: '8px 12px', borderRadius: 10, border: 'none',
+              fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              background: hoveredItem === 'theme' ? 'var(--bg-secondary)' : 'transparent',
+              transition: 'background 0.15s ease',
+              marginBottom: 10,
+            }}
           >
-            {theme === 'light' && <><Sun size={14} /> Light</>}
-            {theme === 'dark' && <><Moon size={14} /> Dark</>}
-            {theme === 'system' && <><Monitor size={14} /> Auto</>}
+            <div style={{
+              width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--bg-secondary)', color: 'var(--muted)',
+            }}>
+              {theme === 'light' && <Sun size={14} />}
+              {theme === 'dark' && <Moon size={14} />}
+              {theme === 'system' && <Monitor size={14} />}
+            </div>
+            {theme === 'light' && 'Light Mode'}
+            {theme === 'dark' && 'Dark Mode'}
+            {theme === 'system' && 'Auto'}
           </button>
-        </div>
 
-        <div className="px-4 pb-4 pt-1">
+          {/* User info */}
           {isAnyAuth ? (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-                style={{ background: auth.isAdmin ? 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' : 'linear-gradient(135deg, #34c759 0%, #007aff 100%)' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 10px', borderRadius: 12,
+              background: 'var(--bg-secondary)',
+            }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
+                background: auth.isAdmin
+                  ? 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)'
+                  : 'linear-gradient(135deg, #34c759 0%, #007aff 100%)',
+                boxShadow: auth.isAdmin
+                  ? '0 2px 8px rgba(0,122,255,0.3)'
+                  : '0 2px 8px rgba(52,199,89,0.3)',
+              }}>
                 {auth.isAdmin ? 'HQ' : (displayName || '?').substring(0, 2).toUpperCase()}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: 'var(--text-primary)' }}>{displayName}</p>
-                <p className="text-[10px] font-medium truncate" style={{ color: 'var(--muted)' }}>{displayRole}</p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  fontSize: 12, fontWeight: 600, color: 'var(--text-primary)',
+                  margin: 0, lineHeight: 1.2,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{displayName}</p>
+                <p style={{
+                  fontSize: 10, fontWeight: 500, color: 'var(--muted)',
+                  margin: '2px 0 0',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{displayRole}</p>
               </div>
               {!auth.isAdmin && loggedInCompanyIds.length > 0 && (
-                <Link href="/change-password" title="เปลี่ยนรหัสผ่าน">
-                  <div className="p-1.5 rounded-lg transition-colors" style={{ color: 'var(--muted)' }}>
+                <Link href="/change-password" title="เปลี่ยนรหัสผ่าน" style={{ textDecoration: 'none' }}>
+                  <div
+                    onMouseEnter={() => setHoveredItem('key')}
+                    onMouseLeave={() => setHoveredItem(null)}
+                    style={{
+                      padding: 6, borderRadius: 7, cursor: 'pointer',
+                      color: 'var(--muted)',
+                      background: hoveredItem === 'key' ? 'var(--card-solid)' : 'transparent',
+                      transition: 'background 0.15s ease',
+                    }}>
                     <KeyRound size={14} />
                   </div>
                 </Link>
@@ -434,28 +663,39 @@ export default function Sidebar() {
                   loggedInCompanyIds.forEach(id => auth.companyLogout(id));
                   window.location.href = '/';
                 }}
-                className="text-[10px] p-1.5 rounded-lg transition-colors"
-                style={{ color: 'var(--muted)' }}
+                onMouseEnter={() => setHoveredItem('logout')}
+                onMouseLeave={() => setHoveredItem(null)}
                 title="ออกจากระบบ"
+                style={{
+                  padding: 6, borderRadius: 7, border: 'none', cursor: 'pointer',
+                  color: hoveredItem === 'logout' ? '#ff3b30' : 'var(--muted)',
+                  background: hoveredItem === 'logout' ? 'rgba(255,59,48,0.08)' : 'transparent',
+                  transition: 'all 0.15s ease',
+                }}
               >
                 <LogOut size={14} />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold"
-                style={{ background: 'var(--bg-secondary)', color: 'var(--muted)' }}>
-                ?
-              </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 10px', borderRadius: 12,
+              background: 'var(--bg-secondary)',
+            }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 700, color: 'var(--muted)',
+                background: 'var(--card-solid)',
+              }}>?</div>
               <div>
-                <p className="text-[12px] font-semibold leading-tight" style={{ color: 'var(--muted)' }}>ยังไม่ได้เข้าสู่ระบบ</p>
-                <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>กรุณา Login</p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', margin: 0 }}>ยังไม่ได้เข้าสู่ระบบ</p>
+                <p style={{ fontSize: 10, fontWeight: 500, color: 'var(--muted)', margin: '1px 0 0' }}>กรุณา Login</p>
               </div>
             </div>
           )}
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 
   // ── MOBILE RENDER ──────────────────────────────────────────────
@@ -464,8 +704,9 @@ export default function Sidebar() {
       <>
         {/* Fixed top bar */}
         <div
-          className="fixed top-0 left-0 right-0 z-40 flex items-center gap-3 px-4"
           style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
+            display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px',
             height: 56,
             background: 'var(--card-solid)',
             borderBottom: '1px solid var(--border)',
@@ -474,20 +715,35 @@ export default function Sidebar() {
         >
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-2 -ml-2 rounded-lg"
-            style={{ color: 'var(--text-primary)' }}
+            style={{
+              padding: 8, marginLeft: -8, borderRadius: 8,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-primary)',
+            }}
           >
             <Menu size={22} />
           </button>
-          <img src="/ea-logo.svg" alt="EA" className="h-6 object-contain" />
-          <span className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 7,
+            background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 1px 4px rgba(34,197,94,0.3)',
+          }}>
+            <img src="/ea-logo.svg" alt="EA" style={{ height: 16, objectFit: 'contain', filter: 'brightness(10)' }} />
+          </div>
+          <span style={{
+            fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+          }}>
             Safety & Env
           </span>
-          <div className="ml-auto flex items-center gap-2">
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
             <button
               onClick={cycleTheme}
-              className="p-2 rounded-lg"
-              style={{ color: 'var(--muted)' }}
+              style={{
+                padding: 8, borderRadius: 8, background: 'none',
+                border: 'none', cursor: 'pointer', color: 'var(--muted)',
+              }}
             >
               {theme === 'light' && <Sun size={16} />}
               {theme === 'dark' && <Moon size={16} />}
@@ -496,26 +752,29 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Spacer to push content below fixed bar (parent is flipped to column via useEffect) */}
+        {/* Spacer */}
         <div id="sidebar-mobile-spacer" style={{ height: 56, flexShrink: 0, width: '100%' }} />
 
         {/* Overlay */}
         {mobileOpen && (
           <div
-            className="fixed inset-0 z-50"
-            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 50,
+              background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+            }}
             onClick={() => setMobileOpen(false)}
           />
         )}
 
         {/* Drawer */}
         <aside
-          className="fixed top-0 left-0 z-50 h-full flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
           style={{
-            width: 280,
+            position: 'fixed', top: 0, left: 0, zIndex: 50,
+            height: '100%', width: 290,
             background: 'var(--card-solid)',
-            boxShadow: mobileOpen ? '4px 0 24px rgba(0,0,0,0.15)' : 'none',
+            boxShadow: mobileOpen ? '4px 0 30px rgba(0,0,0,0.15)' : 'none',
             transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
           {sidebarContent}
@@ -527,11 +786,16 @@ export default function Sidebar() {
   // ── DESKTOP RENDER ─────────────────────────────────────────────
   return (
     <aside
-      className={`${collapsed ? 'w-[68px]' : 'w-[260px]'} flex-shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] h-screen sticky top-0`}
       style={{
+        width: collapsed ? 68 : 260,
+        flexShrink: 0,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
         background: 'var(--card-solid)',
         borderRight: '1px solid var(--border)',
-        boxShadow: 'var(--shadow-sm)',
+        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflow: 'hidden',
       }}
     >
       {sidebarContent}
