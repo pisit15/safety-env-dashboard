@@ -1,12 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
-import { BookOpen, CheckCircle, Clock, AlertTriangle, XCircle, MinusCircle, ArrowRightCircle, Lock, ShieldCheck, HelpCircle, TrendingUp, Calendar } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, AlertTriangle, XCircle, MinusCircle, ArrowRightCircle, Lock, ShieldCheck, HelpCircle, TrendingUp, Calendar, GraduationCap, ClipboardList } from 'lucide-react';
 
 export default function GuidePage() {
   const params = useParams();
   const companyId = params.id as string;
+  const [activeTab, setActiveTab] = useState<'action-plan' | 'training'>('action-plan');
 
   const sectionStyle: React.CSSProperties = {
     marginBottom: 28,
@@ -72,14 +74,52 @@ export default function GuidePage() {
               </div>
               <div>
                 <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>คู่มือการใช้งาน</h1>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>แผนงานประจำปี (Action Plan) — Safety & Environment</p>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Safety & Environment Dashboard</p>
               </div>
             </div>
             <p style={paraStyle}>
-              คู่มือนี้อธิบายวิธีการใช้งานระบบแผนงานประจำปี ตั้งแต่การอัปเดตสถานะกิจกรรม การคำนวณ KPI รายไตรมาส
+              คู่มือนี้อธิบายวิธีการใช้งานระบบ Dashboard ครอบคลุมการอัปเดตสถานะ การคำนวณ KPI รายไตรมาส
               กำหนดส่งข้อมูล และขั้นตอนการขออนุมัติจาก Admin
             </p>
           </div>
+
+          {/* ═══ Tab Navigation ═══ */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 4, borderRadius: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            {([
+              { key: 'action-plan' as const, label: 'แผนงานประจำปี', icon: <ClipboardList size={15} />, color: '#5856d6' },
+              { key: 'training' as const, label: 'แผนอบรมประจำปี', icon: <GraduationCap size={15} />, color: '#34c759' },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '10px 16px',
+                  borderRadius: 9,
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: activeTab === tab.key ? 700 : 500,
+                  background: activeTab === tab.key ? 'var(--card-solid)' : 'transparent',
+                  color: activeTab === tab.key ? tab.color : 'var(--text-secondary)',
+                  boxShadow: activeTab === tab.key ? 'var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08))' : 'none',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ═══ TAB: แผนงานประจำปี (Action Plan) ═══ */}
+          {/* ═══════════════════════════════════════════════ */}
+          {activeTab === 'action-plan' && (<>
 
           {/* ─── Section 1: สถานะกิจกรรม ─── */}
           <div className="glass-card rounded-xl p-6 mb-6">
@@ -453,14 +493,18 @@ export default function GuidePage() {
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════ */}
-          {/* ─── Section 6: Training KPI Guide ─── */}
-          {/* ═══════════════════════════════════════════ */}
+          </>)}
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ═══ TAB: แผนอบรมประจำปี (Training) ═══ */}
+          {/* ═══════════════════════════════════════════════ */}
+          {activeTab === 'training' && (<>
+
           <div className="glass-card rounded-xl p-6 mb-6" style={{ background: 'linear-gradient(135deg, rgba(52,199,89,0.06) 0%, rgba(0,122,255,0.06) 100%)', border: '1px solid rgba(52,199,89,0.15)' }}>
             <div style={sectionStyle}>
               <h2 style={headingStyle}>
-                <BookOpen size={18} color="#34c759" />
-                6. แผนอบรมประจำปี (Training Plan KPI)
+                <GraduationCap size={18} color="#34c759" />
+                1. สถานะหลักสูตร และผลต่อ KPI
               </h2>
               <p style={paraStyle}>
                 KPI แผนอบรมใช้หลักการเดียวกับ Action Plan — ติดตามว่าหลักสูตรที่ได้รับอนุมัติจากผู้บริหาร
@@ -534,6 +578,78 @@ export default function GuidePage() {
               </div>
             </div>
           </div>
+
+          {/* ─── Training Section 2: Scoring ─── */}
+          <div className="glass-card rounded-xl p-6 mb-6">
+            <div style={sectionStyle}>
+              <h2 style={headingStyle}>
+                <TrendingUp size={18} color="#007aff" />
+                2. เกณฑ์คะแนน KPI อบรม
+              </h2>
+              <p style={paraStyle}>
+                เกณฑ์คะแนนเดียวกับแผนงานประจำปี — คิดจาก % ของหลักสูตรที่อบรมแล้ว เทียบกับฐาน
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 16 }}>
+                {[
+                  { score: 5, label: '100%', color: '#34c759', bg: 'rgba(52,199,89,0.1)' },
+                  { score: 4, label: '≥ 90%', color: '#007aff', bg: 'rgba(0,122,255,0.1)' },
+                  { score: 3, label: '≥ 80%', color: '#5856d6', bg: 'rgba(88,86,214,0.1)' },
+                  { score: 2, label: '≥ 70%', color: '#ff9500', bg: 'rgba(255,149,0,0.1)' },
+                  { score: 1, label: '< 70%', color: '#ff3b30', bg: 'rgba(255,59,48,0.1)' },
+                ].map(item => (
+                  <div key={item.score} style={{ textAlign: 'center', padding: '10px 4px', borderRadius: 10, background: item.bg, border: `1px solid ${item.color}22` }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: item.color }}>{item.score}</div>
+                    <div style={{ fontSize: 11, color: item.color, fontWeight: 600 }}>{item.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                {[
+                  { q: 'Q1', months: 'ม.ค. — มี.ค.', color: '#007aff' },
+                  { q: 'Q2', months: 'เม.ย. — มิ.ย.', color: '#34c759' },
+                  { q: 'Q3', months: 'ก.ค. — ก.ย.', color: '#ff9500' },
+                  { q: 'Q4', months: 'ต.ค. — ธ.ค.', color: '#5856d6' },
+                ].map(item => (
+                  <div key={item.q} style={{ ...cardStyle, textAlign: 'center', padding: 16 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: item.color }}>{item.q}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{item.months}</div>
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...paraStyle, marginTop: 14, fontSize: 12, color: 'var(--muted)' }}>
+                หลักสูตรที่ <strong>เลื่อน</strong> จะย้ายไปนับในเดือนปลายทาง เช่น เลื่อนจาก มี.ค.(Q1) → พ.ค.(Q2) จะย้ายไปนับใน Q2
+              </p>
+            </div>
+          </div>
+
+          {/* ─── Training Section 3: Tips ─── */}
+          <div className="glass-card rounded-xl p-6 mb-6">
+            <div style={{ ...sectionStyle, marginBottom: 0 }}>
+              <h2 style={headingStyle}>
+                <HelpCircle size={18} color="#34c759" />
+                3. เคล็ดลับการใช้งาน
+              </h2>
+
+              {[
+                { tip: 'อัปเดตสถานะทันทีเมื่อจัดอบรมเสร็จ', desc: 'เปลี่ยนสถานะเป็น "อบรมแล้ว" พร้อมแนบหลักฐาน (รูปภาพ ใบเซ็นชื่อ)', icon: '✅' },
+                { tip: 'กำหนดวันล่วงหน้า', desc: 'เมื่อทราบวันอบรม ให้เปลี่ยนเป็น "กำหนดวันแล้ว" เพื่อ Admin ติดตามได้', icon: '📅' },
+                { tip: 'เลื่อนแทนยกเลิก', desc: 'ถ้ายังจัดได้แต่ไม่ทันเดือนนี้ ใช้ "เลื่อน" แทน "ยกเลิก" เพราะไม่ต้องขออนุมัติ', icon: '➡️' },
+                { tip: 'เขียนเหตุผลยกเลิกให้ชัดเจน', desc: 'เหตุผลที่ดีช่วยให้ Admin อนุมัติเร็วขึ้น เช่น "งบประมาณถูกตัด" "ไม่มีผู้เข้าอบรมตามกลุ่มเป้าหมาย"', icon: '✍️' },
+                { tip: 'ดู KPI รายไตรมาสใน tab ภาพรวม', desc: 'ตรวจสอบคะแนน KPI ประจำไตรมาสเพื่อวางแผนการจัดอบรมเดือนถัดไป', icon: '🎯' },
+              ].map((item, i) => (
+                <div key={i} style={{ ...cardStyle, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ fontSize: 20, lineHeight: 1 }}>{item.icon}</div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{item.tip}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          </>)}
 
         </div>
       </main>
