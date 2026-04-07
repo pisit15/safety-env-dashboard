@@ -453,6 +453,88 @@ export default function GuidePage() {
             </div>
           </div>
 
+          {/* ═══════════════════════════════════════════ */}
+          {/* ─── Section 6: Training KPI Guide ─── */}
+          {/* ═══════════════════════════════════════════ */}
+          <div className="glass-card rounded-xl p-6 mb-6" style={{ background: 'linear-gradient(135deg, rgba(52,199,89,0.06) 0%, rgba(0,122,255,0.06) 100%)', border: '1px solid rgba(52,199,89,0.15)' }}>
+            <div style={sectionStyle}>
+              <h2 style={headingStyle}>
+                <BookOpen size={18} color="#34c759" />
+                6. แผนอบรมประจำปี (Training Plan KPI)
+              </h2>
+              <p style={paraStyle}>
+                KPI แผนอบรมใช้หลักการเดียวกับ Action Plan — ติดตามว่าหลักสูตรที่ได้รับอนุมัติจากผู้บริหาร
+                จัดอบรมสำเร็จครบตามแผนหรือไม่
+              </p>
+
+              {/* KPI Formula */}
+              <div style={{ ...cardStyle, background: 'rgba(52,199,89,0.06)', border: '1px solid rgba(52,199,89,0.2)', textAlign: 'center', padding: 20 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#34c759', marginBottom: 8 }}>
+                  KPI % = อบรมแล้ว ÷ ฐาน
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  ฐาน = หลักสูตรทั้งหมด − ยกเลิก
+                </div>
+              </div>
+
+              <p style={subHeadingStyle}>สถานะหลักสูตร และผลต่อ KPI</p>
+
+              {/* Training status table */}
+              <div style={{ borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)' }}>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>สถานะ</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>ตัวตั้ง</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>ตัวหาร (ฐาน)</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>ต้องขออนุมัติ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {([
+                      { status: 'ยังไม่กำหนดวัน', num: false, denom: 'yes' as const, approval: false, color: '#6b7280' },
+                      { status: 'กำหนดวันแล้ว', num: false, denom: 'yes' as const, approval: false, color: '#3b82f6' },
+                      { status: 'อบรมแล้ว', num: true, denom: 'yes' as const, approval: false, color: '#16a34a' },
+                      { status: 'เลื่อน', num: false, denom: 'move' as const, approval: false, color: '#f59e0b' },
+                      { status: 'ยกเลิก', num: false, denom: 'no' as const, approval: true, color: '#dc2626' },
+                    ]).map(row => (
+                      <tr key={row.status} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 600, color: row.color }}>{row.status}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          {row.num ? <span style={{ color: '#34c759', fontWeight: 700 }}>✓ นับ</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          {row.denom === 'yes' ? <span style={{ color: '#007aff', fontWeight: 700 }}>✓ นับ</span> : row.denom === 'move' ? <span style={{ color: '#ff9500', fontWeight: 600 }}>ย้ายเดือน</span> : <span style={{ color: '#ff3b30', fontWeight: 600 }}>หักออก</span>}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          {row.approval ? <span style={{ color: '#ff3b30', fontWeight: 700 }}>ต้องขอ</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p style={subHeadingStyle}>ขั้นตอนการขอยกเลิกหลักสูตร</p>
+              <div style={{ ...cardStyle, border: '1px solid rgba(255,59,48,0.2)' }}>
+                <div style={{ paddingLeft: 16, borderLeft: '3px solid rgba(255,59,48,0.2)', marginLeft: 4 }}>
+                  <p style={{ ...paraStyle, marginBottom: 4 }}>1. เปิดหน้า Training → tab อัปเดต → เลือกหลักสูตรที่ต้องการยกเลิก</p>
+                  <p style={{ ...paraStyle, marginBottom: 4 }}>2. เปลี่ยนสถานะเป็น <strong style={{ color: '#dc2626' }}>"ยกเลิก"</strong></p>
+                  <p style={{ ...paraStyle, marginBottom: 4 }}>3. ระบบจะแสดงฟอร์มให้กรอก <strong style={{ color: 'var(--text-primary)' }}>เหตุผล</strong> ว่าทำไมต้องยกเลิก</p>
+                  <p style={{ ...paraStyle, marginBottom: 4 }}>4. กด "ส่งคำขอยกเลิก" → คำขอจะถูกส่งไปให้ Admin HQ</p>
+                  <p style={{ ...paraStyle, marginBottom: 0 }}>5. เมื่อ Admin <span style={{ color: '#34c759', fontWeight: 600 }}>อนุมัติ</span> → สถานะเปลี่ยนเป็นยกเลิก + หักออกจาก KPI / <span style={{ color: '#ff3b30', fontWeight: 600 }}>ปฏิเสธ</span> → สถานะคงเดิม</p>
+                </div>
+              </div>
+
+              <div style={{ ...cardStyle, marginTop: 14, background: 'rgba(52,199,89,0.05)', border: '1px solid rgba(52,199,89,0.2)' }}>
+                <p style={{ ...paraStyle, marginBottom: 0, fontSize: 12 }}>
+                  <strong style={{ color: '#34c759' }}>ตัวอย่าง:</strong> ถ้า Q1 มีหลักสูตรทั้งหมด 15 รายการ ยกเลิก 2 อบรมแล้ว 10
+                  → ฐาน = 15 − 2 = <strong>13</strong> → KPI = 10/13 = <strong>76.9%</strong> → คะแนน <strong>2</strong> (≥70%)
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </main>
     </div>

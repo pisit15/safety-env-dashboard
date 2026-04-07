@@ -188,6 +188,59 @@ export default function CompanyTraining() {
   const [attendeeSortKey, setAttendeeSortKey] = useState<'name' | 'dept' | 'position'>('name');
   const [attendeeSortAsc, setAttendeeSortAsc] = useState(true);
 
+  // ═══ Cancellation Approval State ═══
+  const [pendingCancelStatus, setPendingCancelStatus] = useState<'cancelled' | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [pendingCancelRequests, setPendingCancelRequests] = useState<Record<string, string>>({});
+
+  // Fetch pending cancellation requests for this company
+  const fetchPendingCancelRequests = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/cancellation-requests?companyId=${companyId}&status=pending&planType=training`);
+      const data = await res.json();
+      if (data.requests) {
+        const map: Record<string, string> = {};
+        data.requests.forEach((r: { activity_no: string; requested_status: string }) => {
+          map[r.activity_no] = r.requested_status;
+        });
+        setPendingCancelRequests(map);
+      }
+    } catch { /* ignore */ }
+  }, [companyId]);
+
+  useEffect(() => { fetchPendingCancelRequests(); }, [fetchPendingCancelRequests]);
+
+  const handleCancelRequest = async () => {
+    if (!selectedPlan || !pendingCancelStatus || !cancelReason.trim()) return;
+    setCancelSubmitting(true);
+    try {
+      const res = await fetch('/api/cancellation-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType: 'training',
+          activityNo: selectedPlan.id,
+          month: String(getEffectiveMonth(selectedPlan)),
+          requestedStatus: pendingCancelStatus,
+          reason: cancelReason.trim(),
+          requestedBy: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
+        }),
+      });
+      if (res.ok) {
+        setPendingCancelStatus(null);
+        setCancelReason('');
+        await fetchPendingCancelRequests();
+        alert('ส่งคำขอยกเลิกเรียบร้อย — รอ Admin อนุมัติ');
+      } else {
+        const err = await res.json();
+        alert(err.error || 'ส่งคำขอไม่สำเร็จ');
+      }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+    setCancelSubmitting(false);
+  };
+
   // Feature 8: Collapsible task queue groups
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['done', 'muted']));
   const toggleGroupCollapse = (key: string) => {
@@ -336,6 +389,12 @@ export default function CompanyTraining() {
     if (!selectedPlan) return;
     if (modalStatus === 'postponed' && !modalPostponedMonth) {
       alert('กรุณาเลือกเดือนที่จะเลื่อนไป');
+      return;
+    }
+    // Intercept: non-admin trying to cancel → show approval form
+    if (modalStatus === 'cancelled' && !auth.isAdmin) {
+      setPendingCancelStatus('cancelled');
+      setCancelReason('');
       return;
     }
     setSaving(true);
@@ -906,38 +965,62 @@ export default function CompanyTraining() {
 
   const totalCourses = timeFilteredPlans.length;
   const completedCourses = timeFilteredPlans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
+  const cancelledCourses = timeFilteredPlans.filter(p => p.training_sessions?.[0]?.status === 'cancelled').length;
   const scheduledCourses = timeFilteredPlans.filter(p => p.training_sessions?.[0]?.status === 'scheduled').length;
   const pendingCourses = timeFilteredPlans.filter(p => !p.training_sessions?.[0] || p.training_sessions[0].status === 'planned').length;
   const totalBudget = timeFilteredPlans.reduce((s, p) => s + (p.budget || 0), 0);
   const totalActual = timeFilteredPlans.reduce((s, p) => s + (p.training_sessions?.[0]?.actual_cost || 0), 0);
 
+  // KPI formula: denominator = total - cancelled
+  const kpiDenominator = totalCourses - cancelledCourses;
+  const overallPct = kpiDenominator > 0 ? Math.round((completedCourses / kpiDenominator) * 100) : 0;
+
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
-    const planned = plans.filter(p => getEffectiveMonth(p) === month).length;
-    const completed = plans.filter(p => {
-      if (getEffectiveMonth(p) !== month) return false;
-      const s = p.training_sessions?.[0];
-      return s?.status === 'completed';
-    }).length;
-    const scheduled = plans.filter(p => {
-      if (getEffectiveMonth(p) !== month) return false;
-      const s = p.training_sessions?.[0];
-      return s?.status === 'scheduled';
-    }).length;
-    return { month, label: MONTH_LABELS[i], planned, completed, scheduled };
+    const monthPlans = plans.filter(p => getEffectiveMonth(p) === month);
+    const total = monthPlans.length;
+    const completed = monthPlans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
+    const cancelled = monthPlans.filter(p => p.training_sessions?.[0]?.status === 'cancelled').length;
+    const scheduled = monthPlans.filter(p => p.training_sessions?.[0]?.status === 'scheduled').length;
+    const denominator = total - cancelled;
+    const pctComplete = denominator > 0 ? Math.round((completed / denominator) * 100) : 0;
+    return { month, label: MONTH_LABELS[i], planned: total, completed, cancelled, scheduled, denominator, pctComplete };
   });
 
-  // Cumulative completion %
-  let cumPlanned = 0;
+  // Cumulative completion % (KPI-based: exclude cancelled from denominator)
+  let cumDenominator = 0;
   let cumCompleted = 0;
   const monthlyChartData = monthlyData.map(d => {
-    cumPlanned += d.planned;
+    cumDenominator += d.denominator;
     cumCompleted += d.completed;
-    const pct = cumPlanned > 0 ? Math.round((cumCompleted / cumPlanned) * 100) : 0;
+    const pct = cumDenominator > 0 ? Math.round((cumCompleted / cumDenominator) * 100) : 0;
     return { ...d, cumPct: pct };
   });
 
-  const overallPct = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+  // Quarterly KPI
+  const QUARTERS = [
+    { label: 'Q1', months: [1, 2, 3], color: '#007aff' },
+    { label: 'Q2', months: [4, 5, 6], color: '#34c759' },
+    { label: 'Q3', months: [7, 8, 9], color: '#ff9500' },
+    { label: 'Q4', months: [10, 11, 12], color: '#5856d6' },
+  ];
+  const getKpiScore = (pct: number) => pct >= 100 ? 5 : pct >= 90 ? 4 : pct >= 80 ? 3 : pct >= 70 ? 2 : 1;
+  const getScoreColor = (s: number) => s >= 5 ? '#34c759' : s >= 4 ? '#007aff' : s >= 3 ? '#5856d6' : s >= 2 ? '#ff9500' : '#ff3b30';
+  const currentQuarterIdx = Math.floor(new Date().getMonth() / 3);
+  const quarterlyKpi = QUARTERS.map((q, qi) => {
+    const qMonths = monthlyData.filter(m => q.months.includes(m.month));
+    const totalItems = qMonths.reduce((s, m) => s + m.planned, 0);
+    const completedItems = qMonths.reduce((s, m) => s + m.completed, 0);
+    const cancelledItems = qMonths.reduce((s, m) => s + m.cancelled, 0);
+    const denom = totalItems - cancelledItems;
+    const isFuture = qi > currentQuarterIdx;
+    const pct = denom > 0 ? Math.round((completedItems / denom) * 1000) / 10 : (isFuture ? 0 : (totalItems === 0 ? 0 : 100));
+    const score = isFuture ? 0 : getKpiScore(pct);
+    return { ...q, totalItems, completedItems, cancelledItems, denominator: denom, pct, score, isFuture };
+  });
+  const activeQuarters = quarterlyKpi.filter(q => !q.isFuture && q.totalItems > 0);
+  const yearlyAvgScore = activeQuarters.length > 0 ? Math.round((activeQuarters.reduce((s, q) => s + q.score, 0) / activeQuarters.length) * 10) / 10 : 0;
+  const yearlyAvgPct = activeQuarters.length > 0 ? Math.round((activeQuarters.reduce((s, q) => s + q.pct, 0) / activeQuarters.length) * 10) / 10 : 0;
   const maxPlanned = Math.max(...monthlyData.map(d => d.planned), 1);
 
   // 30-day warning
@@ -1223,10 +1306,10 @@ export default function CompanyTraining() {
         {/* KPI Cards — clickable to filter */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
           <StatCard icon="📚" label="หลักสูตรทั้งหมด" value={totalCourses}
-            subtitle={`${overallPct}% สำเร็จ`}
+            subtitle={`ฐาน KPI: ${kpiDenominator}${cancelledCourses > 0 ? ` (ยกเลิก ${cancelledCourses})` : ''}`}
             active={activeKpi === 'all'} onClick={() => setActiveKpi(activeKpi === 'all' ? null : 'all')} />
           <StatCard icon="✅" label="อบรมแล้ว" value={completedCourses} color="var(--success)"
-            subtitle={totalCourses > 0 ? `${Math.round((completedCourses/totalCourses)*100)}% ของแผน` : undefined}
+            subtitle={kpiDenominator > 0 ? `KPI: ${overallPct}% (${completedCourses}/${kpiDenominator})` : undefined}
             active={activeKpi === 'completed'} onClick={() => setActiveKpi(activeKpi === 'completed' ? null : 'completed')} />
           <StatCard icon="📅" label="กำหนดวันแล้ว" value={scheduledCourses} color="var(--info)"
             active={activeKpi === 'scheduled'} onClick={() => setActiveKpi(activeKpi === 'scheduled' ? null : 'scheduled')} />
@@ -1395,6 +1478,71 @@ export default function CompanyTraining() {
           );
         })()}
 
+        {/* ═══ Quarterly KPI Section ═══ */}
+        {plans.length > 0 && (
+          <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  🎯 KPI รายไตรมาส — แผนอบรม
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                  สูตร: อบรมแล้ว ÷ (ทั้งหมด − ยกเลิก) × 100
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: getScoreColor(Math.round(yearlyAvgScore)) }}>
+                  {yearlyAvgScore > 0 ? yearlyAvgScore.toFixed(1) : '—'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>คะแนนเฉลี่ยปี ({yearlyAvgPct}%)</div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {quarterlyKpi.map(q => (
+                <div key={q.label} style={{
+                  padding: 16, borderRadius: 12, textAlign: 'center',
+                  background: q.isFuture ? 'var(--bg-secondary)' : `${q.color}08`,
+                  border: `1px solid ${q.isFuture ? 'var(--border)' : q.color + '25'}`,
+                  opacity: q.isFuture ? 0.5 : 1,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: q.color, marginBottom: 6 }}>{q.label}</div>
+                  {q.isFuture ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>ยังไม่ถึง</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 32, fontWeight: 800, color: getScoreColor(q.score), lineHeight: 1.1 }}>
+                        {q.score}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: q.color, marginTop: 4 }}>
+                        {q.pct}%
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                        {q.completedItems}/{q.denominator}
+                        {q.cancelledItems > 0 && <span style={{ color: '#ff3b30' }}> (ยกเลิก {q.cancelledItems})</span>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Score legend */}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14, fontSize: 11, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+              {[
+                { s: 5, label: '100%', color: '#34c759' },
+                { s: 4, label: '≥90%', color: '#007aff' },
+                { s: 3, label: '≥80%', color: '#5856d6' },
+                { s: 2, label: '≥70%', color: '#ff9500' },
+                { s: 1, label: '<70%', color: '#ff3b30' },
+              ].map(item => (
+                <span key={item.s} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: 4, background: item.color + '18', color: item.color, fontSize: 10, fontWeight: 800 }}>{item.s}</span>
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Monthly Chart */}
         {plans.length > 0 && (
           <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
@@ -1404,14 +1552,14 @@ export default function CompanyTraining() {
                   สถานะการอบรมรายเดือน
                 </h3>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-                  เปรียบเทียบแผน vs จัดอบรมจริง ประจำปี {selectedYear}
+                  ฐาน KPI (หักยกเลิก) vs อบรมจริง ประจำปี {selectedYear}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 28, fontWeight: 800, color: overallPct === 0 ? 'var(--muted)' : overallPct >= 80 ? 'var(--success)' : overallPct >= 50 ? 'var(--warning)' : '#fb923c' }}>
                   {overallPct}%
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ความสำเร็จรวม</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>KPI ({completedCourses}/{kpiDenominator})</div>
               </div>
             </div>
 
@@ -1438,10 +1586,11 @@ export default function CompanyTraining() {
                     borderRadius: isCurrent ? 6 : 0,
                     border: isCurrent ? '1px dashed var(--accent)' : 'none',
                   }}>
-                    {/* Count label */}
+                    {/* Count label: done/denominator (KPI base) */}
                     {d.planned > 0 && (
-                      <div style={{ fontSize: 10, fontWeight: 600, color: d.completed === d.planned && d.planned > 0 ? 'var(--success)' : 'var(--text-secondary)' }}>
-                        {d.completed}/{d.planned}
+                      <div style={{ fontSize: 10, fontWeight: 600, color: d.completed === d.denominator && d.denominator > 0 ? 'var(--success)' : 'var(--text-secondary)' }}>
+                        {d.completed}/{d.denominator}
+                        {d.cancelled > 0 && <span style={{ color: '#dc2626', fontSize: 8 }}> ✕{d.cancelled}</span>}
                       </div>
                     )}
                     {/* Stacked bar */}
@@ -2339,10 +2488,42 @@ export default function CompanyTraining() {
                 {/* ─── STATUS: cancelled ─── */}
                 {modalStatus === 'cancelled' && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px' }}>
-                      <label style={{ ...labelStyle, color: '#dc2626' }}>เหตุผลที่ยกเลิก</label>
-                      <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="ระบุเหตุผล..." style={{ ...inputStyle, resize: 'vertical', borderColor: '#fca5a5' }} />
-                    </div>
+                    {/* Pending badge if request exists */}
+                    {selectedPlan && pendingCancelRequests[selectedPlan.id] === 'cancelled' && (
+                      <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <Clock size={14} color="#f59e0b" />
+                        <span style={{ color: '#92400e', fontWeight: 600 }}>คำขอยกเลิกรอ Admin อนุมัติ</span>
+                      </div>
+                    )}
+                    {/* Approval form for non-admin */}
+                    {pendingCancelStatus === 'cancelled' && !auth.isAdmin ? (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '14px 16px' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 8 }}>⚠️ ขอยกเลิกหลักสูตร</div>
+                        <p style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 10 }}>
+                          การยกเลิกจะหักรายการออกจากฐาน KPI — ต้องได้รับอนุมัติจาก Admin ก่อน
+                        </p>
+                        <label style={{ ...labelStyle, color: '#dc2626' }}>เหตุผลที่ยกเลิก *</label>
+                        <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3} placeholder="ระบุเหตุผลที่ต้องยกเลิกหลักสูตรนี้..." style={{ ...inputStyle, resize: 'vertical', borderColor: '#fca5a5' }} />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                          <button onClick={() => { setPendingCancelStatus(null); setModalStatus(selectedPlan?.training_sessions?.[0]?.status || 'planned'); }}
+                            style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
+                            ยกเลิก
+                          </button>
+                          <button onClick={handleCancelRequest} disabled={cancelSubmitting || !cancelReason.trim()}
+                            style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: cancelReason.trim() ? '#dc2626' : '#d1d5db', color: '#fff', fontSize: 12, cursor: cancelReason.trim() ? 'pointer' : 'default', fontWeight: 600, opacity: cancelSubmitting ? 0.6 : 1 }}>
+                            {cancelSubmitting ? 'กำลังส่ง...' : '📨 ส่งคำขอยกเลิก'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px' }}>
+                        <label style={{ ...labelStyle, color: '#dc2626' }}>เหตุผลที่ยกเลิก</label>
+                        <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="ระบุเหตุผล..." style={{ ...inputStyle, resize: 'vertical', borderColor: '#fca5a5' }} />
+                        {!auth.isAdmin && (
+                          <p style={{ fontSize: 11, color: '#dc2626', marginTop: 6 }}>* การยกเลิกต้องได้รับอนุมัติจาก Admin</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
-import { Calendar, Search } from 'lucide-react';
+import { Calendar, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -78,6 +78,37 @@ export default function HQTrainingOverview() {
 
   // Expanded month detail
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
+
+  // ═══ Cancellation Approval ═══
+  const [cancelRequests, setCancelRequests] = useState<any[]>([]);
+  const [cancelFilter, setCancelFilter] = useState<'pending' | 'all'>('pending');
+  const [cancelProcessing, setCancelProcessing] = useState<number | null>(null);
+
+  const fetchCancelRequests = async (statusFilter?: string) => {
+    try {
+      const res = await fetch(`/api/cancellation-requests?planType=training&status=${statusFilter || cancelFilter}`);
+      const data = await res.json();
+      setCancelRequests(data.requests || []);
+    } catch { setCancelRequests([]); }
+  };
+
+  useEffect(() => {
+    if (auth.isAdmin) fetchCancelRequests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleReviewCancellation = async (id: number, newStatus: 'approved' | 'rejected') => {
+    setCancelProcessing(id);
+    try {
+      await fetch('/api/cancellation-requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus, reviewedBy: auth.adminName || 'admin' }),
+      });
+      fetchCancelRequests();
+    } catch { /* ignore */ }
+    setCancelProcessing(null);
+  };
 
   // Sort state for company summary table
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -728,6 +759,84 @@ export default function HQTrainingOverview() {
               <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
                 {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
               </span>
+            )}
+          </div>
+        )}
+
+        {/* ═══ Training Cancellation Approval Dashboard ═══ */}
+        {auth.isAdmin && historyTab === 'overview' && cancelRequests.length > 0 && (
+          <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid rgba(255,149,0,0.3)', padding: '16px 20px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <Clock size={16} color="#ff9500" />
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                คำขอยกเลิกหลักสูตร ({cancelRequests.filter((r: any) => r.status === 'pending').length} รอดำเนินการ)
+              </h3>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                {(['pending', 'all'] as const).map(f => (
+                  <button key={f} onClick={() => { setCancelFilter(f); fetchCancelRequests(f); }}
+                    style={{ padding: '3px 10px', borderRadius: 5, border: `1px solid ${cancelFilter === f ? '#ff9500' : 'var(--border)'}`, background: cancelFilter === f ? '#fef3c7' : 'var(--bg-secondary)', color: cancelFilter === f ? '#92400e' : 'var(--text-secondary)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                    {f === 'pending' ? 'รอดำเนินการ' : 'ทั้งหมด'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {cancelRequests.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 13 }}>ไม่มีคำขอ</div>
+            ) : (
+              <div style={{ maxHeight: 300, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 1 }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>บริษัท</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>ประเภท</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>เหตุผล</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>ผู้ขอ</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>สถานะ</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>ดำเนินการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancelRequests.map((req: any) => {
+                      const comp = COMPANIES.find(c => c.id === req.company_id);
+                      return (
+                        <tr key={req.id} style={{ borderTop: '1px solid var(--border)' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: 500 }}>{comp?.name || req.company_id}</td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#fee2e2', color: '#dc2626' }}>
+                              ยกเลิกหลักสูตร
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 10px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.reason}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>{req.requested_by || '-'}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                            {req.status === 'pending' && <span style={{ color: '#ff9500', fontWeight: 600 }}>⏳ รอ</span>}
+                            {req.status === 'approved' && <span style={{ color: '#34c759', fontWeight: 600 }}>✓ อนุมัติ</span>}
+                            {req.status === 'rejected' && <span style={{ color: '#ff3b30', fontWeight: 600 }}>✕ ปฏิเสธ</span>}
+                          </td>
+                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                            {req.status === 'pending' ? (
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                                <button onClick={() => handleReviewCancellation(req.id, 'approved')}
+                                  disabled={cancelProcessing === req.id}
+                                  style={{ padding: '4px 10px', borderRadius: 5, border: 'none', background: '#34c759', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                  <CheckCircle size={11} /> อนุมัติ
+                                </button>
+                                <button onClick={() => handleReviewCancellation(req.id, 'rejected')}
+                                  disabled={cancelProcessing === req.id}
+                                  style={{ padding: '4px 10px', borderRadius: 5, border: 'none', background: '#ff3b30', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                  <XCircle size={11} /> ปฏิเสธ
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{req.reviewed_by || '-'}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
