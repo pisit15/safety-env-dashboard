@@ -59,7 +59,9 @@ export interface MonthlyProgress {
   doneCount?: number;
   overdueCount?: number;
   postponedCount?: number;
+  cancelledCount?: number;
   notApplicableCount?: number;
+  denominator?: number;  // KPI base = planned - cancelled - notApplicable
 }
 
 export interface CompanySummary {

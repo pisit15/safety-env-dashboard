@@ -333,6 +333,7 @@ export default function CompanyDrilldown() {
       let doneCount = 0;
       let overdueCount = 0;
       let postponedCount = 0;
+      let cancelledCount = 0;
       let notApplicableCount = 0;
       activities.forEach(act => {
         const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
@@ -374,10 +375,13 @@ export default function CompanyDrilldown() {
           }
         }
 
+        // KPI Logic: cancelled and not_applicable are excluded from denominator
         if (status === 'not_applicable') {
           notApplicableCount++;
-          planned++;
-          completed++;
+          planned++; // count in total but excluded from KPI denominator
+        } else if (status === 'cancelled') {
+          cancelledCount++;
+          planned++; // count in total but excluded from KPI denominator
         } else if (status !== 'not_planned') {
           // Normal status — but skip if this is a postponed activity already handled
           if (!(status === 'postponed' && postponedTo)) {
@@ -388,15 +392,19 @@ export default function CompanyDrilldown() {
           }
         }
       });
+      // KPI formula: denominator = total - cancelled - not_applicable
+      const denominator = planned - cancelledCount - notApplicableCount;
       return {
         ...base,
         planned,
         completed,
-        pctComplete: planned > 0 ? Math.round((completed / planned) * 100) : 0,
+        pctComplete: denominator > 0 ? Math.round((doneCount / denominator) * 100) : 0,
         doneCount,
         overdueCount,
         postponedCount,
+        cancelledCount,
         notApplicableCount,
+        denominator,
       };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2087,7 +2095,7 @@ export default function CompanyDrilldown() {
                         }}>
                           {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
                         </div>
-                        <div style={{ color: 'var(--muted)' }}>{mp.completed}/{mp.planned}</div>
+                        <div style={{ color: 'var(--muted)' }}>{mp.doneCount ?? mp.completed}/{mp.denominator ?? mp.planned}</div>
                       </div>
                     );
                   })}

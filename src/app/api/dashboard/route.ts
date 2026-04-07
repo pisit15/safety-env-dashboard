@@ -68,26 +68,30 @@ function recalcSummaryWithOverrides(
     totalCancelled += cancelledCount;
     overdueCount += overdueInMonth; // Phase B
 
+    // KPI formula: denominator = total - cancelled - not_applicable
+    const denominator = planned - cancelledCount - notApplicableCount;
     return {
       month: key,
       label: MONTH_LABELS[key],
       planned,
       completed,
-      pctComplete: planned > 0 ? Math.round((completed / planned) * 1000) / 10 : 0,
+      pctComplete: denominator > 0 ? Math.round((doneCount / denominator) * 1000) / 10 : 0,
       doneCount,
+      cancelledCount,
       notApplicableCount,
       overdueCount: overdueInMonth, // Phase B
+      denominator,
     };
   });
 
-  // KPI derived from month-slot totals (same counting as chart)
-  // done = เสร็จจริง (ไม่รวม N/A), notApplicable = แยกต่างหาก
-  // % = (done + N/A) / total → ยกประโยชน์ให้
+  // KPI derived from month-slot totals
+  // KPI formula: % = done / (total - cancelled - not_applicable)
   totalNotStarted = totalPlanned - totalDone - totalNotApplicable - totalPostponed - totalCancelled;
   if (totalNotStarted < 0) totalNotStarted = 0;
 
-  const pctDone = totalPlanned > 0
-    ? Math.round(((totalDone + totalNotApplicable) / totalPlanned) * 1000) / 10
+  const totalDenominator = totalPlanned - totalCancelled - totalNotApplicable;
+  const pctDone = totalDenominator > 0
+    ? Math.round((totalDone / totalDenominator) * 1000) / 10
     : 0;
 
   return {
@@ -186,6 +190,7 @@ export async function GET(request: Request) {
       let totalPlanned = 0;
       let totalCompleted = 0;
       let totalDoneCount = 0;
+      let totalCancelledCount = 0;
       let totalNACount = 0;
       summaries.forEach(s => {
         const mp = s.monthlyProgress?.find(m => m.month === key);
@@ -193,17 +198,22 @@ export async function GET(request: Request) {
           totalPlanned += mp.planned;
           totalCompleted += mp.completed;
           totalDoneCount += mp.doneCount ?? mp.completed;
+          totalCancelledCount += mp.cancelledCount ?? 0;
           totalNACount += mp.notApplicableCount ?? 0;
         }
       });
+      // KPI formula: denominator = total - cancelled - not_applicable
+      const denominator = totalPlanned - totalCancelledCount - totalNACount;
       return {
         month: key,
         label: MONTH_LABELS[key],
         planned: totalPlanned,
         completed: totalCompleted,
-        pctComplete: totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 1000) / 10 : 0,
+        pctComplete: denominator > 0 ? Math.round((totalDoneCount / denominator) * 1000) / 10 : 0,
         doneCount: totalDoneCount,
+        cancelledCount: totalCancelledCount,
         notApplicableCount: totalNACount,
+        denominator,
       };
     });
 
@@ -239,10 +249,12 @@ export async function GET(request: Request) {
       totalCancelled: all.reduce((s, c) => s + c.cancelled, 0),
       totalNotApplicable: totalNAAll,
       totalBudget: all.reduce((s, c) => s + c.budget, 0),
-      // % = (done + N/A) / total → ยกประโยชน์ให้
-      overallPct: totalActs > 0
-        ? Math.round(((totalDoneAll + totalNAAll) / totalActs) * 1000) / 10
-        : 0,
+      // KPI formula: % = done / (total - cancelled - N/A)
+      overallPct: (() => {
+        const totalCancelledAll = all.reduce((s, c) => s + c.cancelled, 0);
+        const denom = totalActs - totalCancelledAll - totalNAAll;
+        return denom > 0 ? Math.round((totalDoneAll / denom) * 1000) / 10 : 0;
+      })(),
       monthlyProgress,
       totalOverdue,
       priorityBreakdown,

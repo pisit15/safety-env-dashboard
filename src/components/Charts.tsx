@@ -443,10 +443,13 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
     const colors = getThemeColors(isDark);
     const currentMonth = new Date().getMonth();
     const labels = monthlyProgress.map(m => m.label);
+    // KPI base = total - cancelled - not_applicable (denominator)
+    const denominatorData = monthlyProgress.map(m => m.denominator ?? m.planned);
     const planned = monthlyProgress.map(m => m.planned);
 
     // Per-status data for stacked Actual bars
     const doneData = monthlyProgress.map(m => m.doneCount ?? m.completed);
+    const cancelledData = monthlyProgress.map(m => m.cancelledCount ?? 0);
     const notApplicableData = monthlyProgress.map(m => m.notApplicableCount ?? 0);
 
     if (chartRef.current) chartRef.current.destroy();
@@ -457,9 +460,9 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
         labels,
         datasets: [
           {
-            label: 'Plan (แผน)',
-            data: planned,
-            backgroundColor: 'rgba(0, 122, 255, 0.5)',
+            label: 'ฐาน (KPI)',
+            data: denominatorData,
+            backgroundColor: 'rgba(0, 122, 255, 0.35)',
             borderColor: statusColors.blue,
             borderWidth: 1,
             borderRadius: 6,
@@ -475,13 +478,22 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
             stack: 'actual',
           },
           {
-            label: 'ไม่เข้าเงื่อนไข',
+            label: 'ยกเลิก',
+            data: cancelledData,
+            backgroundColor: 'rgba(255, 59, 48, 0.5)',
+            borderColor: statusColors.red,
+            borderWidth: 1,
+            borderRadius: 0,
+            stack: 'excluded',
+          },
+          {
+            label: 'N/A',
             data: notApplicableData,
-            backgroundColor: 'rgba(142, 142, 147, 0.7)',
+            backgroundColor: 'rgba(142, 142, 147, 0.5)',
             borderColor: statusColors.gray,
             borderWidth: 1,
             borderRadius: 0,
-            stack: 'actual',
+            stack: 'excluded',
           },
         ],
       },
@@ -498,7 +510,9 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
               afterBody: (ctx: any) => {
                 const idx = ctx[0].dataIndex;
                 const mp = monthlyProgress[idx];
-                return mp.planned > 0 ? `\nCompletion: ${mp.pctComplete}%` : '';
+                const denom = mp.denominator ?? mp.planned;
+                const done = mp.doneCount ?? mp.completed;
+                return denom > 0 ? `\nKPI: ${done}/${denom} = ${mp.pctComplete}%` : '';
               },
             },
           },
@@ -555,9 +569,9 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
             labels,
             datasets: [
               {
-                label: 'Plan (แผน)',
-                data: planned,
-                backgroundColor: 'rgba(0, 122, 255, 0.5)',
+                label: 'ฐาน (KPI)',
+                data: denominatorData,
+                backgroundColor: 'rgba(0, 122, 255, 0.35)',
                 borderColor: statusColors.blue,
                 borderWidth: 1,
                 borderRadius: 6,
@@ -573,13 +587,22 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
                 stack: 'actual',
               },
               {
-                label: 'ไม่เข้าเงื่อนไข',
+                label: 'ยกเลิก',
+                data: cancelledData,
+                backgroundColor: 'rgba(255, 59, 48, 0.5)',
+                borderColor: statusColors.red,
+                borderWidth: 1,
+                borderRadius: 0,
+                stack: 'excluded',
+              },
+              {
+                label: 'N/A',
                 data: notApplicableData,
-                backgroundColor: 'rgba(142, 142, 147, 0.7)',
+                backgroundColor: 'rgba(142, 142, 147, 0.5)',
                 borderColor: statusColors.gray,
                 borderWidth: 1,
                 borderRadius: 0,
-                stack: 'actual',
+                stack: 'excluded',
               },
             ],
           },
@@ -596,7 +619,9 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
                   afterBody: (ctx: any) => {
                     const idx = ctx[0].dataIndex;
                     const mp = monthlyProgress[idx];
-                    return mp.planned > 0 ? `\nCompletion: ${mp.pctComplete}%` : '';
+                    const denom = mp.denominator ?? mp.planned;
+                    const done = mp.doneCount ?? mp.completed;
+                    return denom > 0 ? `\nKPI: ${done}/${denom} = ${mp.pctComplete}%` : '';
                   },
                 },
               },
