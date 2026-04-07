@@ -1751,8 +1751,8 @@ export default function CompanyDrilldown() {
             </div>
           </div>
         </div>
-        {/* Export buttons — row below header */}
-        <div className="flex flex-wrap items-center gap-3 mb-2 animate-fade-in-up" style={{ animationDelay: '0.03s' }}>
+        {/* Export buttons — right-aligned row below header */}
+        <div className="flex flex-wrap items-center justify-end gap-3 mb-2 animate-fade-in-up" style={{ animationDelay: '0.03s' }}>
           <button
             onClick={handleExport}
             className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
