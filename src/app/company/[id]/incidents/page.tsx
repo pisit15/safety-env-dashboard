@@ -523,7 +523,7 @@ export default function IncidentsPage() {
                 title={`${companyName} — สถิติอุบัติเหตุ ${selectedYears.join(', ')}`}
                 subtitle="Safety & Environment Dashboard — รายงานสถิติอุบัติเหตุ"
                 orientation="landscape"
-                label="Export PDF"
+                compact
               />
             </div>
           </div>

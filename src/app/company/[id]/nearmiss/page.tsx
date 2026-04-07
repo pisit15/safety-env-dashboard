@@ -429,7 +429,7 @@ export default function NearMissCoordinatorPage() {
                 title={`${company?.name || companyId.toUpperCase()} — Near Miss Report`}
                 subtitle="Safety & Environment Dashboard — รายงาน Near Miss"
                 orientation="landscape"
-                label="Export PDF"
+                compact
               />
             </div>
           </div>

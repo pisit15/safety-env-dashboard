@@ -355,7 +355,7 @@ export default function ManHoursPage() {
                 title={`${companyName} — ชั่วโมงการทำงาน ${year}`}
                 subtitle="Safety & Environment Dashboard — รายงาน Man-Hours"
                 orientation="landscape"
-                label="Export PDF"
+                compact
               />
             </div>
           </div>

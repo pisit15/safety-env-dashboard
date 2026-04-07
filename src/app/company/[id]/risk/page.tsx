@@ -313,7 +313,7 @@ export default function RiskRegisterPage() {
                 title={`Risk Register — ${companyId.toUpperCase()}`}
                 subtitle="Safety & Environment Dashboard — ทะเบียนประเมินความเสี่ยง"
                 orientation="landscape"
-                label="Export PDF"
+                compact
               />
             </div>
           </div>
