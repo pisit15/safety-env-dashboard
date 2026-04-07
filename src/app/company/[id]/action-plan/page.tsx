@@ -173,6 +173,9 @@ export default function CompanyDrilldown() {
   // Edit request state (submittingRequest used by handleSubmitEditRequest)
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
+  // Phase 4: Cancellation request state
+  const [pendingCancellations, setPendingCancellations] = useState<Record<string, string>>({});
+
   // Budget state
   const [budgetOverrides, setBudgetOverrides] = useState<Record<string, { actual_cost: number; note?: string }>>({});
   const [editingActualCost, setEditingActualCost] = useState<string>('');
@@ -1049,6 +1052,62 @@ export default function CompanyDrilldown() {
       alert('เกิดข้อผิดพลาด');
     }
     setSubmittingRequest(false);
+  };
+
+  // Phase 4: Fetch pending cancellation requests for this company
+  useEffect(() => {
+    if (!companyId) return;
+    fetch(`/api/cancellation-requests?companyId=${companyId}&status=pending`)
+      .then(r => r.json())
+      .then(d => {
+        const map: Record<string, string> = {};
+        (d.requests || []).forEach((req: any) => {
+          // Key format: "planType:activityNo:month"
+          map[`${req.plan_type}:${req.activity_no}:${req.month}`] = req.requested_status;
+        });
+        setPendingCancellations(map);
+      })
+      .catch(() => {});
+  }, [companyId]);
+
+  // Phase 4: Submit cancellation request
+  const handleRequestCancellation = async (requestedStatus: 'cancelled' | 'not_applicable', reason: string): Promise<boolean> => {
+    if (!editingCell || !reason.trim()) return false;
+    const actualPT = planType === 'total'
+      ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
+      : planType;
+    const actualAN = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
+    try {
+      const res = await fetch('/api/cancellation-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          planType: actualPT,
+          activityNo: actualAN,
+          month: editingCell.month,
+          requestedStatus,
+          reason: reason.trim(),
+          requestedBy: loginDisplayName || loginCompanyName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('ส่งคำขออนุมัติเรียบร้อย รอ Admin อนุมัติ');
+        // Update local pending state
+        setPendingCancellations(prev => ({
+          ...prev,
+          [`${actualPT}:${actualAN}:${editingCell.month}`]: requestedStatus,
+        }));
+        return true;
+      } else {
+        alert(data.error || 'ส่งคำขอไม่สำเร็จ');
+        return false;
+      }
+    } catch {
+      alert('เกิดข้อผิดพลาด');
+      return false;
+    }
   };
 
   // ── Tab personality config — MUST be before early returns (React Rules of Hooks) ──
@@ -2885,6 +2944,13 @@ export default function CompanyDrilldown() {
               onNavigate={handleDrawerNavigate}
               onClickResponsible={handleResponsibleClick}
               onRequestEdit={handleSubmitEditRequest}
+              onRequestCancellation={handleRequestCancellation}
+              pendingCancellationStatus={(() => {
+                if (!editingCell) return null;
+                const actualPT = planType === 'total' ? (editingCell.actNo.startsWith('S:') ? 'safety' : 'environment') : planType;
+                const actualAN = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
+                return pendingCancellations[`${actualPT}:${actualAN}:${editingCell.month}`] || null;
+              })()}
             />
           );
         })()}

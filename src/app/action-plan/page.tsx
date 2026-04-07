@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Shield, Leaf, BarChart3, Calendar, Key, LogOut, AlertTriangle, ChevronUp, ChevronDown, RotateCcw, Info, TrendingUp, TrendingDown, Award } from 'lucide-react';
+import { Shield, Leaf, BarChart3, Calendar, Key, LogOut, AlertTriangle, ChevronUp, ChevronDown, RotateCcw, Info, TrendingUp, TrendingDown, Award, CheckCircle, XCircle, Clock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
@@ -73,6 +73,12 @@ export default function HQOverview() {
   const [kpiData, setKpiData] = useState<YearlyKPISummary[] | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
   const [kpiQuarterFilter, setKpiQuarterFilter] = useState<number | null>(null); // null = all, 0-3 = Q1-Q4
+
+  // Phase 4: Cancellation approval workflow
+  const [cancelRequests, setCancelRequests] = useState<any[]>([]);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelFilter, setCancelFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [cancelProcessing, setCancelProcessing] = useState<number | null>(null);
 
   // Persist planType, timeRange, and selectedYear to localStorage
   useEffect(() => {
@@ -191,6 +197,38 @@ export default function HQOverview() {
         setKpiLoading(false);
       });
   }, [planType, selectedYear]);
+
+  // ── Phase 4: Fetch cancellation requests ──
+  const fetchCancelRequests = async (statusFilter?: string) => {
+    setCancelLoading(true);
+    try {
+      const s = statusFilter || cancelFilter;
+      const res = await fetch(`/api/cancellation-requests?status=${s}`);
+      const d = await res.json();
+      setCancelRequests(d.requests || []);
+    } catch { setCancelRequests([]); }
+    setCancelLoading(false);
+  };
+
+  useEffect(() => {
+    if (auth.isAdmin) fetchCancelRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.isAdmin, cancelFilter]);
+
+  const handleReviewCancellation = async (id: number, newStatus: 'approved' | 'rejected') => {
+    setCancelProcessing(id);
+    try {
+      const res = await fetch('/api/cancellation-requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus, reviewedBy: 'admin' }),
+      });
+      if (res.ok) {
+        fetchCancelRequests();
+      }
+    } catch { /* ignore */ }
+    setCancelProcessing(null);
+  };
 
   // ── Compute filtered KPI data based on timeRange ──
   const MONTH_KEYS_ARR = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -1530,6 +1568,137 @@ export default function HQOverview() {
                 </div>
               );
             })()}
+          </div>
+        )}
+
+        {/* Phase 4: Cancellation Approval Dashboard */}
+        {auth.isAdmin && (
+          <div className="glass-card p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: '#ff9500' }}></span>
+                คำขอยกเลิก / N/A
+                {cancelRequests.length > 0 && cancelFilter === 'pending' && (
+                  <span className="ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold text-white" style={{ background: '#ff3b30' }}>
+                    {cancelRequests.length}
+                  </span>
+                )}
+              </h3>
+              <div className="flex gap-1">
+                {(['pending', 'approved', 'rejected', 'all'] as const).map(s => (
+                  <button key={s} onClick={() => setCancelFilter(s)}
+                    className="px-3 py-1 rounded-lg text-[11px] font-medium transition-all"
+                    style={{
+                      background: cancelFilter === s ? 'rgba(88,86,214,0.15)' : 'transparent',
+                      color: cancelFilter === s ? '#5856d6' : 'var(--text-secondary)',
+                      border: cancelFilter === s ? '1px solid rgba(88,86,214,0.3)' : '1px solid transparent',
+                    }}>
+                    {s === 'pending' ? 'รอดำเนินการ' : s === 'approved' ? 'อนุมัติแล้ว' : s === 'rejected' ? 'ปฏิเสธแล้ว' : 'ทั้งหมด'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {cancelLoading ? (
+              <div className="text-center py-8 text-[12px]" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+            ) : cancelRequests.length === 0 ? (
+              <div className="text-center py-8 text-[12px]" style={{ color: 'var(--muted)' }}>
+                {cancelFilter === 'pending' ? 'ไม่มีคำขอที่รอดำเนินการ' : 'ไม่พบรายการ'}
+              </div>
+            ) : (
+              <div style={{ borderRadius: 8, border: '1px solid var(--border)', overflow: 'auto', maxHeight: 400 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>บริษัท</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>แผน</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>กิจกรรม</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>เดือน</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>ขอเปลี่ยนเป็น</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>เหตุผล</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>ผู้ขอ</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>วันที่</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>สถานะ</th>
+                      {cancelFilter === 'pending' && (
+                        <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>ดำเนินการ</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancelRequests.map((req: any) => {
+                      const companyInfo = data?.companies?.find((c: any) => c.companyId === req.company_id);
+                      const companyName = companyInfo?.shortName || companyInfo?.companyName || req.company_id;
+                      const monthNames: Record<string, string> = { jan: 'ม.ค.', feb: 'ก.พ.', mar: 'มี.ค.', apr: 'เม.ย.', may: 'พ.ค.', jun: 'มิ.ย.', jul: 'ก.ค.', aug: 'ส.ค.', sep: 'ก.ย.', oct: 'ต.ค.', nov: 'พ.ย.', dec: 'ธ.ค.' };
+                      return (
+                        <tr key={req.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '8px 10px', fontWeight: 500 }}>{companyName}</td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{
+                              background: req.plan_type === 'safety' ? 'rgba(255,59,48,0.1)' : 'rgba(52,199,89,0.1)',
+                              color: req.plan_type === 'safety' ? '#ff3b30' : '#34c759',
+                            }}>
+                              {req.plan_type === 'safety' ? 'Safety' : 'Env'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 10px' }}>{req.activity_no}</td>
+                          <td style={{ padding: '8px 10px' }}>{monthNames[req.month] || req.month}</td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{
+                              background: req.requested_status === 'cancelled' ? 'rgba(255,59,48,0.12)' : 'rgba(142,142,147,0.15)',
+                              color: req.requested_status === 'cancelled' ? '#ff3b30' : '#8e8e93',
+                            }}>
+                              {req.requested_status === 'cancelled' ? 'ยกเลิก' : 'N/A'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '8px 10px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>{req.reason}</td>
+                          <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{req.requested_by || '-'}</td>
+                          <td style={{ padding: '8px 10px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                            {req.created_at ? new Date(req.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '-'}
+                          </td>
+                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                            {req.status === 'pending' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'rgba(255,149,0,0.12)', color: '#ff9500' }}>
+                                <Clock size={10} /> รอ
+                              </span>
+                            ) : req.status === 'approved' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'rgba(52,199,89,0.12)', color: '#34c759' }}>
+                                <CheckCircle size={10} /> อนุมัติ
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }}>
+                                <XCircle size={10} /> ปฏิเสธ
+                              </span>
+                            )}
+                          </td>
+                          {cancelFilter === 'pending' && (
+                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleReviewCancellation(req.id, 'approved')}
+                                  disabled={cancelProcessing === req.id}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium text-white transition-all hover:scale-105"
+                                  style={{ background: '#34c759', opacity: cancelProcessing === req.id ? 0.5 : 1 }}
+                                >
+                                  อนุมัติ
+                                </button>
+                                <button
+                                  onClick={() => handleReviewCancellation(req.id, 'rejected')}
+                                  disabled={cancelProcessing === req.id}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium text-white transition-all hover:scale-105"
+                                  style={{ background: '#ff3b30', opacity: cancelProcessing === req.id ? 0.5 : 1 }}
+                                >
+                                  ปฏิเสธ
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

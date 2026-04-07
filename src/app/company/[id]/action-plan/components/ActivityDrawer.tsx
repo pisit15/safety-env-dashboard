@@ -96,6 +96,8 @@ export interface DrawerProps {
   onNavigate: (actNo: string, month: string, actName: string) => void;
   onClickResponsible: (actNo: string, actName: string, current: string) => void;
   onRequestEdit: (reason: string) => void;
+  onRequestCancellation: (requestedStatus: 'cancelled' | 'not_applicable', reason: string) => Promise<boolean>;
+  pendingCancellationStatus: string | null; // show pending badge if request exists
 }
 
 type DrawerTab = 'status' | 'evidence' | 'budget' | 'notes';
@@ -114,6 +116,7 @@ export default function ActivityDrawer(props: DrawerProps) {
     onSetEditingActualCost, onSetStatusNote,
     onUploadFile, onDeleteAttachment, onAddExternalLink,
     onNavigate, onClickResponsible, onRequestEdit,
+    onRequestCancellation, pendingCancellationStatus,
   } = props;
 
   const [activeTab, setActiveTab] = useState<DrawerTab>('status');
@@ -126,6 +129,9 @@ export default function ActivityDrawer(props: DrawerProps) {
   const [addingLink, setAddingLink] = useState(false);
   const [showEditRequest, setShowEditRequest] = useState(false);
   const [editRequestReason, setEditRequestReason] = useState('');
+  const [pendingCancel, setPendingCancel] = useState<'cancelled' | 'not_applicable' | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [submittingCancel, setSubmittingCancel] = useState(false);
 
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -139,6 +145,9 @@ export default function ActivityDrawer(props: DrawerProps) {
     setExternalLinkTitle('');
     setShowEditRequest(false);
     setEditRequestReason('');
+    setPendingCancel(null);
+    setCancelReason('');
+    setSubmittingCancel(false);
     setActiveTab('status');
   }, [editingCell?.actNo, editingCell?.month]);
 
@@ -192,7 +201,24 @@ export default function ActivityDrawer(props: DrawerProps) {
       setCompletionDate(new Date().toISOString().split('T')[0]);
       return;
     }
+    // Phase 4: Intercept cancelled/not_applicable for non-admin users → require approval
+    if ((status === 'cancelled' || status === 'not_applicable') && !isAdmin) {
+      setPendingCancel(status);
+      setCancelReason('');
+      return;
+    }
     onSaveStatus(status);
+  };
+
+  const handleSubmitCancellationRequest = async () => {
+    if (!pendingCancel || !cancelReason.trim()) return;
+    setSubmittingCancel(true);
+    const success = await onRequestCancellation(pendingCancel, cancelReason.trim());
+    setSubmittingCancel(false);
+    if (success) {
+      setPendingCancel(null);
+      setCancelReason('');
+    }
   };
 
   const handleAddLink = async () => {
@@ -426,6 +452,42 @@ export default function ActivityDrawer(props: DrawerProps) {
                           {savingStatus ? '...' : `เลื่อนไป ${postponeMonth ? MONTH_LABELS[MONTH_KEYS.indexOf(postponeMonth)] : '...'}`}
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Phase 4: Cancellation/N/A Request Form */}
+                  {pendingCancel && (
+                    <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: pendingCancel === 'cancelled' ? 'rgba(255,59,48,0.06)' : 'rgba(142,142,147,0.08)', border: `1px solid ${pendingCancel === 'cancelled' ? 'rgba(255,59,48,0.2)' : 'rgba(142,142,147,0.2)'}` }}>
+                      <p className="text-[11px] font-semibold" style={{ color: pendingCancel === 'cancelled' ? '#ff3b30' : '#636366' }}>
+                        {pendingCancel === 'cancelled' ? '⚠️ ขอยกเลิกกิจกรรม' : '⊘ ขอระบุไม่เข้าเงื่อนไข'} — ต้องได้รับอนุมัติจาก Admin
+                      </p>
+                      <textarea
+                        value={cancelReason}
+                        onChange={e => setCancelReason(e.target.value)}
+                        placeholder="ระบุเหตุผลที่ต้องการยกเลิก/ไม่เข้าเงื่อนไข..."
+                        className="w-full px-3 py-2 rounded-lg text-[12px] resize-none"
+                        rows={2}
+                        style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827', outline: 'none' }}
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={() => { setPendingCancel(null); setCancelReason(''); }}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                        <button onClick={handleSubmitCancellationRequest} disabled={!cancelReason.trim() || submittingCancel}
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ background: pendingCancel === 'cancelled' ? '#ff3b30' : '#636366', color: '#fff', opacity: !cancelReason.trim() || submittingCancel ? 0.5 : 1 }}>
+                          {submittingCancel ? 'กำลังส่ง...' : 'ส่งคำขออนุมัติ'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending cancellation badge */}
+                  {pendingCancellationStatus && !pendingCancel && (
+                    <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
+                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#ff9500' }} />
+                      <span className="text-[11px]" style={{ color: '#ff9500' }}>
+                        คำขอ{pendingCancellationStatus === 'cancelled' ? 'ยกเลิก' : 'ไม่เข้าเงื่อนไข'}รอการอนุมัติจาก Admin
+                      </span>
                     </div>
                   )}
 
