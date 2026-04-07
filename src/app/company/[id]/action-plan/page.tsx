@@ -9,7 +9,7 @@ import KPICard from '@/components/KPICard';
 import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
-import { YearlyKPISummary, QuarterlyKPI, getScoreColor, getScoreLabel } from '@/lib/kpi-calculator';
+import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
 import { useAuth } from '@/components/AuthContext';
 import dynamic from 'next/dynamic';
 
@@ -97,19 +97,6 @@ export default function CompanyDrilldown() {
   useEffect(() => {
     localStorage.setItem('dashboard_year', String(selectedYear));
   }, [selectedYear]);
-
-  // Fetch KPI quarterly data
-  useEffect(() => {
-    if (!companyId) return;
-    setKpiLoading(true);
-    fetch(`/api/kpi/quarterly?companyId=${companyId}&planType=${planType}&year=${selectedYear}`)
-      .then(r => r.json())
-      .then((d: YearlyKPISummary) => {
-        if (d && d.quarters) setKpiData(d);
-        setKpiLoading(false);
-      })
-      .catch(() => setKpiLoading(false));
-  }, [companyId, planType, selectedYear]);
 
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -409,6 +396,72 @@ export default function CompanyDrilldown() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities, overrides, postponedOverrides, summary?.monthlyProgress]);
+
+  // ── Derive KPI quarterly from effectiveMonthlyProgress (same data as chart) ──
+  useEffect(() => {
+    if (!effectiveMonthlyProgress || effectiveMonthlyProgress.length === 0) {
+      setKpiData(null);
+      return;
+    }
+    const MK = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const cmIdx = new Date().getMonth();
+
+    const quarters: QuarterlyKPI[] = QUARTERS.map(q => {
+      const firstIdx = MK.indexOf(q.months[0]);
+      const isFutureQuarter = firstIdx > cmIdx;
+
+      let totalItems = 0, doneCount = 0, overdueCount = 0, postponedCount = 0;
+      let cancelledCount = 0, notApplicableCount = 0, plannedCount = 0;
+
+      q.months.forEach(mk => {
+        const mp = effectiveMonthlyProgress[MK.indexOf(mk)];
+        if (!mp) return;
+        totalItems += mp.planned || 0;
+        doneCount += mp.doneCount ?? 0;
+        overdueCount += mp.overdueCount ?? 0;
+        postponedCount += mp.postponedCount ?? 0;
+        cancelledCount += mp.cancelledCount ?? 0;
+        notApplicableCount += mp.notApplicableCount ?? 0;
+      });
+
+      const denominator = totalItems - cancelledCount - notApplicableCount;
+      const numerator = doneCount;
+      const isEmptyBase = denominator === 0;
+      const percentage = isEmptyBase
+        ? (totalItems === 0 ? 0 : 100)
+        : Math.round((numerator / denominator) * 1000) / 10;
+      const score = getKPIScore(percentage);
+      plannedCount = totalItems - doneCount - overdueCount - postponedCount - cancelledCount - notApplicableCount;
+      if (plannedCount < 0) plannedCount = 0;
+
+      return {
+        quarter: q.key as QuarterlyKPI['quarter'],
+        label: q.label, months: [...q.months],
+        totalItems, doneCount, overdueCount, postponedCount,
+        cancelledCount, notApplicableCount, plannedCount,
+        numerator, denominator, percentage, score,
+        scoreLabel: getScoreLabel(score), scoreColor: getScoreColor(score),
+        isEmptyBase, isFutureQuarter, postponedFromOther: 0,
+        highCancelledRate: totalItems > 0 && (cancelledCount / totalItems) > 0.2,
+        highPostponedRate: denominator > 0 && (postponedCount / denominator) > 0.3,
+        consecutiveLow: false,
+      } as QuarterlyKPI;
+    });
+
+    const activeQ = quarters.filter(q => !q.isFutureQuarter && q.totalItems > 0);
+    const yearlyAvgPct = activeQ.length > 0
+      ? Math.round(activeQ.reduce((s, q) => s + q.percentage, 0) / activeQ.length * 10) / 10 : 0;
+    const yearlyAvgScore = activeQ.length > 0
+      ? Math.round(activeQ.reduce((s, q) => s + q.score, 0) / activeQ.length * 10) / 10 : 0;
+
+    setKpiData({
+      year: selectedYear, companyId: companyId || '', planType: planType as any,
+      quarters, yearlyAvgPct, yearlyAvgScore,
+      yearlyScoreLabel: getScoreLabel(Math.round(yearlyAvgScore)),
+      yearlyScoreColor: getScoreColor(Math.round(yearlyAvgScore)),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveMonthlyProgress, companyId, planType, selectedYear]);
 
   // Compute effective overall status considering overrides
   // Logic: count all planned months (excluding not_planned/cancelled/not_applicable)
