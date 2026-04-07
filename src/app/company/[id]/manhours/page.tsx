@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { Clock, Save, Users, HardHat, Calculator, CheckCircle, AlertTriangle, Lock, User, LogIn } from 'lucide-react';
+import ExportPdfButton from '@/components/ExportPdfButton';
 
 const MONTH_NAMES = [
   { num: 1, en: 'Jan', th: 'มกราคม' },
@@ -313,7 +314,7 @@ export default function ManHoursPage() {
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" id="pdf-content">
         {/* Header */}
         <div className="px-8 pt-8 pb-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -348,6 +349,14 @@ export default function ManHoursPage() {
                  saving ? 'กำลังบันทึก...' :
                  <><Save size={16} /> บันทึก</>}
               </button>
+              <ExportPdfButton
+                targetId="pdf-content"
+                filename={`${companyName}-ManHours-${year}`}
+                title={`${companyName} — ชั่วโมงการทำงาน ${year}`}
+                subtitle="Safety & Environment Dashboard — รายงาน Man-Hours"
+                orientation="landscape"
+                label="Export PDF"
+              />
             </div>
           </div>
           {/* Unsaved changes indicator */}

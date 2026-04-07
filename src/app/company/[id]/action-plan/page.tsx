@@ -11,6 +11,7 @@ import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
 import { useAuth } from '@/components/AuthContext';
+import ExportPdfButton from '@/components/ExportPdfButton';
 import dynamic from 'next/dynamic';
 
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false });
@@ -1662,7 +1663,7 @@ export default function CompanyDrilldown() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+      <main className="flex-1 p-6 lg:p-8 overflow-y-auto" id="pdf-content">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs mb-1">
           <Link href="/" style={{ color: 'var(--muted)' }} className="hover:opacity-70">Home</Link>
@@ -1697,13 +1698,21 @@ export default function CompanyDrilldown() {
                 <Key size={14} className="inline mr-1" /> เข้าสู่ระบบเพื่อแก้ไข
               </button>
             )}
-            {/* Export button */}
+            {/* Export buttons */}
             <button
               onClick={handleExport}
               className="btn-primary px-3 py-1.5 rounded-xl text-xs font-medium"
             >
               <Download size={14} className="inline mr-1" /> Export .xlsx
             </button>
+            <ExportPdfButton
+              targetId="pdf-content"
+              filename={`${companyName}-ActionPlan-${selectedYear}`}
+              title={`${companyName} — ${planType === 'environment' ? 'Environment' : 'Safety'} Action Plan ${selectedYear}`}
+              subtitle={`Safety & Environment Dashboard — รายงานแผนงานประจำปี`}
+              orientation="landscape"
+              label="Export PDF"
+            />
             <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
               <button
                 onClick={() => { setPlanType('total'); setQuickFilter('none'); }}

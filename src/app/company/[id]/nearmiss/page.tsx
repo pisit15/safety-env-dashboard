@@ -12,6 +12,7 @@ import {
   RefreshCw, X, Save, Loader2, Search, QrCode, ChevronRight,
   User, Users, FileText, Image as ImageIcon, Settings, EyeOff, Eye, Trash2, Lock, LogIn,
 } from 'lucide-react';
+import ExportPdfButton from '@/components/ExportPdfButton';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface NearMissReport {
@@ -387,7 +388,7 @@ export default function NearMissCoordinatorPage() {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" id="pdf-content">
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
 
           {/* ── Header ── */}
@@ -415,6 +416,14 @@ export default function NearMissCoordinatorPage() {
               <button onClick={() => fetchReports(showHidden)} style={btnPrimary}>
                 <RefreshCw size={14} /> รีเฟรช
               </button>
+              <ExportPdfButton
+                targetId="pdf-content"
+                filename={`${company?.shortName || companyId}-NearMiss`}
+                title={`${company?.name || companyId.toUpperCase()} — Near Miss Report`}
+                subtitle="Safety & Environment Dashboard — รายงาน Near Miss"
+                orientation="landscape"
+                label="Export PDF"
+              />
             </div>
           </div>
 

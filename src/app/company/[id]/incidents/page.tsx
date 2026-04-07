@@ -8,6 +8,7 @@ import { COMPANIES } from '@/lib/companies';
 import {
   AlertTriangle, Plus, BarChart3, List,
 } from 'lucide-react';
+import ExportPdfButton from '@/components/ExportPdfButton';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
 import type { Incident, SummaryData, InjuredPerson } from './types';
 import GlobalFilters from './components/GlobalFilters';
@@ -468,7 +469,7 @@ export default function IncidentsPage() {
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" id="pdf-content">
         {/* Sticky Header */}
         <div className="sticky top-0 z-20 px-8 pt-6 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
           <div className="flex items-center justify-between mb-3">
@@ -516,6 +517,14 @@ export default function IncidentsPage() {
                   </button>
                 );
               })()}
+              <ExportPdfButton
+                targetId="pdf-content"
+                filename={`${companyName}-Incidents-${selectedYears.join('-')}`}
+                title={`${companyName} — สถิติอุบัติเหตุ ${selectedYears.join(', ')}`}
+                subtitle="Safety & Environment Dashboard — รายงานสถิติอุบัติเหตุ"
+                orientation="landscape"
+                label="Export PDF"
+              />
             </div>
           </div>
 

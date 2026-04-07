@@ -24,6 +24,7 @@ import {
   Lock,
   LogIn,
 } from 'lucide-react';
+import ExportPdfButton from '@/components/ExportPdfButton';
 
 // ── Types ──
 interface RiskTask {
@@ -278,7 +279,7 @@ export default function RiskRegisterPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex-1 p-4 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
+      <main className="flex-1 p-4 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }} id="pdf-content">
         {/* Header */}
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
@@ -306,6 +307,14 @@ export default function RiskRegisterPage() {
               >
                 <Plus size={16} /> เพิ่มงาน
               </button>
+              <ExportPdfButton
+                targetId="pdf-content"
+                filename={`${companyId}-RiskAssessment`}
+                title={`Risk Register — ${companyId.toUpperCase()}`}
+                subtitle="Safety & Environment Dashboard — ทะเบียนประเมินความเสี่ยง"
+                orientation="landscape"
+                label="Export PDF"
+              />
             </div>
           </div>
 

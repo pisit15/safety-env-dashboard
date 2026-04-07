@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight } from 'lucide-react';
+import ExportPdfButton from '@/components/ExportPdfButton';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -1151,7 +1152,7 @@ export default function CompanyTraining() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar />
-      <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }}>
+      <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }} id="pdf-content">
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
@@ -1264,6 +1265,16 @@ export default function CompanyTraining() {
 
           {/* Spacer */}
           <div style={{ flex: 1 }} />
+
+          {/* Export PDF */}
+          <ExportPdfButton
+            targetId="pdf-content"
+            filename={`${company?.shortName || companyId}-Training-${selectedYear}`}
+            title={`${company?.name || companyId.toUpperCase()} — Training Plan ${selectedYear}`}
+            subtitle="Safety & Environment Dashboard — รายงานแผนอบรมประจำปี"
+            orientation="landscape"
+            label="Export PDF"
+          />
 
           {/* Update mode specific controls */}
           {viewMode === 'update' && (
