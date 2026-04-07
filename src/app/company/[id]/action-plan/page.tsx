@@ -1727,32 +1727,22 @@ export default function CompanyDrilldown() {
                 <Leaf size={14} className="inline mr-1" /> Environment
               </button>
             </div>
-            {/* Year selector */}
-            <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
-              {AVAILABLE_YEARS.map(y => {
-                const isActive = ACTIVE_YEARS.includes(y);
-                return (
-                  <button
-                    key={y}
-                    onClick={() => isActive && setSelectedYear(y)}
-                    disabled={!isActive}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={selectedYear === y
-                      ? { background: '#ff9500', color: '#ffffff' }
-                      : !isActive
-                        ? { color: 'var(--border)', cursor: 'not-allowed', opacity: 0.5 }
-                        : { color: 'var(--muted)' }}
-                    title={!isActive ? `ข้อมูลปี ${y} ยังไม่พร้อม` : ''}
-                  >
-                    {y}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
         {/* Time Range Selector + Export buttons */}
         <div className="flex items-center gap-2 mb-5 flex-wrap animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+          {/* Year selector */}
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }}
+          >
+            {AVAILABLE_YEARS.map(y => {
+              const isActive = ACTIVE_YEARS.includes(y);
+              return <option key={y} value={y} disabled={!isActive}>{y}</option>;
+            })}
+          </select>
           <Calendar size={14} style={{ color: 'var(--muted)' }} />
           <span className="text-[12px] font-medium" style={{ color: 'var(--muted)' }}>ช่วงเวลา:</span>
           <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
