@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
@@ -93,7 +94,8 @@ export default function CompanyTraining() {
   const params = useParams();
   const companyId = params.id as string;
   const auth = useAuth();
-  const company = COMPANIES.find(c => c.id === companyId);
+  const { getCompanyById } = useCompanies();
+  const company = getCompanyById(companyId);
 
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
   const [plans, setPlans] = useState<TrainingPlan[]>([]);

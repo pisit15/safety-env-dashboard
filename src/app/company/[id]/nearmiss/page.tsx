@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import {
   AlertTriangle, ExternalLink,
   RefreshCw, X, Save, Loader2, Search, QrCode, ChevronRight,
@@ -98,7 +99,8 @@ function isDueSoon(r: NearMissReport) {
 export default function NearMissCoordinatorPage() {
   const params = useParams();
   const companyId = params.id as string;
-  const company = COMPANIES.find(c => c.id === companyId);
+  const { getCompanyById } = useCompanies();
+  const company = getCompanyById(companyId);
   const auth = useAuth();
   const ca = auth.getCompanyAuth(companyId);
   const isLoggedIn = auth.isAdmin || ca.isLoggedIn;

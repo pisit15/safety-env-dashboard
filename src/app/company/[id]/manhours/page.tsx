@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import { Clock, Save, Users, HardHat, Calculator, CheckCircle, AlertTriangle, Lock, User, LogIn } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
@@ -73,7 +74,8 @@ const selectStyle: React.CSSProperties = {
 export default function ManHoursPage() {
   const { id } = useParams() as { id: string };
   const auth = useAuth();
-  const company = COMPANIES.find(c => c.id === id);
+  const { getCompanyById } = useCompanies();
+  const company = getCompanyById(id);
   const companyName = company?.shortName || id.toUpperCase();
 
   const [year, setYear] = useState(new Date().getFullYear());

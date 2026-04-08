@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import {
   FileWarning,
   Plus,
@@ -106,7 +107,8 @@ export default function RiskRegisterPage() {
   const router = useRouter();
   const auth = useAuth();
   const companyId = params.id as string;
-  const company = COMPANIES.find(c => c.id === companyId);
+  const { getCompanyById } = useCompanies();
+  const company = getCompanyById(companyId);
 
   // Auth
   const isLoggedIn = auth.isAdmin || auth.getCompanyAuth(companyId).isLoggedIn;
