@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DateInput from '@/components/DateInput';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Camera, Trash2, ImageIcon, Upload, Loader2 } from 'lucide-react';
 import type { Incident } from '../types';
 import {
   INCIDENT_TYPES, ACTUAL_SEVERITIES, PERSON_TYPES, POTENTIAL_SEVERITIES,
@@ -42,6 +42,23 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   const [injuredPersons, setInjuredPersons] = useState<Record<string, unknown>[]>([]);
   const [saving, setSaving] = useState(false);
 
+  /* Photo attachment state */
+  interface IncidentPhoto {
+    id: string;
+    incident_no: string;
+    file_name: string;
+    file_url: string;
+    file_size: number;
+    caption: string;
+    created_at: string;
+  }
+  const [photos, setPhotos] = useState<IncidentPhoto[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_PHOTOS = 5;
+
   // Initialize form when editing incident changes
   useEffect(() => {
     if (editingIncident) {
@@ -51,6 +68,11 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         .then(r => r.json())
         .then(data => setInjuredPersons(data.persons || []))
         .catch(() => setInjuredPersons([]));
+      // Fetch existing photos
+      fetch(`/api/incidents/photos?incident_no=${encodeURIComponent(editingIncident.incident_no)}`)
+        .then(r => r.json())
+        .then(data => setPhotos(data.photos || []))
+        .catch(() => setPhotos([]));
     } else {
       setFormData({
         company_id: companyId,
@@ -60,6 +82,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         report_status: 'Draft',
       });
       setInjuredPersons([]);
+      setPhotos([]);
     }
   }, [editingIncident, companyId]);
 
@@ -83,6 +106,65 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
 
   const removeInjuredPerson = (idx: number) => {
     setInjuredPersons(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  /* Photo upload handlers */
+  const handlePhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    // Must have incident_no (saved incident)
+    const incidentNo = (formData.incident_no as string) || '';
+    if (!incidentNo) {
+      setPhotoError('กรุณาบันทึกอุบัติเหตุก่อน จึงจะแนบรูปได้');
+      return;
+    }
+
+    if (photos.length >= MAX_PHOTOS) {
+      setPhotoError(`แนบรูปได้สูงสุด ${MAX_PHOTOS} รูป`);
+      return;
+    }
+
+    setPhotoError('');
+    setUploadingPhoto(true);
+
+    const remainingSlots = MAX_PHOTOS - photos.length;
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
+    for (const file of filesToUpload) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('incident_no', incidentNo);
+      fd.append('company_id', companyId);
+
+      try {
+        const res = await fetch('/api/incidents/photos', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) {
+          setPhotoError(data.error);
+        } else if (data.photo) {
+          setPhotos(prev => [...prev, data.photo]);
+        }
+      } catch {
+        setPhotoError('อัปโหลดรูปล้มเหลว');
+      }
+    }
+
+    setUploadingPhoto(false);
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!confirm('ต้องการลบรูปนี้?')) return;
+    try {
+      const res = await fetch(`/api/incidents/photos?id=${photoId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setPhotos(prev => prev.filter(p => p.id !== photoId));
+      }
+    } catch {
+      setPhotoError('ลบรูปล้มเหลว');
+    }
   };
 
   /* Save */
@@ -622,6 +704,124 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               <Plus size={14} /> เพิ่มผู้บาดเจ็บ
             </button>
           </div>
+          )}
+
+          {/* Section: Photos */}
+          <div>
+            <SH num="📷" label="PHOTOS / รูปภาพประกอบ" bg="rgba(59,130,246,0.1)" fg="#2563eb" />
+
+            {/* Existing photos grid */}
+            {photos.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-3">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="relative group rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                    <img
+                      src={photo.file_url}
+                      alt={photo.file_name}
+                      className="w-full h-24 object-cover cursor-pointer"
+                      onClick={() => setPreviewPhoto(photo.file_url)}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="p-1.5 rounded-full"
+                        style={{ background: 'rgba(239,68,68,0.9)' }}
+                        title="ลบรูป"
+                      >
+                        <Trash2 size={14} className="text-white" />
+                      </button>
+                    </div>
+                    <div className="px-2 py-1">
+                      <p className="text-[9px] truncate" style={{ color: 'var(--muted)' }}>{photo.file_name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload area */}
+            {(formData.incident_no as string) ? (
+              photos.length < MAX_PHOTOS ? (
+                <div
+                  className="relative rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-400"
+                  style={{
+                    border: '2px dashed var(--border)',
+                    background: 'var(--bg-secondary)',
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#3b82f6'; }}
+                  onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+                  onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; handlePhotoUpload(e.dataTransfer.files); }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => handlePhotoUpload(e.target.files)}
+                  />
+                  {uploadingPhoto ? (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                      <span className="text-[12px]" style={{ color: 'var(--accent)' }}>กำลังอัปโหลด...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <Camera size={20} style={{ color: 'var(--muted)' }} />
+                        <Upload size={16} style={{ color: 'var(--muted)' }} />
+                      </div>
+                      <p className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                        คลิกหรือลากรูปมาวางที่นี่
+                      </p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                        JPG, PNG, WebP (สูงสุด 10MB/รูป) — {photos.length}/{MAX_PHOTOS} รูป
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+                  <ImageIcon size={14} /> แนบรูปครบ {MAX_PHOTOS} รูปแล้ว
+                </p>
+              )
+            ) : (
+              <div className="rounded-lg p-3 text-center" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)' }}>
+                <p className="text-[12px]" style={{ color: '#b45309' }}>
+                  กรุณาบันทึกอุบัติเหตุก่อน จึงจะแนบรูปภาพได้
+                </p>
+              </div>
+            )}
+
+            {photoError && (
+              <p className="text-[11px] mt-2" style={{ color: '#dc2626' }}>{photoError}</p>
+            )}
+          </div>
+
+          {/* Photo Preview Modal */}
+          {previewPhoto && (
+            <div
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+              style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
+              onClick={() => setPreviewPhoto(null)}
+            >
+              <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => setPreviewPhoto(null)}
+                  className="absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center z-10"
+                  style={{ background: '#ef4444' }}
+                >
+                  <X size={16} className="text-white" />
+                </button>
+                <img
+                  src={previewPhoto}
+                  alt="Preview"
+                  className="max-w-full max-h-[85vh] rounded-lg object-contain"
+                  style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+                />
+              </div>
+            </div>
           )}
 
           {/* Actions */}
