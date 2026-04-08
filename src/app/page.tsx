@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -25,15 +25,10 @@ import {
   LogOut,
 } from 'lucide-react';
 
-interface DbCompanySetting {
-  company_id: string;
-  bu: string;
-}
-
 export default function HomePage() {
   const auth = useAuth();
   const router = useRouter();
-  const [dbBuMap, setDbBuMap] = useState<Record<string, string>>({});
+  const { companies: allCompanies, loading: companiesLoading } = useCompanies();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,39 +80,17 @@ export default function HomePage() {
     }
   };
 
-  // Fetch BU settings from DB
-  useEffect(() => {
-    fetch('/api/company-settings')
-      .then(r => r.json())
-      .then(data => {
-        if (data?.settings) {
-          const map: Record<string, string> = {};
-          data.settings.forEach((s: DbCompanySetting) => {
-            map[s.company_id] = s.bu ?? '';
-          });
-          setDbBuMap(map);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Build companies with DB BU overrides
-  const companiesWithDbBu = COMPANIES.map(c => ({
-    ...c,
-    bu: (c.id in dbBuMap ? dbBuMap[c.id] : c.bu) as typeof c.bu,
-  }));
-
-  // Filter companies by search
+  // Filter companies by search — allCompanies already includes DB overrides
   const filteredCompanies = useMemo(() => {
-    if (!searchQuery.trim()) return companiesWithDbBu;
+    if (!searchQuery.trim()) return allCompanies;
     const q = searchQuery.toLowerCase();
-    return companiesWithDbBu.filter(c =>
+    return allCompanies.filter(c =>
       c.shortName.toLowerCase().includes(q) ||
       c.name.toLowerCase().includes(q) ||
       (c.fullName || '').toLowerCase().includes(q) ||
       c.id.toLowerCase().includes(q)
     );
-  }, [companiesWithDbBu, searchQuery]);
+  }, [allCompanies, searchQuery]);
 
   // Group by BU
   const BU_ORDER = ['EV', 'Renewable Energy', 'Biodiesel', 'Waste Management', ''];

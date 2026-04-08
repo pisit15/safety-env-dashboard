@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import {
   AlertTriangle, Activity, Clock, Shield, Users, DollarSign,
   TrendingUp, TrendingDown, BarChart3, Building2, ChevronRight, ChevronDown,
@@ -63,6 +63,7 @@ const COMPANY_COLORS = ['#3b82f6', '#f97316', '#16a34a', '#ef4444', '#8b5cf6', '
 
 export default function HQIncidentsPage() {
   const auth = useAuth();
+  const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   const [loading, setLoading] = useState(true);

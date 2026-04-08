@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import { Calendar, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -53,6 +54,7 @@ interface CompanyData {
 
 export default function HQTrainingOverview() {
   const auth = useAuth();
+  const { companies: COMPANIES } = useCompanies();
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
   const [allCompanyData, setAllCompanyData] = useState<CompanyData[]>([]);
   const [loading, setLoading] = useState(true);

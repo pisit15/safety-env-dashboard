@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES, DEFAULT_YEAR } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { useCompanies } from '@/hooks/useCompanies';
 import {
   ClipboardList,
   GraduationCap,
@@ -54,6 +55,7 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 export default function CompanyDashboard() {
   const { id } = useParams() as { id: string };
   const auth = useAuth();
+  const { companies: COMPANIES } = useCompanies();
   const company = COMPANIES.find(c => c.id === id);
   const year = DEFAULT_YEAR;
 
