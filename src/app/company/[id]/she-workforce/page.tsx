@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { getCompanyById } from '@/lib/companies';
 import {
-  Users, Shield, ShieldCheck, Briefcase, Plus, Pencil, Trash2, X, Check,
+  Users, ShieldCheck, Briefcase, Plus, Pencil, Trash2, X, Check,
   Search, AlertTriangle, FileText, ChevronDown,
 } from 'lucide-react';
 
@@ -255,9 +255,18 @@ export default function SHEWorkforcePage() {
 
   // ── Computed ─────────────────────────────────────────────────
   const sheCount = personnel.length;
-  const ratio = employeeCount > 0 && sheCount > 0 ? `1:${Math.round(employeeCount / sheCount)}` : '-';
+  const ratioNum = employeeCount > 0 && sheCount > 0 ? Math.round(employeeCount / sheCount) : 0;
+  const ratio = ratioNum > 0 ? `1:${ratioNum}` : '-';
   const totalLicensed = licenses.filter(l => l.has_license).length;
   const totalReqSlots = personnel.length * requirements.length;
+
+  // Compliance: count required reqs that are met vs not
+  const requiredReqs = requirements.filter(r => r.is_required);
+  const complianceMet = requiredReqs.filter(req => {
+    const held = licenses.filter(l => l.requirement_type_id === req.id && l.has_license).length;
+    return req.required_count === 0 ? held > 0 : held >= req.required_count;
+  }).length;
+  const complianceRate = requiredReqs.length > 0 ? Math.round((complianceMet / requiredReqs.length) * 100) : 100;
 
   // Responsibility breakdown
   const respMap: Record<string, number> = {};
@@ -267,6 +276,7 @@ export default function SHEWorkforcePage() {
   // Employment type breakdown
   const empMap: Record<string, number> = {};
   personnel.forEach(p => { const t = p.employment_type || 'permanent'; empMap[t] = (empMap[t] || 0) + 1; });
+  const maxEmp = Math.max(...Object.values(empMap), 1);
 
   // Filtered personnel
   const filteredP = personnel.filter(p => {
@@ -287,6 +297,7 @@ export default function SHEWorkforcePage() {
     workloadByFn[fn].entries++;
   });
   const manpowerNeed = grandTotalMin / ANNUAL_MINUTES_PER_PERSON;
+  const manpowerGap = sheCount - manpowerNeed; // positive = surplus
 
   // ── Styles ──────────────────────────────────────────────────
   const thStyle: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' };
@@ -339,86 +350,114 @@ export default function SHEWorkforcePage() {
               {/* ═══════ TAB 0: ภาพรวม ═══════ */}
               {activeTab === 0 && (
                 <div>
-                  {/* KPI Cards */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-                    {[
-                      { label: 'บุคลากร SHE', value: sheCount, sub: 'คน', icon: Users, color: '#007aff' },
-                      { label: 'SHE : พนักงาน', value: ratio, sub: employeeCount > 0 ? `จาก ${employeeCount} คน` : 'ยังไม่มีข้อมูลพนักงาน', icon: Briefcase, color: '#5856d6' },
-                      { label: 'ใบอนุญาตที่มี', value: totalLicensed, sub: totalReqSlots > 0 ? `จาก ${totalReqSlots} ช่อง` : 'ยังไม่มีข้อกำหนด', icon: ShieldCheck, color: '#34c759' },
-                      { label: 'Functions ที่ครอบคลุม', value: Object.keys(respMap).length, sub: 'ด้าน', icon: Shield, color: '#ff9500' },
-                    ].map((kpi, i) => (
-                      <div key={i} className="glass-card rounded-xl" style={{ padding: 20, border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{ width: 40, height: 40, borderRadius: 10, background: `${kpi.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <kpi.icon size={20} color={kpi.color} />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{kpi.value}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{kpi.label}</div>
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, paddingLeft: 52 }}>{kpi.sub}</div>
+                  {/* ── KPI Cards: Gray+One severity encoding ── */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+                    {/* Compliance Rate — most important */}
+                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${complianceRate === 100 ? '#BAB0AC44' : complianceRate >= 80 ? '#F28E2B44' : '#E1575966'}`, background: complianceRate === 100 ? 'var(--bg-secondary, #fff)' : complianceRate >= 80 ? '#F28E2B08' : '#E1575908' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>Compliance กฎหมาย</div>
+                      <div style={{ fontSize: 30, fontWeight: 800, color: complianceRate === 100 ? '#59A14F' : complianceRate >= 80 ? '#F28E2B' : '#E15759', lineHeight: 1 }}>{complianceRate}<span style={{ fontSize: 16, fontWeight: 700 }}>%</span></div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{complianceMet}/{requiredReqs.length} ประเภทผ่าน</div>
+                    </div>
+                    {/* SHE : พนักงาน — with benchmark */}
+                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${ratioNum > 200 ? '#E1575966' : ratioNum > 100 ? '#F28E2B44' : '#BAB0AC44'}`, background: ratioNum > 200 ? '#E1575908' : 'var(--bg-secondary, #fff)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>SHE : พนักงาน</div>
+                      <div style={{ fontSize: 30, fontWeight: 800, color: ratioNum > 200 ? '#E15759' : ratioNum > 100 ? '#F28E2B' : '#59A14F', lineHeight: 1 }}>{ratio}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{employeeCount > 0 ? `${sheCount} SHE / ${employeeCount} คน` : 'ยังไม่มีข้อมูลพนักงาน'}</div>
+                      {ratioNum > 0 && <div style={{ fontSize: 10, color: ratioNum > 100 ? '#E15759' : '#59A14F', fontWeight: 600, marginTop: 2 }}>{ratioNum <= 100 ? 'ตามเกณฑ์กฎหมาย' : 'เกินเกณฑ์ 1:100'}</div>}
+                    </div>
+                    {/* บุคลากร SHE */}
+                    <div style={{ padding: 16, borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary, #fff)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>บุคลากร SHE</div>
+                      <div style={{ fontSize: 30, fontWeight: 800, color: '#4E79A7', lineHeight: 1 }}>{sheCount}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{Object.keys(respMap).length} Functions ครอบคลุม</div>
+                    </div>
+                    {/* Workload Gap */}
+                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${manpowerGap < 0 ? '#E1575966' : '#BAB0AC44'}`, background: manpowerGap < 0 ? '#E1575908' : 'var(--bg-secondary, #fff)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>กำลังคน</div>
+                      <div style={{ fontSize: 30, fontWeight: 800, color: workload.length === 0 ? '#BAB0AC' : manpowerGap < 0 ? '#E15759' : '#59A14F', lineHeight: 1 }}>
+                        {workload.length === 0 ? '-' : manpowerGap >= 0 ? `+${manpowerGap.toFixed(1)}` : manpowerGap.toFixed(1)}
                       </div>
-                    ))}
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                        {workload.length === 0 ? 'ยังไม่มีข้อมูลภาระงาน' : `ต้องการ ${manpowerNeed.toFixed(1)} / มี ${sheCount} คน`}
+                      </div>
+                      {workload.length > 0 && <div style={{ fontSize: 10, color: manpowerGap < 0 ? '#E15759' : '#59A14F', fontWeight: 600, marginTop: 2 }}>{manpowerGap >= 0 ? 'เพียงพอ' : 'ขาดกำลังคน'}</div>}
+                    </div>
                   </div>
 
-                  {/* Charts Row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+                  {/* ── Charts Row: Responsibility + Employment Type (matching horizontal bars) ── */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
                     {/* Responsibility */}
-                    <div className="glass-card rounded-xl" style={{ padding: 20, border: '1px solid var(--border)' }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>หน้าที่หลัก (Responsibility)</h3>
+                    <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>หน้าที่หลัก (Responsibility)</p>
                       {Object.entries(respMap).length === 0 ? (
                         <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>ยังไม่มีข้อมูล</p>
                       ) : Object.entries(respMap).sort((a, b) => b[1] - a[1]).map(([resp, count]) => (
                         <div key={resp} style={{ marginBottom: 10 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
                             <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{resp}</span>
-                            <span style={{ color: 'var(--text-secondary)' }}>{count} คน</span>
+                            <span style={{ fontWeight: 700, color: RESP_COLORS[resp] || '#6b7280' }}>{count} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>คน</span></span>
                           </div>
-                          <div style={{ height: 8, borderRadius: 4, background: 'var(--bg-secondary)' }}>
+                          <div style={{ height: 7, borderRadius: 4, background: 'rgba(107,114,128,0.08)' }}>
                             <div style={{ height: '100%', borderRadius: 4, width: `${(count / maxResp) * 100}%`, background: RESP_COLORS[resp] || '#6b7280', transition: 'width 0.3s ease' }} />
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    {/* Employment Type */}
-                    <div className="glass-card rounded-xl" style={{ padding: 20, border: '1px solid var(--border)' }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>ประเภทการจ้าง</h3>
+                    {/* Employment Type — now matching bar format */}
+                    <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>ประเภทการจ้าง</p>
                       {Object.entries(empMap).length === 0 ? (
                         <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>ยังไม่มีข้อมูล</p>
                       ) : Object.entries(empMap).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
-                        <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, padding: '8px 12px', borderRadius: 10, background: 'var(--bg-secondary)' }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: EMP_TYPE_COLORS[type] || '#6b7280' }} />
-                          <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)' }}>{EMP_TYPES[type] || type}</span>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{count}</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>คน</span>
+                        <div key={type} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{EMP_TYPES[type] || type}</span>
+                            <span style={{ fontWeight: 700, color: EMP_TYPE_COLORS[type] || '#6b7280' }}>{count} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>คน</span></span>
+                          </div>
+                          <div style={{ height: 7, borderRadius: 4, background: 'rgba(107,114,128,0.08)' }}>
+                            <div style={{ height: '100%', borderRadius: 4, width: `${(count / maxEmp) * 100}%`, background: EMP_TYPE_COLORS[type] || '#6b7280', transition: 'width 0.3s ease' }} />
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Legal Compliance */}
-                  <div className="glass-card rounded-xl" style={{ padding: 20, border: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>สถานะใบอนุญาตตามกฎหมาย</h3>
+                  {/* ── Compliance: Bullet chart bars (actual vs required) ── */}
+                  <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>ใบอนุญาตตามกฎหมาย</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 10, color: 'var(--text-secondary)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 14, height: 6, borderRadius: 3, background: '#4E79A7', display: 'inline-block' }} /> มี</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 1, height: 14, background: '#E15759', display: 'inline-block' }} /> ต้องการ</span>
+                      </div>
+                    </div>
                     {requirements.length === 0 ? (
                       <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>ยังไม่ได้ตั้งค่าประเภทใบอนุญาต — ไปที่แท็บ &quot;ใบอนุญาต&quot; เพื่อเพิ่ม</p>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {requirements.map(req => {
                           const held = licenses.filter(l => l.requirement_type_id === req.id && l.has_license).length;
                           const needed = req.required_count || 0;
-                          const ok = needed === 0 || held >= needed;
+                          const maxBar = Math.max(held, needed, 1);
+                          const ok = needed === 0 ? held > 0 : held >= needed;
+                          const catColor = req.category === 'safety' ? '#f97316' : req.category === 'environment' ? '#22c55e' : '#007aff';
                           return (
-                            <div key={req.id} style={{ padding: '12px 16px', borderRadius: 10, border: `1px solid ${ok ? '#34c75930' : '#ff3b3030'}`, background: ok ? '#34c75908' : '#ff3b3008' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                {ok ? <Check size={16} color="#34c759" /> : <AlertTriangle size={16} color="#ff3b30" />}
-                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{req.short_name}</span>
+                            <div key={req.id}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', minWidth: 120 }}>{req.short_name}</span>
+                                {req.category && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: `${catColor}15`, color: catColor, fontWeight: 600 }}>{req.category}</span>}
+                                {!req.is_required && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#BAB0AC20', color: '#BAB0AC', fontWeight: 600 }}>ไม่บังคับ</span>}
+                                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: ok ? '#59A14F' : '#E15759' }}>{held}{needed > 0 ? `/${needed}` : ''}</span>
                               </div>
-                              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                มี {held} คน {needed > 0 ? `/ ต้องการ ${needed} คน` : '(ไม่กำหนดจำนวน)'}
+                              <div style={{ position: 'relative', height: 10, borderRadius: 5, background: 'rgba(107,114,128,0.06)' }}>
+                                {/* Actual bar */}
+                                <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${(held / maxBar) * 100}%`, borderRadius: 5, background: ok ? '#59A14F' : '#4E79A7', opacity: ok ? 0.7 : 1, transition: 'width 0.3s' }} />
+                                {/* Target marker line */}
+                                {needed > 0 && (
+                                  <div style={{ position: 'absolute', top: -2, left: `${(needed / maxBar) * 100}%`, width: 2, height: 14, background: held >= needed ? '#59A14F' : '#E15759', borderRadius: 1 }} />
+                                )}
                               </div>
-                              {req.category && <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: req.category === 'safety' ? '#f9731615' : req.category === 'environment' ? '#22c55e15' : '#007aff15', color: req.category === 'safety' ? '#f97316' : req.category === 'environment' ? '#22c55e' : '#007aff', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>{req.category}</span>}
                             </div>
                           );
                         })}
@@ -497,6 +536,36 @@ export default function SHEWorkforcePage() {
               {/* ═══════ TAB 2: ใบอนุญาต ═══════ */}
               {activeTab === 2 && (
                 <div>
+                  {/* ── KPI Strip ── */}
+                  {requirements.length > 0 && (
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                      {(() => {
+                        const totalHeld = licenses.filter(l => l.has_license).length;
+                        const failReqs = requiredReqs.filter(req => {
+                          const h = licenses.filter(l => l.requirement_type_id === req.id && l.has_license).length;
+                          return req.required_count === 0 ? h === 0 : h < req.required_count;
+                        });
+                        return (
+                          <>
+                            <div style={{ padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${complianceRate === 100 ? '#59A14F44' : '#E1575944'}`, background: complianceRate === 100 ? '#59A14F08' : '#E1575908', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 18, fontWeight: 800, color: complianceRate === 100 ? '#59A14F' : '#E15759' }}>{complianceRate}%</span>
+                              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Compliance ({complianceMet}/{requiredReqs.length})</span>
+                            </div>
+                            <div style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 18, fontWeight: 800, color: '#4E79A7' }}>{totalHeld}</span>
+                              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ใบอนุญาตที่มี</span>
+                            </div>
+                            {failReqs.length > 0 && (
+                              <div style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E1575944', background: '#E1575908', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <AlertTriangle size={14} color="#E15759" />
+                                <span style={{ fontSize: 11, color: '#E15759', fontWeight: 600 }}>ขาด: {failReqs.map(r => r.short_name).join(', ')}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
                       <span>คลิกที่ช่องเพื่อเปลี่ยนสถานะใบอนุญาต</span>
@@ -591,22 +660,46 @@ export default function SHEWorkforcePage() {
                     </button>
                   </div>
 
-                  {/* Summary Cards */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 20 }}>
-                    <div className="glass-card rounded-xl" style={{ padding: 16, border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>เวลารวมต่อปี</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{grandTotalMin.toLocaleString()}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>นาที</div>
+                  {/* ── Summary: Capacity vs Demand visual ── */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 20 }}>
+                    {/* Capacity bar */}
+                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${manpowerGap < 0 ? '#E1575944' : 'var(--border)'}`, background: manpowerGap < 0 ? '#E1575906' : 'var(--card-solid, var(--bg-secondary))' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>กำลังคน: ความต้องการ vs ปัจจุบัน</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
+                        ต้องการ <b style={{ color: '#4E79A7' }}>{manpowerNeed.toFixed(1)}</b> คน · มี <b style={{ color: '#59A14F' }}>{sheCount}</b> คน · {manpowerGap >= 0 ? <span style={{ color: '#59A14F' }}>เหลือ {manpowerGap.toFixed(1)}</span> : <span style={{ color: '#E15759', fontWeight: 700 }}>ขาด {Math.abs(manpowerGap).toFixed(1)}</span>}
+                      </p>
+                      {workload.length > 0 ? (
+                        <div style={{ position: 'relative', height: 28, borderRadius: 8, background: 'rgba(107,114,128,0.06)', overflow: 'hidden' }}>
+                          {/* Demand bar */}
+                          <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${Math.min((manpowerNeed / Math.max(sheCount, manpowerNeed)) * 100, 100)}%`, borderRadius: 8, background: '#4E79A7', opacity: 0.25 }} />
+                          {/* Capacity bar */}
+                          <div style={{ position: 'absolute', top: 4, left: 0, height: 20, width: `${Math.min((sheCount / Math.max(sheCount, manpowerNeed)) * 100, 100)}%`, borderRadius: 6, background: manpowerGap >= 0 ? '#59A14F' : '#E15759', transition: 'width 0.3s' }} />
+                          {/* Target line at demand */}
+                          <div style={{ position: 'absolute', top: 0, left: `${(manpowerNeed / Math.max(sheCount, manpowerNeed)) * 100}%`, width: 2, height: '100%', background: '#4E79A7', borderRadius: 1 }} />
+                          {/* Labels */}
+                          <div style={{ position: 'absolute', top: 6, left: 8, fontSize: 10, fontWeight: 700, color: '#fff' }}>มี {sheCount}</div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: 12, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12, background: 'rgba(107,114,128,0.04)', borderRadius: 8 }}>เพิ่มข้อมูลภาระงานเพื่อคำนวณ</div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8, fontSize: 10, color: 'var(--text-secondary)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 6, borderRadius: 3, background: manpowerGap >= 0 ? '#59A14F' : '#E15759', display: 'inline-block' }} /> กำลังคนปัจจุบัน</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 6, borderRadius: 3, background: '#4E79A7', opacity: 0.25, display: 'inline-block' }} /> ความต้องการ</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--muted, #999)' }}>สูตร: เวลารวม ÷ 97,440 นาที/ปี/คน</span>
+                      </div>
                     </div>
-                    <div className="glass-card rounded-xl" style={{ padding: 16, border: `1px solid ${manpowerNeed > sheCount ? '#ff3b3030' : '#34c75930'}` }}>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>จำนวนคนที่ต้องการ</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: manpowerNeed > sheCount ? '#ff3b30' : '#34c759' }}>{manpowerNeed.toFixed(1)}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>คน (ปัจจุบันมี {sheCount} คน)</div>
-                    </div>
-                    <div className="glass-card rounded-xl" style={{ padding: 16, border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>สูตรคำนวณ</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>เวลารวม ÷ 97,440 นาที/ปี/คน</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>(ทำงาน 5 วัน/สัปดาห์ = 232 วัน × 7 ชม. × 60 นาที)</div>
+                    {/* Mini KPI */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ flex: 1, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>เวลารวม/ปี</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{grandTotalMin > 0 ? `${(grandTotalMin / 60).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : '0'}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>ชั่วโมง ({grandTotalMin.toLocaleString()} นาที)</div>
+                      </div>
+                      <div style={{ flex: 1, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>รายการงาน</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{workload.length}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{Object.keys(workloadByFn).length} Functions</div>
+                      </div>
                     </div>
                   </div>
 
@@ -653,20 +746,33 @@ export default function SHEWorkforcePage() {
                     </div>
                   </div>
 
-                  {/* Function Summary */}
-                  {Object.keys(workloadByFn).length > 0 && (
-                    <div className="glass-card rounded-xl" style={{ padding: 20, border: '1px solid var(--border)' }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>สรุปตาม Function</h3>
-                      {Object.entries(workloadByFn).sort((a, b) => b[1].totalMin - a[1].totalMin).map(([fn, data]) => (
-                        <div key={fn} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-secondary)' }}>
-                          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{fn}</span>
-                          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{data.entries} งาน</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', minWidth: 80, textAlign: 'right' }}>{data.totalMin.toLocaleString()} นาที</span>
-                          <span style={{ fontSize: 12, color: '#5856d6', fontWeight: 600, minWidth: 50, textAlign: 'right' }}>{(data.totalMin / ANNUAL_MINUTES_PER_PERSON).toFixed(1)} คน</span>
+                  {/* Function Summary with horizontal bars */}
+                  {Object.keys(workloadByFn).length > 0 && (() => {
+                    const fnEntries = Object.entries(workloadByFn).sort((a, b) => b[1].totalMin - a[1].totalMin);
+                    const fnMax = fnEntries[0]?.[1].totalMin || 1;
+                    return (
+                      <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>สรุปตาม Function</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {fnEntries.map(([fn, data], i) => {
+                            const manpower = data.totalMin / ANNUAL_MINUTES_PER_PERSON;
+                            return (
+                              <div key={fn}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{fn}</span>
+                                  <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{data.entries} งาน</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: '#4E79A7', minWidth: 45, textAlign: 'right' }}>{manpower.toFixed(1)} คน</span>
+                                </div>
+                                <div style={{ height: 7, borderRadius: 4, background: 'rgba(107,114,128,0.08)' }}>
+                                  <div style={{ height: '100%', borderRadius: 4, width: `${(data.totalMin / fnMax) * 100}%`, background: i === 0 ? '#4E79A7' : '#BAB0AC', opacity: i === 0 ? 1 : 0.6, transition: 'width 0.3s' }} />
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </>
