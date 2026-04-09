@@ -37,18 +37,11 @@ interface CompanyStat {
   complianceMet: number;
 }
 
-// ── Constants ──────────────────────────────────────────────────
-const EMP_TYPES: Record<string, string> = {
-  permanent: 'พนักงานประจำ', subcontract: 'ผู้รับเหมา', outsource: 'Outsource',
-  part_time: 'Part-time', dvt: 'ทวิภาคี',
-};
-const EMP_TYPE_COLORS: Record<string, string> = {
-  permanent: '#4E79A7', subcontract: '#F28E2B', outsource: '#B07AA1',
-  part_time: '#76B7B2', dvt: '#E15759',
-};
-const RESP_COLORS: Record<string, string> = {
-  Safety: '#f97316', Environment: '#22c55e', 'Occupational Health': '#4E79A7', Admin: '#BAB0AC',
-};
+// Colors imported from @/lib/she-theme
+import {
+  RESP_COLORS, EMP_TYPE_COLORS, EMP_TYPES, STATUS, PALETTE,
+  MISSING_DATA_COLOR, BULLET,
+} from '@/lib/she-theme';
 
 // ── Page ───────────────────────────────────────────────────────
 export default function AdminSHEWorkforcePage() {
@@ -165,15 +158,15 @@ export default function AdminSHEWorkforcePage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
                 <div style={kpiStyle}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>บุคลากร SHE ทั้งหมด</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#4E79A7', lineHeight: 1 }}>{totalSHE}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: PALETTE.primary, lineHeight: 1 }}>{totalSHE}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{allCompanyIds.length} บริษัท</div>
                 </div>
                 {(() => {
                   const lowCompliance = companyStats.filter(s => s.complianceRate < 100);
                   return (
-                    <div style={{ ...kpiStyle, borderColor: lowCompliance.length > 0 ? '#E1575944' : 'var(--border)', background: lowCompliance.length > 0 ? '#E1575908' : undefined }}>
+                    <div style={{ ...kpiStyle, borderColor: lowCompliance.length > 0 ? `${STATUS.critical}44` : 'var(--border)', background: lowCompliance.length > 0 ? `${STATUS.critical}08` : undefined }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>Compliance ไม่ผ่าน</div>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: lowCompliance.length > 0 ? '#E15759' : '#59A14F', lineHeight: 1 }}>{lowCompliance.length}</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: lowCompliance.length > 0 ? STATUS.critical : STATUS.ok, lineHeight: 1 }}>{lowCompliance.length}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{lowCompliance.length > 0 ? lowCompliance.map(s => getCompanyById(s.company_id)?.shortName || s.company_id).join(', ') : 'ทุกบริษัทผ่าน'}</div>
                     </div>
                   );
@@ -181,16 +174,16 @@ export default function AdminSHEWorkforcePage() {
                 {(() => {
                   const highRatio = companyStats.filter(s => s.ratio > 100);
                   return (
-                    <div style={{ ...kpiStyle, borderColor: highRatio.length > 0 ? '#F28E2B44' : 'var(--border)', background: highRatio.length > 0 ? '#F28E2B08' : undefined }}>
+                    <div style={{ ...kpiStyle, borderColor: highRatio.length > 0 ? `${STATUS.warning}44` : 'var(--border)', background: highRatio.length > 0 ? `${STATUS.warning}08` : undefined }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>SHE:พนักงาน เกิน 1:100</div>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: highRatio.length > 0 ? '#F28E2B' : '#59A14F', lineHeight: 1 }}>{highRatio.length}</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: highRatio.length > 0 ? STATUS.warning : STATUS.ok, lineHeight: 1 }}>{highRatio.length}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{highRatio.length > 0 ? highRatio.map(s => `${getCompanyById(s.company_id)?.shortName || s.company_id} (1:${s.ratio})`).join(', ') : 'ทุกบริษัทตามเกณฑ์'}</div>
                     </div>
                   );
                 })()}
                 <div style={kpiStyle}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>ตำแหน่งหลัก</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: '#4E79A7', lineHeight: 1 }}>{respDist.length}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: PALETTE.primary, lineHeight: 1 }}>{respDist.length}</div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Functions ที่ครอบคลุม</div>
                 </div>
               </div>
@@ -206,7 +199,7 @@ export default function AdminSHEWorkforcePage() {
                         <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{resp}</span>
                         <span style={{ fontWeight: 700, color: RESP_COLORS[resp] || '#BAB0AC' }}>{count}</span>
                       </div>
-                      <div style={{ height: 6, borderRadius: 3, background: 'rgba(107,114,128,0.08)' }}>
+                      <div style={{ height: 6, borderRadius: 3, background: BULLET.bgBand }}>
                         <div style={{ height: '100%', borderRadius: 3, width: `${(count / respMax) * 100}%`, background: RESP_COLORS[resp] || '#BAB0AC', transition: 'width 0.3s' }} />
                       </div>
                     </div>
@@ -224,14 +217,14 @@ export default function AdminSHEWorkforcePage() {
                         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{name}</span>
-                        <span style={{ fontSize: 18, fontWeight: 800, color: '#4E79A7', minWidth: 30, textAlign: 'right' }}>{stat.sheCount}</span>
-                        <span style={{ fontSize: 10, color: stat.ratio > 100 ? '#F28E2B' : 'var(--text-secondary)', fontWeight: stat.ratio > 100 ? 600 : 400, minWidth: 40 }}>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: PALETTE.primary, minWidth: 30, textAlign: 'right' }}>{stat.sheCount}</span>
+                        <span style={{ fontSize: 10, color: stat.ratio > 100 ? STATUS.warning : 'var(--text-secondary)', fontWeight: stat.ratio > 100 ? 600 : 400, minWidth: 40 }}>
                           {stat.ratio > 0 ? `1:${stat.ratio}` : '-'}
                         </span>
                         <span style={{
                           fontSize: 10, padding: '2px 6px', borderRadius: 4, fontWeight: 700,
-                          background: stat.complianceRate === 100 ? '#59A14F15' : '#E1575915',
-                          color: stat.complianceRate === 100 ? '#59A14F' : '#E15759',
+                          background: stat.complianceRate === 100 ? `${STATUS.ok}15` : `${STATUS.critical}15`,
+                          color: stat.complianceRate === 100 ? STATUS.ok : STATUS.critical,
                         }}>{stat.complianceRate}%</span>
                         <ChevronRight size={12} color="#94a3b8" />
                       </div>
@@ -312,13 +305,13 @@ export default function AdminSHEWorkforcePage() {
                             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{g.name}</span>
                             <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 8 }}>{g.fullName}</span>
                           </div>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#4E79A7' }}>{g.people.length} คน</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: PALETTE.primary }}>{g.people.length} คน</span>
                           {g.stat && (
                             <>
-                              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: g.stat.ratio > 100 ? '#F28E2B15' : 'rgba(107,114,128,0.08)', color: g.stat.ratio > 100 ? '#F28E2B' : 'var(--text-secondary)', fontWeight: 600 }}>
+                              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: g.stat.ratio > 100 ? `${STATUS.warning}15` : BULLET.bgBand, color: g.stat.ratio > 100 ? STATUS.warning : 'var(--text-secondary)', fontWeight: 600 }}>
                                 {g.stat.ratio > 0 ? `1:${g.stat.ratio}` : '-'}
                               </span>
-                              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: g.stat.complianceRate === 100 ? '#59A14F15' : '#E1575915', color: g.stat.complianceRate === 100 ? '#59A14F' : '#E15759', fontWeight: 700 }}>
+                              <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: g.stat.complianceRate === 100 ? `${STATUS.ok}15` : `${STATUS.critical}15`, color: g.stat.complianceRate === 100 ? STATUS.ok : STATUS.critical, fontWeight: 700 }}>
                                 {g.stat.complianceRate}%
                               </span>
                             </>
@@ -346,7 +339,7 @@ export default function AdminSHEWorkforcePage() {
                                     {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
                                   </td>
                                   <td style={tdStyle}>
-                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? '#59A14F15' : '#F28E2B15', color: p.is_she_team !== false ? '#59A14F' : '#F28E2B' }}>
+                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? `${STATUS.ok}15` : `${STATUS.warning}15`, color: p.is_she_team !== false ? STATUS.ok : STATUS.warning }}>
                                       {p.is_she_team !== false ? 'ทีม SHE' : 'แต่งตั้ง'}
                                     </span>
                                   </td>
@@ -411,7 +404,7 @@ export default function AdminSHEWorkforcePage() {
                                 {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
                               </td>
                               <td style={tdStyle}>
-                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? '#59A14F15' : '#F28E2B15', color: p.is_she_team !== false ? '#59A14F' : '#F28E2B' }}>
+                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? `${STATUS.ok}15` : `${STATUS.warning}15`, color: p.is_she_team !== false ? STATUS.ok : STATUS.warning }}>
                                   {p.is_she_team !== false ? 'ทีม SHE' : 'แต่งตั้ง'}
                                 </span>
                               </td>

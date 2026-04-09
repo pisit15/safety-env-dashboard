@@ -9,6 +9,10 @@ import {
   Users, ShieldCheck, Briefcase, Plus, Pencil, Trash2, X, Check,
   Search, AlertTriangle, FileText, ChevronDown,
 } from 'lucide-react';
+import {
+  RESP_COLORS, EMP_TYPE_COLORS, EMP_TYPES, STATUS, LICENSE, BULLET,
+  CATEGORY_COLORS, MISSING_DATA_COLOR, PALETTE,
+} from '@/lib/she-theme';
 
 // ── Types ──────────────────────────────────────────────────────
 interface Personnel {
@@ -67,17 +71,7 @@ interface Workload {
 const TABS = ['ภาพรวม', 'บุคลากร', 'ใบอนุญาต', 'วิเคราะห์ภาระงาน'];
 const POSITIONS = ['HSE Manager', 'จป.วิชาชีพ', 'จป.เทคนิค', 'Safety Supervisor', 'พนักงานปฏิบัติการ', 'เจ้าหน้าที่สิ่งแวดล้อม', 'ผู้ควบคุมมลพิษ', 'อื่นๆ'];
 const RESPONSIBILITIES = ['Safety', 'Environment', 'Occupational Health', 'Admin', 'อื่นๆ'];
-const EMP_TYPES: Record<string, string> = {
-  permanent: 'พนักงานประจำ', subcontract: 'ผู้รับเหมา', outsource: 'Outsource',
-  part_time: 'Part-time', dvt: 'ทวิภาคี',
-};
-const EMP_TYPE_COLORS: Record<string, string> = {
-  permanent: '#007aff', subcontract: '#ff9500', outsource: '#af52de',
-  part_time: '#5ac8fa', dvt: '#ff3b30',
-};
-const RESP_COLORS: Record<string, string> = {
-  Safety: '#f97316', Environment: '#22c55e', 'Occupational Health': '#007aff', Admin: '#6b7280',
-};
+// Colors imported from @/lib/she-theme
 const FREQ_LABELS: Record<string, string> = { daily: 'รายวัน', weekly: 'รายสัปดาห์', monthly: 'รายเดือน', yearly: 'รายปี' };
 const FREQ_MULTIPLIER: Record<string, number> = { daily: 232, weekly: 48, monthly: 12, yearly: 1 };
 const ANNUAL_MINUTES_PER_PERSON = 97440;
@@ -85,7 +79,7 @@ const ANNUAL_MINUTES_PER_PERSON = 97440;
 // ── Shared styles (outside component to avoid re-creation) ────
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', fontSize: 14, color: '#111', outline: 'none' };
 const selectStyle: React.CSSProperties = { ...inputStyle, appearance: 'none' as const, cursor: 'pointer' };
-const _btnPrimary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)', color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
+const _btnPrimary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: `linear-gradient(135deg, ${PALETTE.primary} 0%, #5856d6 100%)`, color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
 const _btnSecondary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: '#e5e7eb', color: '#374151', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
 
 // ── Modal (outside component to prevent re-mount on state change) ──
@@ -368,8 +362,8 @@ export default function SHEWorkforcePage() {
               <button key={i} onClick={() => setActiveTab(i)} style={{
                 padding: '12px 22px', fontSize: 14, fontWeight: activeTab === i ? 700 : 500, border: 'none', cursor: 'pointer',
                 background: activeTab === i ? 'var(--card-solid)' : 'transparent',
-                color: activeTab === i ? '#007aff' : 'var(--text-secondary)',
-                borderBottom: activeTab === i ? '3px solid #007aff' : '3px solid transparent',
+                color: activeTab === i ? PALETTE.primary : 'var(--text-secondary)',
+                borderBottom: activeTab === i ? `3px solid ${PALETTE.primary}` : '3px solid transparent',
                 transition: 'all 0.15s ease',
               }}>{tab}</button>
             ))}
@@ -388,38 +382,57 @@ export default function SHEWorkforcePage() {
               {/* ═══════ TAB 0: ภาพรวม ═══════ */}
               {activeTab === 0 && (
                 <div>
-                  {/* ── KPI Cards: Gray+One severity encoding ── */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-                    {/* Compliance Rate — most important */}
-                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${complianceRate === 100 ? '#BAB0AC44' : complianceRate >= 80 ? '#F28E2B44' : '#E1575966'}`, background: complianceRate === 100 ? 'var(--bg-secondary, #fff)' : complianceRate >= 80 ? '#F28E2B08' : '#E1575908' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>Compliance กฎหมาย</div>
-                      <div style={{ fontSize: 30, fontWeight: 800, color: complianceRate === 100 ? '#59A14F' : complianceRate >= 80 ? '#F28E2B' : '#E15759', lineHeight: 1 }}>{complianceRate}<span style={{ fontSize: 16, fontWeight: 700 }}>%</span></div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{complianceMet}/{requiredReqs.length} ประเภทผ่าน</div>
-                    </div>
+                  {/* ── KPI Cards: Hero compliance + 3 secondary ── */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+                    {/* Compliance Rate — HERO card (larger) */}
+                    {(() => {
+                      const cColor = complianceRate === 100 ? STATUS.ok : complianceRate >= 80 ? STATUS.warning : STATUS.critical;
+                      const cBg = complianceRate === 100 ? STATUS.okBg : complianceRate >= 80 ? STATUS.warningBg : STATUS.criticalBg;
+                      return (
+                        <div style={{ padding: '20px 18px', borderRadius: 12, border: `2px solid ${cColor}44`, background: cBg }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 8 }}>Compliance กฎหมาย</div>
+                          <div style={{ fontSize: 38, fontWeight: 800, color: cColor, lineHeight: 1 }}>{complianceRate}<span style={{ fontSize: 18, fontWeight: 700 }}>%</span></div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>{complianceMet}/{requiredReqs.length} ประเภทผ่าน</div>
+                          {/* Mini progress bar */}
+                          <div style={{ height: 5, borderRadius: 3, background: PALETTE.border, marginTop: 8 }}>
+                            <div style={{ height: '100%', borderRadius: 3, width: `${complianceRate}%`, background: cColor, transition: 'width 0.3s' }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {/* SHE : พนักงาน — with benchmark */}
-                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${ratioNum > 200 ? '#E1575966' : ratioNum > 100 ? '#F28E2B44' : '#BAB0AC44'}`, background: ratioNum > 200 ? '#E1575908' : 'var(--bg-secondary, #fff)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>SHE : พนักงาน</div>
-                      <div style={{ fontSize: 30, fontWeight: 800, color: ratioNum > 200 ? '#E15759' : ratioNum > 100 ? '#F28E2B' : '#59A14F', lineHeight: 1 }}>{ratio}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{employeeCount > 0 ? `${sheCount} SHE / ${employeeCount} คน` : 'ยังไม่มีข้อมูลพนักงาน'}</div>
-                      {ratioNum > 0 && <div style={{ fontSize: 10, color: ratioNum > 100 ? '#E15759' : '#59A14F', fontWeight: 600, marginTop: 2 }}>{ratioNum <= 100 ? 'ตามเกณฑ์กฎหมาย' : 'เกินเกณฑ์ 1:100'}</div>}
-                    </div>
+                    {(() => {
+                      const rColor = ratioNum > 200 ? STATUS.critical : ratioNum > 100 ? STATUS.warning : STATUS.ok;
+                      return (
+                        <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${ratioNum > 100 ? rColor + '44' : 'var(--border)'}`, background: ratioNum > 200 ? STATUS.criticalBg : 'var(--bg-secondary, #fff)' }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>SHE : พนักงาน</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: rColor, lineHeight: 1 }}>{ratio}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{employeeCount > 0 ? `${sheCount} SHE / ${employeeCount} คน` : 'ยังไม่มีข้อมูลพนักงาน'}</div>
+                          {ratioNum > 0 && <div style={{ fontSize: 10, color: rColor, fontWeight: 600, marginTop: 2 }}>{ratioNum <= 100 ? '● ตามเกณฑ์' : '▲ เกิน 1:100'}</div>}
+                        </div>
+                      );
+                    })()}
                     {/* บุคลากร SHE */}
                     <div style={{ padding: 16, borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary, #fff)' }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>บุคลากร SHE</div>
-                      <div style={{ fontSize: 30, fontWeight: 800, color: '#4E79A7', lineHeight: 1 }}>{sheCount}</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: STATUS.ok, lineHeight: 1 }}>{sheCount}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>{Object.keys(respMap).length} Functions ครอบคลุม</div>
                     </div>
                     {/* Workload Gap */}
-                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${manpowerGap < 0 ? '#E1575966' : '#BAB0AC44'}`, background: manpowerGap < 0 ? '#E1575908' : 'var(--bg-secondary, #fff)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>กำลังคน</div>
-                      <div style={{ fontSize: 30, fontWeight: 800, color: workload.length === 0 ? '#BAB0AC' : manpowerGap < 0 ? '#E15759' : '#59A14F', lineHeight: 1 }}>
-                        {workload.length === 0 ? '-' : manpowerGap >= 0 ? `+${manpowerGap.toFixed(1)}` : manpowerGap.toFixed(1)}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                        {workload.length === 0 ? 'ยังไม่มีข้อมูลภาระงาน' : `ต้องการ ${manpowerNeed.toFixed(1)} / มี ${sheCount} คน`}
-                      </div>
-                      {workload.length > 0 && <div style={{ fontSize: 10, color: manpowerGap < 0 ? '#E15759' : '#59A14F', fontWeight: 600, marginTop: 2 }}>{manpowerGap >= 0 ? 'เพียงพอ' : 'ขาดกำลังคน'}</div>}
-                    </div>
+                    {(() => {
+                      const gColor = workload.length === 0 ? STATUS.neutral : manpowerGap < 0 ? STATUS.critical : STATUS.positive;
+                      return (
+                        <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${manpowerGap < 0 ? gColor + '44' : 'var(--border)'}`, background: manpowerGap < 0 ? STATUS.criticalBg : 'var(--bg-secondary, #fff)' }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>กำลังคน</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: gColor, lineHeight: 1 }}>
+                            {workload.length === 0 ? '-' : manpowerGap >= 0 ? `+${manpowerGap.toFixed(1)}` : manpowerGap.toFixed(1)}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                            {workload.length === 0 ? 'ยังไม่มีข้อมูลภาระงาน' : `ต้องการ ${manpowerNeed.toFixed(1)} / มี ${sheCount}`}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* ── Charts Row: Responsibility + Employment Type (matching horizontal bars) ── */}
@@ -466,8 +479,8 @@ export default function SHEWorkforcePage() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>ใบอนุญาตตามกฎหมาย</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 10, color: 'var(--text-secondary)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 14, height: 6, borderRadius: 3, background: '#4E79A7', display: 'inline-block' }} /> มี</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 1, height: 14, background: '#E15759', display: 'inline-block' }} /> ต้องการ</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 14, height: 6, borderRadius: 3, background: BULLET.actual, display: 'inline-block' }} /> มี</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 1, height: 14, background: BULLET.target, display: 'inline-block' }} /> ต้องการ</span>
                       </div>
                     </div>
                     {requirements.length === 0 ? (
@@ -479,21 +492,21 @@ export default function SHEWorkforcePage() {
                           const needed = req.required_count || 0;
                           const maxBar = Math.max(held, needed, 1);
                           const ok = needed === 0 ? held > 0 : held >= needed;
-                          const catColor = req.category === 'safety' ? '#f97316' : req.category === 'environment' ? '#22c55e' : '#007aff';
+                          const catColor = CATEGORY_COLORS[req.category] || PALETTE.primary;
                           return (
                             <div key={req.id}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', minWidth: 120 }}>{req.short_name}</span>
                                 {req.category && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: `${catColor}15`, color: catColor, fontWeight: 600 }}>{req.category}</span>}
-                                {!req.is_required && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#BAB0AC20', color: '#BAB0AC', fontWeight: 600 }}>ไม่บังคับ</span>}
-                                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: ok ? '#59A14F' : '#E15759' }}>{held}{needed > 0 ? `/${needed}` : ''}</span>
+                                {!req.is_required && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: `${PALETTE.muted}20`, color: PALETTE.muted, fontWeight: 600 }}>ไม่บังคับ</span>}
+                                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: ok ? STATUS.ok : STATUS.warning }}>{held}{needed > 0 ? `/${needed}` : ''}</span>
                               </div>
-                              <div style={{ position: 'relative', height: 10, borderRadius: 5, background: 'rgba(107,114,128,0.06)' }}>
+                              <div style={{ position: 'relative', height: 10, borderRadius: 5, background: BULLET.bgBand }}>
                                 {/* Actual bar */}
-                                <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${(held / maxBar) * 100}%`, borderRadius: 5, background: ok ? '#59A14F' : '#4E79A7', opacity: ok ? 0.7 : 1, transition: 'width 0.3s' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${(held / maxBar) * 100}%`, borderRadius: 5, background: BULLET.actual, transition: 'width 0.3s' }} />
                                 {/* Target marker line */}
                                 {needed > 0 && (
-                                  <div style={{ position: 'absolute', top: -2, left: `${(needed / maxBar) * 100}%`, width: 2, height: 14, background: held >= needed ? '#59A14F' : '#E15759', borderRadius: 1 }} />
+                                  <div style={{ position: 'absolute', top: -2, left: `${(needed / maxBar) * 100}%`, width: 2, height: 14, background: BULLET.target, borderRadius: 1 }} />
                                 )}
                               </div>
                             </div>
@@ -536,7 +549,7 @@ export default function SHEWorkforcePage() {
                           <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.phone || '-'}</td>
                           <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                             <button onClick={() => { setEditP({ ...p }); setShowPModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color="var(--accent)" /></button>
-                            <button onClick={() => p.id && deletePersonnel(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color="#ff3b30" /></button>
+                            <button onClick={() => p.id && deletePersonnel(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={STATUS.critical} /></button>
                           </td>
                         </tr>
                       ))}
@@ -557,7 +570,7 @@ export default function SHEWorkforcePage() {
                     <div style={{ marginBottom: 24 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <ShieldCheck size={18} color="#34c759" />
+                          <ShieldCheck size={18} color={STATUS.ok} />
                           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>บุคลากรทีม SHE</span>
                           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>({sheFiltered.length} คน)</span>
                         </div>
@@ -574,7 +587,7 @@ export default function SHEWorkforcePage() {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <Users size={18} color="#ff9500" />
+                          <Users size={18} color={STATUS.warning} />
                           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>ผู้ได้รับแต่งตั้ง</span>
                           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>({appointedFiltered.length} คน) — จากแผนกอื่น ไม่นับเป็นบุคลากร SHE</span>
                         </div>
@@ -604,18 +617,18 @@ export default function SHEWorkforcePage() {
                         });
                         return (
                           <>
-                            <div style={{ padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${complianceRate === 100 ? '#59A14F44' : '#E1575944'}`, background: complianceRate === 100 ? '#59A14F08' : '#E1575908', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 18, fontWeight: 800, color: complianceRate === 100 ? '#59A14F' : '#E15759' }}>{complianceRate}%</span>
+                            <div style={{ padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${complianceRate === 100 ? `${STATUS.ok}44` : `${STATUS.critical}44`}`, background: complianceRate === 100 ? STATUS.okBg : STATUS.criticalBg, display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 18, fontWeight: 800, color: complianceRate === 100 ? STATUS.ok : STATUS.critical }}>{complianceRate}%</span>
                               <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Compliance ({complianceMet}/{requiredReqs.length})</span>
                             </div>
                             <div style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontSize: 18, fontWeight: 800, color: '#4E79A7' }}>{totalHeld}</span>
+                              <span style={{ fontSize: 18, fontWeight: 800, color: PALETTE.primary }}>{totalHeld}</span>
                               <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ใบอนุญาตที่มี</span>
                             </div>
                             {failReqs.length > 0 && (
-                              <div style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid #E1575944', background: '#E1575908', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <AlertTriangle size={14} color="#E15759" />
-                                <span style={{ fontSize: 11, color: '#E15759', fontWeight: 600 }}>ขาด: {failReqs.map(r => r.short_name).join(', ')}</span>
+                              <div style={{ padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${STATUS.critical}44`, background: STATUS.criticalBg, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <AlertTriangle size={14} color={STATUS.critical} />
+                                <span style={{ fontSize: 11, color: STATUS.critical, fontWeight: 600 }}>ขาด: {failReqs.map(r => r.short_name).join(', ')}</span>
                               </div>
                             )}
                           </>
@@ -626,8 +639,8 @@ export default function SHEWorkforcePage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
                       <span>คลิกที่ช่องเพื่อเปลี่ยนสถานะใบอนุญาต</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#007aff', display: 'inline-block' }} /> บริษัทต้องมี</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#d1d5db', display: 'inline-block' }} /> บุคลากรมี (ไม่บังคับ)</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: LICENSE.required, display: 'inline-block' }} /> บริษัทต้องมี</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: LICENSE.optional, display: 'inline-block' }} /> บุคลากรมี (ไม่บังคับ)</span>
                     </div>
                     <button onClick={() => { setEditR(emptyReq(companyId)); setShowRModal(true); }} style={{ ..._btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Plus size={16} /> เพิ่มประเภทใบอนุญาต
@@ -655,10 +668,10 @@ export default function SHEWorkforcePage() {
                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
                               <th style={{ ...thStyle, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 3, minWidth: 150 }}>ชื่อ</th>
                               {requirements.map(r => (
-                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80, borderBottom: r.is_required ? '3px solid #007aff' : '3px solid #d1d5db', cursor: 'pointer' }}
+                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80, borderBottom: r.is_required ? `3px solid ${LICENSE.required}` : `3px solid ${LICENSE.optional}`, cursor: 'pointer' }}
                                   onClick={() => { setEditR({ ...r }); setShowRModal(true); }}>
                                   <div style={{ fontSize: 11, lineHeight: 1.3 }}>{r.short_name}</div>
-                                  <div style={{ fontSize: 10, color: r.is_required ? '#007aff' : 'var(--text-secondary)', fontWeight: r.is_required ? 600 : 400 }}>{r.is_required ? 'บังคับ' : 'ไม่บังคับ'}</div>
+                                  <div style={{ fontSize: 10, color: r.is_required ? LICENSE.required : 'var(--text-secondary)', fontWeight: r.is_required ? 600 : 400 }}>{r.is_required ? 'บังคับ' : 'ไม่บังคับ'}</div>
                                   <Pencil size={10} style={{ marginTop: 2, opacity: 0.4 }} />
                                 </th>
                               ))}
@@ -669,7 +682,7 @@ export default function SHEWorkforcePage() {
                               <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <td style={{ ...tdStyle, fontWeight: 600, position: 'sticky', left: 0, background: 'var(--card-solid)', zIndex: 1, color: 'var(--text-primary)', minWidth: 150 }}>
                                   {p.full_name}
-                                  {p.is_she_team === false && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 10, background: '#ff950015', color: '#ff9500', fontWeight: 600, marginLeft: 4 }}>{p.department || 'แต่งตั้ง'}</span>}
+                                  {p.is_she_team === false && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 10, background: `${STATUS.warning}15`, color: STATUS.warning, fontWeight: 600, marginLeft: 4 }}>{p.department || 'แต่งตั้ง'}</span>}
                                 </td>
                                 {requirements.map(r => {
                                   const lic = licenses.find(l => l.personnel_id === p.id && l.requirement_type_id === r.id);
@@ -678,11 +691,11 @@ export default function SHEWorkforcePage() {
                                     <td key={r.id} style={{ ...tdStyle, textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
                                       onClick={() => p.id && r.id && toggleLicense(p.id, r.id)}>
                                       {has ? (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#34c75920', color: '#34c759' }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: LICENSE.hasBg, color: LICENSE.has }}>
                                           <Check size={16} />
                                         </span>
                                       ) : (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#ff3b3010', color: '#ff3b3060' }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: LICENSE.missingBg, color: LICENSE.missing }}>
                                           <X size={14} />
                                         </span>
                                       )}
@@ -699,9 +712,9 @@ export default function SHEWorkforcePage() {
                                 const isOk = !r.is_required || count >= (r.required_count || 1);
                                 return (
                                   <td key={r.id} style={{ ...tdStyle, textAlign: 'center', fontWeight: 700 }}>
-                                    <span style={{ color: r.is_required ? (isOk ? '#34c759' : '#ff3b30') : 'var(--text-secondary)' }}>{count}</span>
+                                    <span style={{ color: r.is_required ? (isOk ? STATUS.ok : STATUS.warning) : 'var(--text-secondary)' }}>{count}</span>
                                     {r.is_required && r.required_count > 0 && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>/{r.required_count}</span>}
-                                    {r.is_required && r.required_count === 0 && count === 0 && <span style={{ color: '#ff3b30', fontSize: 10, display: 'block' }}>ขาด</span>}
+                                    {r.is_required && r.required_count === 0 && count === 0 && <span style={{ color: STATUS.warning, fontSize: 10, display: 'block' }}>ขาด</span>}
                                   </td>
                                 );
                               })}
@@ -727,19 +740,17 @@ export default function SHEWorkforcePage() {
                   {/* ── Summary: Capacity vs Demand visual ── */}
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 20 }}>
                     {/* Capacity bar */}
-                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${manpowerGap < 0 ? '#E1575944' : 'var(--border)'}`, background: manpowerGap < 0 ? '#E1575906' : 'var(--card-solid, var(--bg-secondary))' }}>
+                    <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${manpowerGap < 0 ? `${STATUS.critical}44` : 'var(--border)'}`, background: manpowerGap < 0 ? `${STATUS.critical}06` : 'var(--card-solid, var(--bg-secondary))' }}>
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>กำลังคน: ความต้องการ vs ปัจจุบัน</p>
                       <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
-                        ต้องการ <b style={{ color: '#4E79A7' }}>{manpowerNeed.toFixed(1)}</b> คน · มี <b style={{ color: '#59A14F' }}>{sheCount}</b> คน · {manpowerGap >= 0 ? <span style={{ color: '#59A14F' }}>เหลือ {manpowerGap.toFixed(1)}</span> : <span style={{ color: '#E15759', fontWeight: 700 }}>ขาด {Math.abs(manpowerGap).toFixed(1)}</span>}
+                        ต้องการ <b style={{ color: BULLET.target }}>{manpowerNeed.toFixed(1)}</b> คน · มี <b style={{ color: BULLET.actual }}>{sheCount}</b> คน · {manpowerGap >= 0 ? <span style={{ color: STATUS.ok }}>เหลือ {manpowerGap.toFixed(1)}</span> : <span style={{ color: STATUS.critical, fontWeight: 700 }}>ขาด {Math.abs(manpowerGap).toFixed(1)}</span>}
                       </p>
                       {workload.length > 0 ? (
-                        <div style={{ position: 'relative', height: 28, borderRadius: 8, background: 'rgba(107,114,128,0.06)', overflow: 'hidden' }}>
-                          {/* Demand bar */}
-                          <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${Math.min((manpowerNeed / Math.max(sheCount, manpowerNeed)) * 100, 100)}%`, borderRadius: 8, background: '#4E79A7', opacity: 0.25 }} />
-                          {/* Capacity bar */}
-                          <div style={{ position: 'absolute', top: 4, left: 0, height: 20, width: `${Math.min((sheCount / Math.max(sheCount, manpowerNeed)) * 100, 100)}%`, borderRadius: 6, background: manpowerGap >= 0 ? '#59A14F' : '#E15759', transition: 'width 0.3s' }} />
-                          {/* Target line at demand */}
-                          <div style={{ position: 'absolute', top: 0, left: `${(manpowerNeed / Math.max(sheCount, manpowerNeed)) * 100}%`, width: 2, height: '100%', background: '#4E79A7', borderRadius: 1 }} />
+                        <div style={{ position: 'relative', height: 28, borderRadius: 8, background: BULLET.bgBand, overflow: 'hidden' }}>
+                          {/* Actual bar (Few-style bullet chart) */}
+                          <div style={{ position: 'absolute', top: 4, left: 0, height: 20, width: `${Math.min((sheCount / Math.max(sheCount, manpowerNeed)) * 100, 100)}%`, borderRadius: 6, background: BULLET.actual, transition: 'width 0.3s' }} />
+                          {/* Target line (red reference marker) */}
+                          <div style={{ position: 'absolute', top: 0, left: `${(manpowerNeed / Math.max(sheCount, manpowerNeed)) * 100}%`, width: 2, height: '100%', background: BULLET.target, borderRadius: 1 }} />
                           {/* Labels */}
                           <div style={{ position: 'absolute', top: 6, left: 8, fontSize: 10, fontWeight: 700, color: '#fff' }}>มี {sheCount}</div>
                         </div>
@@ -747,8 +758,8 @@ export default function SHEWorkforcePage() {
                         <div style={{ padding: 12, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12, background: 'rgba(107,114,128,0.04)', borderRadius: 8 }}>เพิ่มข้อมูลภาระงานเพื่อคำนวณ</div>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8, fontSize: 10, color: 'var(--text-secondary)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 6, borderRadius: 3, background: manpowerGap >= 0 ? '#59A14F' : '#E15759', display: 'inline-block' }} /> กำลังคนปัจจุบัน</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 6, borderRadius: 3, background: '#4E79A7', opacity: 0.25, display: 'inline-block' }} /> ความต้องการ</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 6, borderRadius: 3, background: BULLET.actual, display: 'inline-block' }} /> กำลังคนปัจจุบัน</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 2, height: 12, borderRadius: 1, background: BULLET.target, display: 'inline-block' }} /> เป้าหมาย</span>
                         <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--muted, #999)' }}>สูตร: เวลารวม ÷ 97,440 นาที/ปี/คน</span>
                       </div>
                     </div>
@@ -793,14 +804,14 @@ export default function SHEWorkforcePage() {
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_level1 || '-'}</td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_level2 || '-'}</td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_level3 || '-'}</td>
-                                <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: w.job_rank === 'A' ? '#ff3b3015' : w.job_rank === 'B' ? '#ff950015' : '#007aff15', color: w.job_rank === 'A' ? '#ff3b30' : w.job_rank === 'B' ? '#ff9500' : '#007aff', fontWeight: 700 }}>{w.job_rank}</span></td>
+                                <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: w.job_rank === 'A' ? `${STATUS.critical}15` : w.job_rank === 'B' ? `${STATUS.warning}15` : `${PALETTE.primary}15`, color: w.job_rank === 'A' ? STATUS.critical : w.job_rank === 'B' ? STATUS.warning : PALETTE.primary, fontWeight: 700 }}>{w.job_rank}</span></td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_type === 'fixed' ? 'Fixed' : 'Variable'}</td>
                                 <td style={{ ...tdStyle, textAlign: 'right' }}>{w.time_usage_min.toLocaleString()}</td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{FREQ_LABELS[w.frequency] || w.frequency} ×{w.frequency_count}</td>
                                 <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)' }}>{annual.toLocaleString()}</td>
                                 <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                                   <button onClick={() => { setEditW({ ...w }); setShowWModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color="var(--accent)" /></button>
-                                  <button onClick={() => w.id && deleteWorkload(w.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color="#ff3b30" /></button>
+                                  <button onClick={() => w.id && deleteWorkload(w.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color={STATUS.critical} /></button>
                                 </td>
                               </tr>
                             );
@@ -825,10 +836,10 @@ export default function SHEWorkforcePage() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{fn}</span>
                                   <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{data.entries} งาน</span>
-                                  <span style={{ fontSize: 11, fontWeight: 700, color: '#4E79A7', minWidth: 45, textAlign: 'right' }}>{manpower.toFixed(1)} คน</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: PALETTE.primary, minWidth: 45, textAlign: 'right' }}>{manpower.toFixed(1)} คน</span>
                                 </div>
-                                <div style={{ height: 7, borderRadius: 4, background: 'rgba(107,114,128,0.08)' }}>
-                                  <div style={{ height: '100%', borderRadius: 4, width: `${(data.totalMin / fnMax) * 100}%`, background: i === 0 ? '#4E79A7' : '#BAB0AC', opacity: i === 0 ? 1 : 0.6, transition: 'width 0.3s' }} />
+                                <div style={{ height: 7, borderRadius: 4, background: BULLET.bgBand }}>
+                                  <div style={{ height: '100%', borderRadius: 4, width: `${(data.totalMin / fnMax) * 100}%`, background: PALETTE.primary, transition: 'width 0.3s' }} />
                                 </div>
                               </div>
                             );
@@ -849,8 +860,8 @@ export default function SHEWorkforcePage() {
         <Modal show={showPModal} title={editP?.id ? 'แก้ไขบุคลากร' : 'เพิ่มบุคลากร'} onClose={() => { setShowPModal(false); setEditP(null); }} onSave={savePersonnel} saving={saving}>
           {editP && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editP.is_she_team !== false ? '#34c75910' : '#ff950010', border: `1px solid ${editP.is_she_team !== false ? '#34c75930' : '#ff950030'}`, cursor: 'pointer' }} onClick={() => setEditP({ ...editP, is_she_team: !editP.is_she_team, department: !editP.is_she_team ? 'HSE' : editP.department })}>
-                <div style={{ width: 40, height: 22, borderRadius: 11, background: editP.is_she_team !== false ? '#34c759' : '#ff9500', position: 'relative', transition: 'background 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editP.is_she_team !== false ? `${STATUS.ok}10` : `${STATUS.warning}10`, border: `1px solid ${editP.is_she_team !== false ? `${STATUS.ok}30` : `${STATUS.warning}30`}`, cursor: 'pointer' }} onClick={() => setEditP({ ...editP, is_she_team: !editP.is_she_team, department: !editP.is_she_team ? 'HSE' : editP.department })}>
+                <div style={{ width: 40, height: 22, borderRadius: 11, background: editP.is_she_team !== false ? STATUS.ok : STATUS.warning, position: 'relative', transition: 'background 0.2s' }}>
                   <div style={{ width: 18, height: 18, borderRadius: 9, background: '#fff', position: 'absolute', top: 2, left: editP.is_she_team !== false ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                 </div>
                 <div>
@@ -920,8 +931,8 @@ export default function SHEWorkforcePage() {
                 </div>
                 <div><FieldLabel>จำนวนที่กฎหมายกำหนด</FieldLabel><input style={inputStyle} type="number" min="0" value={editR.required_count} onChange={e => setEditR({ ...editR, required_count: parseInt(e.target.value) || 0 })} /></div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editR.is_required ? '#007aff10' : '#f3f4f6', border: `1px solid ${editR.is_required ? '#007aff30' : '#e5e7eb'}`, cursor: 'pointer' }} onClick={() => setEditR({ ...editR, is_required: !editR.is_required })}>
-                <div style={{ width: 40, height: 22, borderRadius: 11, background: editR.is_required ? '#007aff' : '#d1d5db', position: 'relative', transition: 'background 0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editR.is_required ? `${PALETTE.primary}10` : '#f3f4f6', border: `1px solid ${editR.is_required ? `${PALETTE.primary}30` : '#e5e7eb'}`, cursor: 'pointer' }} onClick={() => setEditR({ ...editR, is_required: !editR.is_required })}>
+                <div style={{ width: 40, height: 22, borderRadius: 11, background: editR.is_required ? PALETTE.primary : '#d1d5db', position: 'relative', transition: 'background 0.2s' }}>
                   <div style={{ width: 18, height: 18, borderRadius: 9, background: '#fff', position: 'absolute', top: 2, left: editR.is_required ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
                 </div>
                 <div>
