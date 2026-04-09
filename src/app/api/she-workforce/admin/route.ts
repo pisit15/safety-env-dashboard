@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
+import { COMPANIES } from '@/lib/companies';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,9 +47,9 @@ export async function GET() {
       if (!latestMH[cid]) latestMH[cid] = (m.employee_count as number) || 0;
     });
 
-    // Build per-company stats
-    const companyIds = Array.from(new Set((personnel || []).map((p: Record<string, unknown>) => p.company_id as string)));
-    const companyStats = companyIds.map(cid => {
+    // Build per-company stats — use ALL companies from config, not just those with personnel
+    const companyStats = COMPANIES.map(company => {
+      const cid = company.id;
       const pList = (personnel || []).filter((p: Record<string, unknown>) => p.company_id === cid);
       const reqList = (requirements || []).filter((r: Record<string, unknown>) => r.company_id === cid);
       const requiredReqs = reqList.filter((r: Record<string, unknown>) => r.is_required);
@@ -65,6 +66,7 @@ export async function GET() {
 
       return {
         company_id: cid,
+        companyName: company.name,
         sheCount,
         employeeCount: empCount,
         ratio,

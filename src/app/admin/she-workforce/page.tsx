@@ -28,6 +28,7 @@ interface Personnel {
 
 interface CompanyStat {
   company_id: string;
+  companyName?: string;
   sheCount: number;
   employeeCount: number;
   ratio: number;
@@ -81,7 +82,8 @@ export default function AdminSHEWorkforcePage() {
 
   // ── Computed ──
   const totalSHE = personnel.length;
-  const companyIds = useMemo(() => Array.from(new Set(personnel.map(p => p.company_id))), [personnel]);
+  const allCompanyIds = useMemo(() => companyStats.map(s => s.company_id), [companyStats]);
+  const companiesWithPersonnel = useMemo(() => Array.from(new Set(personnel.map(p => p.company_id))), [personnel]);
 
   const filtered = useMemo(() => {
     return personnel.filter(p => {
@@ -140,7 +142,7 @@ export default function AdminSHEWorkforcePage() {
                 <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>SHE Workforce — ภาพรวมทุกบริษัท</h1>
               </div>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                บุคลากรด้านความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม ทั้ง {companyIds.length} บริษัท
+                บุคลากรด้านความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม ทั้ง {allCompanyIds.length} บริษัท
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -162,7 +164,7 @@ export default function AdminSHEWorkforcePage() {
                 <div style={kpiStyle}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>บุคลากร SHE ทั้งหมด</div>
                   <div style={{ fontSize: 28, fontWeight: 800, color: '#4E79A7', lineHeight: 1 }}>{totalSHE}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{companyIds.length} บริษัท</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>{allCompanyIds.length} บริษัท</div>
                 </div>
                 {(() => {
                   const lowCompliance = companyStats.filter(s => s.complianceRate < 100);
@@ -211,9 +213,8 @@ export default function AdminSHEWorkforcePage() {
                 {/* Company cards */}
                 <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>จำนวนบุคลากรต่อบริษัท</p>
-                  {companyStats.sort((a, b) => b.sheCount - a.sheCount).map(stat => {
-                    const c = getCompanyById(stat.company_id);
-                    const name = c?.shortName || stat.company_id.toUpperCase();
+                  {[...companyStats].sort((a, b) => b.sheCount - a.sheCount).map(stat => {
+                    const name = stat.companyName || getCompanyById(stat.company_id)?.shortName || stat.company_id.toUpperCase();
                     return (
                       <div key={stat.company_id}
                         onClick={() => router.push(`/company/${stat.company_id}/she-workforce`)}
@@ -256,9 +257,11 @@ export default function AdminSHEWorkforcePage() {
                 <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)}
                   style={selectStyle}>
                   <option value="">ทุกบริษัท</option>
-                  {companyIds.map(cid => (
-                    <option key={cid} value={cid}>{getCompanyById(cid)?.shortName || cid.toUpperCase()}</option>
-                  ))}
+                  {allCompanyIds.map(cid => {
+                    const stat = companyStats.find(s => s.company_id === cid);
+                    const name = stat?.companyName || getCompanyById(cid)?.shortName || cid.toUpperCase();
+                    return <option key={cid} value={cid}>{name}</option>;
+                  })}
                 </select>
                 <select value={filterResp} onChange={e => setFilterResp(e.target.value)}
                   style={selectStyle}>
@@ -281,15 +284,19 @@ export default function AdminSHEWorkforcePage() {
 
               {/* ── Company-grouped view ── */}
               {viewMode === 'company' && (() => {
-                const groups = companyIds
-                  .map(cid => ({
-                    id: cid,
-                    name: getCompanyById(cid)?.shortName || cid.toUpperCase(),
-                    fullName: getCompanyById(cid)?.fullName || getCompanyById(cid)?.name || cid,
-                    people: filtered.filter(p => p.company_id === cid),
-                    stat: companyStats.find(s => s.company_id === cid),
-                  }))
-                  .filter(g => g.people.length > 0)
+                const groups = allCompanyIds
+                  .map(cid => {
+                    const stat = companyStats.find(s => s.company_id === cid);
+                    const c = getCompanyById(cid);
+                    return {
+                      id: cid,
+                      name: stat?.companyName || c?.shortName || cid.toUpperCase(),
+                      fullName: c?.fullName || c?.name || cid,
+                      people: filtered.filter(p => p.company_id === cid),
+                      stat,
+                    };
+                  })
+                  .filter(g => !filterCompany || g.id === filterCompany) // respect company filter even for 0-person companies
                   .sort((a, b) => b.people.length - a.people.length);
 
                 return (
@@ -319,39 +326,46 @@ export default function AdminSHEWorkforcePage() {
                           </button>
                         </div>
                         {/* Personnel table */}
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                              {['#', 'ชื่อ-นามสกุล', 'ประเภท', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร'].map(h => (
-                                <th key={h} style={thStyle}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {g.people.map((p, i) => (
-                              <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                <td style={{ ...tdStyle, color: 'var(--text-secondary)', width: 36 }}>{i + 1}</td>
-                                <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                  {p.full_name}
-                                  {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
-                                </td>
-                                <td style={tdStyle}>
-                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? '#59A14F15' : '#F28E2B15', color: p.is_she_team !== false ? '#59A14F' : '#F28E2B' }}>
-                                    {p.is_she_team !== false ? 'ทีม SHE' : 'แต่งตั้ง'}
-                                  </span>
-                                </td>
-                                <td style={{ ...tdStyle, fontSize: 12 }}>{p.position || '-'}</td>
-                                <td style={tdStyle}>
-                                  {p.responsibility && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${RESP_COLORS[p.responsibility] || '#BAB0AC'}15`, color: RESP_COLORS[p.responsibility] || '#BAB0AC', fontWeight: 600 }}>{p.responsibility}</span>}
-                                </td>
-                                <td style={tdStyle}>
-                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${EMP_TYPE_COLORS[p.employment_type] || '#BAB0AC'}15`, color: EMP_TYPE_COLORS[p.employment_type] || '#BAB0AC', fontWeight: 600 }}>{EMP_TYPES[p.employment_type] || p.employment_type}</span>
-                                </td>
-                                <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.phone || '-'}</td>
+                        {g.people.length > 0 ? (
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                {['#', 'ชื่อ-นามสกุล', 'ประเภท', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร'].map(h => (
+                                  <th key={h} style={thStyle}>{h}</th>
+                                ))}
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {g.people.map((p, i) => (
+                                <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                  <td style={{ ...tdStyle, color: 'var(--text-secondary)', width: 36 }}>{i + 1}</td>
+                                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    {p.full_name}
+                                    {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
+                                  </td>
+                                  <td style={tdStyle}>
+                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? '#59A14F15' : '#F28E2B15', color: p.is_she_team !== false ? '#59A14F' : '#F28E2B' }}>
+                                      {p.is_she_team !== false ? 'ทีม SHE' : 'แต่งตั้ง'}
+                                    </span>
+                                  </td>
+                                  <td style={{ ...tdStyle, fontSize: 12 }}>{p.position || '-'}</td>
+                                  <td style={tdStyle}>
+                                    {p.responsibility && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${RESP_COLORS[p.responsibility] || '#BAB0AC'}15`, color: RESP_COLORS[p.responsibility] || '#BAB0AC', fontWeight: 600 }}>{p.responsibility}</span>}
+                                  </td>
+                                  <td style={tdStyle}>
+                                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${EMP_TYPE_COLORS[p.employment_type] || '#BAB0AC'}15`, color: EMP_TYPE_COLORS[p.employment_type] || '#BAB0AC', fontWeight: 600 }}>{EMP_TYPES[p.employment_type] || p.employment_type}</span>
+                                  </td>
+                                  <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.phone || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+                            <Users size={18} style={{ margin: '0 auto 6px', opacity: 0.3, display: 'block' }} />
+                            ยังไม่มีบุคลากร SHE — <button onClick={() => router.push(`/company/${g.id}/she-workforce`)} style={{ background: 'none', border: 'none', color: 'var(--accent, #007aff)', fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 13 }}>เพิ่มบุคลากร</button>
+                          </div>
+                        )}
                       </div>
                     ))}
                     {groups.length === 0 && (
