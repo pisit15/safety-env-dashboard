@@ -68,7 +68,7 @@ const MENU_GROUPS: MenuGroup[] = [
       { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: Clock, hqHref: '', companyPath: '/manhours', ready: 'companyOnly' },
       { id: 'projects', label: 'โครงการพิเศษ', icon: FolderKanban, hqHref: '', companyPath: '/projects', ready: 'companyOnly' },
       { id: 'guide', label: 'คู่มือการใช้งาน', icon: BookOpen, hqHref: '', companyPath: '/guide', ready: 'companyOnly' },
-      { id: 'she-workforce', label: 'SHE Workforce', icon: Briefcase, hqHref: '/she-workforce', companyPath: '/she-workforce', ready: true, superOnly: true },
+      { id: 'she-workforce', label: 'SHE Workforce', icon: Briefcase, hqHref: '/admin/she-workforce', companyPath: '/she-workforce', ready: true, superOnly: true },
     ],
   },
   {
