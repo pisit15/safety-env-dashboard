@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
@@ -81,6 +81,36 @@ const RESP_COLORS: Record<string, string> = {
 const FREQ_LABELS: Record<string, string> = { daily: 'รายวัน', weekly: 'รายสัปดาห์', monthly: 'รายเดือน', yearly: 'รายปี' };
 const FREQ_MULTIPLIER: Record<string, number> = { daily: 232, weekly: 48, monthly: 12, yearly: 1 };
 const ANNUAL_MINUTES_PER_PERSON = 97440;
+
+// ── Shared styles (outside component to avoid re-creation) ────
+const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', fontSize: 14, color: '#111', outline: 'none' };
+const selectStyle: React.CSSProperties = { ...inputStyle, appearance: 'none' as const, cursor: 'pointer' };
+const _btnPrimary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)', color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
+const _btnSecondary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: '#e5e7eb', color: '#374151', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
+
+// ── Modal (outside component to prevent re-mount on state change) ──
+function Modal({ show, title, onClose, onSave, saving, children }: { show: boolean; title: string; onClose: () => void; onSave: () => void; saving?: boolean; children: React.ReactNode }) {
+  if (!show) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="rounded-2xl w-full max-w-[500px] overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #0f3460 0%, #533483 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={16} color="#fff" /></button>
+        </div>
+        <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>{children}</div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button style={_btnSecondary} onClick={onClose}>ยกเลิก</button>
+          <button style={{ ..._btnPrimary, opacity: saving ? 0.6 : 1 }} onClick={onSave} disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>{children}</label>;
+}
 
 // ── Helper ─────────────────────────────────────────────────────
 function emptyPersonnel(companyId: string): Personnel {
@@ -261,34 +291,6 @@ export default function SHEWorkforcePage() {
   // ── Styles ──────────────────────────────────────────────────
   const thStyle: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' };
   const tdStyle: React.CSSProperties = { padding: '10px 14px', fontSize: 13 };
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', fontSize: 14, color: '#111', outline: 'none' };
-  const selectStyle: React.CSSProperties = { ...inputStyle, appearance: 'none' as const, cursor: 'pointer' };
-  const btnPrimary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)', color: '#fff', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
-  const btnSecondary: React.CSSProperties = { padding: '10px 20px', borderRadius: 10, background: '#e5e7eb', color: '#374151', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer' };
-
-  // ── Modal wrapper ───────────────────────────────────────────
-  const Modal = ({ show, title, onClose, onSave, children }: { show: boolean; title: string; onClose: () => void; onSave: () => void; children: React.ReactNode }) => {
-    if (!show) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-        <div className="rounded-2xl w-full max-w-[500px] overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-          <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #0f3460 0%, #533483 100%)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{title}</h3>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={16} color="#fff" /></button>
-          </div>
-          <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>{children}</div>
-          <div style={{ padding: '12px 20px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button style={btnSecondary} onClick={onClose}>ยกเลิก</button>
-            <button style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }} onClick={onSave} disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>{children}</label>
-  );
 
   // ================================================================
   return (
@@ -435,10 +437,10 @@ export default function SHEWorkforcePage() {
                       <input placeholder="ค้นหาชื่อ, ตำแหน่ง..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ ...inputStyle, paddingLeft: 36, background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => { setEditP({ ...emptyPersonnel(companyId), is_she_team: false, department: '' }); setShowPModal(true); }} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13 }}>
+                      <button onClick={() => { setEditP({ ...emptyPersonnel(companyId), is_she_team: false, department: '' }); setShowPModal(true); }} style={{ ..._btnSecondary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13 }}>
                         <Plus size={14} /> ผู้ได้รับแต่งตั้ง
                       </button>
-                      <button onClick={() => { setEditP(emptyPersonnel(companyId)); setShowPModal(true); }} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                      <button onClick={() => { setEditP(emptyPersonnel(companyId)); setShowPModal(true); }} style={{ ..._btnPrimary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                         <Plus size={16} /> เพิ่มบุคลากร SHE
                       </button>
                     </div>
@@ -501,7 +503,7 @@ export default function SHEWorkforcePage() {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#007aff', display: 'inline-block' }} /> บริษัทต้องมี</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#d1d5db', display: 'inline-block' }} /> บุคลากรมี (ไม่บังคับ)</span>
                     </div>
-                    <button onClick={() => { setEditR(emptyReq(companyId)); setShowRModal(true); }} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button onClick={() => { setEditR(emptyReq(companyId)); setShowRModal(true); }} style={{ ..._btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Plus size={16} /> เพิ่มประเภทใบอนุญาต
                     </button>
                   </div>
@@ -584,7 +586,7 @@ export default function SHEWorkforcePage() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                     <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>วิเคราะห์ภาระงานและคำนวณจำนวนคนที่ต้องการ</p>
-                    <button onClick={() => { setEditW(emptyWorkload(companyId)); setShowWModal(true); }} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button onClick={() => { setEditW(emptyWorkload(companyId)); setShowWModal(true); }} style={{ ..._btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Plus size={16} /> เพิ่มรายการ
                     </button>
                   </div>
@@ -674,7 +676,7 @@ export default function SHEWorkforcePage() {
         {/* ═══════ MODALS ═══════ */}
 
         {/* Personnel Modal */}
-        <Modal show={showPModal} title={editP?.id ? 'แก้ไขบุคลากร' : 'เพิ่มบุคลากร'} onClose={() => { setShowPModal(false); setEditP(null); }} onSave={savePersonnel}>
+        <Modal show={showPModal} title={editP?.id ? 'แก้ไขบุคลากร' : 'เพิ่มบุคลากร'} onClose={() => { setShowPModal(false); setEditP(null); }} onSave={savePersonnel} saving={saving}>
           {editP && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: editP.is_she_team !== false ? '#34c75910' : '#ff950010', border: `1px solid ${editP.is_she_team !== false ? '#34c75930' : '#ff950030'}`, cursor: 'pointer' }} onClick={() => setEditP({ ...editP, is_she_team: !editP.is_she_team, department: !editP.is_she_team ? 'HSE' : editP.department })}>
@@ -730,7 +732,7 @@ export default function SHEWorkforcePage() {
         </Modal>
 
         {/* Requirement Modal */}
-        <Modal show={showRModal} title={editR?.id ? 'แก้ไขประเภทใบอนุญาต' : 'เพิ่มประเภทใบอนุญาต'} onClose={() => { setShowRModal(false); setEditR(null); }} onSave={saveReq}>
+        <Modal show={showRModal} title={editR?.id ? 'แก้ไขประเภทใบอนุญาต' : 'เพิ่มประเภทใบอนุญาต'} onClose={() => { setShowRModal(false); setEditR(null); }} onSave={saveReq} saving={saving}>
           {editR && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div><FieldLabel>ชื่อเต็ม *</FieldLabel><input style={inputStyle} placeholder="เจ้าหน้าที่ความปลอดภัยระดับวิชาชีพ" value={editR.name} onChange={e => setEditR({ ...editR, name: e.target.value })} /></div>
@@ -764,7 +766,7 @@ export default function SHEWorkforcePage() {
         </Modal>
 
         {/* Workload Modal */}
-        <Modal show={showWModal} title={editW?.id ? 'แก้ไขรายการ' : 'เพิ่มรายการภาระงาน'} onClose={() => { setShowWModal(false); setEditW(null); }} onSave={saveWorkload}>
+        <Modal show={showWModal} title={editW?.id ? 'แก้ไขรายการ' : 'เพิ่มรายการภาระงาน'} onClose={() => { setShowWModal(false); setEditW(null); }} onSave={saveWorkload} saving={saving}>
           {editW && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div><FieldLabel>Function</FieldLabel><input style={inputStyle} placeholder="Safety & Health" value={editW.function_name} onChange={e => setEditW({ ...editW, function_name: e.target.value })} /></div>
