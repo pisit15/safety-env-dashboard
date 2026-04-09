@@ -266,6 +266,11 @@ export async function POST(request: NextRequest) {
     const injuredPersons = body.injured_persons;
     delete body.injured_persons;
 
+    // Strip computed/non-DB fields
+    const NON_DB_FIELDS = ['totalCostVal', 'injured_persons_list', '_computed', '_index'];
+    NON_DB_FIELDS.forEach(f => delete body[f]);
+    Object.keys(body).forEach(k => { if (k.startsWith('_')) delete body[k]; });
+
     const { data, error } = await supabase.from('incidents').insert(body).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -301,6 +306,12 @@ export async function PUT(request: NextRequest) {
     // Separate injured persons
     const injuredPersons = fields.injured_persons;
     delete fields.injured_persons;
+
+    // Strip computed/non-DB fields that may leak from client
+    const NON_DB_FIELDS = ['totalCostVal', 'injured_persons_list', '_computed', '_index'];
+    NON_DB_FIELDS.forEach(f => delete fields[f]);
+    // Also strip any field starting with underscore (client-side computed)
+    Object.keys(fields).forEach(k => { if (k.startsWith('_')) delete fields[k]; });
 
     let query = supabase.from('incidents').update(fields);
     if (id) query = query.eq('id', id);
