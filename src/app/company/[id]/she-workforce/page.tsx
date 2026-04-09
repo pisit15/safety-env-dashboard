@@ -282,7 +282,9 @@ export default function SHEWorkforcePage() {
   }
 
   // ── Computed ─────────────────────────────────────────────────
-  const sheCount = personnel.length;
+  // "แต่งตั้ง" (is_she_team=false) ไม่นับเป็นบุคลากร SHE — ใช้เฉพาะ sheTeam สำหรับ KPI
+  const sheTeam = personnel.filter(p => p.is_she_team !== false);
+  const sheCount = sheTeam.length;
   const ratioNum = employeeCount > 0 && sheCount > 0 ? Math.round(employeeCount / sheCount) : 0;
   const ratio = ratioNum > 0 ? `1:${ratioNum}` : '-';
   const totalLicensed = licenses.filter(l => l.has_license).length;
@@ -296,14 +298,14 @@ export default function SHEWorkforcePage() {
   }).length;
   const complianceRate = requiredReqs.length > 0 ? Math.round((complianceMet / requiredReqs.length) * 100) : 100;
 
-  // Responsibility breakdown
+  // Responsibility breakdown (SHE team only)
   const respMap: Record<string, number> = {};
-  personnel.forEach(p => { const r = p.responsibility || 'อื่นๆ'; respMap[r] = (respMap[r] || 0) + 1; });
+  sheTeam.forEach(p => { const r = p.responsibility || 'อื่นๆ'; respMap[r] = (respMap[r] || 0) + 1; });
   const maxResp = Math.max(...Object.values(respMap), 1);
 
-  // Employment type breakdown
+  // Employment type breakdown (SHE team only)
   const empMap: Record<string, number> = {};
-  personnel.forEach(p => { const t = p.employment_type || 'permanent'; empMap[t] = (empMap[t] || 0) + 1; });
+  sheTeam.forEach(p => { const t = p.employment_type || 'permanent'; empMap[t] = (empMap[t] || 0) + 1; });
   const maxEmp = Math.max(...Object.values(empMap), 1);
 
   // Filtered personnel

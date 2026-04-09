@@ -48,9 +48,10 @@ export async function GET() {
     });
 
     // Build per-company stats — use ALL companies from config, not just those with personnel
+    // "แต่งตั้ง" (is_she_team=false) ไม่นับเป็นบุคลากร SHE
     const companyStats = COMPANIES.map(company => {
       const cid = company.id;
-      const pList = (personnel || []).filter((p: Record<string, unknown>) => p.company_id === cid);
+      const pList = (personnel || []).filter((p: Record<string, unknown>) => p.company_id === cid && p.is_she_team !== false);
       const reqList = (requirements || []).filter((r: Record<string, unknown>) => r.company_id === cid);
       const requiredReqs = reqList.filter((r: Record<string, unknown>) => r.is_required);
       const complianceMet = requiredReqs.filter((req: Record<string, unknown>) => {

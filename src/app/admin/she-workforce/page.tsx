@@ -81,7 +81,9 @@ export default function AdminSHEWorkforcePage() {
   }, [auth.isAdmin, auth.adminRole]);
 
   // ── Computed ──
-  const totalSHE = personnel.length;
+  // "แต่งตั้ง" (is_she_team=false) ไม่นับเป็นบุคลากร SHE
+  const sheTeam = useMemo(() => personnel.filter(p => p.is_she_team !== false), [personnel]);
+  const totalSHE = sheTeam.length;
   const allCompanyIds = useMemo(() => companyStats.map(s => s.company_id), [companyStats]);
   const companiesWithPersonnel = useMemo(() => Array.from(new Set(personnel.map(p => p.company_id))), [personnel]);
 
@@ -103,12 +105,12 @@ export default function AdminSHEWorkforcePage() {
     });
   }, [personnel, filterCompany, filterResp, filterType, search]);
 
-  // Responsibility distribution across all
+  // Responsibility distribution across SHE team only
   const respDist = useMemo(() => {
     const map: Record<string, number> = {};
-    personnel.forEach(p => { const r = p.responsibility || 'อื่นๆ'; map[r] = (map[r] || 0) + 1; });
+    sheTeam.forEach(p => { const r = p.responsibility || 'อื่นๆ'; map[r] = (map[r] || 0) + 1; });
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
-  }, [personnel]);
+  }, [sheTeam]);
   const respMax = Math.max(...respDist.map(r => r[1]), 1);
 
   // ── Auth gate ──
