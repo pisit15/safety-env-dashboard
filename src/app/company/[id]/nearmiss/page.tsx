@@ -259,10 +259,45 @@ export default function NearMissCoordinatorPage() {
     });
 
   // ── KPIs ──
+  const kpiTotal   = reports.length;
   const kpiNew     = reports.filter(r => r.status === 'new').length;
   const kpiOpen    = reports.filter(r => r.status !== 'closed').length;
+  const kpiClosed  = reports.filter(r => r.status === 'closed').length;
   const kpiOverdue = reports.filter(r => isOverdue(r)).length;
-  const kpiHigh    = reports.filter(r => r.risk_level === 'HIGH' && r.status !== 'closed').length;
+  const kpiHighRisk = reports.filter(r => (r.risk_level === 'HIGH' || r.risk_level === 'MED-HIGH') && r.status !== 'closed').length;
+  const closeRate  = kpiTotal > 0 ? Math.round((kpiClosed / kpiTotal) * 100) : 0;
+
+  // ── Monthly trend (last 6 months) ──
+  const monthlyTrend = (() => {
+    const now = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const result: { month: string; total: number; high: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear(); const m = d.getMonth();
+      const matching = reports.filter(r => {
+        const rd = new Date(r.incident_date);
+        return rd.getFullYear() === y && rd.getMonth() === m;
+      });
+      result.push({
+        month: months[m],
+        total: matching.length,
+        high: matching.filter(r => r.risk_level === 'HIGH' || r.risk_level === 'MED-HIGH').length,
+      });
+    }
+    return result;
+  })();
+  const trendMax = Math.max(...monthlyTrend.map(t => t.total), 1);
+
+  // ── Risk distribution ──
+  const riskDist = (() => {
+    const levels = ['HIGH', 'MED-HIGH', 'MEDIUM', 'LOW'] as const;
+    return levels.map(lv => ({
+      level: lv,
+      count: reports.filter(r => r.risk_level === lv).length,
+      openCount: reports.filter(r => r.risk_level === lv && r.status !== 'closed').length,
+    }));
+  })();
 
   // ── Action queue ──
   const actionQueue = reports
@@ -419,11 +454,11 @@ export default function NearMissCoordinatorPage() {
               <button onClick={() => window.open(boardUrl, '_blank')} style={btnOutline}>
                 <QrCode size={14} /> Employee Board
               </button>
-              <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')} style={btnOutline}>
-                <ExternalLink size={14} /> ลิงก์รายงาน
-              </button>
-              <button onClick={() => fetchReports(showHidden)} style={btnPrimary}>
+              <button onClick={() => fetchReports(showHidden)} style={btnOutline}>
                 <RefreshCw size={14} /> รีเฟรช
+              </button>
+              <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')} style={btnPrimary}>
+                <ExternalLink size={14} /> ลิงก์รายงาน
               </button>
               <ExportPdfButton
                 targetId="pdf-content"
@@ -436,17 +471,72 @@ export default function NearMissCoordinatorPage() {
             </div>
           </div>
 
-          {/* ── KPI Cards ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-            <KpiCard label="รายงานใหม่" sub="ยังไม่รับเรื่อง" value={kpiNew} accent="#3b82f6" urgent={kpiNew > 0}
-              onClick={() => { setFilterStatus('new'); setFilterOpen(false); }} />
-            <KpiCard label="ค้างดำเนินการ" sub="ยังไม่ปิด" value={kpiOpen} accent="#f97316"
-              onClick={() => { setFilterOpen(true); setFilterStatus(''); }} />
-            <KpiCard label="เกินกำหนด" sub="ต้องแก้ไขทันที" value={kpiOverdue} accent="#ef4444" urgent={kpiOverdue > 0}
+          {/* ── KPI Cards — Gray+One: muted=normal, colored=needs action ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+            <KpiCard label="เกินกำหนด" sub={kpiOverdue > 0 ? 'ต้อง action ด่วน!' : 'ไม่มี'} value={kpiOverdue}
+              accent={kpiOverdue > 0 ? '#ef4444' : '#9ca3af'} urgent={kpiOverdue > 0}
               onClick={() => { setFilterStatus(''); setFilterOpen(true); }} />
-            <KpiCard label="High Risk" sub="ยังไม่ปิด" value={kpiHigh} accent="#dc2626" urgent={kpiHigh > 0}
+            <KpiCard label="ค้างดำเนินการ" sub={`${kpiTotal > 0 ? Math.round((kpiOpen/kpiTotal)*100) : 0}% ของทั้งหมด`} value={kpiOpen}
+              accent={kpiOpen > kpiTotal * 0.5 ? '#f97316' : '#9ca3af'} urgent={kpiOpen > kpiTotal * 0.5}
+              onClick={() => { setFilterOpen(true); setFilterStatus(''); }} />
+            <KpiCard label="HIGH+MED-HIGH" sub={kpiHighRisk > 0 ? `${kpiHighRisk} รายการยังไม่ปิด` : 'ไม่มี'} value={kpiHighRisk}
+              accent={kpiHighRisk > 0 ? '#dc2626' : '#9ca3af'} urgent={kpiHighRisk > 0}
               onClick={() => { setFilterRisk('HIGH'); setFilterOpen(true); }} />
+            <KpiCard label="รายงานใหม่" sub="รอตรวจสอบ" value={kpiNew}
+              accent={kpiNew > 0 ? '#3b82f6' : '#9ca3af'} urgent={kpiNew > 3}
+              onClick={() => { setFilterStatus('new'); setFilterOpen(false); }} />
+            <KpiCard label="อัตราปิด" sub={`${kpiClosed}/${kpiTotal} ปิดแล้ว`} value={closeRate} valueSuffix="%"
+              accent={closeRate >= 80 ? '#22c55e' : closeRate >= 50 ? '#f97316' : '#ef4444'} urgent={false}
+              onClick={() => { setFilterStatus('closed'); setFilterOpen(false); }} />
           </div>
+
+          {/* ── Charts Row: Trend + Risk Distribution ── */}
+          {kpiTotal > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 20 }}>
+              {/* Monthly Trend */}
+              <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>แนวโน้ม 6 เดือน</p>
+                <p style={{ fontSize: 10, color: 'var(--muted)', margin: '0 0 12px' }}>แท่งสีแดง = HIGH + MED-HIGH</p>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 80 }}>
+                  {monthlyTrend.map((t, i) => {
+                    const barH = trendMax > 0 ? Math.max((t.total / trendMax) * 70, 3) : 3;
+                    const highH = t.total > 0 ? (t.high / t.total) * barH : 0;
+                    const isCurrent = i === monthlyTrend.length - 1;
+                    return (
+                      <div key={t.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                        {t.total > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: t.high > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{t.total}</span>}
+                        <div style={{ width: '100%', maxWidth: 40, height: barH, borderRadius: 4, position: 'relative', background: isCurrent ? 'rgba(59,130,246,0.25)' : 'rgba(107,114,128,0.12)', overflow: 'hidden' }}>
+                          {highH > 0 && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${(highH/barH)*100}%`, background: '#ef4444', borderRadius: '0 0 4px 4px' }} />}
+                        </div>
+                        <span style={{ fontSize: 9, color: isCurrent ? '#007aff' : 'var(--muted)', fontWeight: isCurrent ? 700 : 400 }}>{t.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Risk Distribution */}
+              <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>กระจายความเสี่ยง</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {riskDist.map(rd => {
+                    const cfg = RISK_CFG[rd.level];
+                    const pct = kpiTotal > 0 ? (rd.count / kpiTotal) * 100 : 0;
+                    return (
+                      <div key={rd.level}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color }}>{cfg.label}</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>{rd.count} ({rd.openCount > 0 ? `${rd.openCount} ค้าง` : 'ปิดหมด'})</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: 'rgba(107,114,128,0.08)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 3, background: cfg.color, opacity: rd.openCount > 0 ? 1 : 0.3, transition: 'width 0.3s' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Action Queue ── */}
           {actionQueue.length > 0 && (
@@ -459,6 +549,11 @@ export default function NearMissCoordinatorPage() {
                 {actionQueue.map(r => {
                   const overdue = isOverdue(r); const soon = isDueSoon(r);
                   const risk = RISK_CFG[r.risk_level];
+                  const age = daysSince(r.created_at);
+                  const ageBadge = age > 30 ? { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' }
+                    : age > 14 ? { bg: '#fff7ed', color: '#ea580c', border: '#fdba74' }
+                    : age > 7 ? { bg: '#fefce8', color: '#ca8a04', border: '#fde047' }
+                    : { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' };
                   return (
                     <div key={r.id} onClick={() => openDrawer(r)}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.1s' }}
@@ -467,6 +562,7 @@ export default function NearMissCoordinatorPage() {
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: overdue ? '#ef4444' : soon ? '#f97316' : '#3b82f6', flexShrink: 0 }} />
                       <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b', minWidth: 110 }}>{r.report_no}</span>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', flex: 1 }}>{r.location}</span>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: ageBadge.bg, color: ageBadge.color, fontWeight: 700, border: `1px solid ${ageBadge.border}`, whiteSpace: 'nowrap' }}>{age}วัน</span>
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: risk.bg, color: risk.color, fontWeight: 600, border: `1px solid ${risk.border}` }}>{risk.label}</span>
                       <span style={{ fontSize: 11, color: overdue ? '#ef4444' : '#64748b', fontWeight: overdue ? 700 : 400, minWidth: 100, textAlign: 'right' }}>
                         {overdue ? `เกินกำหนด ${Math.abs(Math.floor((Date.now() - new Date(r.due_date!).getTime()) / 86400000))} วัน`
@@ -575,8 +671,17 @@ export default function NearMissCoordinatorPage() {
                           {r.due_date ? fmtDate(r.due_date) : '–'}
                           {overdue && <span style={{ marginLeft: 4 }}>⚠️</span>}
                         </td>
-                        <td style={{ padding: '12px 12px', fontSize: 12, color: age > 14 ? '#f97316' : 'var(--text-secondary)', fontWeight: age > 14 ? 600 : 400 }}>
-                          {age === 0 ? 'วันนี้' : `${age}ว`}
+                        <td style={{ padding: '12px 12px' }}>
+                          {(() => {
+                            const ab = age > 30 ? { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' }
+                              : age > 14 ? { bg: '#fff7ed', color: '#ea580c', border: '#fdba74' }
+                              : age > 7 ? { bg: '#fefce8', color: '#ca8a04', border: '#fde047' }
+                              : { bg: 'transparent', color: 'var(--text-secondary)', border: 'transparent' };
+                            const text = age === 0 ? 'วันนี้' : `${age}ว`;
+                            return age > 7
+                              ? <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, background: ab.bg, color: ab.color, fontWeight: 700, border: `1px solid ${ab.border}` }}>{text}</span>
+                              : <span style={{ fontSize: 12, color: ab.color }}>{text}</span>;
+                          })()}
                         </td>
                       </tr>
                     );
@@ -1005,13 +1110,13 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function KpiCard({ label, sub, value, accent, urgent = false, onClick }: { label: string; sub: string; value: number; accent: string; urgent?: boolean; onClick?: () => void }) {
+function KpiCard({ label, sub, value, accent, urgent = false, valueSuffix, onClick }: { label: string; sub: string; value: number; accent: string; urgent?: boolean; valueSuffix?: string; onClick?: () => void }) {
   return (
     <div onClick={onClick}
       style={{ padding: '16px', borderRadius: 12, border: `1.5px solid ${urgent && value > 0 ? accent + '66' : 'var(--border)'}`, background: urgent && value > 0 ? accent + '0d' : 'var(--bg-secondary, #fff)', cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s' }}
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
-      <div style={{ fontSize: 30, fontWeight: 800, color: accent, lineHeight: 1, letterSpacing: '-0.03em' }}>{value}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, color: accent, lineHeight: 1, letterSpacing: '-0.03em' }}>{value}{valueSuffix && <span style={{ fontSize: 18, fontWeight: 700 }}>{valueSuffix}</span>}</div>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 5 }}>{label}</div>
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{sub}</div>
     </div>
