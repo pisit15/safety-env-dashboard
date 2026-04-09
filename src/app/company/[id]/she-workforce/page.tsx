@@ -506,70 +506,89 @@ export default function SHEWorkforcePage() {
               )}
 
               {/* ═══════ TAB 1: บุคลากร ═══════ */}
-              {activeTab === 1 && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                    <div style={{ position: 'relative', flex: '1 1 250px' }}>
-                      <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                      <input placeholder="ค้นหาชื่อ, ตำแหน่ง..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ ...inputStyle, paddingLeft: 36, background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => { setEditP({ ...emptyPersonnel(companyId), is_she_team: false, department: '' }); setShowPModal(true); }} style={{ ..._btnSecondary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13 }}>
-                        <Plus size={14} /> ผู้ได้รับแต่งตั้ง
-                      </button>
-                      <button onClick={() => { setEditP(emptyPersonnel(companyId)); setShowPModal(true); }} style={{ ..._btnPrimary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                        <Plus size={16} /> เพิ่มบุคลากร SHE
-                      </button>
-                    </div>
-                  </div>
+              {activeTab === 1 && (() => {
+                const sheFiltered = filteredP.filter(p => p.is_she_team !== false);
+                const appointedFiltered = filteredP.filter(p => p.is_she_team === false);
 
-                  <div className="glass-card rounded-xl" style={{ border: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 340px)' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
-                          <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                            {['#', 'ชื่อ-นามสกุล', 'ประเภท', 'แผนก', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร', ''].map((h, i) => (
-                              <th key={i} style={thStyle}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredP.length === 0 ? (
-                            <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                              <Users size={32} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
-                              <div>ยังไม่มีข้อมูลบุคลากร</div>
-                            </td></tr>
-                          ) : filteredP.map((p, i) => (
-                            <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: p.is_she_team === false ? '#fef3c710' : undefined }}>
-                              <td style={{ ...tdStyle, color: 'var(--text-secondary)', width: 40 }}>{i + 1}</td>
-                              <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {p.full_name}
-                                {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
-                              </td>
-                              <td style={tdStyle}>
-                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600, background: p.is_she_team !== false ? '#34c75915' : '#ff950015', color: p.is_she_team !== false ? '#34c759' : '#ff9500' }}>
-                                  {p.is_she_team !== false ? 'ทีม SHE' : 'แต่งตั้ง'}
-                                </span>
-                              </td>
-                              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.department || '-'}</td>
-                              <td style={tdStyle}><span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{p.position || '-'}</span></td>
-                              <td style={tdStyle}>
-                                {p.responsibility && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${RESP_COLORS[p.responsibility] || '#6b7280'}15`, color: RESP_COLORS[p.responsibility] || '#6b7280', fontWeight: 600 }}>{p.responsibility}</span>}
-                              </td>
-                              <td style={tdStyle}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${EMP_TYPE_COLORS[p.employment_type] || '#6b7280'}15`, color: EMP_TYPE_COLORS[p.employment_type] || '#6b7280', fontWeight: 600 }}>{EMP_TYPES[p.employment_type] || p.employment_type}</span></td>
-                              <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.phone || '-'}</td>
-                              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                                <button onClick={() => { setEditP({ ...p }); setShowPModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color="var(--accent)" /></button>
-                                <button onClick={() => p.id && deletePersonnel(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color="#ff3b30" /></button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                const PersonnelTable = ({ rows, headers }: { rows: Personnel[]; headers: string[] }) => (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
+                        {headers.map((h, i) => <th key={i} style={thStyle}>{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.length === 0 ? (
+                        <tr><td colSpan={headers.length} style={{ padding: 30, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>ไม่มีข้อมูล</td></tr>
+                      ) : rows.map((p, i) => (
+                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ ...tdStyle, color: 'var(--text-secondary)', width: 40 }}>{i + 1}</td>
+                          <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {p.full_name}
+                            {p.nick_name ? <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 400 }}> ({p.nick_name})</span> : null}
+                          </td>
+                          {p.is_she_team === false && <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.department || '-'}</td>}
+                          <td style={tdStyle}><span style={{ fontSize: 12, color: 'var(--text-primary)' }}>{p.position || '-'}</span></td>
+                          <td style={tdStyle}>
+                            {p.responsibility && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${RESP_COLORS[p.responsibility] || '#6b7280'}15`, color: RESP_COLORS[p.responsibility] || '#6b7280', fontWeight: 600 }}>{p.responsibility}</span>}
+                          </td>
+                          <td style={tdStyle}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: `${EMP_TYPE_COLORS[p.employment_type] || '#6b7280'}15`, color: EMP_TYPE_COLORS[p.employment_type] || '#6b7280', fontWeight: 600 }}>{EMP_TYPES[p.employment_type] || p.employment_type}</span></td>
+                          <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>{p.phone || '-'}</td>
+                          <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                            <button onClick={() => { setEditP({ ...p }); setShowPModal(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Pencil size={14} color="var(--accent)" /></button>
+                            <button onClick={() => p.id && deletePersonnel(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><Trash2 size={14} color="#ff3b30" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+
+                return (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                      <div style={{ position: 'relative', flex: '1 1 250px' }}>
+                        <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                        <input placeholder="ค้นหาชื่อ, ตำแหน่ง..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ ...inputStyle, paddingLeft: 36, background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
+                      </div>
+                    </div>
+
+                    {/* ── ทีม SHE ── */}
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <ShieldCheck size={18} color="#34c759" />
+                          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>บุคลากรทีม SHE</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>({sheFiltered.length} คน)</span>
+                        </div>
+                        <button onClick={() => { setEditP(emptyPersonnel(companyId)); setShowPModal(true); }} style={{ ..._btnPrimary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13, padding: '8px 16px' }}>
+                          <Plus size={14} /> เพิ่มบุคลากร SHE
+                        </button>
+                      </div>
+                      <div className="glass-card rounded-xl" style={{ border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        <PersonnelTable rows={sheFiltered} headers={['#', 'ชื่อ-นามสกุล', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร', '']} />
+                      </div>
+                    </div>
+
+                    {/* ── ผู้ได้รับแต่งตั้ง ── */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Users size={18} color="#ff9500" />
+                          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>ผู้ได้รับแต่งตั้ง</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>({appointedFiltered.length} คน) — จากแผนกอื่น ไม่นับเป็นบุคลากร SHE</span>
+                        </div>
+                        <button onClick={() => { setEditP({ ...emptyPersonnel(companyId), is_she_team: false, department: '' }); setShowPModal(true); }} style={{ ..._btnSecondary, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13, padding: '8px 16px' }}>
+                          <Plus size={14} /> เพิ่มผู้ได้รับแต่งตั้ง
+                        </button>
+                      </div>
+                      <div className="glass-card rounded-xl" style={{ border: '1px solid var(--border)', overflow: 'hidden' }}>
+                        <PersonnelTable rows={appointedFiltered} headers={['#', 'ชื่อ-นามสกุล', 'แผนกที่สังกัด', 'ตำแหน่ง', 'หน้าที่', 'การจ้าง', 'โทร', '']} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* ═══════ TAB 2: ใบอนุญาต ═══════ */}
               {activeTab === 2 && (
