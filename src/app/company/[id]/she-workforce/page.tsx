@@ -645,7 +645,7 @@ export default function SHEWorkforcePage() {
                             {personnel.map(p => (
                               <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <td style={{ padding: '5px 8px', fontWeight: 600, fontSize: 12, position: 'sticky', left: 0, background: 'var(--card-solid)', zIndex: 1, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {p.nick_name || p.full_name.split(' ')[0]}
+                                  {p.full_name}
                                   {p.is_she_team === false && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 8, background: '#ff950015', color: '#ff9500', fontWeight: 600, marginLeft: 3 }}>{p.department || 'แต่งตั้ง'}</span>}
                                 </td>
                                 {requirements.map(r => {
