@@ -149,6 +149,7 @@ export default function SHEWorkforcePage() {
   const [showWModal, setShowWModal] = useState(false);
   const [editW, setEditW] = useState<Workload | null>(null);
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // ── Fetch ────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -170,20 +171,37 @@ export default function SHEWorkforcePage() {
   }, [auth.isAdmin, auth.adminRole, fetchData]);
 
   // ── API helpers ──────────────────────────────────────────────
-  const apiPost = async (body: Record<string, unknown>) => {
-    const res = await fetch('/api/she-workforce', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    return res.ok;
+  const apiPost = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/she-workforce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        return { ok: false, error: d.error || `HTTP ${res.status}` };
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Network error' };
+    }
+  };
+
+  const showError = (msg: string) => {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(''), 6000);
   };
 
   const savePersonnel = async () => {
     if (!editP || !editP.full_name.trim()) return;
     setSaving(true);
-    await apiPost({ action: 'upsert_personnel', data: editP });
+    const result = await apiPost({ action: 'upsert_personnel', data: editP });
     setSaving(false);
+    if (!result.ok) {
+      showError(`บันทึกไม่สำเร็จ: ${result.error}`);
+      return;
+    }
     setShowPModal(false);
     setEditP(null);
     fetchData();
@@ -191,15 +209,20 @@ export default function SHEWorkforcePage() {
 
   const deletePersonnel = async (id: string) => {
     if (!confirm('ลบบุคลากรนี้?')) return;
-    await apiPost({ action: 'delete_personnel', id });
+    const result = await apiPost({ action: 'delete_personnel', id });
+    if (!result.ok) { showError(`ลบไม่สำเร็จ: ${result.error}`); return; }
     fetchData();
   };
 
   const saveReq = async () => {
     if (!editR || !editR.name.trim()) return;
     setSaving(true);
-    await apiPost({ action: 'upsert_requirement', data: editR });
+    const result = await apiPost({ action: 'upsert_requirement', data: editR });
     setSaving(false);
+    if (!result.ok) {
+      showError(`บันทึกไม่สำเร็จ: ${result.error}`);
+      return;
+    }
     setShowRModal(false);
     setEditR(null);
     fetchData();
@@ -224,8 +247,12 @@ export default function SHEWorkforcePage() {
   const saveWorkload = async () => {
     if (!editW) return;
     setSaving(true);
-    await apiPost({ action: 'upsert_workload', data: editW });
+    const result = await apiPost({ action: 'upsert_workload', data: editW });
     setSaving(false);
+    if (!result.ok) {
+      showError(`บันทึกไม่สำเร็จ: ${result.error}`);
+      return;
+    }
     setShowWModal(false);
     setEditW(null);
     fetchData();
@@ -233,7 +260,8 @@ export default function SHEWorkforcePage() {
 
   const deleteWorkload = async (id: string) => {
     if (!confirm('ลบรายการนี้?')) return;
-    await apiPost({ action: 'delete_workload', id });
+    const result = await apiPost({ action: 'delete_workload', id });
+    if (!result.ok) { showError(`ลบไม่สำเร็จ: ${result.error}`); return; }
     fetchData();
   };
 
@@ -308,6 +336,14 @@ export default function SHEWorkforcePage() {
     <div className="flex min-h-screen">
       <Sidebar />
       <main className="flex-1 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
+        {/* ── Error Toast ──────────────────────────────────────── */}
+        {errorMsg && (
+          <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 12, padding: '14px 20px', maxWidth: 400, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertTriangle size={18} color="#dc2626" />
+            <span style={{ fontSize: 14, color: '#991b1b', fontWeight: 500 }}>{errorMsg}</span>
+            <button onClick={() => setErrorMsg('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={14} color="#991b1b" /></button>
+          </div>
+        )}
         {/* ── Hero ────────────────────────────────────────────── */}
         <div style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', padding: '40px 32px 60px', position: 'relative' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
