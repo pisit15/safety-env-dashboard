@@ -621,22 +621,24 @@ export default function SHEWorkforcePage() {
                     </div>
                   ) : (
                     <div className="glass-card rounded-xl" style={{ border: '1px solid var(--border)', overflow: 'hidden' }}>
-                      <div style={{ maxHeight: 'calc(100vh - 340px)', overflowY: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                          <colgroup>
-                            <col style={{ width: 120 }} />
-                            {requirements.map(r => <col key={r.id} style={{ width: `${Math.max(100 / requirements.length, 5)}%` }} />)}
-                          </colgroup>
+                      {/* Top scrollbar */}
+                      <div style={{ overflowX: 'auto', overflowY: 'hidden', height: 14, borderBottom: '1px solid var(--border)' }}
+                        onScroll={(e) => { const el = (e.target as HTMLElement).nextElementSibling as HTMLElement; if (el) el.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
+                        <div style={{ width: requirements.length * 90 + 160, height: 1 }} />
+                      </div>
+                      {/* Main scrollable area */}
+                      <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 360px)' }}
+                        onScroll={(e) => { const el = (e.target as HTMLElement).previousElementSibling as HTMLElement; if (el) el.scrollLeft = (e.target as HTMLElement).scrollLeft; }}>
+                        <table style={{ borderCollapse: 'collapse', minWidth: requirements.length * 90 + 160 }}>
                           <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                              <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 3, verticalAlign: 'bottom' }}>ชื่อ</th>
+                              <th style={{ ...thStyle, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 3, minWidth: 150 }}>ชื่อ</th>
                               {requirements.map(r => (
-                                <th key={r.id} style={{ padding: '6px 2px', textAlign: 'center', borderBottom: r.is_required ? '3px solid #007aff' : '3px solid #d1d5db', cursor: 'pointer', verticalAlign: 'bottom', height: 80 }}
+                                <th key={r.id} style={{ ...thStyle, textAlign: 'center', minWidth: 80, borderBottom: r.is_required ? '3px solid #007aff' : '3px solid #d1d5db', cursor: 'pointer' }}
                                   onClick={() => { setEditR({ ...r }); setShowRModal(true); }}>
-                                  <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: 11, lineHeight: 1.2, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', display: 'inline-block', maxHeight: 70, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {r.short_name}
-                                  </div>
-                                  <div style={{ fontSize: 8, color: r.is_required ? '#007aff' : '#aaa', marginTop: 2 }}>{r.is_required ? '●' : '○'}</div>
+                                  <div style={{ fontSize: 11, lineHeight: 1.3 }}>{r.short_name}</div>
+                                  <div style={{ fontSize: 10, color: r.is_required ? '#007aff' : 'var(--text-secondary)', fontWeight: r.is_required ? 600 : 400 }}>{r.is_required ? 'บังคับ' : 'ไม่บังคับ'}</div>
+                                  <Pencil size={10} style={{ marginTop: 2, opacity: 0.4 }} />
                                 </th>
                               ))}
                             </tr>
@@ -644,23 +646,23 @@ export default function SHEWorkforcePage() {
                           <tbody>
                             {personnel.map(p => (
                               <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                <td style={{ padding: '5px 8px', fontWeight: 600, fontSize: 12, position: 'sticky', left: 0, background: 'var(--card-solid)', zIndex: 1, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <td style={{ ...tdStyle, fontWeight: 600, position: 'sticky', left: 0, background: 'var(--card-solid)', zIndex: 1, color: 'var(--text-primary)', minWidth: 150 }}>
                                   {p.full_name}
-                                  {p.is_she_team === false && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 8, background: '#ff950015', color: '#ff9500', fontWeight: 600, marginLeft: 3 }}>{p.department || 'แต่งตั้ง'}</span>}
+                                  {p.is_she_team === false && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 10, background: '#ff950015', color: '#ff9500', fontWeight: 600, marginLeft: 4 }}>{p.department || 'แต่งตั้ง'}</span>}
                                 </td>
                                 {requirements.map(r => {
                                   const lic = licenses.find(l => l.personnel_id === p.id && l.requirement_type_id === r.id);
                                   const has = lic?.has_license;
                                   return (
-                                    <td key={r.id} style={{ padding: '4px 2px', textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
+                                    <td key={r.id} style={{ ...tdStyle, textAlign: 'center', cursor: 'pointer', transition: 'background 0.15s' }}
                                       onClick={() => p.id && r.id && toggleLicense(p.id, r.id)}>
                                       {has ? (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, background: '#34c75920', color: '#34c759' }}>
-                                          <Check size={13} />
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#34c75920', color: '#34c759' }}>
+                                          <Check size={16} />
                                         </span>
                                       ) : (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, background: '#ff3b3010', color: '#ff3b3060' }}>
-                                          <X size={11} />
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#ff3b3010', color: '#ff3b3060' }}>
+                                          <X size={14} />
                                         </span>
                                       )}
                                     </td>
@@ -670,15 +672,15 @@ export default function SHEWorkforcePage() {
                             ))}
                             {/* Summary row */}
                             <tr style={{ background: 'var(--bg-secondary)', borderTop: '2px solid var(--border)' }}>
-                              <td style={{ padding: '6px 8px', fontWeight: 700, fontSize: 12, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 1, color: 'var(--text-primary)' }}>รวม</td>
+                              <td style={{ ...tdStyle, fontWeight: 700, position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 1, color: 'var(--text-primary)' }}>รวม</td>
                               {requirements.map(r => {
                                 const count = licenses.filter(l => l.requirement_type_id === r.id && l.has_license).length;
                                 const isOk = !r.is_required || count >= (r.required_count || 1);
                                 return (
-                                  <td key={r.id} style={{ padding: '6px 2px', textAlign: 'center', fontWeight: 700, fontSize: 12 }}>
+                                  <td key={r.id} style={{ ...tdStyle, textAlign: 'center', fontWeight: 700 }}>
                                     <span style={{ color: r.is_required ? (isOk ? '#34c759' : '#ff3b30') : 'var(--text-secondary)' }}>{count}</span>
-                                    {r.is_required && r.required_count > 0 && <span style={{ color: 'var(--text-secondary)', fontWeight: 400, fontSize: 10 }}>/{r.required_count}</span>}
-                                    {r.is_required && r.required_count === 0 && count === 0 && <div style={{ color: '#ff3b30', fontSize: 9 }}>ขาด</div>}
+                                    {r.is_required && r.required_count > 0 && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>/{r.required_count}</span>}
+                                    {r.is_required && r.required_count === 0 && count === 0 && <span style={{ color: '#ff3b30', fontSize: 10, display: 'block' }}>ขาด</span>}
                                   </td>
                                 );
                               })}
