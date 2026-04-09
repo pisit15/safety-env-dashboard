@@ -6,8 +6,10 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import {
   Users, Search, Building2, GraduationCap, ChevronLeft, ChevronRight,
-  Filter, UserCheck, BookOpen, ArrowUpDown,
+  Filter, UserCheck, BookOpen, ArrowUpDown, AlertTriangle, Check, X,
+  Clock, Ban, CalendarClock,
 } from 'lucide-react';
+import { STATUS, PALETTE, BULLET } from '@/lib/she-theme';
 
 interface AttendeeRecord {
   id: string;
@@ -268,99 +270,158 @@ export default function EmployeesHQPage() {
         </div>
 
         {/* KPI Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
-          <div className="glass-card" style={{ borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,122,255,0.1)' }}>
-              <Building2 size={20} style={{ color: '#007aff' }} />
+        {(() => {
+          const completionRate = totalAllRecords > 0 ? Math.round((totalCompleted / totalAllRecords) * 100) : 0;
+          const rateColor = completionRate >= 90 ? STATUS.ok : completionRate >= 70 ? STATUS.warning : STATUS.critical;
+          const rateBg = completionRate >= 90 ? STATUS.okBg : completionRate >= 70 ? STATUS.warningBg : STATUS.criticalBg;
+          const incompleteCompanies = companySummary.filter(s => s.total_records > 0 && Math.round((s.completed_records / s.total_records) * 100) < 100);
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 12, marginBottom: 24 }}>
+              {/* HERO: Completion Rate */}
+              <div style={{ padding: '20px 18px', borderRadius: 12, border: `2px solid ${rateColor}44`, background: rateBg }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>อัตราการอบรมสำเร็จ</div>
+                <div style={{ fontSize: 36, fontWeight: 800, color: rateColor, lineHeight: 1 }}>
+                  {completionRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ height: 5, borderRadius: 3, background: PALETTE.border, marginTop: 8 }}>
+                  <div style={{ height: '100%', borderRadius: 3, width: `${completionRate}%`, background: rateColor, transition: 'width 0.3s' }} />
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 6 }}>
+                  {totalCompleted.toLocaleString()} / {totalAllRecords.toLocaleString()} รายการ
+                </div>
+              </div>
+              {/* KPI 2: Incomplete companies (actionable) */}
+              <div style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${incompleteCompanies.length > 0 ? `${STATUS.warning}44` : 'var(--border)'}`, background: incompleteCompanies.length > 0 ? STATUS.warningBg : 'var(--bg-secondary, #fff)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>บริษัทที่ยังไม่ครบ</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: incompleteCompanies.length > 0 ? STATUS.warning : STATUS.ok, lineHeight: 1 }}>{incompleteCompanies.length}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>จาก {companySummary.length} บริษัท</div>
+              </div>
+              {/* KPI 3: Total records */}
+              <div style={{ padding: 16, borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary, #fff)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>รายการอบรมทั้งหมด</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: PALETTE.primary, lineHeight: 1 }}>{totalAllRecords.toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>อบรมแล้ว {totalCompleted.toLocaleString()}</div>
+              </div>
+              {/* KPI 4: Completed */}
+              <div style={{ padding: 16, borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary, #fff)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>อบรมสำเร็จ</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: PALETTE.primary, lineHeight: 1 }}>{totalCompleted.toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>
+                  คงเหลือ {(totalAllRecords - totalCompleted).toLocaleString()} รายการ
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-[22px] font-bold" style={{ color: 'var(--text-primary)' }}>{companySummary.length}</p>
-              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>บริษัทที่มีข้อมูล</p>
-            </div>
-          </div>
-          <div className="glass-card" style={{ borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(88,86,214,0.1)' }}>
-              <Users size={20} style={{ color: '#5856d6' }} />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold" style={{ color: 'var(--text-primary)' }}>{totalAllRecords.toLocaleString()}</p>
-              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>รายการเข้าอบรมทั้งหมด</p>
-            </div>
-          </div>
-          <div className="glass-card" style={{ borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(52,199,89,0.1)' }}>
-              <UserCheck size={20} style={{ color: '#34c759' }} />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold" style={{ color: 'var(--text-primary)' }}>{totalCompleted.toLocaleString()}</p>
-              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>อบรมเสร็จแล้ว</p>
-            </div>
-          </div>
-          <div className="glass-card" style={{ borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,149,0,0.1)' }}>
-              <GraduationCap size={20} style={{ color: '#ff9500' }} />
-            </div>
-            <div>
-              <p className="text-[22px] font-bold" style={{ color: 'var(--text-primary)' }}>{totalAllRecords > 0 ? Math.round((totalCompleted / totalAllRecords) * 100) : 0}%</p>
-              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>อัตราการอบรม</p>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* ========== COMPANY TAB ========== */}
         {viewTab === 'company' && !selectedCompany && (
           <div>
-            <h2 className="text-[15px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-              รายชื่อบริษัท — คลิกเพื่อดูรายละเอียด
-            </h2>
             {loading ? (
               <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>กำลังโหลด...</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-                {sortedSummary.map(s => (
-                  <div
-                    key={s.company_id}
-                    onClick={() => { setSelectedCompany(s.company_id); setCompanyFilter(''); }}
-                    className="glass-card"
-                    style={{ borderRadius: 12, padding: 16, cursor: 'pointer', transition: 'all 0.2s', border: '1px solid var(--border)' }}
-                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)', color: '#fff', fontSize: 12, fontWeight: 700,
-                      }}>
-                        {s.name.substring(0, 2)}
+              <>
+                {/* ── Horizontal bar chart: completion rate by company ── */}
+                {sortedSummary.length > 0 && (() => {
+                  const barData = [...sortedSummary]
+                    .map(s => ({ ...s, rate: s.total_records > 0 ? Math.round((s.completed_records / s.total_records) * 100) : 0 }))
+                    .sort((a, b) => a.rate - b.rate); // worst first
+                  return (
+                    <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))', marginBottom: 20 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>อัตราการอบรมสำเร็จ — เปรียบเทียบทุกบริษัท</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '0 0 14px' }}>เรียงจากต่ำสุดไปสูงสุด · เส้นแดง = เป้า 100%</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {barData.map(s => {
+                          const rColor = s.rate >= 90 ? STATUS.ok : s.rate >= 70 ? STATUS.warning : STATUS.critical;
+                          return (
+                            <div key={s.company_id} style={{ cursor: 'pointer' }} onClick={() => { setSelectedCompany(s.company_id); setCompanyFilter(''); }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', minWidth: 60 }}>{s.name}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: rColor }}>{s.rate}%</span>
+                                <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{s.completed_records}/{s.total_records}</span>
+                              </div>
+                              <div style={{ position: 'relative', height: 8, borderRadius: 4, background: BULLET.bgBand }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${s.rate}%`, borderRadius: 4, background: BULLET.actual, transition: 'width 0.3s' }} />
+                                {/* Target line at 100% */}
+                                <div style={{ position: 'absolute', top: -2, right: 0, width: 2, height: 12, background: BULLET.target, borderRadius: 1 }} />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div>
-                        <p className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{s.name}</p>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                      <div>
-                        <p className="text-[18px] font-bold" style={{ color: 'var(--text-primary)' }}>{s.total_records}</p>
-                        <p className="text-[10px]" style={{ color: 'var(--muted)' }}>รายการทั้งหมด</p>
-                      </div>
-                      <div>
-                        <p className="text-[18px] font-bold" style={{ color: '#34c759' }}>{s.completed_records}</p>
-                        <p className="text-[10px]" style={{ color: 'var(--muted)' }}>อบรมแล้ว</p>
-                      </div>
-                      <div>
-                        <p className="text-[18px] font-bold" style={{ color: '#ff9500' }}>
-                          {s.total_records > 0 ? Math.round((s.completed_records / s.total_records) * 100) : 0}%
-                        </p>
-                        <p className="text-[10px]" style={{ color: 'var(--muted)' }}>สำเร็จ</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, fontSize: 10, color: 'var(--text-secondary)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 14, height: 6, borderRadius: 3, background: BULLET.actual, display: 'inline-block' }} /> สำเร็จ</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 2, height: 12, borderRadius: 1, background: BULLET.target, display: 'inline-block' }} /> เป้าหมาย</span>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {sortedSummary.length === 0 && (
-                  <p style={{ color: 'var(--muted)', gridColumn: '1 / -1', textAlign: 'center', padding: 40 }}>
-                    ยังไม่มีข้อมูลผู้เข้าอบรมในปี {selectedYear}
-                  </p>
-                )}
-              </div>
+                  );
+                })()}
+
+                {/* ── Company cards grid ── */}
+                <h2 style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-primary)' }}>
+                  รายชื่อบริษัท — คลิกเพื่อดูรายละเอียด
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+                  {[...sortedSummary]
+                    .sort((a, b) => {
+                      const rateA = a.total_records > 0 ? (a.completed_records / a.total_records) : 1;
+                      const rateB = b.total_records > 0 ? (b.completed_records / b.total_records) : 1;
+                      return rateA - rateB; // lowest completion first
+                    })
+                    .map(s => {
+                      const rate = s.total_records > 0 ? Math.round((s.completed_records / s.total_records) * 100) : 0;
+                      const rColor = rate >= 90 ? STATUS.ok : rate >= 70 ? STATUS.warning : STATUS.critical;
+                      return (
+                        <div
+                          key={s.company_id}
+                          onClick={() => { setSelectedCompany(s.company_id); setCompanyFilter(''); }}
+                          className="glass-card"
+                          style={{ borderRadius: 12, padding: 16, cursor: 'pointer', transition: 'all 0.2s', border: '1px solid var(--border)' }}
+                          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+                          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                            <div style={{
+                              width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: `linear-gradient(135deg, ${PALETTE.primary} 0%, #5856d6 100%)`, color: '#fff', fontSize: 12, fontWeight: 700,
+                            }}>
+                              {s.name.substring(0, 2)}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{s.name}</p>
+                            </div>
+                            <span style={{ fontSize: 18, fontWeight: 800, color: rColor }}>{rate}%</span>
+                          </div>
+                          {/* Mini progress bar */}
+                          <div style={{ height: 5, borderRadius: 3, background: BULLET.bgBand, marginBottom: 8 }}>
+                            <div style={{ height: '100%', borderRadius: 3, width: `${rate}%`, background: rColor, transition: 'width 0.3s' }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 16 }}>
+                            <div>
+                              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{s.total_records}</p>
+                              <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: 0 }}>ทั้งหมด</p>
+                            </div>
+                            <div>
+                              <p style={{ fontSize: 16, fontWeight: 700, color: PALETTE.primary, margin: 0 }}>{s.completed_records}</p>
+                              <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: 0 }}>สำเร็จ</p>
+                            </div>
+                            <div>
+                              <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-secondary)', margin: 0 }}>{s.total_records - s.completed_records}</p>
+                              <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: 0 }}>คงเหลือ</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {sortedSummary.length === 0 && (
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
+                      <GraduationCap size={32} style={{ margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
+                      <div style={{ fontSize: 14 }}>ยังไม่มีข้อมูลผู้เข้าอบรมในปี {selectedYear}</div>
+                      <div style={{ fontSize: 12, marginTop: 4 }}>ลองเลือกปีอื่น หรือตรวจสอบว่ามีการนำเข้าข้อมูลแล้ว</div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -439,7 +500,11 @@ export default function EmployeesHQPage() {
             )}
 
             {!loading && searchText && searchResults.length === 0 && (
-              <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>ไม่พบข้อมูล</p>
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
+                <Search size={32} style={{ margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
+                <div style={{ fontSize: 14, marginBottom: 4 }}>ไม่พบข้อมูลสำหรับ &ldquo;{searchText}&rdquo;</div>
+                <div style={{ fontSize: 12 }}>ลองค้นหาด้วยชื่ออื่น หรือตรวจสอบปีที่เลือก ({selectedYear})</div>
+              </div>
             )}
           </div>
         )}
@@ -495,18 +560,31 @@ export default function EmployeesHQPage() {
                         <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <span style={{
                             fontSize: 10, padding: '2px 8px', borderRadius: 4, fontWeight: 600,
-                            background: c.type === 'In-House' ? '#dbeafe' : '#fef3c7',
-                            color: c.type === 'In-House' ? '#1d4ed8' : '#92400e',
+                            background: c.type === 'In-House' ? `${PALETTE.primary}12` : `${STATUS.warning}15`,
+                            color: c.type === 'In-House' ? PALETTE.primary : STATUS.warning,
                           }}>{c.type || '-'}</span>
                         </td>
                         <td style={{ ...tdStyle, textAlign: 'center' }}>{c.hours || '-'}</td>
                         <td style={{ ...tdStyle, textAlign: 'center' }}>{c.company_count}</td>
                         <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600 }}>{c.unique_employee_count}</td>
-                        <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600, color: '#34c759' }}>{c.completed_attendees}</td>
+                        {(() => {
+                          const cRate = c.unique_employee_count > 0 ? Math.round((c.completed_attendees / c.unique_employee_count) * 100) : 0;
+                          const cColor = cRate >= 90 ? STATUS.ok : cRate >= 70 ? STATUS.warning : STATUS.critical;
+                          return (
+                            <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 600 }}>
+                              <span style={{ color: cColor }}>{c.completed_attendees}</span>
+                              <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>/{c.unique_employee_count}</span>
+                            </td>
+                          );
+                        })()}
                       </tr>
                     ))}
                     {courses.length === 0 && (
-                      <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--muted)', padding: 40 }}>ไม่พบหลักสูตร</td></tr>
+                      <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-secondary)', padding: 60 }}>
+                        <BookOpen size={28} style={{ margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
+                        <div style={{ fontSize: 13 }}>ไม่พบหลักสูตร</div>
+                        <div style={{ fontSize: 11, marginTop: 4 }}>ลองค้นหาด้วยคำอื่น หรือตรวจสอบปีที่เลือก</div>
+                      </td></tr>
                     )}
                   </tbody>
                 </table>
@@ -577,14 +655,15 @@ function AttendeeTable({ attendees, loading, showCompany }: { attendees: Attende
         <tbody>
           {attendees.map((a, i) => {
             const status = a.training_sessions?.status || 'planned';
-            const statusColors: Record<string, { bg: string; color: string; label: string }> = {
-              completed: { bg: '#dcfce7', color: '#16a34a', label: 'อบรมแล้ว' },
-              scheduled: { bg: '#dbeafe', color: '#2563eb', label: 'กำหนดแล้ว' },
-              planned: { bg: '#f3f4f6', color: '#6b7280', label: 'รอ' },
-              cancelled: { bg: '#fee2e2', color: '#dc2626', label: 'ยกเลิก' },
-              postponed: { bg: '#fef3c7', color: '#d97706', label: 'เลื่อน' },
+            const statusConfig: Record<string, { bg: string; color: string; label: string; Icon: typeof Check }> = {
+              completed: { bg: `${STATUS.ok}15`, color: STATUS.ok, label: 'อบรมแล้ว', Icon: Check },
+              scheduled: { bg: `${PALETTE.primary}12`, color: PALETTE.primary, label: 'กำหนดแล้ว', Icon: CalendarClock },
+              planned: { bg: '#f3f4f6', color: '#6b7280', label: 'รอ', Icon: Clock },
+              cancelled: { bg: `${STATUS.critical}12`, color: STATUS.critical, label: 'ยกเลิก', Icon: Ban },
+              postponed: { bg: `${STATUS.warning}15`, color: STATUS.warning, label: 'เลื่อน', Icon: AlertTriangle },
             };
-            const sc = statusColors[status] || statusColors.planned;
+            const sc = statusConfig[status] || statusConfig.planned;
+            const StatusIcon = sc.Icon;
             return (
               <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ ...tdStyle, color: 'var(--muted)', textAlign: 'center' }}>{i + 1}</td>
@@ -599,9 +678,10 @@ function AttendeeTable({ attendees, loading, showCompany }: { attendees: Attende
                 <td style={{ ...tdStyle, fontWeight: 500 }}>{a.first_name} {a.last_name}</td>
                 <td style={{ ...tdStyle, fontSize: 12 }}>{a.position || '-'}</td>
                 <td style={{ ...tdStyle, fontSize: 12 }}>{a.department || '-'}</td>
-                <td style={{ ...tdStyle, fontSize: 12, color: 'var(--accent)' }}>{a.training_plans?.course_name || '-'}</td>
+                <td style={{ ...tdStyle, fontSize: 12, color: PALETTE.primary }}>{a.training_plans?.course_name || '-'}</td>
                 <td style={{ ...tdStyle, textAlign: 'center' }}>
-                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, fontWeight: 600, background: sc.bg, color: sc.color }}>
+                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, fontWeight: 600, background: sc.bg, color: sc.color, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <StatusIcon size={10} />
                     {sc.label}
                   </span>
                 </td>
@@ -610,7 +690,10 @@ function AttendeeTable({ attendees, loading, showCompany }: { attendees: Attende
             );
           })}
           {attendees.length === 0 && (
-            <tr><td colSpan={showCompany ? 9 : 8} style={{ ...tdStyle, textAlign: 'center', color: 'var(--muted)', padding: 40 }}>ไม่มีข้อมูล</td></tr>
+            <tr><td colSpan={showCompany ? 9 : 8} style={{ ...tdStyle, textAlign: 'center', color: 'var(--text-secondary)', padding: 60 }}>
+              <Users size={28} style={{ margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
+              <div style={{ fontSize: 13 }}>ไม่มีข้อมูลพนักงาน</div>
+            </td></tr>
           )}
         </tbody>
       </table>
