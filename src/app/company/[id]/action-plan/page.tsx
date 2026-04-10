@@ -2282,7 +2282,7 @@ export default function CompanyDrilldown() {
                   <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
                       <col style={{ width: 48 }} />{/* ลำดับ */}
-                      {planType === 'total' && <col style={{ width: 30 }} />}{/* แผน S/E */}
+                      {planType === 'total' && <col style={{ width: 38 }} />}{/* แผน S/E */}
                       <col style={{ width: '35%' }} />{/* กิจกรรม — 35% of table width */}
                       <col style={{ width: 52 }} />{/* ผู้รับผิดชอบ */}
                       {MONTH_KEYS.map(k => <col key={k} />)}{/* 12 months — share remaining space equally */}
@@ -2349,7 +2349,7 @@ export default function CompanyDrilldown() {
                               const cfg = badgeCfg[overallSt];
                               if (!cfg) return null;
                               return (
-                                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[8px] font-semibold mt-0.5 whitespace-nowrap"
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
                                   style={{ background: cfg.bg, color: cfg.color }}>
                                   <cfg.Icon size={9} /> {cfg.label}
                                 </span>
@@ -2369,7 +2369,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2 px-1.5 text-[11px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                          <td className="py-2 px-1.5 text-[10px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                             <div>{act.activity}</div>
                             <div className="flex flex-wrap items-center gap-1 mt-1">
                               {(() => {
@@ -2377,7 +2377,7 @@ export default function CompanyDrilldown() {
                                 const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue');
                                 if (overdueMonths.length === 0) return null;
                                 const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
-                                return (<span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />เกินกำหนด: {labels}</span>);
+                                return (<span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />เกินกำหนด: {labels}</span>);
                               })()}
                             </div>
                             {(() => {
@@ -2439,7 +2439,7 @@ export default function CompanyDrilldown() {
                               const cfg = badgeCfg[overallSt];
                               if (!cfg) return null;
                               return (
-                                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[8px] font-semibold mt-0.5 whitespace-nowrap"
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
                                   style={{ background: cfg.bg, color: cfg.color }}>
                                   <cfg.Icon size={9} /> {cfg.label}
                                 </span>
@@ -2459,7 +2459,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2 px-1.5 text-[11px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                          <td className="py-2 px-1.5 text-[10px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                             <div>{act.activity}</div>
                             {/* Badges row: overdue + postponed + budget */}
                             <div className="flex flex-wrap items-center gap-1 mt-1">
@@ -2470,7 +2470,7 @@ export default function CompanyDrilldown() {
                                 if (overdueMonths.length === 0) return null;
                                 const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
                                 return (
-                                  <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium"
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium"
                                     style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}
                                     title={`เกินกำหนด: ${labels} — ยังไม่มีผลดำเนินการ`}>
                                     <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />
