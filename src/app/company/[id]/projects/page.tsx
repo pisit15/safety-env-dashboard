@@ -11,6 +11,8 @@ import {
   Calendar, User, Wallet, Lock, LogIn,
   LayoutGrid, LayoutList, AlertTriangle, Clock3,
 } from 'lucide-react';
+import { STATUS, PALETTE, CATEGORY_COLORS, UI } from '@/lib/she-theme';
+import { FileDropZone, uploadPendingFiles } from '@/components/ProjectFileUpload';
 
 // ─── Types ───────────────────────────────────────────────────
 interface SpecialProject {
@@ -36,16 +38,16 @@ interface SpecialProject {
 
 // ─── Config ──────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  planning:  { label: 'วางแผน',      color: '#6366f1', bg: 'rgba(99,102,241,0.1)'  },
-  active:    { label: 'ดำเนินการ',   color: '#22c55e', bg: 'rgba(34,197,94,0.1)'   },
-  on_hold:   { label: 'พักชั่วคราว', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
-  completed: { label: 'เสร็จสิ้น',   color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-  cancelled: { label: 'ยกเลิก',      color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
+  planning:  { label: 'วางแผน',      color: PALETTE.primary,   bg: `${PALETTE.primary}18`  },
+  active:    { label: 'ดำเนินการ',   color: STATUS.ok,         bg: STATUS.okBg             },
+  on_hold:   { label: 'พักชั่วคราว', color: STATUS.warning,    bg: STATUS.warningBg        },
+  completed: { label: 'เสร็จสิ้น',   color: STATUS.positive,   bg: STATUS.positiveBg       },
+  cancelled: { label: 'ยกเลิก',      color: STATUS.neutral,    bg: STATUS.neutralBg        },
 };
 
 const PLAN_TYPE_CONFIG = {
-  safety:      { label: 'Safety',      color: '#ff6b35', bg: 'rgba(255,107,53,0.1)' },
-  environment: { label: 'Environment', color: '#34c759', bg: 'rgba(52,199,89,0.1)'  },
+  safety:      { label: 'Safety',      color: CATEGORY_COLORS.safety,      bg: `${CATEGORY_COLORS.safety}18` },
+  environment: { label: 'Environment', color: CATEGORY_COLORS.environment, bg: `${CATEGORY_COLORS.environment}18` },
 };
 
 const CATEGORY_OPTIONS = ['compliance', 'infrastructure', 'csr', 'capex', 'training', 'other'];
@@ -80,6 +82,7 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
     start_date: '', end_date: '', budget_planned: '', notes: '',
   });
   const [ownerMode, setOwnerMode] = useState<'select' | 'type'>(loggedInUser ? 'select' : 'type');
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; preview?: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [companyUsers, setCompanyUsers] = useState<{ username: string; display_name?: string }[]>([]);
@@ -120,6 +123,12 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); setSaving(false); return; }
+
+    // Upload pending files if any
+    if (pendingFiles.length > 0 && data.project?.id) {
+      await uploadPendingFiles(data.project.id, null, pendingFiles, form.owner);
+    }
+
     onCreated({ ...data.project, milestone_counts: { total: 0, done: 0 } });
   };
 
@@ -261,6 +270,12 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
               onChange={e => set('description', e.target.value)} />
           </div>
 
+          {/* File Attachments */}
+          <div>
+            <label style={labelStyle}>แนบไฟล์ / รูปภาพ</label>
+            <FileDropZone files={pendingFiles} setFiles={setPendingFiles} maxFiles={5} />
+          </div>
+
           {/* Actions */}
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-medium transition-all"
@@ -284,7 +299,8 @@ function ProjectCard({ project, onClick }: { project: SpecialProject; onClick: (
   const st = STATUS_CONFIG[project.status];
   const pt = project.plan_type ? PLAN_TYPE_CONFIG[project.plan_type] : null;
   const pct = project.completion_pct;
-  const barColor = pct >= 75 ? '#22c55e' : pct >= 25 ? '#f59e0b' : '#ef4444';
+  // Colorblind-safe: blue (good) → orange (warning) instead of green → red
+  const barColor = pct >= 75 ? PALETTE.primary : pct >= 25 ? STATUS.warning : STATUS.critical;
   const budgetPct = project.budget_planned > 0 ? Math.round((project.budget_actual / project.budget_planned) * 100) : 0;
   const overBudget = project.budget_actual > project.budget_planned && project.budget_planned > 0;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -297,7 +313,7 @@ function ProjectCard({ project, onClick }: { project: SpecialProject; onClick: (
     <div onClick={onClick} className="rounded-2xl p-5 cursor-pointer transition-all hover:translate-y-[-2px]"
       style={{
         background: 'var(--card-solid)',
-        border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+        border: `1px solid ${isOverdue ? `${STATUS.critical}40` : 'var(--border)'}`,
         boxShadow: 'var(--shadow-sm)',
       }}>
 
@@ -320,13 +336,13 @@ function ProjectCard({ project, onClick }: { project: SpecialProject; onClick: (
         </div>
         {isOverdue && (
           <span className="flex items-center gap-1 text-[11px] font-semibold shrink-0 px-2 py-0.5 rounded-md"
-            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+            style={{ background: STATUS.criticalBg, color: STATUS.critical }}>
             <AlertTriangle size={10} /> เกินกำหนด
           </span>
         )}
         {dueSoon && (
           <span className="flex items-center gap-1 text-[11px] font-semibold shrink-0 px-2 py-0.5 rounded-md"
-            style={{ background: 'rgba(245,158,11,0.1)', color: '#d97706' }}>
+            style={{ background: STATUS.warningBg, color: STATUS.warning }}>
             <Clock3 size={10} /> {daysLeft} วัน
           </span>
         )}
@@ -367,11 +383,11 @@ function ProjectCard({ project, onClick }: { project: SpecialProject; onClick: (
           <Wallet size={11} />
           {project.budget_planned > 0
             ? <>
-                <strong style={{ color: overBudget ? '#ef4444' : 'var(--text-primary)' }}>
+                <strong style={{ color: overBudget ? STATUS.critical : 'var(--text-primary)' }}>
                   ฿{formatBudget(project.budget_actual)}
                 </strong>
                 <span style={{ color: 'var(--muted)' }}> / ฿{formatBudget(project.budget_planned)}</span>
-                {overBudget && <span className="ml-1 font-semibold text-[10px]" style={{ color: '#ef4444' }}>เกิน {budgetPct - 100}%</span>}
+                {overBudget && <span className="ml-1 font-semibold text-[10px]" style={{ color: STATUS.critical }}>เกิน {budgetPct - 100}%</span>}
               </>
             : <span style={{ color: 'var(--muted)' }}>–</span>
           }

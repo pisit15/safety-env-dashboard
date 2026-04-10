@@ -10,6 +10,11 @@ import {
   Calendar, User, Building2, Wallet, CheckCircle2,
   Clock, ChevronDown, ChevronUp, Save, X,
 } from 'lucide-react';
+import { STATUS, PALETTE, CATEGORY_COLORS, UI } from '@/lib/she-theme';
+import {
+  ProjectAttachment, AttachmentList, InlineUploader,
+  FileDropZone, uploadPendingFiles,
+} from '@/components/ProjectFileUpload';
 
 // ─── Types ───────────────────────────────────────────────────
 interface SpecialProject {
@@ -38,18 +43,18 @@ interface Milestone {
 
 // ─── Config ──────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  planning:  { label: 'วางแผน',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)',  icon: '📋' },
-  active:    { label: 'ดำเนินการ',   color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   icon: '🟢' },
-  on_hold:   { label: 'พักชั่วคราว', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⏸️' },
-  completed: { label: 'เสร็จสิ้น',   color: '#10b981', bg: 'rgba(16,185,129,0.15)', icon: '✅' },
-  cancelled: { label: 'ยกเลิก',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '❌' },
+  planning:  { label: 'วางแผน',      color: PALETTE.primary,   bg: `${PALETTE.primary}18`,  icon: '📋' },
+  active:    { label: 'ดำเนินการ',   color: STATUS.ok,         bg: STATUS.okBg,             icon: '🟢' },
+  on_hold:   { label: 'พักชั่วคราว', color: STATUS.warning,    bg: STATUS.warningBg,        icon: '⏸️' },
+  completed: { label: 'เสร็จสิ้น',   color: STATUS.positive,   bg: STATUS.positiveBg,       icon: '✅' },
+  cancelled: { label: 'ยกเลิก',      color: STATUS.neutral,    bg: STATUS.neutralBg,        icon: '❌' },
 };
 const MILESTONE_STATUS_CONFIG = {
-  pending:     { label: 'รอดำเนินการ', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', icon: '○' },
-  in_progress: { label: 'กำลังทำ',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: '◑' },
-  done:        { label: 'เสร็จ',       color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   icon: '●' },
-  delayed:     { label: 'ล่าช้า',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⚠' },
-  cancelled:   { label: 'ยกเลิก',     color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '✕' },
+  pending:     { label: 'รอดำเนินการ', color: STATUS.neutral,   bg: STATUS.neutralBg,     icon: '○' },
+  in_progress: { label: 'กำลังทำ',    color: PALETTE.primary,  bg: `${PALETTE.primary}18`, icon: '◑' },
+  done:        { label: 'เสร็จ',       color: STATUS.positive,  bg: STATUS.positiveBg,     icon: '●' },
+  delayed:     { label: 'ล่าช้า',     color: STATUS.warning,   bg: STATUS.warningBg,      icon: '⚠' },
+  cancelled:   { label: 'ยกเลิก',     color: STATUS.critical,  bg: STATUS.criticalBg,     icon: '✕' },
 };
 
 const PLAN_TYPE_LABEL: Record<string, string> = { safety: '🛡️ Safety', environment: '🌿 Environment' };
@@ -144,7 +149,7 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, onProjectSync, isAd
               </span>
             )}
             {ms.actual_end && (
-              <span className="text-[11px]" style={{ color: '#22c55e' }}>
+              <span className="text-[11px]" style={{ color: STATUS.positive }}>
                 ✓ เสร็จ {fmt(ms.actual_end)}
               </span>
             )}
@@ -156,7 +161,7 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, onProjectSync, isAd
           <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
             <div className="h-full rounded-full" style={{
               width: `${ms.completion_pct}%`,
-              background: ms.completion_pct >= 75 ? '#22c55e' : ms.completion_pct >= 25 ? '#f59e0b' : '#ef4444',
+              background: ms.completion_pct >= 75 ? PALETTE.primary : ms.completion_pct >= 25 ? STATUS.warning : STATUS.critical,
             }} />
           </div>
           <span className="text-[11px] font-medium w-8 text-right" style={{ color: 'var(--text-secondary)' }}>
@@ -218,7 +223,7 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, onProjectSync, isAd
                   <Save size={12} /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
                 </button>
                 <button onClick={del} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] ml-auto"
-                  style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}>
+                  style={{ background: STATUS.criticalBg, color: STATUS.critical }}>
                   <Trash2 size={12} /> ลบ
                 </button>
               </div>
@@ -251,6 +256,7 @@ function AddMilestoneModal({ projectId, onClose, onAdded, onProjectSync }: {
   onProjectSync: (p: SpecialProject) => void;
 }) {
   const [form, setForm] = useState({ title: '', description: '', planned_start: '', planned_end: '' });
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; preview?: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -269,14 +275,19 @@ function AddMilestoneModal({ projectId, onClose, onAdded, onProjectSync }: {
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); setSaving(false); return; }
+
+    // Upload pending files if any
+    if (pendingFiles.length > 0 && data.milestone?.id) {
+      await uploadPendingFiles(projectId, data.milestone.id, pendingFiles, '');
+    }
+
     onAdded(data.milestone);
     if (data.project) onProjectSync(data.project);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}>
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
       <div className="rounded-2xl w-full max-w-md overflow-hidden"
         style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }}
         onClick={e => e.stopPropagation()}>
@@ -307,6 +318,11 @@ function AddMilestoneModal({ projectId, onClose, onAdded, onProjectSync }: {
               <DateInput style={inputStyle} value={form.planned_end} onChange={v => setForm(f => ({ ...f, planned_end: v }))} />
             </div>
           </div>
+          {/* File Attachments */}
+          <div>
+            <label className="block text-[12px] font-semibold mb-1" style={{ color: '#374151' }}>แนบไฟล์ / รูปภาพ</label>
+            <FileDropZone files={pendingFiles} setFiles={setPendingFiles} maxFiles={5} />
+          </div>
           <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px]"
               style={{ background: '#f3f4f6', color: '#6b7280' }}>ยกเลิก</button>
@@ -314,6 +330,179 @@ function AddMilestoneModal({ projectId, onClose, onAdded, onProjectSync }: {
               className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white"
               style={{ background: saving ? '#9ca3af' : '#6366f1' }}>
               {saving ? 'กำลังเพิ่ม...' : '✓ เพิ่ม Milestone'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Project Modal ──────────────────────────────────────
+const CATEGORY_OPTIONS = ['compliance', 'infrastructure', 'csr', 'capex', 'training', 'other'];
+
+function EditProjectModal({ project, companyId, onClose, onSaved }: {
+  project: SpecialProject;
+  companyId: string;
+  onClose: () => void;
+  onSaved: (p: SpecialProject) => void;
+}) {
+  const [form, setForm] = useState({
+    title: project.title,
+    description: project.description || '',
+    owner: project.owner,
+    plan_type: project.plan_type || '',
+    project_scope: project.project_scope,
+    requesting_dept: project.requesting_dept || '',
+    category: project.category || '',
+    start_date: project.start_date,
+    end_date: project.end_date,
+    budget_planned: String(project.budget_planned || ''),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const [companyUsers, setCompanyUsers] = useState<{ username: string; display_name?: string }[]>([]);
+  useEffect(() => {
+    fetch(`/api/company-users?companyId=${companyId}`)
+      .then(r => r.json())
+      .then(data => { if (data?.users) setCompanyUsers(data.users); })
+      .catch(() => {});
+  }, [companyId]);
+
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.title || !form.owner || !form.start_date || !form.end_date) {
+      setError('กรุณากรอก ชื่อโครงการ, เจ้าของ, วันเริ่ม, วันสิ้นสุด');
+      return;
+    }
+    setSaving(true); setError('');
+    const res = await fetch(`/api/projects/${project.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: form.title,
+        description: form.description || null,
+        owner: form.owner,
+        plan_type: form.plan_type || null,
+        project_scope: form.project_scope,
+        requesting_dept: form.requesting_dept || null,
+        category: form.category || null,
+        start_date: form.start_date,
+        end_date: form.end_date,
+        budget_planned: parseFloat(form.budget_planned) || 0,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); setSaving(false); return; }
+    onSaved(data.project);
+  };
+
+  const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4, display: 'block' };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="rounded-2xl w-full max-w-lg overflow-hidden"
+        style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}>
+
+        <div className="px-6 pt-5 pb-4 flex items-center justify-between"
+          style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
+          <div>
+            <h3 className="text-white font-bold text-[16px]">✏️ แก้ไขโครงการ</h3>
+            <p className="text-indigo-200 text-[12px] mt-0.5">Edit Project</p>
+          </div>
+          <button onClick={onClose} className="text-white opacity-70 hover:opacity-100"><X size={20} /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {error && (
+            <div className="p-3 rounded-lg text-[12px]" style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}>{error}</div>
+          )}
+
+          <div>
+            <label style={lbl}>ชื่อโครงการ *</label>
+            <input style={inputStyle} value={form.title} onChange={e => set('title', e.target.value)} />
+          </div>
+
+          <div>
+            <label style={lbl}>ผู้รับผิดชอบหลัก *</label>
+            <select style={inputStyle} value={form.owner} onChange={e => set('owner', e.target.value)}>
+              <option value="">— เลือก —</option>
+              {companyUsers.map(u => (
+                <option key={u.username} value={u.display_name || u.username}>{u.display_name || u.username}</option>
+              ))}
+              {/* Keep current owner if not in list */}
+              {form.owner && !companyUsers.find(u => (u.display_name || u.username) === form.owner) && (
+                <option value={form.owner}>{form.owner}</option>
+              )}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label style={lbl}>ประเภทงาน</label>
+              <select style={inputStyle} value={form.plan_type} onChange={e => set('plan_type', e.target.value)}>
+                <option value="">ทั่วไป</option>
+                <option value="safety">Safety</option>
+                <option value="environment">Environment</option>
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>ขอบเขต</label>
+              <select style={inputStyle} value={form.project_scope} onChange={e => set('project_scope', e.target.value)}>
+                <option value="internal">ภายในฝ่าย</option>
+                <option value="cross_dept">ข้ามแผนก</option>
+              </select>
+            </div>
+          </div>
+
+          {form.project_scope === 'cross_dept' && (
+            <div>
+              <label style={lbl}>แผนกที่ขอ</label>
+              <input style={inputStyle} value={form.requesting_dept} onChange={e => set('requesting_dept', e.target.value)} />
+            </div>
+          )}
+
+          <div>
+            <label style={lbl}>หมวดหมู่</label>
+            <select style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)}>
+              <option value="">ไม่ระบุ</option>
+              {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label style={lbl}>วันเริ่มต้น *</label>
+              <DateInput value={form.start_date} onChange={v => set('start_date', v)} inputStyle={inputStyle} />
+            </div>
+            <div>
+              <label style={lbl}>วันสิ้นสุด *</label>
+              <DateInput value={form.end_date} onChange={v => set('end_date', v)} inputStyle={inputStyle} />
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>งบประมาณตามแผน (บาท)</label>
+            <input type="number" style={inputStyle} value={form.budget_planned} onChange={e => set('budget_planned', e.target.value)} />
+          </div>
+
+          <div>
+            <label style={lbl}>รายละเอียด</label>
+            <textarea style={{ ...inputStyle, resize: 'vertical', minHeight: 72 }}
+              value={form.description} onChange={e => set('description', e.target.value)} />
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-medium"
+              style={{ background: '#f3f4f6', color: '#6b7280' }}>ยกเลิก</button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-white"
+              style={{ background: saving ? '#9ca3af' : 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+              {saving ? 'กำลังบันทึก...' : '✓ บันทึกการแก้ไข'}
             </button>
           </div>
         </div>
@@ -331,8 +520,10 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<SpecialProject | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [attachments, setAttachments] = useState<ProjectAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddMilestone, setShowAddMilestone] = useState(false);
+  const [showEditProject, setShowEditProject] = useState(false);
 
   const [deleting, setDeleting] = useState(false);
 
@@ -360,7 +551,10 @@ export default function ProjectDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/projects/${pid}`);
+    const [res, attRes] = await Promise.all([
+      fetch(`/api/projects/${pid}`),
+      fetch(`/api/projects/${pid}/attachments`),
+    ]);
     const data = await res.json();
     if (res.ok) {
       setProject(data.project);
@@ -369,6 +563,8 @@ export default function ProjectDetailPage() {
       setNotesVal(data.project.notes || '');
       setPctVal(String(data.project.completion_pct || 0));
     }
+    const attData = await attRes.json();
+    setAttachments(attData.attachments || []);
     setLoading(false);
   }, [pid]);
 
@@ -417,7 +613,7 @@ export default function ProjectDetailPage() {
 
   const st = STATUS_CONFIG[project.status];
   const pct = project.completion_pct;
-  const barColor = pct >= 75 ? '#22c55e' : pct >= 25 ? '#f59e0b' : '#ef4444';
+  const barColor = pct >= 75 ? PALETTE.primary : pct >= 25 ? STATUS.warning : STATUS.critical;
   const overBudget = project.budget_actual > project.budget_planned && project.budget_planned > 0;
   const doneMilestones = milestones.filter(m => m.status === 'done').length;
 
@@ -435,11 +631,18 @@ export default function ProjectDetailPage() {
               <ArrowLeft size={16} /> กลับหน้ารายการโครงการ
             </button>
             {isAdmin && (
-              <button onClick={handleDeleteProject} disabled={deleting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-80"
-                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
-                <Trash2 size={13} /> {deleting ? 'กำลังลบ...' : 'ลบโครงการ'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowEditProject(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-80"
+                  style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary, border: `1px solid ${PALETTE.primary}40` }}>
+                  <Pencil size={13} /> แก้ไขโครงการ
+                </button>
+                <button onClick={handleDeleteProject} disabled={deleting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all hover:opacity-80"
+                  style={{ background: STATUS.criticalBg, color: STATUS.critical, border: `1px solid ${STATUS.critical}40` }}>
+                  <Trash2 size={13} /> {deleting ? 'กำลังลบ...' : 'ลบโครงการ'}
+                </button>
+              </div>
             )}
           </div>
 
@@ -453,7 +656,7 @@ export default function ProjectDetailPage() {
                 <div className="flex flex-wrap gap-2 mb-2">
                   {project.plan_type && (
                     <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                      style={{ background: project.plan_type === 'safety' ? 'rgba(255,107,53,0.12)' : 'rgba(52,199,89,0.12)', color: project.plan_type === 'safety' ? '#ff6b35' : '#34c759' }}>
+                      style={{ background: `${CATEGORY_COLORS[project.plan_type === 'safety' ? 'safety' : 'environment']}18`, color: CATEGORY_COLORS[project.plan_type === 'safety' ? 'safety' : 'environment'] }}>
                       {PLAN_TYPE_LABEL[project.plan_type]}
                     </span>
                   )}
@@ -520,26 +723,26 @@ export default function ProjectDetailPage() {
               </div>
             </div>
 
-            {/* Progress + Budget row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4"
+            {/* Progress + Budget + Timeline row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4"
               style={{ borderTop: '1px solid var(--border)' }}>
 
               {/* Progress */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <span className="text-[12px] font-semibold flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                    <CheckCircle2 size={13} /> ความคืบหน้ารวม
+                    <CheckCircle2 size={13} /> ความคืบหน้า
                   </span>
                   {editingPct && isAdmin ? (
                     <div className="flex items-center gap-1">
                       <input type="number" min={0} max={100}
-                        style={{ width: 56, padding: '2px 6px', borderRadius: 6, border: '1px solid #6366f1', fontSize: 12, textAlign: 'center', background: '#eef2ff', color: '#6366f1' }}
+                        style={{ width: 56, padding: '2px 6px', borderRadius: 6, border: `1px solid ${PALETTE.primary}`, fontSize: 12, textAlign: 'center', background: `${PALETTE.primary}10`, color: PALETTE.primary }}
                         value={pctVal} onChange={e => setPctVal(e.target.value)} autoFocus />
                       <button onClick={async () => {
                         const v = Math.min(100, Math.max(0, parseInt(pctVal) || 0));
                         await updateProject({ completion_pct: v });
                         setEditingPct(false);
-                      }} className="p-1 rounded text-white text-[11px]" style={{ background: '#6366f1' }}><Save size={11} /></button>
+                      }} className="p-1 rounded text-white text-[11px]" style={{ background: PALETTE.primary }}><Save size={11} /></button>
                       <button onClick={() => setEditingPct(false)} className="p-1 rounded text-[11px]" style={{ color: 'var(--muted)' }}><X size={11} /></button>
                     </div>
                   ) : (
@@ -566,18 +769,18 @@ export default function ProjectDetailPage() {
                   </span>
                   {editingBudget && isAdmin ? (
                     <div className="flex items-center gap-1">
-                      <input type="number" style={{ width: 90, padding: '2px 6px', borderRadius: 6, border: '1px solid #6366f1', fontSize: 12, background: '#eef2ff', color: '#6366f1' }}
+                      <input type="number" style={{ width: 90, padding: '2px 6px', borderRadius: 6, border: `1px solid ${PALETTE.primary}`, fontSize: 12, background: `${PALETTE.primary}10`, color: PALETTE.primary }}
                         value={budgetActual} onChange={e => setBudgetActual(e.target.value)} autoFocus />
                       <button onClick={async () => {
                         await updateProject({ budget_actual: parseFloat(budgetActual) || 0 });
                         setEditingBudget(false);
-                      }} className="p-1 rounded text-white" style={{ background: '#6366f1' }}><Save size={11} /></button>
+                      }} className="p-1 rounded text-white" style={{ background: PALETTE.primary }}><Save size={11} /></button>
                       <button onClick={() => setEditingBudget(false)} className="p-1 rounded" style={{ color: 'var(--muted)' }}><X size={11} /></button>
                     </div>
                   ) : (
                     <button onClick={() => isAdmin && setEditingBudget(true)}
                       className="flex items-center gap-1 text-[13px] font-bold"
-                      style={{ color: overBudget ? '#ef4444' : '#22c55e' }}>
+                      style={{ color: overBudget ? STATUS.critical : PALETTE.primary }}>
                       {overBudget ? '⚠' : '✓'} ใช้แล้ว {fmtB(project.budget_actual)} บาท
                       {isAdmin && <Pencil size={10} className="opacity-50" />}
                     </button>
@@ -586,7 +789,7 @@ export default function ProjectDetailPage() {
                 <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
                   {project.budget_planned > 0 && (
                     <div className="h-full rounded-full transition-all"
-                      style={{ width: `${Math.min(100, Math.round((project.budget_actual / project.budget_planned) * 100))}%`, background: overBudget ? '#ef4444' : '#22c55e' }} />
+                      style={{ width: `${Math.min(100, Math.round((project.budget_actual / project.budget_planned) * 100))}%`, background: overBudget ? STATUS.critical : PALETTE.primary }} />
                   )}
                 </div>
                 <div className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
@@ -594,6 +797,45 @@ export default function ProjectDetailPage() {
                   {project.budget_planned > 0 && ` · ใช้ ${Math.round((project.budget_actual / project.budget_planned) * 100)}%`}
                 </div>
               </div>
+
+              {/* Timeline indicator */}
+              {(() => {
+                const start = new Date(project.start_date).getTime();
+                const end = new Date(project.end_date).getTime();
+                const now = Date.now();
+                const totalDuration = end - start;
+                const elapsed = now - start;
+                const timeProgress = totalDuration > 0 ? Math.max(0, Math.min(100, Math.round((elapsed / totalDuration) * 100))) : 0;
+                const daysRemaining = Math.ceil((end - now) / 86400000);
+                const isOverdue = now > end && !['completed', 'cancelled'].includes(project.status);
+                const timeColor = isOverdue ? STATUS.critical : timeProgress > 80 ? STATUS.warning : PALETTE.muted;
+                return (
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[12px] font-semibold flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                        <Calendar size={13} /> ระยะเวลา
+                      </span>
+                      <span className="text-[13px] font-bold" style={{ color: timeColor }}>
+                        {isOverdue ? `เกิน ${Math.abs(daysRemaining)} วัน` : project.status === 'completed' ? 'เสร็จแล้ว' : `เหลือ ${daysRemaining} วัน`}
+                      </span>
+                    </div>
+                    <div className="h-3 rounded-full overflow-hidden relative" style={{ background: 'var(--border)' }}>
+                      {/* Time elapsed bar (light gray) */}
+                      <div className="h-full rounded-full transition-all absolute inset-0"
+                        style={{ width: `${timeProgress}%`, background: isOverdue ? `${STATUS.critical}30` : `${PALETTE.muted}60` }} />
+                      {/* Completion overlay (shows how completion tracks vs time) */}
+                      <div className="h-full rounded-full transition-all absolute inset-0"
+                        style={{ width: `${pct}%`, background: barColor, opacity: 0.7 }} />
+                    </div>
+                    <div className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
+                      เวลาผ่าน {timeProgress}% · งานเสร็จ {pct}%
+                      {timeProgress > 0 && pct > 0 && pct < timeProgress - 20 && (
+                        <span style={{ color: STATUS.warning }}> · ช้ากว่าแผน</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -616,6 +858,40 @@ export default function ProjectDetailPage() {
                 </button>
               )}
             </div>
+
+            {/* Mini Gantt timeline — shows all milestones with dates as horizontal bars */}
+            {milestones.length > 0 && milestones.some(m => m.planned_start || m.planned_end) && (() => {
+              const projStart = new Date(project.start_date).getTime();
+              const projEnd = new Date(project.end_date).getTime();
+              const range = projEnd - projStart || 1;
+              const nowPct = Math.max(0, Math.min(100, ((Date.now() - projStart) / range) * 100));
+              return (
+                <div className="mb-4 p-3 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Timeline Overview</div>
+                  <div className="relative" style={{ minHeight: milestones.length * 22 + 8 }}>
+                    {/* Today line */}
+                    <div className="absolute top-0 bottom-0" style={{ left: `${nowPct}%`, width: 1, background: STATUS.warning, zIndex: 2, opacity: 0.6 }} />
+                    {milestones.filter(m => m.status !== 'cancelled').map((m, i) => {
+                      const mStart = m.planned_start ? new Date(m.planned_start).getTime() : projStart;
+                      const mEnd = m.planned_end ? new Date(m.planned_end).getTime() : projEnd;
+                      const left = Math.max(0, ((mStart - projStart) / range) * 100);
+                      const width = Math.max(2, Math.min(100 - left, ((mEnd - mStart) / range) * 100));
+                      const msCfg = MILESTONE_STATUS_CONFIG[m.status];
+                      return (
+                        <div key={m.id} className="absolute flex items-center" style={{ top: i * 22, left: `${left}%`, width: `${width}%`, height: 18 }}>
+                          <div className="h-2.5 rounded-full w-full" style={{ background: msCfg.color, opacity: m.status === 'done' ? 0.9 : 0.45 }} title={m.title} />
+                          <span className="absolute text-[9px] font-medium truncate pl-1" style={{ color: 'var(--text-secondary)', maxWidth: '100%' }}>{m.title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{fmt(project.start_date)}</span>
+                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{fmt(project.end_date)}</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {milestones.length === 0 ? (
               <div className="text-center py-10">
@@ -642,6 +918,45 @@ export default function ProjectDetailPage() {
                     }}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Attachments Section */}
+          <div className="rounded-2xl p-6 mb-5"
+            style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[16px] font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                📎 ไฟล์แนบ
+                {attachments.length > 0 && (
+                  <span className="text-[13px] font-normal" style={{ color: 'var(--muted)' }}>
+                    ({attachments.length})
+                  </span>
+                )}
+              </h2>
+              {isAdmin && (
+                <InlineUploader
+                  projectId={pid}
+                  uploadedBy={auth.isAdmin ? 'admin' : ''}
+                  onUploaded={att => setAttachments(prev => [att, ...prev])}
+                />
+              )}
+            </div>
+            {attachments.length > 0 ? (
+              <AttachmentList
+                attachments={attachments}
+                canDelete={isAdmin}
+                onDelete={async (attId) => {
+                  const res = await fetch(`/api/projects/${pid}/attachments?attachmentId=${attId}`, { method: 'DELETE' });
+                  if (res.ok) setAttachments(prev => prev.filter(a => a.id !== attId));
+                }}
+              />
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-[13px]" style={{ color: 'var(--muted)' }}>
+                  ยังไม่มีไฟล์แนบ
+                  {isAdmin && ' — คลิก "แนบไฟล์" เพื่อเพิ่ม'}
+                </p>
               </div>
             )}
           </div>
@@ -697,6 +1012,21 @@ export default function ProjectDetailPage() {
           onProjectSync={p => {
             setProject(p);
             setPctVal(String(p.completion_pct || 0));
+          }}
+        />
+      )}
+
+      {showEditProject && project && (
+        <EditProjectModal
+          project={project}
+          companyId={id}
+          onClose={() => setShowEditProject(false)}
+          onSaved={p => {
+            setProject(p);
+            setBudgetActual(String(p.budget_actual || 0));
+            setNotesVal(p.notes || '');
+            setPctVal(String(p.completion_pct || 0));
+            setShowEditProject(false);
           }}
         />
       )}
