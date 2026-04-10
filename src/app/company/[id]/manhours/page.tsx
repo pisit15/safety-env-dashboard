@@ -394,118 +394,88 @@ export default function ManHoursPage() {
           </div>
 
           {/* Cumulative Man-hours Area Chart */}
-          <div className="mb-6 rounded-2xl p-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>แนวโน้มชั่วโมงทำงานสะสม</h3>
-            <svg
-              width="100%"
-              height="200"
-              viewBox="0 0 1000 200"
-              preserveAspectRatio="xMidYMid meet"
-              style={{ minHeight: '200px', maxHeight: '250px' }}
-            >
-              {(() => {
-                // Calculate cumulative values
-                const cumulativeData = rows.map((row, idx) => {
-                  const empCum = rows.slice(0, idx + 1).reduce((sum, r) => sum + r.employee_manhours, 0);
-                  const conCum = rows.slice(0, idx + 1).reduce((sum, r) => sum + r.contractor_manhours, 0);
-                  return { month: row.month, empCum, conCum, total: empCum + conCum };
-                });
+          {(() => {
+            const cumulativeData = rows.map((row, idx) => {
+              const empCum = rows.slice(0, idx + 1).reduce((sum, r) => sum + r.employee_manhours, 0);
+              const conCum = rows.slice(0, idx + 1).reduce((sum, r) => sum + r.contractor_manhours, 0);
+              return { month: row.month, empCum, conCum, total: empCum + conCum };
+            });
+            const hasData = cumulativeData.some(d => d.total > 0);
 
-                // Find max cumulative value for scaling
-                const maxVal = Math.max(...cumulativeData.map(d => d.total), 1);
-                const scale = 160 / maxVal; // 160px height for chart area
+            if (!hasData) return null; // ไม่แสดงกราฟถ้ายังไม่มีข้อมูล
 
-                // Generate SVG paths
-                const empPoints = cumulativeData.map((d, i) => `${(i / 11) * 850 + 75},${180 - d.empCum * scale}`).join(' L ');
-                const conPoints = cumulativeData.map((d, i) => `${(i / 11) * 850 + 75},${180 - d.total * scale}`).join(' L ');
+            const maxVal = Math.max(...cumulativeData.map(d => d.total));
+            const chartH = 160;
+            const topPad = 20;
+            const toY = (v: number) => topPad + chartH - (v / maxVal) * chartH;
 
-                // Area paths (polygon form)
-                const empAreaPath = `M 75,180 L ${empPoints} L 925,180 Z`;
-                const conAreaPath = `M 75,180 L ${conPoints} L 925,180 Z`;
+            // Stacked: Employee at bottom, Contractor stacked on top
+            const empLine = cumulativeData.map((d, i) => {
+              const x = 75 + (i / 11) * 850;
+              return `${x},${toY(d.empCum)}`;
+            }).join(' L ');
+            const totalLine = cumulativeData.map((d, i) => {
+              const x = 75 + (i / 11) * 850;
+              return `${x},${toY(d.total)}`;
+            }).join(' L ');
 
-                // Y-axis scale labels (0, ~50%, ~100%)
-                const label1 = Math.round(maxVal / 2).toLocaleString();
-                const label2 = Math.round(maxVal).toLocaleString();
+            // Employee area: from baseline (180) up to empCum
+            const empArea = `M 75,${toY(0)} L ${empLine} L 925,${toY(0)} Z`;
+            // Contractor area: from empCum line up to total line (stacked, no overlap)
+            const empLineReverse = [...cumulativeData].reverse().map((d, i) => {
+              const x = 75 + ((11 - i) / 11) * 850;
+              return `${x},${toY(d.empCum)}`;
+            }).join(' L ');
+            const conArea = `M ${75},${toY(cumulativeData[0].empCum)} L ${totalLine} L ${empLineReverse} Z`;
 
-                return (
-                  <>
-                    {/* Y-axis labels */}
-                    <text x="50" y="185" fontSize="11" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">0</text>
-                    <text x="50" y="100" fontSize="11" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">{label1}</text>
-                    <text x="50" y="20" fontSize="11" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">{label2}</text>
+            const fmtY = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}K` : String(Math.round(v));
+            const lastD = cumulativeData[11];
+            const empEndY = toY(lastD.empCum);
+            const conEndY = toY(lastD.total);
 
-                    {/* Horizontal grid lines */}
-                    <line x1="60" y1="180" x2="930" y2="180" stroke="var(--border)" strokeWidth="1" opacity="0.5" />
-                    <line x1="60" y1="100" x2="930" y2="100" stroke="var(--border)" strokeWidth="1" opacity="0.3" />
-                    <line x1="60" y1="20" x2="930" y2="20" stroke="var(--border)" strokeWidth="1" opacity="0.3" />
+            return (
+              <div className="mb-6 rounded-2xl p-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>แนวโน้มชั่วโมงทำงานสะสม</h3>
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1.5 text-[11px]" style={{ color: PALETTE.primary }}>
+                      <span style={{ width: 12, height: 3, borderRadius: 2, background: PALETTE.primary, display: 'inline-block' }} /> พนักงาน
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11px]" style={{ color: PALETTE.secondary }}>
+                      <span style={{ width: 12, height: 3, borderRadius: 2, background: PALETTE.secondary, display: 'inline-block' }} /> ผู้รับเหมา
+                    </span>
+                  </div>
+                </div>
+                <svg width="100%" height="210" viewBox="0 0 1000 210" preserveAspectRatio="xMidYMid meet">
+                  {/* Y-axis */}
+                  <text x="65" y={toY(0)} fontSize="10" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">0</text>
+                  <text x="65" y={toY(maxVal / 2)} fontSize="10" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">{fmtY(maxVal / 2)}</text>
+                  <text x="65" y={toY(maxVal)} fontSize="10" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">{fmtY(maxVal)}</text>
+                  {/* Grid lines */}
+                  <line x1="75" y1={toY(0)} x2="925" y2={toY(0)} stroke={PALETTE.border} strokeWidth="1" />
+                  <line x1="75" y1={toY(maxVal / 2)} x2="925" y2={toY(maxVal / 2)} stroke={PALETTE.grid} strokeWidth="1" strokeDasharray="4 4" />
+                  <line x1="75" y1={toY(maxVal)} x2="925" y2={toY(maxVal)} stroke={PALETTE.grid} strokeWidth="1" strokeDasharray="4 4" />
 
-                    {/* Contractor area (behind, orange) */}
-                    <path d={conAreaPath} fill={PALETTE.secondary} opacity="0.3" />
-                    <polyline
-                      points={conPoints}
-                      fill="none"
-                      stroke={PALETTE.secondary}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                  {/* Contractor stacked area (orange, on top of employee) */}
+                  <path d={conArea} fill={PALETTE.secondary} opacity="0.25" />
+                  <polyline points={totalLine} fill="none" stroke={PALETTE.secondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
-                    {/* Employee area (blue) */}
-                    <path d={empAreaPath} fill={PALETTE.primary} opacity="0.3" />
-                    <polyline
-                      points={empPoints}
-                      fill="none"
-                      stroke={PALETTE.primary}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                  {/* Employee area (blue, bottom) */}
+                  <path d={empArea} fill={PALETTE.primary} opacity="0.25" />
+                  <polyline points={empLine} fill="none" stroke={PALETTE.primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
-                    {/* X-axis month labels */}
-                    {MONTH_NAMES.map((month, i) => (
-                      <text
-                        key={month.num}
-                        x={75 + (i / 11) * 850}
-                        y="195"
-                        fontSize="10"
-                        fill="var(--muted)"
-                        textAnchor="middle"
-                        dominantBaseline="hanging"
-                      >
-                        {month.th.substring(0, 4)}
-                      </text>
-                    ))}
+                  {/* X-axis month labels */}
+                  {MONTH_NAMES.map((m, i) => (
+                    <text key={m.num} x={75 + (i / 11) * 850} y="198" fontSize="10" fill="var(--muted)" textAnchor="middle">{m.th.substring(0, 4)}</text>
+                  ))}
 
-                    {/* End labels */}
-                    {cumulativeData.length > 0 && (
-                      <>
-                        <text
-                          x="935"
-                          y={180 - cumulativeData[11].empCum * scale}
-                          fontSize="10"
-                          fontWeight="600"
-                          fill={PALETTE.primary}
-                          dominantBaseline="middle"
-                        >
-                          พนักงาน
-                        </text>
-                        <text
-                          x="935"
-                          y={180 - cumulativeData[11].total * scale}
-                          fontSize="10"
-                          fontWeight="600"
-                          fill={PALETTE.secondary}
-                          dominantBaseline="middle"
-                        >
-                          ผู้รับเหมา
-                        </text>
-                      </>
-                    )}
-                  </>
-                );
-              })()}
-            </svg>
-          </div>
+                  {/* End-of-line value labels */}
+                  <text x="930" y={Math.min(empEndY, toY(0) - 8)} fontSize="10" fontWeight="700" fill={PALETTE.primary} dominantBaseline="middle">{fmtY(lastD.empCum)}</text>
+                  <text x="930" y={Math.min(conEndY, empEndY - 14)} fontSize="10" fontWeight="700" fill={PALETTE.secondary} dominantBaseline="middle">{fmtY(lastD.total)}</text>
+                </svg>
+              </div>
+            );
+          })()}
 
           {/* Error Banner */}
           {fetchError && (
