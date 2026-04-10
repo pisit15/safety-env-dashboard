@@ -2419,20 +2419,27 @@ export default function CompanyDrilldown() {
                 </div>
               )}
               {enhancedFilteredActivities.length > 0 ? (
-                <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-                  <table className="apple-table w-full text-[13px]">
+                <div className="max-h-[70vh] overflow-y-auto">
+                  <table className="apple-table w-full text-[13px]" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: 56 }} />{/* ลำดับ */}
+                      {planType === 'total' && <col style={{ width: 36 }} />}{/* แผน S/E */}
+                      <col />{/* กิจกรรม — flexible remaining space */}
+                      <col style={{ width: 64 }} />{/* ผู้รับผิดชอบ */}
+                      {MONTH_KEYS.map(k => <col key={k} style={{ width: 36 }} />)}{/* 12 months × 36px */}
+                    </colgroup>
                     <thead className="sticky top-0 z-20" style={{ background: 'var(--bg-primary, #fff)' }}>
                       <tr style={{ borderBottom: `2px solid var(--border)` }}>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ลำดับ</th>
+                        <th className="text-left py-3 px-1.5 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ลำดับ</th>
                         {planType === 'total' && (
-                          <th className="text-center py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>แผน</th>
+                          <th className="text-center py-3 px-1 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>แผน</th>
                         )}
-                        <th className="text-left py-3 px-2 font-semibold text-[11px] min-w-[250px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>กิจกรรม</th>
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ผู้รับผิดชอบ</th>
+                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>กิจกรรม</th>
+                        <th className="text-left py-3 px-1.5 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ผู้รับ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
-                            className="text-center py-3 px-1 font-semibold text-[10px]"
+                            className="text-center py-3 px-0 font-semibold text-[10px]"
                             style={{
                               color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
                               background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--bg-primary, #fff)',
@@ -2458,7 +2465,7 @@ export default function CompanyDrilldown() {
                         </tr>,
                         ...group.activities.map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                          <td className="py-2.5 px-1.5 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
                             <div>{act.no}</div>
                             {(() => {
                               const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
@@ -2522,7 +2529,7 @@ export default function CompanyDrilldown() {
                               return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
-                          <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
+                          <td className="py-2.5 px-1.5 text-[11px] cursor-pointer truncate" style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))} title={getEffectiveResponsible(act)}>{getEffectiveResponsible(act)}</td>
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
                             const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
@@ -2542,13 +2549,13 @@ export default function CompanyDrilldown() {
                             const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
                             const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
-                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
+                            return (<td key={k} className="text-center py-2.5 px-0 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
                           })}
                         </tr>
                         ))
                       ]) : enhancedFilteredActivities.map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                          <td className="py-2.5 px-1.5 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
                             <div>{act.no}</div>
                             {(() => {
                               const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
@@ -2813,7 +2820,7 @@ export default function CompanyDrilldown() {
                             return (
                               <td
                                 key={k}
-                                className="text-center py-2.5 px-1 cursor-pointer transition-colors relative"
+                                className="text-center py-2.5 px-0 cursor-pointer transition-colors relative"
                                 style={{
                                   background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent',
                                   borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
