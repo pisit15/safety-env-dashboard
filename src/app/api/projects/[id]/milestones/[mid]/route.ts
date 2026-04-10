@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { syncProjectFromMilestones } from '@/lib/project-sync';
 
 export const dynamic = 'force-dynamic';
 
-// PATCH — update milestone
+// PATCH — update milestone, then auto-sync project completion_pct
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string; mid: string } }
@@ -31,13 +32,17 @@ export async function PATCH(
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ milestone: data });
+
+    // Auto-sync project completion_pct from all milestones
+    const project = await syncProjectFromMilestones(supabase, params.id);
+
+    return NextResponse.json({ milestone: data, project });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
 
-// DELETE — remove milestone
+// DELETE — remove milestone, then auto-sync project completion_pct
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string; mid: string } }
@@ -51,7 +56,11 @@ export async function DELETE(
       .eq('project_id', params.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ success: true });
+
+    // Auto-sync project completion_pct from remaining milestones
+    const project = await syncProjectFromMilestones(supabase, params.id);
+
+    return NextResponse.json({ success: true, project });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { syncProjectFromMilestones } from '@/lib/project-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function GET(
   }
 }
 
-// POST — add milestone
+// POST — add milestone, then auto-sync project completion_pct
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -69,7 +70,11 @@ export async function POST(
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ milestone: data }, { status: 201 });
+
+    // Auto-sync project completion_pct from all milestones
+    const project = await syncProjectFromMilestones(supabase, params.id);
+
+    return NextResponse.json({ milestone: data, project }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

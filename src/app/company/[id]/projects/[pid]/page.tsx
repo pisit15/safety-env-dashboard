@@ -75,10 +75,11 @@ const inputStyle: React.CSSProperties = {
 };
 
 // ─── Milestone Row ────────────────────────────────────────────
-function MilestoneRow({ ms, projectId, onUpdated, onDeleted, isAdmin }: {
+function MilestoneRow({ ms, projectId, onUpdated, onDeleted, onProjectSync, isAdmin }: {
   ms: Milestone; projectId: string;
   onUpdated: (m: Milestone) => void;
   onDeleted: (id: string) => void;
+  onProjectSync: (p: SpecialProject) => void;
   isAdmin: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -104,14 +105,22 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, isAdmin }: {
       }),
     });
     const data = await res.json();
-    if (res.ok) { onUpdated(data.milestone); setEditing(false); }
+    if (res.ok) {
+      onUpdated(data.milestone);
+      if (data.project) onProjectSync(data.project);
+      setEditing(false);
+    }
     setSaving(false);
   };
 
   const del = async () => {
     if (!confirm(`ลบ Milestone "${ms.title}" ใช่ไหม?`)) return;
-    await fetch(`/api/projects/${projectId}/milestones/${ms.id}`, { method: 'DELETE' });
-    onDeleted(ms.id);
+    const res = await fetch(`/api/projects/${projectId}/milestones/${ms.id}`, { method: 'DELETE' });
+    if (res.ok) {
+      const data = await res.json();
+      onDeleted(ms.id);
+      if (data.project) onProjectSync(data.project);
+    }
   };
 
   return (
@@ -235,10 +244,11 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, isAdmin }: {
 }
 
 // ─── Add Milestone Modal ──────────────────────────────────────
-function AddMilestoneModal({ projectId, onClose, onAdded }: {
+function AddMilestoneModal({ projectId, onClose, onAdded, onProjectSync }: {
   projectId: string;
   onClose: () => void;
   onAdded: (m: Milestone) => void;
+  onProjectSync: (p: SpecialProject) => void;
 }) {
   const [form, setForm] = useState({ title: '', description: '', planned_start: '', planned_end: '' });
   const [saving, setSaving] = useState(false);
@@ -260,6 +270,7 @@ function AddMilestoneModal({ projectId, onClose, onAdded }: {
     const data = await res.json();
     if (!res.ok) { setError(data.error || 'เกิดข้อผิดพลาด'); setSaving(false); return; }
     onAdded(data.milestone);
+    if (data.project) onProjectSync(data.project);
   };
 
   return (
@@ -625,6 +636,10 @@ export default function ProjectDetailPage() {
                     key={ms.id} ms={ms} projectId={pid} isAdmin={isAdmin}
                     onUpdated={updated => setMilestones(prev => prev.map(m => m.id === updated.id ? updated : m))}
                     onDeleted={deletedId => setMilestones(prev => prev.filter(m => m.id !== deletedId))}
+                    onProjectSync={p => {
+                      setProject(p);
+                      setPctVal(String(p.completion_pct || 0));
+                    }}
                   />
                 ))}
               </div>
@@ -679,6 +694,10 @@ export default function ProjectDetailPage() {
           projectId={pid}
           onClose={() => setShowAddMilestone(false)}
           onAdded={m => { setMilestones(prev => [...prev, m]); setShowAddMilestone(false); }}
+          onProjectSync={p => {
+            setProject(p);
+            setPctVal(String(p.completion_pct || 0));
+          }}
         />
       )}
     </div>
