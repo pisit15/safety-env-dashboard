@@ -2148,24 +2148,40 @@ export default function CompanyDrilldown() {
                   {effectiveMonthlyProgress.map((mp, idx) => {
                     const isPast = idx < currentMonthIdx;
                     const isCurrent = idx === currentMonthIdx;
+                    const isFuture = idx > currentMonthIdx;
+                    const hasPlanned = (mp.denominator ?? mp.planned) > 0;
+                    const pct = mp.pctComplete;
+                    // Past month differentiation: failed past months stand out
+                    const pastFailed = isPast && hasPlanned && pct < 100;
+                    const pastDone = isPast && hasPlanned && pct >= 100;
                     return (
                       <div
                         key={mp.month}
                         className="text-center p-1.5 rounded-lg text-[10px]"
                         style={{
-                          background: isCurrent ? 'rgba(255,215,10,0.1)' : isPast ? 'var(--bg-hover)' : 'var(--bg-hover)',
-                          border: isCurrent ? '1px solid rgba(255,149,0,0.3)' : '1px solid var(--border)'
+                          background: isCurrent ? `${STATUS.warning}14`
+                            : pastDone ? `${STATUS.ok}0A`
+                            : pastFailed ? `${STATUS.critical}08`
+                            : 'var(--bg-hover)',
+                          border: isCurrent ? `1.5px solid ${STATUS.warning}`
+                            : pastFailed ? `1px solid ${STATUS.critical}25`
+                            : '1px solid var(--border)',
                         }}
                       >
-                        <div className="font-semibold" style={{ color: isCurrent ? STATUS.warning : 'var(--text-secondary)' }}>
+                        <div className="font-semibold" style={{
+                          color: isCurrent ? STATUS.warning : isPast ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}>
                           {mp.label}
+                          {isCurrent && <span className="block text-[7px] font-normal" style={{ color: STATUS.warning }}>ปัจจุบัน</span>}
                         </div>
                         <div className="text-sm font-bold" style={{
-                          color: mp.pctComplete >= 100 ? STATUS.ok :
-                                mp.pctComplete > 0 ? STATUS.warning :
-                                isPast ? STATUS.critical : 'var(--text-muted)'
+                          color: !hasPlanned ? 'var(--text-muted)'
+                            : pct >= 100 ? STATUS.ok
+                            : pct > 0 ? STATUS.warning
+                            : isPast ? STATUS.critical
+                            : PALETTE.muted,
                         }}>
-                          {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
+                          {hasPlanned ? `${pct}%` : '-'}
                         </div>
                         <div style={{ color: 'var(--muted)' }}>{mp.doneCount ?? mp.completed}/{mp.denominator ?? mp.planned}</div>
                       </div>

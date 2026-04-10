@@ -20,14 +20,16 @@ function getThemeColors(isDark: boolean) {
   };
 }
 
-// Status/accent colors that work in both themes
+// Status/accent colors — aligned with she-theme.ts
+// (imported values can't be used at module scope in some Chart.js contexts,
+//  so we duplicate the hex values here with a comment reference)
 const statusColors = {
-  green: '#34c759',
-  orange: '#ff9500',
-  blue: '#007aff',
-  red: '#ff3b30',
-  gray: '#8e8e93',
-  infoBright: '#5ac8fa',
+  green: '#2B8C3E',     // STATUS.positive — dark green for "done"
+  orange: '#F28E2B',    // STATUS.warning — orange for attention
+  blue: '#4E79A7',      // PALETTE.primary — steel blue for plan/neutral
+  red: '#C23B22',       // STATUS.critical — dark red for severe
+  gray: '#BAB0AC',      // PALETTE.muted — gray for N/A
+  infoBright: '#76B7B2', // teal — secondary info
 };
 
 interface RankingChartProps {
@@ -304,7 +306,7 @@ export function BudgetChart({ companies }: RankingChartProps) {
       {
         label: 'Safety',
         data: sorted.map(c => (c as any).safetyBudget || 0),
-        backgroundColor: 'rgba(255, 149, 0, 0.8)',
+        backgroundColor: statusColors.orange + 'CC',
         borderColor: statusColors.orange,
         borderWidth: 1,
         borderRadius: 0,
@@ -314,7 +316,7 @@ export function BudgetChart({ companies }: RankingChartProps) {
       {
         label: 'Environment',
         data: sorted.map(c => (c as any).enviBudget || 0),
-        backgroundColor: 'rgba(52, 199, 89, 0.8)',
+        backgroundColor: statusColors.green + 'CC',
         borderColor: statusColors.green,
         borderWidth: 1,
         borderRadius: 0,
@@ -462,7 +464,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'ฐาน (KPI)',
             data: denominatorData,
-            backgroundColor: 'rgba(0, 122, 255, 0.35)',
+            backgroundColor: statusColors.blue + '59',  // 35% opacity
             borderColor: statusColors.blue,
             borderWidth: 1,
             borderRadius: 6,
@@ -471,7 +473,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'เสร็จแล้ว',
             data: doneData,
-            backgroundColor: 'rgba(52, 199, 89, 0.8)',
+            backgroundColor: statusColors.green + 'CC',  // 80% opacity
             borderColor: statusColors.green,
             borderWidth: 1,
             borderRadius: 0,
@@ -480,7 +482,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'ยกเลิก',
             data: cancelledData,
-            backgroundColor: 'rgba(255, 59, 48, 0.5)',
+            backgroundColor: statusColors.red + '80',    // 50% opacity
             borderColor: statusColors.red,
             borderWidth: 1,
             borderRadius: 0,
@@ -489,7 +491,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
           {
             label: 'N/A',
             data: notApplicableData,
-            backgroundColor: 'rgba(142, 142, 147, 0.5)',
+            backgroundColor: statusColors.gray + '80',   // 50% opacity
             borderColor: statusColors.gray,
             borderWidth: 1,
             borderRadius: 0,
@@ -571,7 +573,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
               {
                 label: 'ฐาน (KPI)',
                 data: denominatorData,
-                backgroundColor: 'rgba(0, 122, 255, 0.35)',
+                backgroundColor: statusColors.blue + '59',
                 borderColor: statusColors.blue,
                 borderWidth: 1,
                 borderRadius: 6,
@@ -580,7 +582,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
               {
                 label: 'เสร็จแล้ว',
                 data: doneData,
-                backgroundColor: 'rgba(52, 199, 89, 0.8)',
+                backgroundColor: statusColors.green + 'CC',
                 borderColor: statusColors.green,
                 borderWidth: 1,
                 borderRadius: 0,
@@ -589,7 +591,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
               {
                 label: 'ยกเลิก',
                 data: cancelledData,
-                backgroundColor: 'rgba(255, 59, 48, 0.5)',
+                backgroundColor: statusColors.red + '80',
                 borderColor: statusColors.red,
                 borderWidth: 1,
                 borderRadius: 0,
@@ -598,7 +600,7 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
               {
                 label: 'N/A',
                 data: notApplicableData,
-                backgroundColor: 'rgba(142, 142, 147, 0.5)',
+                backgroundColor: statusColors.gray + '80',
                 borderColor: statusColors.gray,
                 borderWidth: 1,
                 borderRadius: 0,
