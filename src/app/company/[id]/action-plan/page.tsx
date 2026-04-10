@@ -2189,36 +2189,7 @@ export default function CompanyDrilldown() {
                 </div>
               </div>
 
-              {/* Quick Filters + Status Tabs — compact inline */}
-              <div className="flex flex-col gap-2 mb-3 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                {/* Quick filters removed — too cluttered */}
-                {/* Status filter tabs */}
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)', Icon: null as typeof Check | null },
-                    { key: 'done', label: planConfig.statusLabels.done, color: STATUS.ok, Icon: Check },
-                    { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? STATUS.critical : STATUS.warning, Icon: Clock },
-                    { key: 'postponed', label: planConfig.statusLabels.postponed, color: STATUS.warning, Icon: Clock },
-                    { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: PALETTE.textSecondary, Icon: Ban },
-                    { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: PALETTE.muted, Icon: CircleSlash },
-                  ].map(f => (
-                    <button
-                      key={f.key}
-                      onClick={() => setStatusFilter(f.key)}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-0.5"
-                      style={{
-                        background: statusFilter === f.key ? planConfig.accentColor : 'var(--bg-tertiary)',
-                        color: statusFilter === f.key ? '#ffffff' : f.color,
-                        border: `1px solid ${statusFilter === f.key ? planConfig.accentColor : 'var(--border)'}`
-                      }}
-                    >
-                      {f.Icon && <f.Icon size={10} />}
-                      {f.label}
-                      <span style={{ opacity: 0.7 }}>({statusCounts[f.key as keyof typeof statusCounts]})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Quick filters + Status tabs removed — too cluttered */}
 
               {enhancedFilteredActivities.length > 0 ? (
                 <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
