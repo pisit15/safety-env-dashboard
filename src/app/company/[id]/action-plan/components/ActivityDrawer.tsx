@@ -509,14 +509,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                     </div>
                   )}
 
-                  {/* Revert */}
-                  {hasOverride && (
-                    <button onClick={onRevertStatus} disabled={savingStatus}
-                      className="w-full px-2 py-1.5 rounded-lg text-[11px] transition-colors"
-                      style={{ background: UI.bgMuted, color: UI.textLabel, border: `1px solid ${UI.borderDefault}` }}>
-                      ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
-                    </button>
-                  )}
+                  {/* Revert button removed — Admin manages via approval workflow */}
                 </>
               )}
 
