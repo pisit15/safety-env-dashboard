@@ -39,16 +39,29 @@ async function fetchDbSettings(): Promise<DbSetting[]> {
       .from('company_settings')
       .select('*');
 
+    if (error) {
+      console.warn('[company-settings] DB fetch error:', error.message);
+    }
+
     if (!error && data && data.length > 0) {
       cachedSettings = data;
       cacheTime = now;
       return data;
     }
-  } catch {
-    // ignore — fallback to static
+  } catch (e) {
+    console.warn('[company-settings] fetchDbSettings exception:', e);
   }
 
   return [];
+}
+
+/** Pick the first non-empty trimmed string, or '' */
+function pick(...values: (string | undefined | null)[]): string {
+  for (const v of values) {
+    const trimmed = v?.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
 }
 
 function mergeCompany(company: CompanyConfig, dbSetting: DbSetting | undefined): CompanyConfig {
@@ -56,12 +69,13 @@ function mergeCompany(company: CompanyConfig, dbSetting: DbSetting | undefined):
 
   return {
     ...company,
-    name: dbSetting.company_name || company.name,
-    shortName: dbSetting.company_name || company.shortName,
-    fullName: dbSetting.full_name || company.fullName,
-    sheetId: (dbSetting.sheet_id || company.sheetId)?.trim(),
-    safetySheet: (dbSetting.safety_sheet || company.safetySheet)?.trim(),
-    enviSheet: (dbSetting.envi_sheet || company.enviSheet)?.trim(),
+    name: pick(dbSetting.company_name, company.name),
+    shortName: pick(dbSetting.company_name, company.shortName),
+    fullName: pick(dbSetting.full_name, company.fullName),
+    // DB values take priority over static config for sheet settings
+    sheetId: pick(dbSetting.sheet_id, company.sheetId),
+    safetySheet: pick(dbSetting.safety_sheet, company.safetySheet),
+    enviSheet: pick(dbSetting.envi_sheet, company.enviSheet),
     group: (dbSetting.group_name as CompanyConfig['group']) || company.group,
     bu: (dbSetting.bu as CompanyConfig['bu']) || company.bu,
   };

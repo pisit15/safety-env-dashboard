@@ -97,17 +97,26 @@ export default function CompanyDashboard() {
       fetch(`/api/manhours?companyId=${id}&year=${year}`).then(r => r.json()).then(d => {
         if (Array.isArray(d)) setManhours(d);
       }).catch(() => {}),
-      // P0: Pass companyId to dashboard API — fetches only this company's Google Sheets (not all)
-      fetch(`/api/dashboard?plan=total&year=${year}&companyId=${id}`).then(r => r.json()).then(d => {
-        if (d?.companies) {
-          const comp = d.companies.find((c: { companyId: string }) => c.companyId === id);
-          if (comp) {
-            setActionPlanPct(comp.pctDone || 0);
-            setActionPlanTotal(comp.total || 0);
-            setActionPlanDone(comp.done || 0);
-            setActionPlanOverdue(comp.overdueCount || 0);
-          }
-        }
+      // P0: Fetch both safety + environment plans and merge (dashboard API doesn't support plan=total)
+      Promise.all([
+        fetch(`/api/dashboard?plan=safety&year=${year}&companyId=${id}`).then(r => r.json()).catch(() => null),
+        fetch(`/api/dashboard?plan=environment&year=${year}&companyId=${id}`).then(r => r.json()).catch(() => null),
+      ]).then(([safetyData, enviData]) => {
+        let total = 0, done = 0, overdue = 0;
+        const findComp = (d: any) => d?.companies?.find((c: { companyId: string }) => c.companyId === id);
+        const sc = findComp(safetyData);
+        const ec = findComp(enviData);
+        if (sc) { total += sc.total || 0; done += sc.done || 0; overdue += sc.overdueCount || 0; }
+        if (ec) { total += ec.total || 0; done += ec.done || 0; overdue += ec.overdueCount || 0; }
+        // KPI formula: % = done / (total - cancelled - N/A)
+        const cancelled = (sc?.cancelled || 0) + (ec?.cancelled || 0);
+        const na = (sc?.notApplicable || 0) + (ec?.notApplicable || 0);
+        const denom = total - cancelled - na;
+        const pct = denom > 0 ? Math.round((done / denom) * 1000) / 10 : 0;
+        setActionPlanPct(pct);
+        setActionPlanTotal(total);
+        setActionPlanDone(done);
+        setActionPlanOverdue(overdue);
       }).catch(() => {}),
     ];
     Promise.allSettled(fetches).then(() => {

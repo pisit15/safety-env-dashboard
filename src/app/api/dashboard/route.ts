@@ -124,7 +124,11 @@ export async function GET(request: Request) {
 
     // P0: If companyId is provided, filter to only that company (skip Google Sheets for all others)
     if (filterCompanyId) {
+      const beforeCount = activeCompanies.length;
       activeCompanies = activeCompanies.filter(c => c.id === filterCompanyId);
+      if (activeCompanies.length === 0) {
+        console.warn(`[dashboard] Company "${filterCompanyId}" not in active list (${beforeCount} active companies for year ${year}). Returning demo data.`);
+      }
     }
 
     if (activeCompanies.length === 0) {
