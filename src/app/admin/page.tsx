@@ -34,6 +34,12 @@ interface EditRequest {
   reviewed_by: string; reviewed_at: string; expires_at: string; created_at: string;
 }
 
+interface CancellationRequest {
+  id: number; company_id: string; plan_type: string; activity_no: string;
+  month: string; requested_status: string; reason: string; requested_by: string;
+  status: string; reviewed_by: string; reviewed_at: string; created_at: string;
+}
+
 interface Deadline {
   month: string; deadline_day: number; is_active: boolean;
 }
@@ -64,6 +70,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
+  const [cancellationRequests, setCancellationRequests] = useState<CancellationRequest[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
@@ -231,6 +238,10 @@ export default function AdminPage() {
     fetch(`/api/edit-requests?companyId=all&status=${requestFilter}`)
       .then(r => r.json())
       .then(d => setEditRequests(d.requests || []))
+      .catch(() => {});
+    fetch(`/api/cancellation-requests?companyId=all&status=${requestFilter}`)
+      .then(r => r.json())
+      .then(d => setCancellationRequests(d.requests || []))
       .catch(() => {});
   }, [requestFilter]);
 
@@ -465,7 +476,16 @@ export default function AdminPage() {
     await fetch('/api/edit-requests', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status, reviewedBy: 'admin' }),
+      body: JSON.stringify({ id, status, reviewedBy: currentAdminName || 'admin' }),
+    });
+    fetchRequests();
+  };
+
+  const handleCancellationApproveReject = async (id: number, status: 'approved' | 'rejected') => {
+    await fetch('/api/cancellation-requests', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, reviewedBy: currentAdminName || 'admin' }),
     });
     fetchRequests();
   };
@@ -829,9 +849,9 @@ export default function AdminPage() {
               }}
             >
               {tab.label}
-              {tab.key === 'requests' && editRequests.filter(r => r.status === 'pending').length > 0 && (
+              {tab.key === 'requests' && (editRequests.filter(r => r.status === 'pending').length + cancellationRequests.filter(r => r.status === 'pending').length) > 0 && (
                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--danger)', color: 'var(--text-primary)' }}>
-                  {editRequests.filter(r => r.status === 'pending').length}
+                  {editRequests.filter(r => r.status === 'pending').length + cancellationRequests.filter(r => r.status === 'pending').length}
                 </span>
               )}
             </button>
@@ -908,7 +928,7 @@ export default function AdminPage() {
               </select>
             </div>
             {editRequests.length === 0 ? (
-              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ไม่มีคำขอ</p>
+              <p className="text-[13px] py-4 text-center" style={{ color: 'var(--text-secondary)' }}>ไม่มีคำขอ</p>
             ) : (
               <div className="space-y-3">
                 {editRequests.map(req => (
@@ -949,6 +969,65 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* CANCELLATION / STATUS CHANGE REQUESTS */}
+            <div className="flex items-center gap-2 mt-6 mb-4">
+              <span className="w-0.5 h-4 rounded-full" style={{ background: '#ff9f0a' }}></span>
+              <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>คำขอเปลี่ยนสถานะ (ยกเลิก / ไม่เข้าเงื่อนไข / เลื่อน / ไม่มีแผน)</h3>
+            </div>
+            {cancellationRequests.length === 0 ? (
+              <p className="text-[13px] py-4 text-center" style={{ color: 'var(--text-secondary)' }}>ไม่มีคำขอ</p>
+            ) : (
+              <div className="space-y-3">
+                {cancellationRequests.map(req => {
+                  const statusLabels: Record<string, string> = {
+                    cancelled: 'ยกเลิก', not_applicable: 'ไม่เข้าเงื่อนไข',
+                    not_planned: 'ไม่มีแผน', planned: 'มีแผน',
+                  };
+                  return (
+                    <div key={`cancel-${req.id}`} className="rounded-xl p-4" style={{
+                      border: req.status === 'pending' ? '1px solid rgba(255,159,10,0.3)' : req.status === 'approved' ? '1px solid rgba(48,209,88,0.3)' : '1px solid rgba(255,69,58,0.3)',
+                      background: req.status === 'pending' ? 'rgba(255,159,10,0.05)' : req.status === 'approved' ? 'rgba(48,209,88,0.05)' : 'rgba(255,69,58,0.05)'
+                    }}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="font-medium text-[13px]" style={{ color: 'var(--text-primary)' }}>{req.company_id.toUpperCase()}</span>
+                            <span style={{ color: 'var(--border)' }} className="text-[11px]">|</span>
+                            <span style={{ color: 'var(--text-secondary)' }} className="text-[11px]">{req.plan_type === 'safety' ? 'Safety' : 'Envi'} กิจกรรม {req.activity_no}</span>
+                            <span style={{ color: 'var(--border)' }} className="text-[11px]">|</span>
+                            <span style={{ color: 'var(--text-secondary)' }} className="text-[11px]">{MONTH_LABELS[req.month] || req.month}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(100,100,255,0.15)', color: '#7b7bff' }}>
+                              ขอเปลี่ยนเป็น: {statusLabels[req.requested_status] || req.requested_status}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
+                              background: req.status === 'pending' ? 'rgba(255,159,10,0.2)' : req.status === 'approved' ? 'rgba(48,209,88,0.2)' : 'rgba(255,69,58,0.2)',
+                              color: req.status === 'pending' ? '#ff9f0a' : req.status === 'approved' ? '#30d158' : '#ff453a'
+                            }}>
+                              {req.status === 'pending' ? 'รอการอนุมัติ' : req.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] mb-1" style={{ color: 'var(--text-secondary)' }}>เหตุผล: {req.reason}</p>
+                          <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                            โดย {req.requested_by} | {new Date(req.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
+                            {req.reviewed_at && ` | ตรวจสอบโดย ${req.reviewed_by} เมื่อ ${new Date(req.reviewed_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`}
+                          </p>
+                        </div>
+                        {req.status === 'pending' && isAdmin && (
+                          <div className="flex gap-2 ml-4">
+                            <button onClick={() => handleCancellationApproveReject(req.id, 'approved')} className="px-3 py-1.5 text-[11px] rounded-[10px]" style={{ background: 'var(--success)', color: 'var(--text-primary)' }}>อนุมัติ</button>
+                            <button onClick={() => handleCancellationApproveReject(req.id, 'rejected')} className="px-3 py-1.5 text-[11px] rounded-[10px]" style={{ background: 'var(--danger)', color: 'var(--text-primary)' }}>ปฏิเสธ</button>
+                          </div>
+                        )}
+                        {req.status === 'pending' && isViewer && (
+                          <span className="text-[10px] ml-4" style={{ color: 'var(--muted)' }}>ดูอย่างเดียว</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
