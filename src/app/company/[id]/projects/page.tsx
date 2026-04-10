@@ -131,8 +131,7 @@ function CreateProjectModal({ companyId, loggedInUser, onClose, onCreated }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}>
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
       <div className="rounded-2xl w-full max-w-lg overflow-hidden"
         style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
