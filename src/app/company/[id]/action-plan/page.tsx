@@ -1782,14 +1782,7 @@ export default function CompanyDrilldown() {
                     </span>
                   </>
                 )}
-                {quickFilter !== 'none' && (
-                  <>
-                    <span style={{ color: 'var(--muted)' }}>•</span>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}>
-                      {planConfig.quickFilters.find(f => f.key === quickFilter)?.label || quickFilter}
-                    </span>
-                  </>
-                )}
+                {/* quick filter badge removed */}
                 {statusFilter !== 'all' && (
                   <>
                     <span style={{ color: 'var(--muted)' }}>•</span>
@@ -2186,66 +2179,19 @@ export default function CompanyDrilldown() {
                     <span className="inline-flex items-center gap-0.5"><CircleSlash size={10} style={{ color: PALETTE.muted }} /> ไม่เข้าเงื่อนไข</span>
                   </div>
                   <button
-                    onClick={() => {
-                      const statusMap: Record<string, string> = { done: 'เสร็จแล้ว', planned: 'มีแผน', overdue: 'เกินกำหนด', postponed: 'เลื่อน', cancelled: 'ยกเลิก', not_applicable: 'ไม่เข้าเงื่อนไข', not_planned: '-' };
-                      const header = ['ลำดับ', planType === 'total' ? 'แผน' : '', 'กิจกรรม', 'ผู้รับผิดชอบ', ...MONTH_LABELS, 'ความก้าวหน้า'].filter(Boolean);
-                      const rows = enhancedFilteredActivities.map(act => {
-                        const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
-                        const prog = activityProgress[`${prefix}${act.no}`];
-                        const monthStatuses = MONTH_KEYS.map(mk => statusMap[getEffectiveStatus(act, mk)] || '-');
-                        return [act.no, planType === 'total' ? ((act as any)._planTag === 'S' ? 'Safety' : 'Environment') : '', act.activity, getEffectiveResponsible(act), ...monthStatuses, prog ? `${prog.done}/${prog.total} (${prog.pct}%)` : '-'].filter((_, idx) => planType === 'total' || idx !== 1);
-                      });
-                      const csv = '\uFEFF' + [header.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
-                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url; a.download = `${companyId}-${planConfig.filterSummaryLabel}-${selectedYear}.csv`;
-                      a.click(); URL.revokeObjectURL(url);
-                    }}
+                    onClick={handleExport}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all hover:opacity-80 flex-shrink-0"
                     style={{ background: planConfig.accentBg, color: planConfig.accentColor, border: `1px solid ${planConfig.accentColor}` }}
-                    title="ดาวน์โหลด CSV"
+                    title="ดาวน์โหลด Excel (.xlsx)"
                   >
-                    <Download size={11} /> Export
+                    <Download size={11} /> Export Excel
                   </button>
                 </div>
               </div>
 
               {/* Quick Filters + Status Tabs — compact inline */}
               <div className="flex flex-col gap-2 mb-3 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                {/* Quick filters */}
-                {planConfig.quickFilters.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-medium mr-0.5" style={{ color: 'var(--muted)' }}>โฟกัส:</span>
-                    {planConfig.quickFilters.map(f => {
-                      const count = f.key === 'overdue' ? quickFilterCounts.overdue
-                        : f.key === 'thisMonth' ? quickFilterCounts.thisMonth
-                        : f.key === 'notStarted' ? statusCounts.not_started
-                        : f.key === 'noEvidence' ? quickFilterCounts.noEvidence
-                        : f.key === 'postponed' ? quickFilterCounts.postponed
-                        : f.key === 'safetyOnly' ? quickFilterCounts.safetyOnly
-                        : f.key === 'enviOnly' ? quickFilterCounts.enviOnly
-                        : f.key === 'atRisk' ? quickFilterCounts.atRisk
-                        : f.key === 'hasProgress' ? quickFilterCounts.hasProgress
-                        : 0;
-                      return (
-                        <button
-                          key={f.key}
-                          onClick={() => setQuickFilter(quickFilter === f.key ? 'none' : f.key)}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
-                          style={{
-                            background: quickFilter === f.key ? planConfig.accentBg : 'var(--bg-tertiary)',
-                            color: quickFilter === f.key ? planConfig.accentColor : 'var(--text-secondary)',
-                            border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
-                          }}
-                        >
-                          <f.Icon size={10} className="inline mr-0.5" />
-                          {f.label} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Quick filters removed — too cluttered */}
                 {/* Status filter tabs */}
                 <div className="flex flex-wrap gap-1.5">
                   {[
