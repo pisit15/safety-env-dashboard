@@ -84,5 +84,24 @@ export const PALETTE = {
   muted: '#BAB0AC',
 };
 
+// ── UI Neutral Tokens (drawer, forms, cards) ────────────────
+export const UI = {
+  // Backgrounds
+  bgWhite: '#ffffff',
+  bgPage: '#f9fafb',        // gray-50  — card/panel background
+  bgMuted: '#f3f4f6',       // gray-100 — input/button neutral bg
+  bgHover: '#e5e7eb',       // gray-200 — hover state
+  // Text
+  textStrong: '#1f2937',    // gray-800 — primary text on white
+  textBody: '#374151',      // gray-700 — body text
+  textLabel: '#6b7280',     // gray-500 — labels, captions
+  textPlaceholder: '#9ca3af', // gray-400 — placeholders, muted
+  textDisabled: '#d1d5db',  // gray-300 — disabled text
+  // Borders
+  borderStrong: '#d1d5db',  // gray-300 — input borders
+  borderDefault: '#e5e7eb', // gray-200 — card/divider borders (= PALETTE.border)
+  borderLight: '#f3f4f6',   // gray-100 — subtle separators
+};
+
 // ── Missing Data Style ───────────────────────────────────────
 export const MISSING_DATA_COLOR = '#D1D5DB';  // Lighter gray for "-" placeholders

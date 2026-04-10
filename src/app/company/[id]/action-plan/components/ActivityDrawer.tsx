@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
 import { X, ChevronUp, ChevronDown, Paperclip, ExternalLink, Trash2, TrendingUp, TrendingDown, Check, Circle, CircleAlert, Clock, Ban, CircleSlash, Minus, AlertTriangle, Shield, ClipboardList, Link2, Image, FileText, FileSpreadsheet, Lock } from 'lucide-react';
 import { Activity, MonthStatus } from '@/lib/types';
-import { STATUS, PALETTE, CATEGORY_COLORS } from '@/lib/she-theme';
+import { STATUS, PALETTE, CATEGORY_COLORS, UI } from '@/lib/she-theme';
 import dynamic from 'next/dynamic';
 
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false });
@@ -265,7 +265,7 @@ export default function ActivityDrawer(props: DrawerProps) {
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col overflow-hidden"
         style={{
           width: 'min(520px, 90vw)',
-          background: '#ffffff',
+          background: UI.bgWhite,
           boxShadow: '-8px 0 30px rgba(0,0,0,0.15)',
           animation: 'slideInRight 0.25s ease-out',
         }}
@@ -344,14 +344,14 @@ export default function ActivityDrawer(props: DrawerProps) {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex-shrink-0 flex border-b" style={{ borderColor: '#e5e7eb' }}>
+        <div className="flex-shrink-0 flex border-b" style={{ borderColor: UI.borderDefault }}>
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className="flex-1 py-2.5 text-xs font-medium transition-colors relative"
               style={{
-                color: activeTab === t.key ? accentColor : '#6b7280',
+                color: activeTab === t.key ? accentColor : UI.textLabel,
                 borderBottom: activeTab === t.key ? `2px solid ${accentColor}` : '2px solid transparent',
               }}
             >
@@ -367,13 +367,13 @@ export default function ActivityDrawer(props: DrawerProps) {
 
         {/* ── Lock Notice ── */}
         {!checkingLock && deadlineLocked && !hasApproval && !isAdmin && (
-          <div className="flex-shrink-0 px-5 py-2.5" style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
+          <div className="flex-shrink-0 px-5 py-2.5" style={{ background: `${STATUS.critical}08`, borderBottom: `1px solid ${STATUS.critical}30` }}>
             <p className="text-xs font-medium inline-flex items-center gap-1" style={{ color: STATUS.critical }}><Lock size={11} /> เลยกำหนดเวลาแก้ไข — ต้องขออนุมัติ</p>
           </div>
         )}
         {!checkingLock && deadlineLocked && isAdmin && (
-          <div className="flex-shrink-0 px-5 py-2" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a' }}>
-            <p className="text-xs font-medium" style={{ color: '#d97706' }}><AlertTriangle size={11} className="inline mr-0.5" /> เลยกำหนด — แก้ไขได้ (Admin)</p>
+          <div className="flex-shrink-0 px-5 py-2" style={{ background: `${STATUS.warning}0A`, borderBottom: `1px solid ${STATUS.warning}30` }}>
+            <p className="text-xs font-medium" style={{ color: STATUS.warning }}><AlertTriangle size={11} className="inline mr-0.5" /> เลยกำหนด — แก้ไขได้ (Admin)</p>
           </div>
         )}
 
@@ -396,9 +396,9 @@ export default function ActivityDrawer(props: DrawerProps) {
                           disabled={savingStatus}
                           className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all"
                           style={{
-                            background: isActive ? '#eef2ff' : '#f9fafb',
-                            border: isActive ? `2px solid ${accentColor}` : '1px solid #e5e7eb',
-                            color: isActive ? accentColor : '#6b7280',
+                            background: isActive ? `${PALETTE.primary}0A` : UI.bgPage,
+                            border: isActive ? `2px solid ${accentColor}` : `1px solid ${UI.borderDefault}`,
+                            color: isActive ? accentColor : UI.textLabel,
                             opacity: savingStatus ? 0.5 : 1,
                           }}
                         >
@@ -411,15 +411,15 @@ export default function ActivityDrawer(props: DrawerProps) {
 
                   {/* Completion flow */}
                   {pendingDone && (
-                    <div className="rounded-lg p-3" style={{ background: 'rgba(52,199,89,0.06)', border: '1px solid rgba(52,199,89,0.3)' }}>
+                    <div className="rounded-lg p-3" style={{ background: `${STATUS.ok}0F`, border: `1px solid ${STATUS.ok}4D` }}>
                       <p className="text-xs font-semibold mb-2" style={{ color: STATUS.ok }}>บันทึกการดำเนินงาน</p>
                       <div>
-                        <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>วันที่ดำเนินการเสร็จ</label>
-                        <DateInput value={completionDate} onChange={v => setCompletionDate(v)} inputStyle={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
+                        <label className="text-[11px] block mb-1" style={{ color: UI.textLabel }}>วันที่ดำเนินการเสร็จ</label>
+                        <DateInput value={completionDate} onChange={v => setCompletionDate(v)} inputStyle={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }} />
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => { setPendingDone(false); setCompletionDate(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                         <button onClick={() => onSaveStatus('done')} disabled={!completionDate || savingStatus}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                           style={{ background: STATUS.ok, color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1 }}>
@@ -431,7 +431,7 @@ export default function ActivityDrawer(props: DrawerProps) {
 
                   {/* Postpone flow */}
                   {pendingPostpone && (
-                    <div className="rounded-lg p-3" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                    <div className="rounded-lg p-3" style={{ background: `${PALETTE.primary}0A`, border: `1px solid ${PALETTE.primary}30` }}>
                       <p className="text-xs font-medium mb-2" style={{ color: PALETTE.primary }}>เลือกเดือนที่จะเลื่อนไป:</p>
                       <div className="grid grid-cols-6 gap-1.5 mb-2">
                         {MONTH_KEYS.map((mk, idx) => {
@@ -443,10 +443,10 @@ export default function ActivityDrawer(props: DrawerProps) {
                             <button key={mk} onClick={() => !disabled && setPostponeMonth(mk)} disabled={disabled}
                               className="px-2 py-1.5 rounded text-xs transition-colors"
                               style={{
-                                background: isSelected ? PALETTE.primary : disabled ? '#f3f4f6' : '#e5e7eb',
-                                color: isSelected ? '#fff' : disabled ? '#d1d5db' : '#374151',
+                                background: isSelected ? PALETTE.primary : disabled ? UI.bgMuted : UI.bgHover,
+                                color: isSelected ? '#fff' : disabled ? UI.textDisabled : UI.textBody,
                                 cursor: disabled ? 'not-allowed' : 'pointer',
-                                border: isSelected ? `2px solid ${PALETTE.primary}` : '1px solid #e5e7eb',
+                                border: isSelected ? `2px solid ${PALETTE.primary}` : `1px solid ${UI.borderDefault}`,
                               }}
                             >{MONTH_LABELS[idx]}</button>
                           );
@@ -454,7 +454,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => { setPendingPostpone(false); setPostponeMonth(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                         <button onClick={() => onSaveStatus('postponed')} disabled={!postponeMonth || savingStatus}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                           style={{ background: PALETTE.primary, color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}>
@@ -484,11 +484,11 @@ export default function ActivityDrawer(props: DrawerProps) {
                           placeholder={cfg.placeholder}
                           className="w-full px-3 py-2 rounded-lg text-[12px] resize-none"
                           rows={2}
-                          style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#111827', outline: 'none' }}
+                          style={{ background: UI.bgPage, border: `1px solid ${UI.borderDefault}`, color: UI.textStrong, outline: 'none' }}
                         />
                         <div className="flex gap-2">
                           <button onClick={() => { setPendingCancel(null); setCancelReason(''); }}
-                            className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                            className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                           <button onClick={handleSubmitCancellationRequest} disabled={!cancelReason.trim() || submittingCancel}
                             className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                             style={{ background: cfg.color, color: '#fff', opacity: !cancelReason.trim() || submittingCancel ? 0.5 : 1 }}>
@@ -501,7 +501,7 @@ export default function ActivityDrawer(props: DrawerProps) {
 
                   {/* Pending approval badge */}
                   {pendingCancellationStatus && !pendingCancel && (
-                    <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
+                    <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: `${STATUS.warning}14`, border: `1px solid ${STATUS.warning}33` }}>
                       <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: STATUS.warning }} />
                       <span className="text-[11px]" style={{ color: STATUS.warning }}>
                         คำขอ{pendingCancellationStatus === 'cancelled' ? 'ยกเลิก' : pendingCancellationStatus === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancellationStatus === 'not_planned' ? 'นำออกจากแผน' : pendingCancellationStatus === 'planned' ? 'เพิ่มเข้าแผน' : pendingCancellationStatus}รอการอนุมัติจาก Admin
@@ -513,7 +513,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {hasOverride && (
                     <button onClick={onRevertStatus} disabled={savingStatus}
                       className="w-full px-2 py-1.5 rounded-lg text-[11px] transition-colors"
-                      style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }}>
+                      style={{ background: UI.bgMuted, color: UI.textLabel, border: `1px solid ${UI.borderDefault}` }}>
                       ↩ กลับไปใช้สถานะอัตโนมัติ (จาก Sheet)
                     </button>
                   )}
@@ -522,7 +522,7 @@ export default function ActivityDrawer(props: DrawerProps) {
 
               {/* Month overview strip */}
               <div>
-                <p className="text-[11px] font-medium mb-2" style={{ color: '#6b7280' }}>สถานะรายเดือน</p>
+                <p className="text-[11px] font-medium mb-2" style={{ color: UI.textLabel }}>สถานะรายเดือน</p>
                 <div className="grid grid-cols-12 gap-1">
                   {MONTH_KEYS.map((mk, idx) => {
                     const st = activity.monthStatuses?.[mk] || 'not_planned';
@@ -538,7 +538,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                           border: isCurrent ? `1.5px solid ${accentColor}` : '1px solid transparent',
                         }}
                       >
-                        <div style={{ color: isCurrent ? accentColor : '#9ca3af' }}>{MONTH_LABELS[idx].replace('.', '')}</div>
+                        <div style={{ color: isCurrent ? accentColor : UI.textPlaceholder }}>{MONTH_LABELS[idx].replace('.', '')}</div>
                         <div className="mx-auto mt-0.5 w-2 h-2 rounded-full" style={{ background: dotColor }} />
                       </button>
                     );
@@ -548,9 +548,9 @@ export default function ActivityDrawer(props: DrawerProps) {
 
               {/* Helper tips */}
               {isSafety && (
-                <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
+                <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: `${CATEGORY_COLORS.safety}0F`, border: `1px solid ${CATEGORY_COLORS.safety}33` }}>
                   <Shield size={14} className="mt-0.5 flex-shrink-0" style={{ color: CATEGORY_COLORS.safety }} />
-                  <div className="text-[11px]" style={{ color: '#6b7280' }}>
+                  <div className="text-[11px]" style={{ color: UI.textLabel }}>
                     <p className="font-semibold mb-0.5" style={{ color: CATEGORY_COLORS.safety }}>ปิดกิจกรรม Safety</p>
                     <p>1. อัปเดตสถานะ "เสร็จแล้ว" → 2. แนบหลักฐาน → 3. ระบุรายละเอียด</p>
                   </div>
@@ -559,7 +559,7 @@ export default function ActivityDrawer(props: DrawerProps) {
               {isEnvi && (
                 <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: `${CATEGORY_COLORS.environment}0A`, border: `1px solid ${CATEGORY_COLORS.environment}30` }}>
                   <ClipboardList size={14} className="mt-0.5 flex-shrink-0" style={{ color: CATEGORY_COLORS.environment }} />
-                  <div className="text-[11px]" style={{ color: '#6b7280' }}>
+                  <div className="text-[11px]" style={{ color: UI.textLabel }}>
                     <p className="font-semibold mb-0.5" style={{ color: CATEGORY_COLORS.environment }}>Compliance — แนบหลักฐานจำเป็น</p>
                     <p>อัปเดตสถานะ → แนบหลักฐาน (ใบอนุญาต/รายงาน) → บันทึกรายละเอียด</p>
                   </div>
@@ -576,16 +576,16 @@ export default function ActivityDrawer(props: DrawerProps) {
                       ขอแก้ไขข้อมูลย้อนหลัง
                     </button>
                   ) : (
-                    <div className="rounded-lg p-3" style={{ background: '#f3f4f6', border: '1px solid #e5e7eb' }}>
-                      <p className="text-sm font-medium mb-2" style={{ color: '#1f2937' }}>ขอแก้ไขข้อมูลย้อนหลัง</p>
+                    <div className="rounded-lg p-3" style={{ background: UI.bgMuted, border: `1px solid ${UI.borderDefault}` }}>
+                      <p className="text-sm font-medium mb-2" style={{ color: UI.textStrong }}>ขอแก้ไขข้อมูลย้อนหลัง</p>
                       <textarea value={editRequestReason} onChange={e => setEditRequestReason(e.target.value)}
                         placeholder="เหตุผลที่ต้องการแก้ไข..."
                         className="w-full px-3 py-2 rounded-lg text-sm mb-2 focus:outline-none resize-none"
-                        style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }}
+                        style={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }}
                         rows={3} autoFocus />
                       <div className="flex gap-2">
                         <button onClick={() => { setShowEditRequest(false); setEditRequestReason(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
+                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                         <button onClick={() => { onRequestEdit(editRequestReason); setShowEditRequest(false); setEditRequestReason(''); }}
                           disabled={!editRequestReason.trim()}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
@@ -604,13 +604,13 @@ export default function ActivityDrawer(props: DrawerProps) {
           {activeTab === 'evidence' && (
             <div className="space-y-4">
               {loadingAttachments ? (
-                <div className="text-xs py-8 text-center" style={{ color: '#6b7280' }}>กำลังโหลด...</div>
+                <div className="text-xs py-8 text-center" style={{ color: UI.textLabel }}>กำลังโหลด...</div>
               ) : attachments.length === 0 ? (
                 <div className="text-center py-8 rounded-lg" style={isEnvi
-                  ? { background: 'rgba(255,59,48,0.04)', border: '2px dashed rgba(255,59,48,0.3)' }
-                  : { background: '#f9fafb', border: '2px dashed #d1d5db' }
+                  ? { background: `${STATUS.critical}0A`, border: `2px dashed ${STATUS.critical}4D` }
+                  : { background: UI.bgPage, border: `2px dashed ${UI.borderStrong}` }
                 }>
-                  <Paperclip size={28} className="mx-auto mb-2" style={{ color: isEnvi ? STATUS.critical : '#d1d5db' }} />
+                  <Paperclip size={28} className="mx-auto mb-2" style={{ color: isEnvi ? STATUS.critical : UI.textDisabled }} />
                   <p className="text-xs font-medium" style={{ color: isEnvi ? STATUS.critical : '#9ca3af' }}>
                     {isEnvi ? <><AlertTriangle size={11} className="inline mr-0.5" /> ยังไม่มีหลักฐาน — ต้องอัปโหลดเพื่อ compliance</> : 'ยังไม่มีไฟล์แนบ'}
                   </p>
@@ -618,14 +618,14 @@ export default function ActivityDrawer(props: DrawerProps) {
               ) : (
                 <div className="space-y-1.5">
                   {attachments.map(att => (
-                    <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                    <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: UI.bgPage, border: `1px solid ${UI.borderDefault}` }}>
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="flex-shrink-0" style={{ color: PALETTE.textSecondary }}>
                           {att.file_type === 'link' ? <Link2 size={14} /> : att.file_type?.includes('image') ? <Image size={14} /> : att.file_type?.includes('pdf') ? <FileText size={14} /> : att.file_type?.includes('excel') ? <FileSpreadsheet size={14} /> : <Paperclip size={14} />}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-xs truncate" style={{ color: '#1f2937' }}>{att.file_name}</p>
-                          <p className="text-[10px]" style={{ color: '#9ca3af' }}>
+                          <p className="text-xs truncate" style={{ color: UI.textStrong }}>{att.file_name}</p>
+                          <p className="text-[10px]" style={{ color: UI.textPlaceholder }}>
                             {att.uploaded_by} · {new Date(att.created_at).toLocaleDateString('th-TH')}
                             {att.file_size > 0 && ` · ${(att.file_size / 1024 / 1024).toFixed(1)} MB`}
                           </p>
@@ -658,19 +658,19 @@ export default function ActivityDrawer(props: DrawerProps) {
                       disabled={uploadingFile} />
                   </label>
 
-                  <div className="rounded-lg p-3" style={{ background: '#f9fafb', border: '1px dashed #d1d5db' }}>
-                    <p className="text-[11px] mb-1.5 flex items-center gap-1" style={{ color: '#6b7280' }}>
+                  <div className="rounded-lg p-3" style={{ background: UI.bgPage, border: `1px dashed ${UI.borderStrong}` }}>
+                    <p className="text-[11px] mb-1.5 flex items-center gap-1" style={{ color: UI.textLabel }}>
                       <ExternalLink size={11} /> เพิ่มลิงก์ภายนอก
                     </p>
                     <input type="text" value={externalLinkTitle} onChange={e => setExternalLinkTitle(e.target.value)}
                       placeholder="ชื่อลิงก์ (ไม่จำเป็น)"
                       className="w-full px-2.5 py-1.5 rounded text-xs mb-1.5 focus:outline-none"
-                      style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
+                      style={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }} />
                     <div className="flex gap-1.5">
                       <input type="url" value={externalLink} onChange={e => setExternalLink(e.target.value)}
                         placeholder="https://..."
                         className="flex-1 px-2.5 py-1.5 rounded text-xs focus:outline-none"
-                        style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }}
+                        style={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }}
                         onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); }} />
                       <button onClick={handleAddLink} disabled={addingLink || !externalLink.trim()}
                         className="px-3 py-1.5 rounded text-xs font-medium transition-opacity"
@@ -687,33 +687,33 @@ export default function ActivityDrawer(props: DrawerProps) {
           {/* TAB: Budget */}
           {activeTab === 'budget' && (
             <div className="space-y-4">
-              <div className="rounded-xl p-4" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+              <div className="rounded-xl p-4" style={{ background: UI.bgPage, border: `1px solid ${UI.borderDefault}` }}>
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: '#9ca3af' }}>งบตามแผน</p>
-                    <p className="text-xl font-bold" style={{ color: '#1f2937' }}>
+                    <p className="text-[11px] mb-0.5" style={{ color: UI.textPlaceholder }}>งบตามแผน</p>
+                    <p className="text-xl font-bold" style={{ color: UI.textStrong }}>
                       {modalBudget > 0 ? modalBudget.toLocaleString() : '-'}
-                      {modalBudget > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: '#9ca3af' }}>บาท</span>}
+                      {modalBudget > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: UI.textPlaceholder }}>บาท</span>}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: '#9ca3af' }}>ใช้จริง</p>
+                    <p className="text-[11px] mb-0.5" style={{ color: UI.textPlaceholder }}>ใช้จริง</p>
                     <p className="text-xl font-bold" style={{ color: isOverBudget ? STATUS.critical : STATUS.ok }}>
                       {modalActualCost > 0 ? modalActualCost.toLocaleString() : '-'}
-                      {modalActualCost > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: '#9ca3af' }}>บาท</span>}
+                      {modalActualCost > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: UI.textPlaceholder }}>บาท</span>}
                     </p>
                   </div>
                 </div>
                 {modalBudget > 0 && modalActualCost > 0 && (
                   <div className="mb-3">
                     <div className="flex items-center justify-between text-[11px] mb-1">
-                      <span style={{ color: '#6b7280' }}>ใช้ไป {budgetPctUsed}%</span>
+                      <span style={{ color: UI.textLabel }}>ใช้ไป {budgetPctUsed}%</span>
                       <span className="flex items-center gap-1" style={{ color: isOverBudget ? STATUS.critical : STATUS.ok }}>
                         {isOverBudget ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                         {isOverBudget ? `เกินงบ ${Math.abs(budgetVariance).toLocaleString()}` : `เหลือ ${budgetVariance.toLocaleString()}`}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: UI.bgHover }}>
                       <div className="h-full rounded-full transition-all" style={{
                         width: `${Math.min(budgetPctUsed, 100)}%`,
                         background: isOverBudget ? STATUS.critical : budgetPctUsed >= 85 ? STATUS.warning : STATUS.ok,
@@ -723,7 +723,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                 )}
                 {canEdit && (
                   <div>
-                    <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>บันทึกค่าใช้จ่ายจริง (บาท)</label>
+                    <label className="text-[11px] block mb-1" style={{ color: UI.textLabel }}>บันทึกค่าใช้จ่ายจริง (บาท)</label>
                     <div className="flex gap-2">
                       <input
                         type="number"
@@ -731,7 +731,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                         onChange={e => onSetEditingActualCost(e.target.value)}
                         placeholder="0"
                         className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none"
-                        style={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }}
+                        style={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }}
                       />
                       <button
                         onClick={() => onSaveBudget(editingCell.actNo, parseFloat(editingActualCost) || 0)}
@@ -765,11 +765,11 @@ export default function ActivityDrawer(props: DrawerProps) {
                 </div>
               ) : statusNote ? (
                 <div>
-                  <p className="text-xs mb-1" style={{ color: '#6b7280' }}>รายละเอียด:</p>
+                  <p className="text-xs mb-1" style={{ color: UI.textLabel }}>รายละเอียด:</p>
                   <RichTextEditor value={statusNote} onChange={() => {}} readOnly />
                 </div>
               ) : (
-                <p className="text-xs py-4 text-center" style={{ color: '#9ca3af' }}>ไม่มีหมายเหตุ</p>
+                <p className="text-xs py-4 text-center" style={{ color: UI.textPlaceholder }}>ไม่มีหมายเหตุ</p>
               )}
             </div>
           )}

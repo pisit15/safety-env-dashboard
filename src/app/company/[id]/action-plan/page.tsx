@@ -1632,7 +1632,7 @@ export default function CompanyDrilldown() {
         <main className="flex-1 p-8 flex items-center justify-center">
           <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center" style={{ backdropFilter: 'blur(40px)' }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--info) 100%)' }}>
+              style={{ background: `linear-gradient(135deg, ${PALETTE.primary} 0%, ${PALETTE.primary}CC 100%)` }}>
               <Key size={24} color="white" />
             </div>
             <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>เข้าสู่ระบบ</h2>
@@ -1657,7 +1657,7 @@ export default function CompanyDrilldown() {
               className="w-full px-3 py-2.5 rounded-lg text-sm mb-3 focus:outline-none"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             />
-            {loginError && <p style={{ color: 'var(--danger)' }} className="text-xs mb-3">{loginError}</p>}
+            {loginError && <p style={{ color: STATUS.critical }} className="text-xs mb-3">{loginError}</p>}
             <button
               onClick={handleLogin}
               disabled={!loginPassword}
@@ -1704,7 +1704,7 @@ export default function CompanyDrilldown() {
               <button
                 onClick={() => setShowLoginModal(true)}
                 className="glass-card px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                style={{ color: 'var(--warning)' }}
+                style={{ color: STATUS.warning }}
               >
                 <Key size={14} className="inline mr-1" /> เข้าสู่ระบบเพื่อแก้ไข
               </button>
@@ -1791,7 +1791,7 @@ export default function CompanyDrilldown() {
                 onClick={() => setTimeRange(opt.key)}
                 className="px-3 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200"
                 style={timeRange === opt.key
-                  ? { background: 'var(--accent)', color: '#fff', boxShadow: '0 2px 8px rgba(10,132,255,0.3)' }
+                  ? { background: PALETTE.primary, color: '#fff', boxShadow: `0 2px 8px ${PALETTE.primary}4D` }
                   : { color: 'var(--muted)' }}
               >
                 {opt.label}
@@ -1803,7 +1803,7 @@ export default function CompanyDrilldown() {
             onChange={(e) => e.target.value && setTimeRange(e.target.value)}
             className="px-2 py-1.5 rounded-md text-[11px] font-medium transition-all duration-200 cursor-pointer"
             style={{
-              background: MONTH_KEYS.includes(timeRange) ? 'var(--accent)' : 'var(--bg-tertiary)',
+              background: MONTH_KEYS.includes(timeRange) ? PALETTE.primary : 'var(--bg-tertiary)',
               color: MONTH_KEYS.includes(timeRange) ? '#fff' : 'var(--muted)',
               border: '1px solid var(--border)',
               outline: 'none',
@@ -1881,12 +1881,12 @@ export default function CompanyDrilldown() {
               <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3 animate-fade-in-up">
                 <KPICard label={planConfig.kpi.total} value={effectiveSummary?.total || 0} />
                 <div title={`สำเร็จจริง ${(effectiveSummary as any)?.pctPureDone || 0}% (${effectiveSummary?.done || 0} รายการ)\nรวม N/A ${effectiveSummary?.pctDone || 0}% (+${effectiveSummary?.notApplicable || 0} ไม่เข้าเงื่อนไข)`}>
-                  <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={effectiveSummary?.notApplicable ? `+${effectiveSummary.notApplicable} N/A = ${effectiveSummary?.pctDone || 0}%` : undefined} />
+                  <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color={STATUS.ok} progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={effectiveSummary?.notApplicable ? `+${effectiveSummary.notApplicable} N/A = ${effectiveSummary?.pctDone || 0}%` : undefined} />
                 </div>
                 <KPICard label="Safety ยังเปิด" value={crossPlanStats.safetyOpen} color={CATEGORY_COLORS.safety} subtext={`จาก ${crossPlanStats.safetyTotal} กิจกรรม`} />
                 <KPICard label="Envi ยังเปิด" value={crossPlanStats.enviOpen} color={CATEGORY_COLORS.environment} subtext={`จาก ${crossPlanStats.enviTotal} กิจกรรม`} />
-                <KPICard label="Overdue รวม" value={(crossPlanStats.safetyOverdue + crossPlanStats.enviOverdue)} color="var(--danger)" subtext={`S:${crossPlanStats.safetyOverdue} / E:${crossPlanStats.enviOverdue}`} />
-                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
+                <KPICard label="Overdue รวม" value={(crossPlanStats.safetyOverdue + crossPlanStats.enviOverdue)} color={STATUS.critical} subtext={`S:${crossPlanStats.safetyOverdue} / E:${crossPlanStats.enviOverdue}`} />
+                <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={PALETTE.primary} subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
               </div>
               {/* View toggle removed — Total tab always shows combined view with S/E badges */}
               </>
@@ -1896,14 +1896,14 @@ export default function CompanyDrilldown() {
               {/* Row 1: Activity-level overview */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2 animate-fade-in-up">
                 <KPICard label={planType === 'safety' ? 'กิจกรรม Safety' : 'กิจกรรม Envi'} value={activities.length} subtext={`${activities.filter(a => a.isConditional).length} งาน trigger-based`} />
-                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={`จาก ${effectiveSummary?.total || 0} รายการรายเดือน`} />
-                <KPICard label={planConfig.kpi.notStarted} value={effectiveSummary?.notStarted || 0} color={planType === 'safety' ? 'var(--danger)' : 'var(--warning)'} subtext="รายการรายเดือน" />
+                <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color={STATUS.ok} progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={`จาก ${effectiveSummary?.total || 0} รายการรายเดือน`} />
+                <KPICard label={planConfig.kpi.notStarted} value={effectiveSummary?.notStarted || 0} color={planType === 'safety' ? STATUS.critical : STATUS.warning} subtext="รายการรายเดือน" />
                 <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color={planConfig.accentColor} subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : 'บาท'} />
               </div>
               {/* Row 2: Detailed breakdown */}
               <div className="grid grid-cols-4 lg:grid-cols-4 gap-3 mb-5 animate-fade-in-up">
-                <KPICard label={planConfig.kpi.postponed} value={effectiveSummary?.postponed || 0} color="var(--info)" />
-                <KPICard label={planConfig.kpi.cancelled} value={effectiveSummary?.cancelled || 0} color="var(--danger)" />
+                <KPICard label={planConfig.kpi.postponed} value={effectiveSummary?.postponed || 0} color={PALETTE.primary} />
+                <KPICard label={planConfig.kpi.cancelled} value={effectiveSummary?.cancelled || 0} color={STATUS.critical} />
                 <KPICard label={planConfig.kpi.na} value={effectiveSummary?.notApplicable || 0} color="var(--muted)" />
                 <KPICard label="Conditional / ยังไม่เกิดเหตุ" value={activities.filter(a => a.isConditional).length} color="var(--muted)" subtext="ไม่นับ overdue" />
               </div>
@@ -1918,7 +1918,7 @@ export default function CompanyDrilldown() {
                   onClick={() => setShowKpiDetail(!showKpiDetail)}
                 >
                   <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                    <TrendingUp size={14} style={{ color: 'var(--accent)' }} />
+                    <TrendingUp size={14} style={{ color: PALETTE.primary }} />
                     KPI รายไตรมาส
                     <span className="text-[11px] font-normal" style={{ color: 'var(--muted)' }}>
                       — เฉลี่ย {kpiData.yearlyAvgPct}% (คะแนน {kpiData.yearlyAvgScore}/5 {kpiData.yearlyScoreLabel})
@@ -2157,13 +2157,13 @@ export default function CompanyDrilldown() {
                           border: isCurrent ? '1px solid rgba(255,149,0,0.3)' : '1px solid var(--border)'
                         }}
                       >
-                        <div className="font-semibold" style={{ color: isCurrent ? 'var(--warning)' : 'var(--text-secondary)' }}>
+                        <div className="font-semibold" style={{ color: isCurrent ? STATUS.warning : 'var(--text-secondary)' }}>
                           {mp.label}
                         </div>
                         <div className="text-sm font-bold" style={{
-                          color: mp.pctComplete >= 100 ? 'var(--success)' :
-                                mp.pctComplete > 0 ? 'var(--warning)' :
-                                isPast ? 'var(--danger)' : 'var(--text-muted)'
+                          color: mp.pctComplete >= 100 ? STATUS.ok :
+                                mp.pctComplete > 0 ? STATUS.warning :
+                                isPast ? STATUS.critical : 'var(--text-muted)'
                         }}>
                           {mp.planned > 0 ? `${mp.pctComplete}%` : '-'}
                         </div>
@@ -2271,7 +2271,7 @@ export default function CompanyDrilldown() {
                     <span className="inline-flex items-center gap-0.5"><Clock size={10} style={{ color: STATUS.warning }} /> เลื่อน</span>
                     <span className="inline-flex items-center gap-0.5"><Ban size={10} style={{ color: PALETTE.textSecondary }} /> ยกเลิก</span>
                     <span className="inline-flex items-center gap-0.5"><CircleSlash size={10} style={{ color: PALETTE.muted }} /> ไม่เข้าเงื่อนไข</span>
-                    <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'var(--warning)' }}></span> แก้ไขจาก Dashboard</span>
+                    <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: STATUS.warning }}></span> แก้ไขจาก Dashboard</span>
                   </div>
                   <button
                     onClick={() => {
@@ -2316,7 +2316,7 @@ export default function CompanyDrilldown() {
                     {groupByCategory ? <FolderOpen size={12} className="inline" /> : <Folder size={12} className="inline" />} จัดกลุ่มตามหมวด {groupByCategory ? '(เปิด)' : ''}
                   </button>
                   {showBulkActions && (
-                    <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                    <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: `${PALETTE.primary}0A`, border: `1px solid ${PALETTE.primary}25` }}>
                       <button onClick={handleBulkDoneCurrentMonth} disabled={bulkProcessing}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
                         style={{ background: STATUS.ok, color: '#fff', opacity: bulkProcessing ? 0.5 : 1 }}>
@@ -2433,7 +2433,7 @@ export default function CompanyDrilldown() {
                               const donePMg = activePMg.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
                               const pctG = Math.round((donePMg.length / activePMg.length) * 100);
                               const barColorG = pctG >= 75 ? STATUS.ok : pctG >= 25 ? STATUS.warning : STATUS.critical;
-                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? 'var(--success)' : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
+                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
                           <td className="py-2.5 px-2 text-xs cursor-pointer" style={{ color: 'var(--text-secondary)' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))}>{getEffectiveResponsible(act)}</td>
@@ -2683,7 +2683,7 @@ export default function CompanyDrilldown() {
                                   <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}>
                                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
                                   </div>
-                                  <span className="text-[9px] font-medium" style={{ color: pct >= 100 ? 'var(--success)' : 'var(--muted)' }}>{donePM.length}/{activePM.length}</span>
+                                  <span className="text-[9px] font-medium" style={{ color: pct >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePM.length}/{activePM.length}</span>
                                 </div>
                               );
                             })()}
@@ -2691,8 +2691,8 @@ export default function CompanyDrilldown() {
                           <td
                             className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
                             style={{
-                              color: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? 'var(--warning)' : 'var(--text-secondary)',
-                              border: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '1px solid rgba(255,159,10,0.3)' : 'none',
+                              color: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? STATUS.warning : 'var(--text-secondary)',
+                              border: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? `1px solid ${STATUS.warning}4D` : 'none',
                               borderRadius: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '4px' : '0px',
                               padding: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '2px 5px' : '10px 8px'
                             }}
@@ -2732,7 +2732,7 @@ export default function CompanyDrilldown() {
                                   background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent',
                                   borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
                                   borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
-                                  border: hasOverride && !isCurrent ? '1px solid rgba(255,159,10,0.3)' : undefined,
+                                  border: hasOverride && !isCurrent ? `1px solid ${STATUS.warning}4D` : undefined,
                                   borderRadius: hasOverride && !isCurrent ? '4px' : '0px'
                                 }}
                                 onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}
@@ -2741,7 +2741,7 @@ export default function CompanyDrilldown() {
                                 {attCount > 0 && (
                                   <span
                                     className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1"
-                                    style={{ background: 'var(--accent)', color: '#fff' }}
+                                    style={{ background: PALETTE.primary, color: '#fff' }}
                                     title={`${attCount} ไฟล์แนบ`}
                                   >
                                     {attCount}
@@ -2813,7 +2813,7 @@ export default function CompanyDrilldown() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 animate-fade-in-up">
             {/* Budget Breakdown */}
             <div className="glass-card rounded-xl p-5">
-              <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--accent)' }}>
+              <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${PALETTE.primary}` }}>
                 <DollarSign size={14} /> งบประมาณ
               </h3>
               <div className="space-y-3">
@@ -2860,7 +2860,7 @@ export default function CompanyDrilldown() {
 
             {/* Responsible Summary */}
             <div className="glass-card rounded-xl p-5">
-              <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: '2px solid var(--info)' }}>
+              <h3 className="text-[13px] font-medium mb-3 pl-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${PALETTE.primary}` }}>
                 <Users size={14} /> ผู้รับผิดชอบกิจกรรม
               </h3>
               <div className="space-y-2 max-h-[250px] overflow-y-auto">
@@ -2888,7 +2888,7 @@ export default function CompanyDrilldown() {
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[12px] truncate flex-1 mr-2" style={{ color: 'var(--text-secondary)' }}>{name}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px]" style={{ color: 'var(--success)' }}>
+                            <span className="text-[11px]" style={{ color: STATUS.ok }}>
                               {doneNA}/{total}
                             </span>
                             <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{
@@ -2935,7 +2935,7 @@ export default function CompanyDrilldown() {
                 className="w-full px-3 py-2 rounded-lg text-sm mb-3 focus:outline-none"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               />
-              {loginError && <p style={{ color: 'var(--danger)' }} className="text-xs mb-3">{loginError}</p>}
+              {loginError && <p style={{ color: STATUS.critical }} className="text-xs mb-3">{loginError}</p>}
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowLoginModal(false)}
