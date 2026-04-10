@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 import {
   FileWarning,
   Plus,
@@ -60,28 +61,68 @@ interface RiskTask {
 // ── Risk scale helpers ──
 function getRiskColor(scale: string): string {
   switch (scale) {
-    case 'Critical': return '#dc2626';
-    case 'High': return '#f59e0b';
+    case 'Critical': return STATUS.critical;
+    case 'High': return STATUS.warning;
     case 'Medium': return '#eab308';
-    case 'Low': return '#16a34a';
-    default: return '#94a3b8';
+    case 'Low': return STATUS.positive;
+    default: return PALETTE.muted;
   }
 }
 function getRiskBg(scale: string): string {
   switch (scale) {
-    case 'Critical': return 'rgba(220,38,38,0.08)';
-    case 'High': return 'rgba(245,158,11,0.08)';
+    case 'Critical': return STATUS.criticalBg;
+    case 'High': return STATUS.warningBg;
     case 'Medium': return 'rgba(234,179,8,0.08)';
-    case 'Low': return 'rgba(22,163,74,0.08)';
-    default: return 'rgba(148,163,184,0.08)';
+    case 'Low': return STATUS.positiveBg;
+    default: return STATUS.neutralBg;
   }
 }
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'Completed': return '#16a34a';
-    case 'In Progress': return '#3b82f6';
-    case 'Outdated': return '#dc2626';
-    default: return '#94a3b8';
+    case 'Completed': return STATUS.positive;
+    case 'In Progress': return PALETTE.primary;
+    case 'Outdated': return STATUS.critical;
+    default: return PALETTE.muted;
+  }
+}
+
+// ── Risk Matrix helpers ──
+function getRiskLevelCell(riskLevel: number): { likelihood: number; severity: number } {
+  // Risk level = likelihood × severity
+  // Try to find factors: iterate from 5 down to 1
+  for (let likelihood = 5; likelihood >= 1; likelihood--) {
+    if (riskLevel % likelihood === 0) {
+      const severity = riskLevel / likelihood;
+      if (severity >= 1 && severity <= 5) {
+        return { likelihood, severity };
+      }
+    }
+  }
+  // Fallback: approximate
+  const likelihood = Math.min(5, Math.ceil(Math.sqrt(riskLevel)));
+  const severity = Math.min(5, Math.ceil(riskLevel / likelihood));
+  return { likelihood, severity };
+}
+
+function getRiskMatrixColor(riskLevel: number, intensity: number): string {
+  // intensity: 0 = no cells, 1-4 = 1-4 cells, 5+ = 5+ cells
+  if (intensity === 0) return 'transparent';
+
+  const opacityMap: { [key: number]: number } = { 1: 0.25, 2: 0.5, 3: 0.7, 4: 0.85, 5: 1 };
+  const opacity = opacityMap[Math.min(intensity, 5)] || 1;
+
+  if (riskLevel >= 1 && riskLevel <= 4) {
+    // LOW
+    return `rgba(34, 197, 94, ${opacity})`;
+  } else if (riskLevel >= 5 && riskLevel <= 9) {
+    // MEDIUM
+    return `rgba(234, 179, 8, ${opacity})`;
+  } else if (riskLevel >= 10 && riskLevel <= 16) {
+    // HIGH
+    return `rgba(245, 158, 11, ${opacity})`;
+  } else {
+    // CRITICAL (17-25)
+    return `rgba(220, 38, 38, ${opacity})`;
   }
 }
 
@@ -227,7 +268,7 @@ export default function RiskRegisterPage() {
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
           <div style={{ maxWidth: 400, margin: '80px auto' }}>
             <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.15)' }}>
-              <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' }}>
+              <div className="px-6 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.warning} 100%)` }}>
                 <div className="flex items-center gap-3">
                   <FileWarning size={24} className="text-white" />
                   <div>
@@ -241,7 +282,7 @@ export default function RiskRegisterPage() {
                   <Lock size={14} /> กรุณาเข้าสู่ระบบเพื่อจัดการความเสี่ยง
                 </div>
                 {loginError && (
-                  <div className="mb-3 px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626' }}>
+                  <div className="mb-3 px-3 py-2 rounded-lg text-sm" style={{ background: STATUS.criticalBg, color: STATUS.critical }}>
                     {loginError}
                   </div>
                 )}
@@ -266,7 +307,7 @@ export default function RiskRegisterPage() {
                   onClick={handleLogin}
                   disabled={loginLoading}
                   className="w-full rounded-lg text-white font-semibold text-sm flex items-center justify-center gap-2"
-                  style={{ padding: '10px 0', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', opacity: loginLoading ? 0.7 : 1 }}
+                  style={{ padding: '10px 0', background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.warning} 100%)`, opacity: loginLoading ? 0.7 : 1 }}
                 >
                   <LogIn size={16} /> {loginLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
                 </button>
@@ -305,7 +346,7 @@ export default function RiskRegisterPage() {
               <button
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-2 rounded-lg text-white font-semibold text-sm"
-                style={{ padding: '10px 20px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', whiteSpace: 'nowrap' }}
+                style={{ padding: '10px 20px', background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.warning} 100%)`, whiteSpace: 'nowrap' }}
               >
                 <Plus size={16} /> เพิ่มงาน
               </button>
@@ -323,12 +364,12 @@ export default function RiskRegisterPage() {
           {/* Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 12, marginBottom: 24 }}>
             {[
-              { label: 'งานทั้งหมด (Total)', value: totalTasks, color: '#3b82f6', icon: FileWarning },
-              { label: 'เสร็จสิ้น (Completed)', value: completedTasks, color: '#16a34a', icon: CheckCircle2 },
-              { label: 'วิกฤต (Critical)', value: criticalTasks, color: '#dc2626', icon: AlertTriangle },
-              { label: 'สูง (High)', value: highTasks, color: '#f59e0b', icon: Shield },
+              { label: 'งานทั้งหมด (Total)', value: totalTasks, color: PALETTE.primary, icon: FileWarning },
+              { label: 'เสร็จสิ้น (Completed)', value: completedTasks, color: STATUS.positive, icon: CheckCircle2 },
+              { label: 'วิกฤต (Critical)', value: criticalTasks, color: STATUS.critical, icon: AlertTriangle },
+              { label: 'สูง (High)', value: highTasks, color: STATUS.warning, icon: Shield },
               { label: 'รอดำเนินการ (Pending)', value: pendingActions, color: '#8b5cf6', icon: Clock },
-              { label: 'หมดอายุ (Outdated)', value: outdatedTasks, color: '#94a3b8', icon: Clock },
+              { label: 'หมดอายุ (Outdated)', value: outdatedTasks, color: PALETTE.muted, icon: Clock },
             ].map((card, i) => (
               <div key={i} className="glass-card rounded-xl" style={{ padding: '16px', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -345,10 +386,10 @@ export default function RiskRegisterPage() {
             <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--text-primary)' }}>การจำแนกระดับความเสี่ยง (Risk Level Classification)</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 8 }}>
               {[
-                { range: '1 ≤ RL ≤ 4', scale: 'ต่ำ (Low)', color: '#16a34a', bg: 'rgba(22,163,74,0.08)', action: 'ยอมรับได้ ทบทวนตามแผนจัดการความเสี่ยง' },
+                { range: '1 ≤ RL ≤ 4', scale: 'ต่ำ (Low)', color: STATUS.positive, bg: STATUS.positiveBg, action: 'ยอมรับได้ ทบทวนตามแผนจัดการความเสี่ยง' },
                 { range: '5 ≤ RL ≤ 8', scale: 'ปานกลาง (Medium)', color: '#eab308', bg: 'rgba(234,179,8,0.08)', action: 'ต้องมีมาตรการ ติดตามความคืบหน้า' },
-                { range: '10 ≤ RL ≤ 30', scale: 'สูง (High)', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', action: 'ต้องดำเนินการทันที ลดด้วยการกำจัด/ทดแทน/วิศวกรรม' },
-                { range: '32 ≤ RL ≤ 75', scale: 'วิกฤต (Critical)', color: '#dc2626', bg: 'rgba(220,38,38,0.08)', action: 'หยุดงานจนกว่าจะมีมาตรการเพียงพอ' },
+                { range: '10 ≤ RL ≤ 30', scale: 'สูง (High)', color: STATUS.warning, bg: STATUS.warningBg, action: 'ต้องดำเนินการทันที ลดด้วยการกำจัด/ทดแทน/วิศวกรรม' },
+                { range: '32 ≤ RL ≤ 75', scale: 'วิกฤต (Critical)', color: STATUS.critical, bg: STATUS.criticalBg, action: 'หยุดงานจนกว่าจะมีมาตรการเพียงพอ' },
               ].map((level, i) => (
                 <div key={i} className="rounded-lg" style={{ padding: '10px 14px', background: level.bg, border: `1px solid ${level.color}20` }}>
                   <div className="flex items-center gap-2 mb-1">
@@ -359,6 +400,117 @@ export default function RiskRegisterPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+
+          {/* Risk Matrix Heatmap */}
+          <div className="glass-card rounded-xl mb-6" style={{ padding: 20, border: '1px solid var(--border)' }}>
+            <div style={{ marginBottom: 16 }}>
+              <h3 className="font-bold text-sm" style={{ color: 'var(--text-primary)', marginBottom: 4 }}>Risk Matrix</h3>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                Task distribution across Likelihood x Severity (Total: {totalTasks})
+              </p>
+            </div>
+
+            {tasks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)', fontSize: 13 }}>
+                No tasks in the system
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ display: 'inline-block', minWidth: '100%' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', gap: 1, background: 'var(--border)', padding: 1, borderRadius: 8 }}>
+                    <div style={{ background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40 }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)' }}>S/L</span>
+                    </div>
+
+                    {[1, 2, 3, 4, 5].map((severity) => {
+                      const severityLabels = ['น้อยมาก', 'น้อย', 'ปานกลาง', 'มาก', 'มากที่สุด'];
+                      return (
+                        <div key={severity} style={{ background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '4px' }}>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>S{severity}</div>
+                            <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>{severityLabels[severity - 1]}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {[5, 4, 3, 2, 1].map((likelihood) => {
+                      const likelihoodLabels = ['น้อยมาก', 'น้อย', 'ปานกลาง', 'มาก', 'มากที่สุด'];
+                      const idx = 5 - likelihood;
+                      return (
+                        <div key={likelihood} style={{ display: 'contents' }}>
+                          <div style={{ background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px' }}>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>P{likelihood}</div>
+                              <div style={{ fontSize: 9, color: 'var(--text-secondary)' }}>{likelihoodLabels[idx]}</div>
+                            </div>
+                          </div>
+
+                          {[1, 2, 3, 4, 5].map((severity) => {
+                            const riskLevel = likelihood * severity;
+                            const cellTasks = tasks.filter((t) => {
+                              const cell = getRiskLevelCell(t.max_risk_level);
+                              return cell.likelihood === likelihood && cell.severity === severity;
+                            });
+                            const count = cellTasks.length;
+                            const intensity = count > 0 ? Math.min(count, 5) : 0;
+
+                            return (
+                              <div
+                                key={`${likelihood}-${severity}`}
+                                style={{
+                                  background: getRiskMatrixColor(riskLevel, intensity),
+                                  border: intensity > 0 ? `1px solid ${getRiskMatrixColor(riskLevel, 5).replace(/[0-9.]+\)/, '1)')}` : '1px solid var(--border)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  minHeight: 60,
+                                  aspectRatio: '1',
+                                  borderRadius: 6,
+                                  cursor: count > 0 ? 'pointer' : 'default',
+                                  transition: 'all 0.2s ease',
+                                }}
+                                title={`Risk Level ${riskLevel}: ${count} task(s)`}
+                              >
+                                {count > 0 && (
+                                  <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 20, fontWeight: 800, color: intensity >= 3 ? 'white' : 'inherit' }}>
+                                      {count}
+                                    </div>
+                                    <div style={{ fontSize: 10, fontWeight: 600, color: intensity >= 3 ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
+                                      RL{riskLevel}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginTop: 16 }}>
+                    {[
+                      { range: 'RL 1-4', label: 'ต่ำ (Low)', color: 'rgba(34, 197, 94, 1)' },
+                      { range: 'RL 5-9', label: 'ปานกลาง (Medium)', color: 'rgba(234, 179, 8, 1)' },
+                      { range: 'RL 10-16', label: 'สูง (High)', color: 'rgba(245, 158, 11, 1)' },
+                      { range: 'RL 17-25', label: 'วิกฤต (Critical)', color: 'rgba(220, 38, 38, 1)' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2" style={{ fontSize: 12 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 3, background: item.color }} />
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.label}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{item.range}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search & Filters */}

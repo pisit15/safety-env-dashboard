@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 import { Clock, Save, Users, HardHat, Calculator, CheckCircle, AlertTriangle, Lock, User, LogIn } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 
@@ -374,10 +375,10 @@ export default function ManHoursPage() {
           {/* Summary KPI — always visible, updates live */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Man-hours พนักงาน', value: totals.empHours.toLocaleString(), sub: `${totals.empCount.toLocaleString()} คน (เฉลี่ย)`, icon: Users, color: '#3b82f6' },
-              { label: 'Man-hours ผู้รับเหมา', value: totals.conHours.toLocaleString(), sub: `${totals.conCount.toLocaleString()} คน (เฉลี่ย)`, icon: HardHat, color: '#f97316' },
-              { label: 'Man-hours รวม', value: totalManHours.toLocaleString(), sub: 'พนักงาน + ผู้รับเหมา', icon: Clock, color: '#6366f1' },
-              { label: 'TRIR Factor', value: totalManHours > 0 ? '1,000,000' : 'N/A', sub: totalManHours > 0 ? `÷ ${totalManHours.toLocaleString()} hrs` : 'กรอกข้อมูลก่อน', icon: Calculator, color: '#22c55e' },
+              { label: 'Man-hours พนักงาน', value: totals.empHours.toLocaleString(), sub: `${totals.empCount.toLocaleString()} คน (เฉลี่ย)`, icon: Users, color: PALETTE.primary },
+              { label: 'Man-hours ผู้รับเหมา', value: totals.conHours.toLocaleString(), sub: `${totals.conCount.toLocaleString()} คน (เฉลี่ย)`, icon: HardHat, color: PALETTE.secondary },
+              { label: 'Man-hours รวม', value: totalManHours.toLocaleString(), sub: 'พนักงาน + ผู้รับเหมา', icon: Clock, color: PALETTE.primary },
+              { label: 'TRIR Factor', value: totalManHours > 0 ? '1,000,000' : 'N/A', sub: totalManHours > 0 ? `÷ ${totalManHours.toLocaleString()} hrs` : 'กรอกข้อมูลก่อน', icon: Calculator, color: STATUS.positive },
             ].map((kpi, idx) => (
               <div key={idx} className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2 mb-2">
@@ -390,6 +391,120 @@ export default function ManHoursPage() {
                 <p className="text-[10px]" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
               </div>
             ))}
+          </div>
+
+          {/* Cumulative Man-hours Area Chart */}
+          <div className="mb-6 rounded-2xl p-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+            <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>แนวโน้มชั่วโมงทำงานสะสม</h3>
+            <svg
+              width="100%"
+              height="200"
+              viewBox="0 0 1000 200"
+              preserveAspectRatio="xMidYMid meet"
+              style={{ minHeight: '200px', maxHeight: '250px' }}
+            >
+              {(() => {
+                // Calculate cumulative values
+                const cumulativeData = rows.map((row, idx) => {
+                  const empCum = rows.slice(0, idx + 1).reduce((sum, r) => sum + r.employee_manhours, 0);
+                  const conCum = rows.slice(0, idx + 1).reduce((sum, r) => sum + r.contractor_manhours, 0);
+                  return { month: row.month, empCum, conCum, total: empCum + conCum };
+                });
+
+                // Find max cumulative value for scaling
+                const maxVal = Math.max(...cumulativeData.map(d => d.total), 1);
+                const scale = 160 / maxVal; // 160px height for chart area
+
+                // Generate SVG paths
+                const empPoints = cumulativeData.map((d, i) => `${(i / 11) * 850 + 75},${180 - d.empCum * scale}`).join(' L ');
+                const conPoints = cumulativeData.map((d, i) => `${(i / 11) * 850 + 75},${180 - d.total * scale}`).join(' L ');
+
+                // Area paths (polygon form)
+                const empAreaPath = `M 75,180 L ${empPoints} L 925,180 Z`;
+                const conAreaPath = `M 75,180 L ${conPoints} L 925,180 Z`;
+
+                // Y-axis scale labels (0, ~50%, ~100%)
+                const label1 = Math.round(maxVal / 2).toLocaleString();
+                const label2 = Math.round(maxVal).toLocaleString();
+
+                return (
+                  <>
+                    {/* Y-axis labels */}
+                    <text x="50" y="185" fontSize="11" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">0</text>
+                    <text x="50" y="100" fontSize="11" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">{label1}</text>
+                    <text x="50" y="20" fontSize="11" fill="var(--muted)" textAnchor="end" dominantBaseline="middle">{label2}</text>
+
+                    {/* Horizontal grid lines */}
+                    <line x1="60" y1="180" x2="930" y2="180" stroke="var(--border)" strokeWidth="1" opacity="0.5" />
+                    <line x1="60" y1="100" x2="930" y2="100" stroke="var(--border)" strokeWidth="1" opacity="0.3" />
+                    <line x1="60" y1="20" x2="930" y2="20" stroke="var(--border)" strokeWidth="1" opacity="0.3" />
+
+                    {/* Contractor area (behind, orange) */}
+                    <path d={conAreaPath} fill={PALETTE.secondary} opacity="0.3" />
+                    <polyline
+                      points={conPoints}
+                      fill="none"
+                      stroke={PALETTE.secondary}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* Employee area (blue) */}
+                    <path d={empAreaPath} fill={PALETTE.primary} opacity="0.3" />
+                    <polyline
+                      points={empPoints}
+                      fill="none"
+                      stroke={PALETTE.primary}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* X-axis month labels */}
+                    {MONTH_NAMES.map((month, i) => (
+                      <text
+                        key={month.num}
+                        x={75 + (i / 11) * 850}
+                        y="195"
+                        fontSize="10"
+                        fill="var(--muted)"
+                        textAnchor="middle"
+                        dominantBaseline="hanging"
+                      >
+                        {month.th.substring(0, 4)}
+                      </text>
+                    ))}
+
+                    {/* End labels */}
+                    {cumulativeData.length > 0 && (
+                      <>
+                        <text
+                          x="935"
+                          y={180 - cumulativeData[11].empCum * scale}
+                          fontSize="10"
+                          fontWeight="600"
+                          fill={PALETTE.primary}
+                          dominantBaseline="middle"
+                        >
+                          พนักงาน
+                        </text>
+                        <text
+                          x="935"
+                          y={180 - cumulativeData[11].total * scale}
+                          fontSize="10"
+                          fontWeight="600"
+                          fill={PALETTE.secondary}
+                          dominantBaseline="middle"
+                        >
+                          ผู้รับเหมา
+                        </text>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+            </svg>
           </div>
 
           {/* Error Banner */}
@@ -412,13 +527,13 @@ export default function ManHoursPage() {
                 <thead>
                   <tr style={{ background: 'var(--bg-secondary)' }}>
                     <th rowSpan={2} className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--muted)', fontSize: 11, borderBottom: '2px solid var(--border)', minWidth: 100 }}>เดือน</th>
-                    <th colSpan={2} className="px-4 py-2 text-center font-semibold" style={{ color: '#3b82f6', fontSize: 11, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
+                    <th colSpan={2} className="px-4 py-2 text-center font-semibold" style={{ color: PALETTE.primary, fontSize: 11, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
                       <div className="flex items-center justify-center gap-1"><Users size={12} /> พนักงาน (Employee)</div>
                     </th>
-                    <th colSpan={2} className="px-4 py-2 text-center font-semibold" style={{ color: '#f97316', fontSize: 11, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
+                    <th colSpan={2} className="px-4 py-2 text-center font-semibold" style={{ color: PALETTE.secondary, fontSize: 11, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>
                       <div className="flex items-center justify-center gap-1"><HardHat size={12} /> ผู้รับเหมา (Contractor)</div>
                     </th>
-                    <th rowSpan={2} className="px-4 py-3 text-right font-semibold" style={{ color: '#6366f1', fontSize: 11, borderBottom: '2px solid var(--border)', borderLeft: '1px solid var(--border)', minWidth: 110 }}>
+                    <th rowSpan={2} className="px-4 py-3 text-right font-semibold" style={{ color: PALETTE.primary, fontSize: 11, borderBottom: '2px solid var(--border)', borderLeft: '1px solid var(--border)', minWidth: 110 }}>
                       Man-hours รวม
                     </th>
                   </tr>
@@ -487,7 +602,7 @@ export default function ManHoursPage() {
                           />
                         </td>
                         {/* Row Total */}
-                        <td className="px-4 py-2 text-right font-semibold" style={{ color: rowTotal > 0 ? '#6366f1' : 'var(--muted)', borderLeft: '1px solid var(--border)' }}>
+                        <td className="px-4 py-2 text-right font-semibold" style={{ color: rowTotal > 0 ? PALETTE.primary : 'var(--muted)', borderLeft: '1px solid var(--border)' }}>
                           {loading ? '-' : rowTotal > 0 ? rowTotal.toLocaleString() : '-'}
                         </td>
                       </tr>
@@ -498,11 +613,11 @@ export default function ManHoursPage() {
                 <tfoot>
                   <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-secondary)' }}>
                     <td className="px-4 py-3 font-bold" style={{ color: 'var(--text-primary)' }}>รวมทั้งปี</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: '#3b82f6', borderLeft: '1px solid var(--border)' }}>{totals.empCount > 0 ? totals.empCount.toLocaleString() : '-'}</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: '#3b82f6' }}>{totals.empHours > 0 ? totals.empHours.toLocaleString() : '-'}</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: '#f97316', borderLeft: '1px solid var(--border)' }}>{totals.conCount > 0 ? totals.conCount.toLocaleString() : '-'}</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: '#f97316' }}>{totals.conHours > 0 ? totals.conHours.toLocaleString() : '-'}</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: '#6366f1', borderLeft: '1px solid var(--border)', fontSize: 15 }}>{totalManHours > 0 ? totalManHours.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-right font-bold" style={{ color: PALETTE.primary, borderLeft: '1px solid var(--border)' }}>{totals.empCount > 0 ? totals.empCount.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-right font-bold" style={{ color: PALETTE.primary }}>{totals.empHours > 0 ? totals.empHours.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-right font-bold" style={{ color: PALETTE.secondary, borderLeft: '1px solid var(--border)' }}>{totals.conCount > 0 ? totals.conCount.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-right font-bold" style={{ color: PALETTE.secondary }}>{totals.conHours > 0 ? totals.conHours.toLocaleString() : '-'}</td>
+                    <td className="px-4 py-3 text-right font-bold" style={{ color: PALETTE.primary, borderLeft: '1px solid var(--border)', fontSize: 15 }}>{totalManHours > 0 ? totalManHours.toLocaleString() : '-'}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -515,7 +630,7 @@ export default function ManHoursPage() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="text-[11px] p-3 rounded-lg" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <span className="font-semibold" style={{ color: '#f97316' }}>TRIR</span>
+                  <span className="font-semibold" style={{ color: PALETTE.secondary }}>TRIR</span>
                   <span style={{ color: 'var(--muted)' }}> = (Total Recordable Injuries × 1,000,000) ÷ Total Man-hours</span>
                 </div>
                 <div className="text-[11px] p-3 rounded-lg" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>

@@ -10,6 +10,7 @@ import {
   AlertTriangle, Plus, BarChart3, List,
 } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
 import type { Incident, SummaryData, InjuredPerson } from './types';
 import GlobalFilters from './components/GlobalFilters';
@@ -509,7 +510,7 @@ export default function IncidentsPage() {
                     onClick={isLoggedIn ? openNewForm : undefined}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all"
                     style={{
-                      background: isLoggedIn ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#d1d5db',
+                      background: isLoggedIn ? `linear-gradient(135deg, ${STATUS.critical} 0%, #c23b22 100%)` : '#d1d5db',
                       cursor: isLoggedIn ? 'pointer' : 'not-allowed',
                       opacity: isLoggedIn ? 1 : 0.7,
                     }}

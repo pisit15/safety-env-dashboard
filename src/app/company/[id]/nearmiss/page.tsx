@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 import { useCompanies } from '@/hooks/useCompanies';
 import {
   AlertTriangle, ExternalLink,
@@ -52,18 +53,18 @@ interface NearMissReport {
 
 // ── Config ─────────────────────────────────────────────────────────────────
 const STATUS_CFG = {
-  new:            { label: 'รายงานใหม่',      color: '#3b82f6', bg: '#eff6ff',  dot: '#3b82f6' },
-  acknowledged:   { label: 'รับเรื่องแล้ว',  color: '#d97706', bg: '#fffbeb',  dot: '#f59e0b' },
-  in_progress:    { label: 'กำลังดำเนินการ', color: '#ea580c', bg: '#fff7ed',  dot: '#f97316' },
+  new:            { label: 'รายงานใหม่',      color: PALETTE.primary, bg: STATUS.okBg,  dot: PALETTE.primary },
+  acknowledged:   { label: 'รับเรื่องแล้ว',  color: STATUS.warning, bg: STATUS.warningBg,  dot: STATUS.warning },
+  in_progress:    { label: 'กำลังดำเนินการ', color: STATUS.warning, bg: STATUS.warningBg,  dot: STATUS.warning },
   pending_review: { label: 'รอตรวจสอบ',      color: '#7c3aed', bg: '#f5f3ff',  dot: '#8b5cf6' },
-  closed:         { label: 'ปิดรายการ',       color: '#16a34a', bg: '#f0fdf4',  dot: '#22c55e' },
+  closed:         { label: 'ปิดรายการ',       color: STATUS.positive, bg: STATUS.positiveBg,  dot: STATUS.positive },
 } as const;
 
 const RISK_CFG = {
-  HIGH:       { label: 'HIGH',     color: '#dc2626', bg: '#fef2f2',  border: '#fca5a5' },
-  'MED-HIGH': { label: 'MED-HIGH', color: '#ea580c', bg: '#fff7ed',  border: '#fdba74' },
-  MEDIUM:     { label: 'MEDIUM',   color: '#ca8a04', bg: '#fefce8',  border: '#fde047' },
-  LOW:        { label: 'LOW',      color: '#16a34a', bg: '#f0fdf4',  border: '#86efac' },
+  HIGH:       { label: 'HIGH',     color: STATUS.critical, bg: STATUS.criticalBg,  border: '#fca5a5' },
+  'MED-HIGH': { label: 'MED-HIGH', color: STATUS.warning, bg: STATUS.warningBg,  border: '#fdba74' },
+  MEDIUM:     { label: 'MEDIUM',   color: STATUS.warning, bg: STATUS.warningBg,  border: '#fde047' },
+  LOW:        { label: 'LOW',      color: STATUS.positive, bg: STATUS.positiveBg,  border: '#86efac' },
 } as const;
 
 const INV_LEVEL_OPTIONS = [
@@ -331,7 +332,7 @@ export default function NearMissCoordinatorPage() {
               >
                 <div style={{
                   width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.critical} 100%)`,
                 }}>
                   <FileText size={22} color="#fff" />
                 </div>
@@ -339,7 +340,7 @@ export default function NearMissCoordinatorPage() {
                   <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>รายงาน Near Miss</p>
                   <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>แจ้งเหตุการณ์เกือบเกิดอุบัติเหตุ สำหรับพนักงานทุกคน ไม่ต้องเข้าสู่ระบบ</p>
                 </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#ef4444' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: STATUS.critical }}>
                   <ExternalLink size={11} /> เปิดแบบฟอร์มรายงาน
                 </span>
               </a>
@@ -407,7 +408,7 @@ export default function NearMissCoordinatorPage() {
                     style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#111827' }} />
                 </div>
                 {loginError && (
-                  <div className="mb-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>{loginError}</div>
+                  <div className="mb-4 px-3 py-2 rounded-lg text-[12px]" style={{ background: STATUS.criticalBg, color: STATUS.critical, border: `1px solid #fecaca` }}>{loginError}</div>
                 )}
                 <button onClick={handleLogin} disabled={!loginPass || loginLoading}
                   className="w-full py-3 rounded-lg text-[14px] font-semibold transition-all duration-200 flex items-center justify-center gap-2"
@@ -472,21 +473,21 @@ export default function NearMissCoordinatorPage() {
           </div>
 
           {/* ── KPI Cards — Gray+One: muted=normal, colored=needs action ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))', gap: 10, marginBottom: 20 }}>
             <KpiCard label="เกินกำหนด" sub={kpiOverdue > 0 ? 'ต้อง action ด่วน!' : 'ไม่มี'} value={kpiOverdue}
-              accent={kpiOverdue > 0 ? '#ef4444' : '#9ca3af'} urgent={kpiOverdue > 0}
+              accent={kpiOverdue > 0 ? STATUS.critical : '#9ca3af'} urgent={kpiOverdue > 0}
               onClick={() => { setFilterStatus(''); setFilterOpen(true); }} />
             <KpiCard label="ค้างดำเนินการ" sub={`${kpiTotal > 0 ? Math.round((kpiOpen/kpiTotal)*100) : 0}% ของทั้งหมด`} value={kpiOpen}
-              accent={kpiOpen > kpiTotal * 0.5 ? '#f97316' : '#9ca3af'} urgent={kpiOpen > kpiTotal * 0.5}
+              accent={kpiOpen > kpiTotal * 0.5 ? STATUS.warning : '#9ca3af'} urgent={kpiOpen > kpiTotal * 0.5}
               onClick={() => { setFilterOpen(true); setFilterStatus(''); }} />
             <KpiCard label="HIGH+MED-HIGH" sub={kpiHighRisk > 0 ? `${kpiHighRisk} รายการยังไม่ปิด` : 'ไม่มี'} value={kpiHighRisk}
-              accent={kpiHighRisk > 0 ? '#dc2626' : '#9ca3af'} urgent={kpiHighRisk > 0}
+              accent={kpiHighRisk > 0 ? STATUS.critical : '#9ca3af'} urgent={kpiHighRisk > 0}
               onClick={() => { setFilterRisk('HIGH'); setFilterOpen(true); }} />
             <KpiCard label="รายงานใหม่" sub="รอตรวจสอบ" value={kpiNew}
-              accent={kpiNew > 0 ? '#3b82f6' : '#9ca3af'} urgent={kpiNew > 3}
+              accent={kpiNew > 0 ? PALETTE.primary : '#9ca3af'} urgent={kpiNew > 3}
               onClick={() => { setFilterStatus('new'); setFilterOpen(false); }} />
             <KpiCard label="อัตราปิด" sub={`${kpiClosed}/${kpiTotal} ปิดแล้ว`} value={closeRate} valueSuffix="%"
-              accent={closeRate >= 80 ? '#22c55e' : closeRate >= 50 ? '#f97316' : '#ef4444'} urgent={false}
+              accent={closeRate >= 80 ? STATUS.positive : closeRate >= 50 ? STATUS.warning : STATUS.critical} urgent={false}
               onClick={() => { setFilterStatus('closed'); setFilterOpen(false); }} />
           </div>
 
@@ -504,9 +505,9 @@ export default function NearMissCoordinatorPage() {
                     const isCurrent = i === monthlyTrend.length - 1;
                     return (
                       <div key={t.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                        {t.total > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: t.high > 0 ? '#ef4444' : 'var(--text-secondary)' }}>{t.total}</span>}
+                        {t.total > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: t.high > 0 ? STATUS.critical : 'var(--text-secondary)' }}>{t.total}</span>}
                         <div style={{ width: '100%', maxWidth: 40, height: barH, borderRadius: 4, position: 'relative', background: isCurrent ? 'rgba(59,130,246,0.25)' : 'rgba(107,114,128,0.12)', overflow: 'hidden' }}>
-                          {highH > 0 && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${(highH/barH)*100}%`, background: '#ef4444', borderRadius: '0 0 4px 4px' }} />}
+                          {highH > 0 && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${(highH/barH)*100}%`, background: STATUS.critical, borderRadius: '0 0 4px 4px' }} />}
                         </div>
                         <span style={{ fontSize: 9, color: isCurrent ? '#007aff' : 'var(--muted)', fontWeight: isCurrent ? 700 : 400 }}>{t.month}</span>
                       </div>
@@ -540,31 +541,29 @@ export default function NearMissCoordinatorPage() {
 
           {/* ── Action Queue ── */}
           {actionQueue.length > 0 && (
-            <div style={{ marginBottom: 20, borderRadius: 12, border: '1px solid #fca5a5', background: '#fff5f5', overflow: 'hidden' }}>
+            <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid #fca5a5`, background: STATUS.criticalBg, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <AlertTriangle size={14} color="#ef4444" />
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.06em' }}>ต้องดำเนินการ</span>
+                <AlertTriangle size={14} color={STATUS.critical} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: STATUS.critical, textTransform: 'uppercase', letterSpacing: '0.06em' }}>ต้องดำเนินการ</span>
               </div>
               <div style={{ padding: '8px 8px' }}>
                 {actionQueue.map(r => {
                   const overdue = isOverdue(r); const soon = isDueSoon(r);
                   const risk = RISK_CFG[r.risk_level];
                   const age = daysSince(r.created_at);
-                  const ageBadge = age > 30 ? { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' }
-                    : age > 14 ? { bg: '#fff7ed', color: '#ea580c', border: '#fdba74' }
-                    : age > 7 ? { bg: '#fefce8', color: '#ca8a04', border: '#fde047' }
-                    : { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' };
+                  const ageBadge = age > 14 ? { bg: STATUS.criticalBg, color: STATUS.critical, border: '#fca5a5' }
+                    : { bg: STATUS.neutralBg, color: STATUS.neutral, border: '#d1d5db' };
                   return (
                     <div key={r.id} onClick={() => openDrawer(r)}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.1s' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: overdue ? '#ef4444' : soon ? '#f97316' : '#3b82f6', flexShrink: 0 }} />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: overdue ? STATUS.critical : soon ? STATUS.warning : PALETTE.primary, flexShrink: 0 }} />
                       <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b', minWidth: 110 }}>{r.report_no}</span>
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', flex: 1 }}>{r.location}</span>
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 5, background: ageBadge.bg, color: ageBadge.color, fontWeight: 700, border: `1px solid ${ageBadge.border}`, whiteSpace: 'nowrap' }}>{age}วัน</span>
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: risk.bg, color: risk.color, fontWeight: 600, border: `1px solid ${risk.border}` }}>{risk.label}</span>
-                      <span style={{ fontSize: 11, color: overdue ? '#ef4444' : '#64748b', fontWeight: overdue ? 700 : 400, minWidth: 100, textAlign: 'right' }}>
+                      <span style={{ fontSize: 11, color: overdue ? STATUS.critical : '#64748b', fontWeight: overdue ? 700 : 400, minWidth: 100, textAlign: 'right' }}>
                         {overdue ? `เกินกำหนด ${Math.abs(Math.floor((Date.now() - new Date(r.due_date!).getTime()) / 86400000))} วัน`
                           : r.status === 'new' ? 'ยังไม่รับเรื่อง'
                           : soon ? `ครบ ${fmtDate(r.due_date)}` : ''}
@@ -586,7 +585,7 @@ export default function NearMissCoordinatorPage() {
                 style={{ ...inputStyle, paddingLeft: 32 }} />
             </div>
             <button onClick={() => setFilterOpen(v => !v)}
-              style={{ padding: '7px 12px', borderRadius: 8, border: `1.5px solid ${filterOpen ? '#3b82f6' : 'var(--border)'}`, background: filterOpen ? '#eff6ff' : 'var(--bg-secondary)', color: filterOpen ? '#3b82f6' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ padding: '7px 12px', borderRadius: 8, border: `1.5px solid ${filterOpen ? PALETTE.primary : 'var(--border)'}`, background: filterOpen ? `${PALETTE.primary}15` : 'var(--bg-secondary)', color: filterOpen ? PALETTE.primary : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               ยังไม่ปิด
             </button>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -612,7 +611,7 @@ export default function NearMissCoordinatorPage() {
             )}
             {isLoggedIn && (
               <button onClick={() => { setShowHidden(v => !v); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 8, border: `1.5px solid ${showHidden ? '#f97316' : 'var(--border)'}`, background: showHidden ? 'rgba(249,115,22,0.08)' : 'var(--bg-secondary)', color: showHidden ? '#f97316' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 8, border: `1.5px solid ${showHidden ? STATUS.warning : 'var(--border)'}`, background: showHidden ? `${STATUS.warning}15` : 'var(--bg-secondary)', color: showHidden ? STATUS.warning : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 {showHidden ? <Eye size={13} /> : <EyeOff size={13} />}
                 {showHidden ? 'ซ่อนอยู่' : 'ซ่อนอยู่'}
               </button>
@@ -650,7 +649,7 @@ export default function NearMissCoordinatorPage() {
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-secondary, #f8fafc)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <td style={{ padding: '0 6px 0 12px', width: 8 }}>
-                          {overdue && <span style={{ display: 'block', width: 7, height: 7, borderRadius: '50%', background: '#ef4444' }} />}
+                          {overdue && <span style={{ display: 'block', width: 7, height: 7, borderRadius: '50%', background: STATUS.critical }} />}
                         </td>
                         <td style={{ padding: '12px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.report_no || '—'}</td>
                         <td style={{ padding: '12px 12px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--text-secondary)' }}>{fmtDate(r.incident_date)}</td>
@@ -663,22 +662,20 @@ export default function NearMissCoordinatorPage() {
                         <td style={{ padding: '12px 12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                             <StatusPill status={r.status} />
-                            {r.is_hidden && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#fff7ed', color: '#ea580c', border: '1px solid #fdba74', fontWeight: 600 }}>ซ่อน</span>}
+                            {r.is_hidden && <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: STATUS.warningBg, color: STATUS.warning, border: `1px solid ${STATUS.warning}50`, fontWeight: 600 }}>ซ่อน</span>}
                           </div>
                         </td>
                         <td style={{ padding: '12px 12px', fontSize: 12, color: r.coordinator ? 'var(--text-primary)' : '#94a3b8' }}>{r.coordinator || '–'}</td>
-                        <td style={{ padding: '12px 12px', fontSize: 12, whiteSpace: 'nowrap', color: overdue ? '#ef4444' : 'var(--text-secondary)', fontWeight: overdue ? 600 : 400 }}>
+                        <td style={{ padding: '12px 12px', fontSize: 12, whiteSpace: 'nowrap', color: overdue ? STATUS.critical : 'var(--text-secondary)', fontWeight: overdue ? 600 : 400 }}>
                           {r.due_date ? fmtDate(r.due_date) : '–'}
                           {overdue && <span style={{ marginLeft: 4 }}>⚠️</span>}
                         </td>
                         <td style={{ padding: '12px 12px' }}>
                           {(() => {
-                            const ab = age > 30 ? { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' }
-                              : age > 14 ? { bg: '#fff7ed', color: '#ea580c', border: '#fdba74' }
-                              : age > 7 ? { bg: '#fefce8', color: '#ca8a04', border: '#fde047' }
-                              : { bg: 'transparent', color: 'var(--text-secondary)', border: 'transparent' };
+                            const ab = age > 14 ? { bg: STATUS.criticalBg, color: STATUS.critical, border: '#fca5a5' }
+                              : { bg: STATUS.neutralBg, color: STATUS.neutral, border: '#d1d5db' };
                             const text = age === 0 ? 'วันนี้' : `${age}ว`;
-                            return age > 7
+                            return age > 14
                               ? <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, background: ab.bg, color: ab.color, fontWeight: 700, border: `1px solid ${ab.border}` }}>{text}</span>
                               : <span style={{ fontSize: 12, color: ab.color }}>{text}</span>;
                           })()}
@@ -733,7 +730,7 @@ export default function NearMissCoordinatorPage() {
                 );})()}
                 <StatusPill status={selected.status} />
                 {isOverdue(selected) && (
-                  <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+                  <span style={{ padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: STATUS.criticalBg, color: STATUS.critical, border: `1px solid #fca5a5` }}>
                     ⏰ เกินกำหนด
                   </span>
                 )}
@@ -857,7 +854,7 @@ export default function NearMissCoordinatorPage() {
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                 <div style={{
                                   width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
-                                  background: isCurrent ? cfg.color : isPast ? '#22c55e' : '#e2e8f0',
+                                  background: isCurrent ? cfg.color : isPast ? STATUS.positive : '#e2e8f0',
                                   color: isCurrent || isPast ? '#fff' : '#94a3b8',
                                   border: isCurrent ? `2px solid ${cfg.color}` : 'none',
                                   boxShadow: isCurrent ? `0 0 0 3px ${cfg.color}22` : 'none',
@@ -870,7 +867,7 @@ export default function NearMissCoordinatorPage() {
                                 </span>
                               </div>
                               {idx < STEPS.length - 1 && (st !== 'pending_review' || isLoggedIn) && (
-                                <div style={{ flex: 1, height: 2, background: isPast ? '#22c55e' : '#e2e8f0', margin: '0 4px 16px' }} />
+                                <div style={{ flex: 1, height: 2, background: isPast ? STATUS.positive : '#e2e8f0', margin: '0 4px 16px' }} />
                               )}
                             </div>
                           );
@@ -931,7 +928,7 @@ export default function NearMissCoordinatorPage() {
                           <div>
                             <label style={labelStyle}>
                               กำหนดเสร็จ
-                              <span style={{ fontSize: 10, color: '#f97316', marginLeft: 4 }}>*จำเป็น</span>
+                              <span style={{ fontSize: 10, color: STATUS.warning, marginLeft: 4 }}>*จำเป็น</span>
                             </label>
                             <DateInput value={editForm.due_date} onChange={v => setEditForm(f => ({ ...f, due_date: v }))} inputStyle={{ ...fieldStyle, borderColor: !editForm.due_date ? '#fbbf24' : '#e2e8f0' } as React.CSSProperties} />
                           </div>
@@ -994,7 +991,7 @@ export default function NearMissCoordinatorPage() {
                                 <img src={url} alt={`img-${i}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1.5px solid #bbf7d0' }} />
                                 <button
                                   onClick={() => setClosingImages(prev => prev.filter((_, idx) => idx !== i))}
-                                  style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                                  style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: STATUS.critical, color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
                                   ×
                                 </button>
                               </div>
@@ -1005,14 +1002,14 @@ export default function NearMissCoordinatorPage() {
                         {/* Upload buttons */}
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {/* Camera (mobile) */}
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #16a34a', background: '#fff', color: '#16a34a', fontSize: 13, fontWeight: 600, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${STATUS.positive}`, background: '#fff', color: STATUS.positive, fontSize: 13, fontWeight: 600, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
                             📷 ถ่ายรูป
                             <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
                               disabled={uploadingImg}
                               onChange={e => { const f = e.target.files?.[0]; if (f) uploadClosingImage(f); e.target.value = ''; }} />
                           </label>
                           {/* Gallery */}
-                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #16a34a', background: '#fff', color: '#16a34a', fontSize: 13, fontWeight: 600, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
+                          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: `1.5px solid ${STATUS.positive}`, background: '#fff', color: STATUS.positive, fontSize: 13, fontWeight: 600, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
                             🖼️ เลือกรูป
                             <input type="file" accept="image/*" multiple style={{ display: 'none' }}
                               disabled={uploadingImg}

@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { DEFAULT_YEAR } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
+import { STATUS, PALETTE, CATEGORY_COLORS } from '@/lib/she-theme';
 import {
   ClipboardList,
   GraduationCap,
@@ -143,30 +144,45 @@ export default function CompanyDashboard() {
   const prevMH = prevMonthManhour ? (prevMonthManhour.employee_manhours || 0) + (prevMonthManhour.contractor_manhours || 0) : 0;
   const mhTrend = prevMH > 0 ? Math.round(((currentMH - prevMH) / prevMH) * 100) : null;
 
+  // Incident trend (current month vs previous month)
+  const currentMonthIncidents = incidentSummary?.monthly_breakdown?.find(m => m.month === currentMonth)?.count || 0;
+  const prevMonthIncidents = incidentSummary?.monthly_breakdown?.find(m => m.month === currentMonth - 1)?.count || 0;
+  const incidentTrendDelta = currentMonthIncidents - prevMonthIncidents;
+  const incidentTrendPct = prevMonthIncidents > 0 ? Math.round(((incidentTrendDelta / prevMonthIncidents) * 100)) : null;
+
+  // Insight subtitles for KPI cards
+  const actionPlanExpected = Math.round((currentMonth / 12) * 100);
+  const actionPlanDiff = (actionPlanPct || 0) - actionPlanExpected;
+  const actionPlanInsight = actionPlanDiff > 5 ? { text: `เร็วกว่าแผน +${actionPlanDiff}%`, color: STATUS.positive } : actionPlanDiff < -5 ? { text: `ช้ากว่าแผน ${actionPlanDiff}%`, color: STATUS.critical } : { text: 'ตามแผน', color: PALETTE.primary };
+
+  const trainingExpected = Math.round((currentMonth / 12) * totalCourses);
+  const trainingDiff = completedCourses - trainingExpected;
+  const trainingInsight = trainingDiff > 0 ? { text: `เสร็จเร็ว +${trainingDiff} หลักสูตร`, color: STATUS.positive } : trainingDiff < -1 ? { text: `ล่าช้า ${trainingDiff} หลักสูตร`, color: STATUS.warning } : { text: 'ตามแผน', color: PALETTE.primary };
+
   // ── Hero: Urgent Action Items ─────────────────────────────────
   const urgentItems: { label: string; count: number; unit: string; color: string; bgColor: string; borderColor: string; href: string; icon: React.ReactNode }[] = [];
   if (actionPlanOverdue > 0) urgentItems.push({
     label: 'แผนงานเกินกำหนด',
     count: actionPlanOverdue, unit: 'กิจกรรม',
-    color: '#dc2626', bgColor: 'rgba(220,38,38,0.06)', borderColor: 'rgba(220,38,38,0.2)',
-    href: `/company/${id}/action-plan`, icon: <AlertTriangle size={18} style={{ color: '#dc2626' }} />,
+    color: `${STATUS.critical}`, bgColor: `${STATUS.critical}10`, borderColor: `${STATUS.critical}33`,
+    href: `/company/${id}/action-plan`, icon: <AlertTriangle size={18} style={{ color: `${STATUS.critical}` }} />,
   });
   if (overdueTraining > 0) urgentItems.push({
     label: 'อบรมค้างจัดตามแผน',
     count: overdueTraining, unit: 'หลักสูตร',
-    color: '#f59e0b', bgColor: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.2)',
-    href: `/company/${id}/training`, icon: <GraduationCap size={18} style={{ color: '#f59e0b' }} />,
+    color: `${STATUS.warning}`, bgColor: `${STATUS.warning}10`, borderColor: `${STATUS.warning}33`,
+    href: `/company/${id}/training`, icon: <GraduationCap size={18} style={{ color: `${STATUS.warning}` }} />,
   });
   if (incidentSummary && incidentSummary.total_incidents > 0) urgentItems.push({
     label: 'อุบัติเหตุสะสมปีนี้',
     count: incidentSummary.total_incidents, unit: 'ครั้ง',
-    color: '#dc2626', bgColor: 'rgba(220,38,38,0.04)', borderColor: 'rgba(220,38,38,0.15)',
-    href: `/company/${id}/incidents`, icon: <AlertCircle size={18} style={{ color: '#dc2626' }} />,
+    color: `${STATUS.critical}`, bgColor: `${STATUS.critical}0a`, borderColor: `${STATUS.critical}26`,
+    href: `/company/${id}/incidents`, icon: <AlertCircle size={18} style={{ color: `${STATUS.critical}` }} />,
   });
 
   // ── Pending (non-urgent) items ─────────────────────────────────
   const infoItems: { label: string; detail: string; color: string; href: string }[] = [];
-  if (scheduledThisMonth > 0) infoItems.push({ label: `อบรมกำหนดเดือน ${MONTH_LABELS[currentMonth - 1]}`, detail: `${scheduledThisMonth} หลักสูตร`, color: '#3b82f6', href: `/company/${id}/training` });
+  if (scheduledThisMonth > 0) infoItems.push({ label: `อบรมกำหนดเดือน ${MONTH_LABELS[currentMonth - 1]}`, detail: `${scheduledThisMonth} หลักสูตร`, color: `${PALETTE.primary}`, href: `/company/${id}/training` });
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
@@ -260,13 +276,13 @@ export default function CompanyDashboard() {
           {/* Action Plan Progress */}
           <Link href={hasSheet ? `/company/${id}/action-plan` : '#'} style={{ textDecoration: 'none' }}>
             <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: hasSheet ? 'pointer' : 'default', transition: 'border-color 0.15s', height: '100%' }}
-              onMouseEnter={e => { if (hasSheet) (e.currentTarget as HTMLElement).style.borderColor = '#007aff'; }}
+              onMouseEnter={e => { if (hasSheet) (e.currentTarget as HTMLElement).style.borderColor = `${PALETTE.primary}`; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>แผนงานประจำปี</span>
-                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,122,255,0.08)' }}>
-                  <ClipboardList size={14} style={{ color: '#007aff' }} />
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${PALETTE.primary}14` }}>
+                  <ClipboardList size={14} style={{ color: `${PALETTE.primary}` }} />
                 </div>
               </div>
               {loading ? (
@@ -284,16 +300,22 @@ export default function CompanyDashboard() {
               ) : (
                 <>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                    <span style={{ fontSize: 26, fontWeight: 800, color: (actionPlanPct || 0) >= 70 ? '#16a34a' : (actionPlanPct || 0) >= 40 ? '#f59e0b' : '#dc2626', lineHeight: 1 }}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: (actionPlanPct || 0) >= 70 ? `${STATUS.positive}` : (actionPlanPct || 0) >= 40 ? `${STATUS.warning}` : `${STATUS.critical}`, lineHeight: 1 }}>
                       {actionPlanPct}
                     </span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)' }}>%</span>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                    สำเร็จ {actionPlanDone} / {actionPlanTotal} กิจกรรม
+                  <div style={{ fontSize: 11, color: actionPlanInsight.color, fontWeight: 600, marginTop: 2 }}>
+                    {actionPlanInsight.text}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>สำเร็จ {actionPlanDone} / {actionPlanTotal}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: (actionPlanPct || 0) >= 75 ? `${STATUS.positive}1a` : (actionPlanPct || 0) >= 40 ? '#5856d614' : `${STATUS.critical}1a`, color: (actionPlanPct || 0) >= 75 ? `${STATUS.positive}` : (actionPlanPct || 0) >= 40 ? '#5856d6' : `${STATUS.critical}` }}>
+                      {(actionPlanPct || 0) >= 75 ? '✓ ตามแผน' : (actionPlanPct || 0) >= 40 ? '⚠ ต้องติดตาม' : '✗ เบิกเกิน'}
+                    </span>
                   </div>
                   <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', borderRadius: 2, width: `${actionPlanPct || 0}%`, background: (actionPlanPct || 0) >= 70 ? '#16a34a' : (actionPlanPct || 0) >= 40 ? '#f59e0b' : '#dc2626', transition: 'width 0.5s ease' }} />
+                    <div style={{ height: '100%', borderRadius: 2, width: `${actionPlanPct || 0}%`, background: (actionPlanPct || 0) >= 70 ? `${STATUS.positive}` : (actionPlanPct || 0) >= 40 ? `${STATUS.warning}` : `${STATUS.critical}`, transition: 'width 0.5s ease' }} />
                   </div>
                 </>
               )}
@@ -322,21 +344,27 @@ export default function CompanyDashboard() {
               ) : (
                 <>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontSize: 26, fontWeight: 800, color: trainingPct >= 80 ? '#16a34a' : trainingPct >= 50 ? '#5856d6' : '#f59e0b', lineHeight: 1 }}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: trainingPct >= 80 ? `${STATUS.positive}` : trainingPct >= 50 ? '#5856d6' : `${STATUS.warning}`, lineHeight: 1 }}>
                       {completedCourses}
                     </span>
                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>/ {totalCourses}</span>
                   </div>
+                  <div style={{ fontSize: 11, color: trainingInsight.color, fontWeight: 600, marginTop: 2 }}>
+                    {trainingInsight.text}
+                  </div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span>หลักสูตรอบรมแล้ว</span>
-                    {overdueTraining > 0 && (
-                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 700 }}>
-                        ค้าง {overdueTraining}
-                      </span>
-                    )}
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: trainingPct >= 80 ? `${STATUS.positive}1a` : trainingPct >= 50 ? '#5856d614' : `${STATUS.warning}1a`, color: trainingPct >= 80 ? `${STATUS.positive}` : trainingPct >= 50 ? '#5856d6' : `${STATUS.warning}` }}>
+                      {trainingPct >= 80 ? '✓ ตามแผน' : trainingPct >= 50 ? '⚠ ต้องติดตาม' : '✗ ล่าช้า'}
+                    </span>
                   </div>
+                  {overdueTraining > 0 && (
+                    <div style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: `${STATUS.warning}1a`, color: `${STATUS.warning}`, fontWeight: 700, marginTop: 4, display: 'inline-block' }}>
+                      ค้าง {overdueTraining}
+                    </div>
+                  )}
                   <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', borderRadius: 2, width: `${trainingPct}%`, background: trainingPct >= 80 ? '#16a34a' : '#5856d6', transition: 'width 0.5s ease' }} />
+                    <div style={{ height: '100%', borderRadius: 2, width: `${trainingPct}%`, background: trainingPct >= 80 ? `${STATUS.positive}` : '#5856d6', transition: 'width 0.5s ease' }} />
                   </div>
                 </>
               )}
@@ -346,15 +374,15 @@ export default function CompanyDashboard() {
           {/* Incidents */}
           <Link href={`/company/${id}/incidents`} style={{ textDecoration: 'none' }}>
             <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s', height: '100%' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = incidentSummary && incidentSummary.total_incidents > 0 ? '#dc2626' : '#16a34a'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = incidentSummary && incidentSummary.total_incidents > 0 ? `${STATUS.critical}` : `${STATUS.positive}`; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>อุบัติเหตุสะสม</span>
-                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: incidentSummary && incidentSummary.total_incidents > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(22,163,74,0.08)' }}>
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: incidentSummary && incidentSummary.total_incidents > 0 ? `${STATUS.critical}14` : `${STATUS.positive}14` }}>
                   {incidentSummary && incidentSummary.total_incidents > 0
-                    ? <AlertTriangle size={14} style={{ color: '#dc2626' }} />
-                    : <CheckCircle2 size={14} style={{ color: '#16a34a' }} />
+                    ? <AlertTriangle size={14} style={{ color: `${STATUS.critical}` }} />
+                    : <CheckCircle2 size={14} style={{ color: `${STATUS.positive}` }} />
                   }
                 </div>
               </div>
@@ -362,15 +390,28 @@ export default function CompanyDashboard() {
                 <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>—</div>
               ) : (
                 <>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: incidentSummary && incidentSummary.total_incidents > 0 ? '#dc2626' : '#16a34a', lineHeight: 1 }}>
-                    {incidentSummary ? incidentSummary.total_incidents : 0}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: incidentSummary && incidentSummary.total_incidents > 0 ? `${STATUS.critical}` : `${STATUS.positive}`, lineHeight: 1 }}>
+                      {incidentSummary ? incidentSummary.total_incidents : 0}
+                    </span>
+                    {incidentTrendDelta !== 0 && incidentTrendPct !== null && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 700, color: incidentTrendDelta <= 0 ? `${STATUS.positive}` : `${STATUS.critical}` }}>
+                        {incidentTrendDelta <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+                        {incidentTrendDelta > 0 ? '+' : ''}{incidentTrendDelta}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
                     {incidentSummary && incidentSummary.total_incidents > 0
                       ? `บาดเจ็บ ${incidentSummary.total_injuries || 0} • LTI ${incidentSummary.total_lti || 0}`
-                      : <span style={{ color: '#16a34a', fontWeight: 600 }}>ไม่มีอุบัติเหตุ</span>
+                      : <span style={{ color: `${STATUS.positive}`, fontWeight: 600 }}>ไม่มีอุบัติเหตุ</span>
                     }
                   </div>
+                  {currentMonthIncidents > 0 && (
+                    <div style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: `${STATUS.warning}1a`, color: `${STATUS.warning}`, fontWeight: 600, marginTop: 4, display: 'inline-block' }}>
+                      {currentMonthIncidents} เดือนนี้
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -379,13 +420,13 @@ export default function CompanyDashboard() {
           {/* Manhours */}
           <Link href={`/company/${id}/manhours`} style={{ textDecoration: 'none' }}>
             <div style={{ padding: '16px 18px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s', height: '100%' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ff9500'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${PALETTE.secondary}`; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>ชั่วโมงทำงานสะสม</span>
-                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,149,0,0.08)' }}>
-                  <Clock size={14} style={{ color: '#ff9500' }} />
+                <div style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${PALETTE.secondary}14` }}>
+                  <Clock size={14} style={{ color: `${PALETTE.secondary}` }} />
                 </div>
               </div>
               {loading ? (
@@ -393,7 +434,7 @@ export default function CompanyDashboard() {
               ) : !hasAnyManhourData ? (
                 <>
                   <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', lineHeight: 1.4 }}>ยังไม่มีข้อมูลนำเข้า</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#ff9500', fontWeight: 600, marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: `${PALETTE.secondary}`, fontWeight: 600, marginTop: 6 }}>
                     <Plus size={11} /> บันทึกชั่วโมงทำงาน
                   </div>
                 </>
@@ -405,7 +446,7 @@ export default function CompanyDashboard() {
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
                     ล่าสุด {MONTH_LABELS[(latestManhour?.month || 1) - 1]}
                   </div>
-                  <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontWeight: 600, marginTop: 6, display: 'inline-block' }}>
+                  <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: `${STATUS.warning}14`, color: `${STATUS.warning}`, fontWeight: 600, marginTop: 6, display: 'inline-block' }}>
                     ยังไม่บันทึก {MONTH_LABELS[currentMonth - 1]}
                   </div>
                 </>
@@ -416,7 +457,7 @@ export default function CompanyDashboard() {
                       {totalManhours.toLocaleString()}
                     </span>
                     {mhTrend !== null && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 700, color: mhTrend >= 0 ? '#16a34a' : '#dc2626' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 700, color: mhTrend >= 0 ? `${STATUS.positive}` : `${STATUS.critical}` }}>
                         {mhTrend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                         {mhTrend >= 0 ? '+' : ''}{mhTrend}%
                       </span>
@@ -461,16 +502,16 @@ export default function CompanyDashboard() {
               );
               if (upcoming.length === 0) return (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                  <CheckCircle2 size={20} style={{ color: '#16a34a', margin: '0 auto 8px' }} />
-                  <p style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, margin: 0 }}>จัดอบรมครบทุกหลักสูตรแล้ว</p>
+                  <CheckCircle2 size={20} style={{ color: `${STATUS.positive}`, margin: '0 auto 8px' }} />
+                  <p style={{ fontSize: 12, color: `${STATUS.positive}`, fontWeight: 600, margin: 0 }}>จัดอบรมครบทุกหลักสูตรแล้ว</p>
                 </div>
               );
               return upcoming.map((t, i) => {
                 const status = t.training_sessions?.[0]?.status;
                 const isScheduled = status === 'scheduled';
                 const statusLabel = isScheduled ? 'กำหนดวันแล้ว' : 'รอกำหนดวัน';
-                const statusColor = isScheduled ? '#16a34a' : '#f59e0b';
-                const statusBg = isScheduled ? 'rgba(22,163,74,0.08)' : 'rgba(245,158,11,0.08)';
+                const statusColor = isScheduled ? `${STATUS.positive}` : `${STATUS.warning}`;
+                const statusBg = isScheduled ? `${STATUS.positive}14` : `${STATUS.warning}14`;
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < upcoming.length - 1 ? '1px solid var(--border)' : 'none' }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#5856d6', background: 'rgba(88,86,214,0.08)', padding: '3px 8px', borderRadius: 4, flexShrink: 0 }}>
@@ -492,9 +533,9 @@ export default function CompanyDashboard() {
           <div style={{ padding: '18px 20px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Users size={14} style={{ color: '#ff9500' }} /> ชั่วโมงทำงานรายเดือน
+                <Users size={14} style={{ color: `${PALETTE.secondary}` }} /> ชั่วโมงทำงานรายเดือน
               </h2>
-              <Link href={`/company/${id}/manhours`} style={{ fontSize: 11, fontWeight: 600, color: '#ff9500', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Link href={`/company/${id}/manhours`} style={{ fontSize: 11, fontWeight: 600, color: `${PALETTE.secondary}`, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                 ดูทั้งหมด <ArrowRight size={11} />
               </Link>
             </div>
@@ -502,7 +543,7 @@ export default function CompanyDashboard() {
               <div style={{ textAlign: 'center', padding: '16px 0' }}>
                 <Clock size={20} style={{ color: 'var(--muted)', margin: '0 auto 8px' }} />
                 <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>ยังไม่มีข้อมูลชั่วโมงทำงาน</p>
-                <Link href={`/company/${id}/manhours`} style={{ fontSize: 11, fontWeight: 600, color: '#ff9500', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Link href={`/company/${id}/manhours`} style={{ fontSize: 11, fontWeight: 600, color: `${PALETTE.secondary}`, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Plus size={12} /> บันทึกชั่วโมงทำงาน
                 </Link>
               </div>
@@ -515,11 +556,11 @@ export default function CompanyDashboard() {
                   const isCurrentMonth = m.month === currentMonth;
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 10, color: isCurrentMonth ? '#ff9500' : 'var(--muted)', fontWeight: isCurrentMonth ? 700 : 400, width: 32, textAlign: 'right', flexShrink: 0 }}>
+                      <span style={{ fontSize: 10, color: isCurrentMonth ? `${PALETTE.secondary}` : 'var(--muted)', fontWeight: isCurrentMonth ? 700 : 400, width: 32, textAlign: 'right', flexShrink: 0 }}>
                         {MONTH_LABELS[m.month - 1]}
                       </span>
                       <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: isCurrentMonth ? 'linear-gradient(90deg, #ff9500, #ff6b00)' : 'linear-gradient(90deg, #ff9500, #ffb84d)', transition: 'width 0.5s ease' }} />
+                        <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: isCurrentMonth ? `linear-gradient(90deg, ${PALETTE.secondary}, #ff6b00)` : `linear-gradient(90deg, ${PALETTE.secondary}, #ffb84d)`, transition: 'width 0.5s ease' }} />
                       </div>
                       <span style={{ fontSize: 10, color: isCurrentMonth ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: isCurrentMonth ? 600 : 400, width: 52, textAlign: 'right', flexShrink: 0 }}>
                         {total.toLocaleString()}

@@ -9,16 +9,26 @@ import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  planned: { label: 'ยังไม่กำหนดวัน', color: '#6b7280', bg: '#f3f4f6', icon: '○' },
-  scheduled: { label: 'กำหนดวันแล้ว', color: '#3b82f6', bg: '#dbeafe', icon: '◉' },
-  completed: { label: 'อบรมแล้ว', color: '#16a34a', bg: '#dcfce7', icon: '●' },
-  cancelled: { label: 'ยกเลิก', color: '#dc2626', bg: '#fee2e2', icon: '✕' },
-  postponed: { label: 'เลื่อน', color: '#f59e0b', bg: '#fef3c7', icon: '◐' },
+  planned: { label: 'ยังไม่กำหนดวัน', color: PALETTE.muted, bg: `${PALETTE.muted}10`, icon: '○' },
+  scheduled: { label: 'กำหนดวันแล้ว', color: PALETTE.primary, bg: `${PALETTE.primary}10`, icon: '◉' },
+  completed: { label: 'อบรมแล้ว', color: STATUS.positive, bg: STATUS.positiveBg, icon: '●' },
+  cancelled: { label: 'ยกเลิก', color: STATUS.critical, bg: STATUS.criticalBg, icon: '✕' },
+  postponed: { label: 'เลื่อน', color: STATUS.warning, bg: STATUS.warningBg, icon: '◐' },
+};
+
+const getStatusGradient = (status: string): string => {
+  const status2 = status || 'planned';
+  if (status2 === 'completed') return `linear-gradient(135deg, ${STATUS.positive} 0%, ${STATUS.positive}dd 100%)`;
+  if (status2 === 'cancelled') return `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.critical}dd 100%)`;
+  if (status2 === 'postponed') return `linear-gradient(135deg, ${STATUS.warning} 0%, ${STATUS.warning}dd 100%)`;
+  if (status2 === 'scheduled') return `linear-gradient(135deg, ${PALETTE.primary} 0%, ${PALETTE.primary}dd 100%)`;
+  return `linear-gradient(135deg, ${PALETTE.muted} 0%, ${PALETTE.muted}dd 100%)`;
 };
 
 interface TrainingPlan {
@@ -1061,7 +1071,7 @@ export default function CompanyTraining() {
     const actual = session?.actual_cost || 0;
     const costOverBudget = budget > 0 && actual > budget;
     const costNearLimit = budget > 0 && actual > 0 && !costOverBudget && Math.round((actual / budget) * 100) >= 85;
-    const costBadgeOverBudget = costOverBudget ? { label: 'เกินงบ', color: '#dc2626', bg: '#fef2f2' } : undefined;
+    const costBadgeOverBudget = costOverBudget ? { label: 'เกินงบ', color: STATUS.critical, bg: STATUS.criticalBg } : undefined;
     const costBadgeNear = costNearLimit ? { label: `ใช้งบ ${Math.round((actual / budget) * 100)}%`, color: '#b45309', bg: '#fefce8' } : undefined;
     if (isHidden) return { label: 'นำออกจากแผน', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
     if (status === 'cancelled') return { label: 'ยกเลิกแล้ว', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
@@ -1117,10 +1127,10 @@ export default function CompanyTraining() {
   ];
 
   const URGENCY_COLORS: Record<string, { bg: string; color: string; border: string }> = {
-    critical: { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' },
-    warning: { bg: '#fefce8', color: '#b45309', border: '#fde68a' },
-    info: { bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' },
-    done: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+    critical: { bg: STATUS.criticalBg, color: STATUS.critical, border: `${STATUS.critical}40` },
+    warning: { bg: STATUS.warningBg, color: STATUS.warning, border: `${STATUS.warning}40` },
+    info: { bg: `${PALETTE.primary}10`, color: PALETTE.primary, border: `${PALETTE.primary}40` },
+    done: { bg: STATUS.positiveBg, color: STATUS.positive, border: `${STATUS.positive}40` },
     muted: { bg: '#f9fafb', color: '#9ca3af', border: '#e5e7eb' },
   };
 
@@ -1166,14 +1176,14 @@ export default function CompanyTraining() {
                 onClick={() => { fetchUnreviewedChanges(); setShowChangeLog(!showChangeLog); }}
                 style={{
                   position: "relative", padding: "6px 12px", borderRadius: 6, border: "none",
-                  background: "#dc2626", color: "#fff", fontSize: 12, fontWeight: 600,
+                  background: STATUS.critical, color: "#fff", fontSize: 12, fontWeight: 600,
                   cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
                 }}
               >
                 <Bell size={14} /> แจ้งเตือน ({unreviewedChanges.length})
                 <span style={{
                   position: "absolute", top: -6, right: -6, width: 20, height: 20,
-                  background: "#dc2626", borderRadius: "50%", border: "2px solid var(--card-solid)",
+                  background: STATUS.critical, borderRadius: "50%", border: "2px solid var(--card-solid)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 10, fontWeight: 700, color: "#fff",
                 }}>
@@ -1301,8 +1311,8 @@ export default function CompanyTraining() {
           <>
         {/* Warning alerts */}
         {warningPlans.length > 0 && (
-          <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
-            <div style={{ fontWeight: 600, color: '#92400e', fontSize: 14, marginBottom: 4 }}>
+          <div style={{ background: STATUS.warningBg, border: `1px solid ${STATUS.warning}`, borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+            <div style={{ fontWeight: 600, color: STATUS.warning, fontSize: 14, marginBottom: 4 }}>
               ⚠️ แจ้งเตือน: {warningPlans.length} หลักสูตรใกล้ถึงกำหนดแต่ยังไม่กำหนดวันอบรม
             </div>
             {warningPlans.slice(0, 3).map(p => (
@@ -1426,7 +1436,7 @@ export default function CompanyTraining() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
               {/* Need dates */}
               {needDates.length > 0 && (
-                <div style={{ background: '#fffbeb', borderRadius: 10, border: '1px solid #fbbf24', padding: '14px 16px' }}>
+                <div style={{ background: STATUS.warningBg, borderRadius: 10, border: `1px solid ${STATUS.warning}`, padding: '14px 16px' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AlertTriangle size={14} /> ยังไม่กำหนดวัน ({needDates.length})
                   </div>
@@ -1444,7 +1454,7 @@ export default function CompanyTraining() {
 
               {/* Upcoming training */}
               {upcoming.length > 0 && (
-                <div style={{ background: '#eff6ff', borderRadius: 10, border: '1px solid #93c5fd', padding: '14px 16px' }}>
+                <div style={{ background: `${PALETTE.primary}10`, borderRadius: 10, border: `1px solid ${PALETTE.primary}40`, padding: '14px 16px' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1e40af', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Calendar size={14} /> อบรมเร็วๆ นี้ ({upcoming.length})
                   </div>
@@ -1454,7 +1464,7 @@ export default function CompanyTraining() {
                     return (
                       <div key={p.id} onClick={() => openPlanModal(p)} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: 'pointer', background: '#dbeafe', color: '#1e3a5f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.course_name}</span>
-                        <span style={{ fontSize: 10, flexShrink: 0, marginLeft: 8, fontWeight: 700, color: daysLeft <= 7 ? '#dc2626' : '#2563eb' }}>
+                        <span style={{ fontSize: 10, flexShrink: 0, marginLeft: 8, fontWeight: 700, color: daysLeft <= 7 ? STATUS.critical : PALETTE.primary }}>
                           {daysLeft === 0 ? 'วันนี้!' : `อีก ${daysLeft} วัน`}
                         </span>
                       </div>
@@ -1465,8 +1475,8 @@ export default function CompanyTraining() {
 
               {/* Pending DSD docs */}
               {pendingDocs.length > 0 && (
-                <div style={{ background: '#fef2f2', borderRadius: 10, border: '1px solid #fca5a5', padding: '14px 16px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#991b1b', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ background: STATUS.criticalBg, borderRadius: 10, border: `1px solid ${STATUS.critical}40`, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: STATUS.critical, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Clock size={14} /> เอกสารค้างส่ง ({pendingDocs.length})
                   </div>
                   {pendingDocs.slice(0, 5).map(p => {
@@ -1476,9 +1486,9 @@ export default function CompanyTraining() {
                     if (!s?.signin_sheet_submitted) missing.push('ใบเซ็นชื่อ');
                     if (!s?.dsd_report_submitted) missing.push('รง.1');
                     return (
-                      <div key={p.id} onClick={() => openPlanModal(p)} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: 'pointer', background: '#fee2e2', color: '#7f1d1d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={p.id} onClick={() => openPlanModal(p)} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 4, cursor: 'pointer', background: STATUS.criticalBg, color: STATUS.critical, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.course_name}</span>
-                        <span style={{ fontSize: 10, flexShrink: 0, marginLeft: 8, color: '#dc2626' }}>ขาด: {missing.join(', ')}</span>
+                        <span style={{ fontSize: 10, flexShrink: 0, marginLeft: 8, color: STATUS.critical }}>ขาด: {missing.join(', ')}</span>
                       </div>
                     );
                   })}
@@ -1574,8 +1584,26 @@ export default function CompanyTraining() {
               </div>
             </div>
 
-            {/* Bar Chart */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 160, marginBottom: 8 }}>
+            {/* Bar Chart with Y-axis */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              {/* Y-axis labels */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', width: 40, height: 160, paddingRight: 4 }}>
+                <div style={{ fontSize: 10, color: PALETTE.textSecondary, textAlign: 'right', fontWeight: 400 }}>{maxPlanned}</div>
+                <div style={{ fontSize: 10, color: PALETTE.textSecondary, textAlign: 'right', fontWeight: 400, flex: 1 }}>{Math.round(maxPlanned / 2)}</div>
+                <div style={{ fontSize: 10, color: PALETTE.textSecondary, textAlign: 'right', fontWeight: 400 }}>0</div>
+              </div>
+
+              {/* Chart container with gridlines */}
+              <div style={{ flex: 1, position: 'relative', height: 160 }}>
+                {/* Horizontal gridlines */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '100%', pointerEvents: 'none' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: PALETTE.grid }} />
+                  <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: PALETTE.grid, transform: 'translateY(-0.5px)' }} />
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, background: PALETTE.grid }} />
+                </div>
+
+                {/* Bar Chart */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 160 }}>
               {monthlyChartData.map((d, i) => {
                 const currentMonth = new Date().getMonth() + 1;
                 const isPast = d.month <= currentMonth;
@@ -1601,18 +1629,18 @@ export default function CompanyTraining() {
                     {d.planned > 0 && (
                       <div style={{ fontSize: 10, fontWeight: 600, color: d.completed === d.denominator && d.denominator > 0 ? 'var(--success)' : 'var(--text-secondary)' }}>
                         {d.completed}/{d.denominator}
-                        {d.cancelled > 0 && <span style={{ color: '#dc2626', fontSize: 8 }}> ✕{d.cancelled}</span>}
+                        {d.cancelled > 0 && <span style={{ color: STATUS.critical, fontSize: 8 }}> ✕{d.cancelled}</span>}
                       </div>
                     )}
                     {/* Stacked bar */}
                     <div style={{ width: '80%', height: barHeight || 2, borderRadius: 4, position: 'relative', overflow: 'hidden', background: barBg }}>
                       {/* Scheduled (blue) */}
                       {scheduledHeight > 0 && (
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: scheduledHeight, background: '#93c5fd', borderRadius: '0 0 4px 4px' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: scheduledHeight, background: `${PALETTE.primary}60`, borderRadius: '0 0 4px 4px' }} />
                       )}
                       {/* Completed (green) */}
                       {completedHeight > 0 && (
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: '#4ade80', borderRadius: '0 0 4px 4px' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: STATUS.positive, borderRadius: '0 0 4px 4px' }} />
                       )}
                     </div>
                     {/* Month label */}
@@ -1622,21 +1650,23 @@ export default function CompanyTraining() {
                   </div>
                 );
               })}
+                </div>
+              </div>
             </div>
 
             {/* Legend */}
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> อบรมแล้ว
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS.positive, display: 'inline-block' }} /> อบรมแล้ว
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', display: 'inline-block' }} /> กำหนดวันแล้ว
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: `${PALETTE.primary}60`, display: 'inline-block' }} /> กำหนดวันแล้ว
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fef3c7', display: 'inline-block' }} /> ยังไม่มีความคืบหน้า
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS.warningBg, display: 'inline-block' }} /> ยังไม่มีความคืบหน้า
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fee2e2', display: 'inline-block' }} /> เลยกำหนด
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS.criticalBg, display: 'inline-block' }} /> เลยกำหนด
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--bg-secondary)', display: 'inline-block' }} /> ยังไม่ถึง
@@ -1709,10 +1739,10 @@ export default function CompanyTraining() {
                 const completedDsd = dsdPlans.filter(p => p.training_sessions?.[0]?.status === 'completed').length;
                 const items = [
                   { label: 'หลักสูตร DSD ทั้งหมด', value: dsdPlans.length, color: 'var(--text-primary)' },
-                  { label: 'ยื่นแบบแจ้งแล้ว (ยป.1/ยป.3)', value: preSubmitted, color: '#3b82f6' },
-                  { label: 'ได้รับอนุมัติแล้ว', value: preApproved, color: '#16a34a' },
-                  { label: 'อบรมเสร็จแล้ว', value: completedDsd, color: '#f59e0b' },
-                  { label: 'ส่ง รง.1 แล้ว', value: postSubmitted, color: '#16a34a' },
+                  { label: 'ยื่นแบบแจ้งแล้ว (ยป.1/ยป.3)', value: preSubmitted, color: PALETTE.primary },
+                  { label: 'ได้รับอนุมัติแล้ว', value: preApproved, color: STATUS.positive },
+                  { label: 'อบรมเสร็จแล้ว', value: completedDsd, color: STATUS.warning },
+                  { label: 'ส่ง รง.1 แล้ว', value: postSubmitted, color: STATUS.positive },
                 ];
                 return items.map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
@@ -1742,7 +1772,7 @@ export default function CompanyTraining() {
               background: hasFilter ? 'rgba(59,130,246,0.06)' : 'var(--card-solid)',
               border: `1px solid ${hasFilter ? 'rgba(59,130,246,0.2)' : 'var(--border)'}`,
             }}>
-              <Filter size={14} style={{ color: hasFilter ? '#3b82f6' : 'var(--text-secondary)', flexShrink: 0 }} />
+              <Filter size={14} style={{ color: hasFilter ? PALETTE.primary : 'var(--text-secondary)', flexShrink: 0 }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                 กำลังแสดง <strong style={{ color: 'var(--accent)' }}>{filteredPlans.length}</strong> หลักสูตร
                 {filteredPlans.length !== timeFilteredPlans.length && <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}> จาก {timeFilteredPlans.length}</span>}
@@ -1781,14 +1811,14 @@ export default function CompanyTraining() {
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>
                     ความคืบหน้า: {doneCount}/{filteredPlans.length} เสร็จสมบูรณ์
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: pct >= 80 ? '#16a34a' : pct >= 50 ? '#f59e0b' : 'var(--text-secondary)' }}>{pct}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: pct >= 80 ? STATUS.positive : pct >= 50 ? STATUS.warning : 'var(--text-secondary)' }}>{pct}%</span>
                 </div>
                 <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 3, background: pct >= 80 ? '#16a34a' : pct >= 50 ? '#f59e0b' : 'var(--accent)', width: `${pct}%`, transition: 'width 0.5s ease' }} />
+                  <div style={{ height: '100%', borderRadius: 3, background: pct >= 80 ? STATUS.positive : pct >= 50 ? STATUS.warning : 'var(--accent)', width: `${pct}%`, transition: 'width 0.5s ease' }} />
                 </div>
               </div>
               {actionCount > 0 && (
-                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: '#fef2f2', color: '#dc2626', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: STATUS.criticalBg, color: STATUS.critical, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                   ต้องดำเนินการ {actionCount} รายการ
                 </span>
               )}
@@ -1878,10 +1908,10 @@ export default function CompanyTraining() {
                         {groupActual > 0 && (
                           <>
                             <span style={{ color: 'var(--border)' }}>→</span>
-                            <span style={{ fontWeight: 600, color: groupOverBudget ? '#dc2626' : '#16a34a' }}>
+                            <span style={{ fontWeight: 600, color: groupOverBudget ? STATUS.critical : STATUS.positive }}>
                               ใช้จริง {groupActual.toLocaleString()} ฿
                             </span>
-                            <span style={{ fontWeight: 600, color: groupOverBudget ? '#dc2626' : '#16a34a' }}>
+                            <span style={{ fontWeight: 600, color: groupOverBudget ? STATUS.critical : STATUS.positive }}>
                               ({groupOverBudget ? '+' : 'เหลือ '}{groupOverBudget ? (groupActual - groupBudget).toLocaleString() : groupVariance.toLocaleString()})
                             </span>
                           </>
@@ -1986,10 +2016,10 @@ export default function CompanyTraining() {
                                     {hasActual && budget > 0 && (
                                       <>
                                         <span style={{ color: 'var(--border)' }}>→</span>
-                                        <span style={{ fontWeight: 600, color: overBudget ? '#dc2626' : nearLimit ? '#b45309' : '#16a34a' }}>
+                                        <span style={{ fontWeight: 600, color: overBudget ? STATUS.critical : nearLimit ? STATUS.warning : STATUS.positive }}>
                                           จ่ายจริง {actual.toLocaleString()}
                                         </span>
-                                        <span style={{ color: overBudget ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                                        <span style={{ color: overBudget ? STATUS.critical : STATUS.positive, fontWeight: 600 }}>
                                           ({overBudget ? '+' : '-'}{Math.abs(actual - budget).toLocaleString()})
                                         </span>
                                       </>
@@ -2005,7 +2035,7 @@ export default function CompanyTraining() {
                                       </span>
                                     )}
                                     {overBudget && (
-                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fef2f2', color: '#dc2626', fontWeight: 700 }}>เกินงบ</span>
+                                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: STATUS.criticalBg, color: STATUS.critical, fontWeight: 700 }}>เกินงบ</span>
                                     )}
                                     {nearLimit && (
                                       <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#fefce8', color: '#b45309', fontWeight: 700 }}>ใช้งบ {pctUsed}%</span>
@@ -2042,7 +2072,7 @@ export default function CompanyTraining() {
                                 <button
                                   onClick={e => { e.stopPropagation(); handleQuickStatusChange(plan, 'completed'); }}
                                   title="เปลี่ยนเป็น อบรมแล้ว"
-                                  style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 10px', borderRadius: 6, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#16a34a', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 10px', borderRadius: 6, border: `1px solid ${STATUS.positive}40`, background: STATUS.positiveBg, color: STATUS.positive, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                                 >
                                   <CheckCircle size={12} /> อบรมแล้ว
                                 </button>
@@ -2082,7 +2112,7 @@ export default function CompanyTraining() {
                                 style={{
                                   display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px',
                                   borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                  background: action.urgency === 'critical' ? '#dc2626' : action.urgency === 'done' || action.urgency === 'muted' ? 'var(--bg-secondary)' : 'var(--accent)',
+                                  background: action.urgency === 'critical' ? STATUS.critical : action.urgency === 'done' || action.urgency === 'muted' ? 'var(--bg-secondary)' : 'var(--accent)',
                                   color: action.urgency === 'done' || action.urgency === 'muted' ? 'var(--text-secondary)' : '#fff',
                                   transition: 'all 0.15s', whiteSpace: 'nowrap',
                                 }}
@@ -2109,7 +2139,7 @@ export default function CompanyTraining() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 24, overflowY: 'auto' }}>
             <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 900, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', border: '1px solid var(--border)' }}>
               {/* Modal Header — Gradient like IncidentForm */}
-              <div style={{ padding: '16px 24px', flexShrink: 0, borderRadius: '16px 16px 0 0', background: (() => { const s = selectedPlan.training_sessions?.[0]?.status || 'planned'; return s === 'completed' ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : s === 'cancelled' ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' : s === 'postponed' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : s === 'scheduled' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'; })() }}>
+              <div style={{ padding: '16px 24px', flexShrink: 0, borderRadius: '16px 16px 0 0', background: getStatusGradient(selectedPlan.training_sessions?.[0]?.status) }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -2144,8 +2174,8 @@ export default function CompanyTraining() {
                   const diffDays = Math.ceil((dStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                   if (diffDays > 0 && diffDays <= daysRequired + 7) {
                     return (
-                      <div style={{ marginTop: 8, background: diffDays <= daysRequired ? '#fef2f2' : '#fefce8', border: `1px solid ${diffDays <= daysRequired ? '#dc2626' : '#ca8a04'}`, borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
-                        <strong style={{ color: diffDays <= daysRequired ? '#dc2626' : '#ca8a04' }}>
+                      <div style={{ marginTop: 8, background: diffDays <= daysRequired ? STATUS.criticalBg : STATUS.warningBg, border: `1px solid ${diffDays <= daysRequired ? STATUS.critical : STATUS.warning}`, borderRadius: 6, padding: '6px 10px', fontSize: 11 }}>
+                        <strong style={{ color: diffDays <= daysRequired ? STATUS.critical : STATUS.warning }}>
                           {diffDays <= daysRequired ? '⚠️ เลยกำหนดยื่น!' : '⏰ ใกล้กำหนดยื่น'}
                         </strong>{' '}
                         ต้องยื่น {isInHouse ? 'ยป.1' : 'ยป.3'} ล่วงหน้า {daysRequired} วัน (เหลือ {diffDays} วัน)
@@ -2173,10 +2203,10 @@ export default function CompanyTraining() {
                   return (
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, marginBottom: 16,
-                      background: overBudget ? '#fef2f2' : noCostRecorded ? '#fff7ed' : 'var(--bg-secondary)',
-                      border: `1px solid ${overBudget ? '#fca5a5' : noCostRecorded ? '#fed7aa' : 'var(--border)'}`,
+                      background: overBudget ? STATUS.criticalBg : noCostRecorded ? STATUS.warningBg : 'var(--bg-secondary)',
+                      border: `1px solid ${overBudget ? STATUS.critical : noCostRecorded ? STATUS.warning : 'var(--border)'}`,
                     }}>
-                      <DollarSign size={16} style={{ color: overBudget ? '#dc2626' : noCostRecorded ? '#c2410c' : 'var(--text-secondary)', flexShrink: 0 }} />
+                      <DollarSign size={16} style={{ color: overBudget ? STATUS.critical : noCostRecorded ? STATUS.warning : 'var(--text-secondary)', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           {budget > 0 && (
@@ -2187,10 +2217,10 @@ export default function CompanyTraining() {
                           {actual > 0 && budget > 0 && (
                             <>
                               <span style={{ color: 'var(--border)' }}>→</span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: overBudget ? '#dc2626' : '#16a34a' }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: overBudget ? STATUS.critical : STATUS.positive }}>
                                 จ่ายจริง {actual.toLocaleString()} ฿
                               </span>
-                              <span style={{ fontSize: 11, fontWeight: 600, color: overBudget ? '#dc2626' : '#16a34a' }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, color: overBudget ? STATUS.critical : STATUS.positive }}>
                                 ({overBudget ? `เกิน +${(actual - budget).toLocaleString()}` : `เหลือ ${(budget - actual).toLocaleString()}`})
                               </span>
                             </>
@@ -2201,7 +2231,7 @@ export default function CompanyTraining() {
                             </span>
                           )}
                           {noCostRecorded && (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: '#c2410c' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: STATUS.warning }}>
                               ⚠ อบรมแล้วแต่ยังไม่บันทึกค่าใช้จ่ายจริง
                             </span>
                           )}
@@ -2210,10 +2240,10 @@ export default function CompanyTraining() {
                           )}
                         </div>
                         {budget > 0 && actual > 0 && (
-                          <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
+                          <div style={{ marginTop: 6, height: 4, borderRadius: 2, background: PALETTE.grid, overflow: 'hidden' }}>
                             <div style={{
                               height: '100%', borderRadius: 2, width: `${Math.min(pctUsed, 100)}%`,
-                              background: overBudget ? '#dc2626' : pctUsed >= 85 ? '#f59e0b' : '#16a34a',
+                              background: overBudget ? STATUS.critical : pctUsed >= 85 ? STATUS.warning : STATUS.positive,
                               transition: 'width 0.3s ease',
                             }} />
                           </div>
@@ -2251,7 +2281,7 @@ export default function CompanyTraining() {
 
                 {/* Section 2: Status Details */}
                 <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-                  <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (() => { const s = modalStatus; return s === 'completed' ? 'rgba(22,163,74,0.1)' : s === 'cancelled' ? 'rgba(220,38,38,0.1)' : s === 'postponed' ? 'rgba(245,158,11,0.1)' : s === 'scheduled' ? 'rgba(59,130,246,0.1)' : 'rgba(107,114,128,0.1)'; })(), color: (() => { const s = modalStatus; return s === 'completed' ? '#16a34a' : s === 'cancelled' ? '#dc2626' : s === 'postponed' ? '#f59e0b' : s === 'scheduled' ? '#3b82f6' : '#6b7280'; })() }}>2</span>
+                  <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: (() => { const s = modalStatus; return s === 'completed' ? `${STATUS.positive}20` : s === 'cancelled' ? `${STATUS.critical}20` : s === 'postponed' ? `${STATUS.warning}20` : s === 'scheduled' ? `${PALETTE.primary}20` : `${PALETTE.muted}20`; })(), color: (() => { const s = modalStatus; return s === 'completed' ? STATUS.positive : s === 'cancelled' ? STATUS.critical : s === 'postponed' ? STATUS.warning : s === 'scheduled' ? PALETTE.primary : PALETTE.muted; })() }}>2</span>
                   {modalStatus === 'planned' ? 'รายละเอียด' : modalStatus === 'scheduled' ? 'กำหนดการอบรม' : modalStatus === 'completed' ? 'ผลการอบรม' : modalStatus === 'postponed' ? 'รายละเอียดการเลื่อน' : modalStatus === 'cancelled' ? 'รายละเอียดการยกเลิก' : 'รายละเอียด'}
                 </h3>
 
@@ -2476,10 +2506,10 @@ export default function CompanyTraining() {
                 {/* ─── STATUS: postponed ─── */}
                 {modalStatus === 'postponed' && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
-                      <label style={{ ...labelStyle, color: '#92400e' }}>เลื่อนไปเดือนไหน? *</label>
+                    <div style={{ background: STATUS.warningBg, border: `1px solid ${STATUS.warning}`, borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
+                      <label style={{ ...labelStyle, color: STATUS.warning }}>เลื่อนไปเดือนไหน? *</label>
                       <select value={modalPostponedMonth || ''} onChange={e => setModalPostponedMonth(e.target.value ? Number(e.target.value) : null)}
-                        style={{ ...inputStyle, background: '#fff', borderColor: '#f59e0b' }}>
+                        style={{ ...inputStyle, background: '#fff', borderColor: STATUS.warning }}>
                         <option value="">-- เลือกเดือนใหม่ --</option>
                         {MONTH_LABELS.map((label, i) => (
                           <option key={i} value={i + 1}>{label} {selectedYear}</option>
@@ -2501,37 +2531,37 @@ export default function CompanyTraining() {
                   <div style={{ marginBottom: 16 }}>
                     {/* Pending badge if request exists */}
                     {selectedPlan && pendingCancelRequests[selectedPlan.id] === 'cancelled' && (
-                      <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                        <Clock size={14} color="#f59e0b" />
-                        <span style={{ color: '#92400e', fontWeight: 600 }}>คำขอยกเลิกรอ Admin อนุมัติ</span>
+                      <div style={{ background: STATUS.warningBg, border: `1px solid ${STATUS.warning}`, borderRadius: 8, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <Clock size={14} color={STATUS.warning} />
+                        <span style={{ color: STATUS.warning, fontWeight: 600 }}>คำขอยกเลิกรอ Admin อนุมัติ</span>
                       </div>
                     )}
                     {/* Approval form for non-admin */}
                     {pendingCancelStatus === 'cancelled' && !auth.isAdmin ? (
-                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', marginBottom: 8 }}>⚠️ ขอยกเลิกหลักสูตร</div>
-                        <p style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 10 }}>
+                      <div style={{ background: STATUS.criticalBg, border: `1px solid ${STATUS.critical}40`, borderRadius: 8, padding: '14px 16px' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: STATUS.critical, marginBottom: 8 }}>⚠️ ขอยกเลิกหลักสูตร</div>
+                        <p style={{ fontSize: 12, color: STATUS.critical, marginBottom: 10 }}>
                           การยกเลิกจะหักรายการออกจากฐาน KPI — ต้องได้รับอนุมัติจาก Admin ก่อน
                         </p>
-                        <label style={{ ...labelStyle, color: '#dc2626' }}>เหตุผลที่ยกเลิก *</label>
-                        <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3} placeholder="ระบุเหตุผลที่ต้องยกเลิกหลักสูตรนี้..." style={{ ...inputStyle, resize: 'vertical', borderColor: '#fca5a5' }} />
+                        <label style={{ ...labelStyle, color: STATUS.critical }}>เหตุผลที่ยกเลิก *</label>
+                        <textarea value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3} placeholder="ระบุเหตุผลที่ต้องยกเลิกหลักสูตรนี้..." style={{ ...inputStyle, resize: 'vertical', borderColor: STATUS.critical }} />
                         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                           <button onClick={() => { setPendingCancelStatus(null); setModalStatus(selectedPlan?.training_sessions?.[0]?.status || 'planned'); }}
                             style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
                             ยกเลิก
                           </button>
                           <button onClick={handleCancelRequest} disabled={cancelSubmitting || !cancelReason.trim()}
-                            style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: cancelReason.trim() ? '#dc2626' : '#d1d5db', color: '#fff', fontSize: 12, cursor: cancelReason.trim() ? 'pointer' : 'default', fontWeight: 600, opacity: cancelSubmitting ? 0.6 : 1 }}>
+                            style={{ padding: '7px 16px', borderRadius: 6, border: 'none', background: cancelReason.trim() ? STATUS.critical : '#d1d5db', color: '#fff', fontSize: 12, cursor: cancelReason.trim() ? 'pointer' : 'default', fontWeight: 600, opacity: cancelSubmitting ? 0.6 : 1 }}>
                             {cancelSubmitting ? 'กำลังส่ง...' : '📨 ส่งคำขอยกเลิก'}
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 16px' }}>
-                        <label style={{ ...labelStyle, color: '#dc2626' }}>เหตุผลที่ยกเลิก</label>
-                        <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="ระบุเหตุผล..." style={{ ...inputStyle, resize: 'vertical', borderColor: '#fca5a5' }} />
+                      <div style={{ background: STATUS.criticalBg, border: `1px solid ${STATUS.critical}40`, borderRadius: 8, padding: '12px 16px' }}>
+                        <label style={{ ...labelStyle, color: STATUS.critical }}>เหตุผลที่ยกเลิก</label>
+                        <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="ระบุเหตุผล..." style={{ ...inputStyle, resize: 'vertical', borderColor: STATUS.critical }} />
                         {!auth.isAdmin && (
-                          <p style={{ fontSize: 11, color: '#dc2626', marginTop: 6 }}>* การยกเลิกต้องได้รับอนุมัติจาก Admin</p>
+                          <p style={{ fontSize: 11, color: STATUS.critical, marginTop: 6 }}>* การยกเลิกต้องได้รับอนุมัติจาก Admin</p>
                         )}
                       </div>
                     )}
@@ -2557,7 +2587,7 @@ export default function CompanyTraining() {
                   style={{
                     padding: '9px 28px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
                     opacity: saving ? 0.6 : 1, transition: 'all 0.15s',
-                    background: modalStatus === 'completed' ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : modalStatus === 'cancelled' ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' : modalStatus === 'postponed' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : modalStatus === 'scheduled' ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+                    background: getStatusGradient(modalStatus),
                     color: '#fff',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                   }}>
@@ -2616,7 +2646,7 @@ export default function CompanyTraining() {
                     ทั้งหมด ({companyEmployees.length})
                   </button>
                   <button onClick={() => setAttendeeViewTab('selected')}
-                    style={{ flex: 1, padding: '6px 12px', border: 'none', borderLeft: '1px solid var(--border)', fontSize: 11, fontWeight: attendeeViewTab === 'selected' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'selected' ? '#16a34a' : 'var(--bg)', color: attendeeViewTab === 'selected' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
+                    style={{ flex: 1, padding: '6px 12px', border: 'none', borderLeft: '1px solid var(--border)', fontSize: 11, fontWeight: attendeeViewTab === 'selected' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'selected' ? STATUS.positive : 'var(--bg)', color: attendeeViewTab === 'selected' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
                     เลือกแล้ว ({attendees.length})
                   </button>
                 </div>
@@ -2786,11 +2816,11 @@ export default function CompanyTraining() {
                                   onMouseLeave={e => { if (!isAttendee) (e.currentTarget as HTMLElement).style.background = idx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)'; }}
                                   onClick={() => { if (!isToggling) handleToggleAttendee(emp, isAttendee, att?.id); }}>
                                     <td style={{ padding: '5px 8px', textAlign: 'center' }}>
-                                      <input type="checkbox" checked={isAttendee} readOnly style={{ cursor: 'pointer', accentColor: '#16a34a' }} />
+                                      <input type="checkbox" checked={isAttendee} readOnly style={{ cursor: 'pointer', accentColor: STATUS.positive }} />
                                     </td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{emp.emp_code || '-'}</td>
                                     <td style={{ padding: '5px 8px', fontWeight: isAttendee ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {isAttendee && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#16a34a', marginRight: 6, verticalAlign: 'middle' }} />}
+                                      {isAttendee && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: STATUS.positive, marginRight: 6, verticalAlign: 'middle' }} />}
                                       {emp.first_name} {emp.last_name}
                                     </td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.position || ''}>{emp.position || '-'}</td>
@@ -2804,13 +2834,13 @@ export default function CompanyTraining() {
                       )}
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>
-                          แสดง {sorted.length} คน • เข้าอบรม <b style={{ color: '#16a34a' }}>{attendees.length}</b> คน
+                          แสดง {sorted.length} คน • เข้าอบรม <b style={{ color: STATUS.positive }}>{attendees.length}</b> คน
                           {selectedPlan.planned_participants > 0 && <span> • แผน {selectedPlan.planned_participants} คน</span>}
                         </span>
                         {attendees.length > 0 && selectedPlan.planned_participants > 0 && (
                           <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600,
                             background: attendees.length >= selectedPlan.planned_participants ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
-                            color: attendees.length >= selectedPlan.planned_participants ? '#16a34a' : '#f59e0b',
+                            color: attendees.length >= selectedPlan.planned_participants ? STATUS.positive : STATUS.warning,
                           }}>
                             {attendees.length >= selectedPlan.planned_participants ? '✓ ครบตามแผน' : `ขาดอีก ${selectedPlan.planned_participants - attendees.length} คน`}
                           </span>
@@ -2831,7 +2861,7 @@ export default function CompanyTraining() {
                   disabled={attendees.length === 0}
                   style={{
                     padding: '8px 24px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 700, transition: 'all 0.15s',
-                    background: attendees.length > 0 ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' : 'var(--border)',
+                    background: attendees.length > 0 ? getStatusGradient('completed') : 'var(--border)',
                     color: attendees.length > 0 ? '#fff' : 'var(--text-secondary)',
                     cursor: attendees.length > 0 ? 'pointer' : 'not-allowed',
                     boxShadow: attendees.length > 0 ? '0 2px 8px rgba(22,163,74,0.3)' : 'none',
@@ -3034,7 +3064,7 @@ export default function CompanyTraining() {
               </div>
 
               {loginError && (
-                <div style={{ background: '#fef2f2', color: '#dc2626', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ background: STATUS.criticalBg, color: STATUS.critical, padding: '8px 12px', borderRadius: 8, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
                   {loginError}
                 </div>
               )}

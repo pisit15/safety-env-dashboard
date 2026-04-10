@@ -3,13 +3,15 @@
 import { useState, useMemo } from 'react';
 import type { Incident, InjuredPerson } from '../types';
 import { MONTHS, INJURY_TYPES_PART } from '../constants';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 
 /* ─── helpers ─── */
 const isInjuryType = (t: string) => INJURY_TYPES_PART.some(p => t.includes(p));
 const isLtiType = (t: string) =>
   (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
 
-const YEAR_PALETTE = ['#8b5cf6', '#3b82f6', '#f97316', '#ef4444', '#22c55e', '#ec4899', '#64748b', '#14b8a6'];
+// Year colors palette - using theme tokens where possible, keeping distinct metrics separate
+const YEAR_PALETTE = ['#8b5cf6', PALETTE.primary, PALETTE.secondary, '#ef4444', '#22c55e', '#ec4899', PALETTE.textSecondary, '#14b8a6'];
 const getYearColor = (year: number, idx: number) => YEAR_PALETTE[idx % YEAR_PALETTE.length];
 
 interface ManHourRow {
@@ -198,6 +200,8 @@ export default function RatesWorkspace({
     const barGroupW = plotW / Math.max(sortedYears.length, 1);
     const barW = Math.min(barGroupW * 0.35, 40);
     const gap = 4;
+    const trirColor = '#8b5cf6';  // Distinct metric color
+    const ltifrColor = '#ec4899'; // Distinct metric color
 
     const gridLines = 5;
     return (
@@ -228,11 +232,11 @@ export default function RatesWorkspace({
                 width={barW}
                 height={trirH}
                 rx={3}
-                fill="#8b5cf6"
+                fill={trirColor}
                 opacity={0.85}
               />
               {trirH > 15 && (
-                <text x={x - barW / 2 - gap / 2} y={PAD.top + plotH - trirH - 4} fontSize="9" fill="#8b5cf6" textAnchor="middle" fontWeight="600">
+                <text x={x - barW / 2 - gap / 2} y={PAD.top + plotH - trirH - 4} fontSize="9" fill={trirColor} textAnchor="middle" fontWeight="600">
                   {d.trir.toFixed(2)}
                 </text>
               )}
@@ -243,11 +247,11 @@ export default function RatesWorkspace({
                 width={barW}
                 height={ltifrH}
                 rx={3}
-                fill="#ec4899"
+                fill={ltifrColor}
                 opacity={0.85}
               />
               {ltifrH > 15 && (
-                <text x={x + barW / 2 + gap / 2} y={PAD.top + plotH - ltifrH - 4} fontSize="9" fill="#ec4899" textAnchor="middle" fontWeight="600">
+                <text x={x + barW / 2 + gap / 2} y={PAD.top + plotH - ltifrH - 4} fontSize="9" fill={ltifrColor} textAnchor="middle" fontWeight="600">
                   {d.ltifr.toFixed(2)}
                 </text>
               )}
@@ -258,11 +262,7 @@ export default function RatesWorkspace({
             </g>
           );
         })}
-        {/* Legend */}
-        <rect x={PAD.left + 10} y={6} width={10} height={10} rx={2} fill="#8b5cf6" />
-        <text x={PAD.left + 24} y={15} fontSize="10" fill="var(--text-secondary)">TRIR</text>
-        <rect x={PAD.left + 65} y={6} width={10} height={10} rx={2} fill="#ec4899" />
-        <text x={PAD.left + 79} y={15} fontSize="10" fill="var(--text-secondary)">LTIFR</text>
+        {/* Legend removed - labels now shown at end of bars in renderAnnualChart */}
       </svg>
     );
   };
@@ -298,7 +298,7 @@ export default function RatesWorkspace({
         {MONTHS.map((m, i) => (
           <text key={m} x={xScale(i + 1)} y={H - PAD.bottom + 16} fontSize="9" fill="var(--muted)" textAnchor="middle">{m}</text>
         ))}
-        {/* Lines per year */}
+        {/* Lines per year with end-of-line labels */}
         {sortedYears.map((y, yIdx) => {
           const yearData = ratesByMonth.filter(r => r.year === y);
           const color = getYearColor(y, yIdx);
@@ -308,6 +308,10 @@ export default function RatesWorkspace({
           ]);
           if (points.length === 0) return null;
           const pathStr = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+
+          // Get the last point for label placement
+          const lastPoint = points[points.length - 1];
+
           return (
             <g key={y}>
               <path d={pathStr} stroke={color} strokeWidth="2.5" fill="none" strokeLinejoin="round" />
@@ -315,16 +319,13 @@ export default function RatesWorkspace({
               {points.map((p, i) => (
                 <circle key={i} cx={p[0]} cy={p[1]} r={3} fill={color} />
               ))}
+              {/* Year label at end of line */}
+              <text x={lastPoint[0] + 8} y={lastPoint[1] + 4} fontSize="10" fill={color} fontWeight="600" textAnchor="start">
+                {y}
+              </text>
             </g>
           );
         })}
-        {/* Legend */}
-        {sortedYears.map((y, idx) => (
-          <g key={y}>
-            <rect x={PAD.left + 10 + idx * 70} y={6} width={10} height={10} rx={2} fill={getYearColor(y, idx)} />
-            <text x={PAD.left + 24 + idx * 70} y={15} fontSize="10" fill="var(--text-secondary)">{y}</text>
-          </g>
-        ))}
       </svg>
     );
   };
@@ -396,8 +397,8 @@ export default function RatesWorkspace({
                   <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary)' }}>{r.trc}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary)' }}>{r.lti}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-secondary)' }}>{r.manhours.toLocaleString()}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6' }}>{r.trir.toFixed(2)}</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#ec4899' }}>{r.ltifr.toFixed(2)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6' }}>{/* Distinct metric color */}{r.trir.toFixed(2)}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#ec4899' }}>{/* Distinct metric color */}{r.ltifr.toFixed(2)}</td>
                 </tr>
               ))}
               {/* Total row */}
@@ -413,8 +414,8 @@ export default function RatesWorkspace({
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>{totalTrc}</td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>{totalLti}</td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-secondary)' }}>{totalMh.toLocaleString()}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6' }}>{totalTrir.toFixed(2)}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#ec4899' }}>{totalLtifr.toFixed(2)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#8b5cf6' }}>{/* Distinct metric color */}{totalTrir.toFixed(2)}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#ec4899' }}>{/* Distinct metric color */}{totalLtifr.toFixed(2)}</td>
                   </tr>
                 );
               })()}

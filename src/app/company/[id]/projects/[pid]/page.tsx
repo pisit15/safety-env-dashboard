@@ -171,8 +171,9 @@ function MilestoneRow({ ms, projectId, onUpdated, onDeleted, onProjectSync, isAd
 
         {isAdmin && (
           <button onClick={e => { e.stopPropagation(); setEditing(!editing); setExpanded(true); }}
-            className="p-1.5 rounded-lg transition-all hover:opacity-70" style={{ color: '#6366f1' }}>
-            <Pencil size={14} />
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all hover:opacity-80"
+            style={{ color: '#6366f1', background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+            <Pencil size={12} /> แก้ไข
           </button>
         )}
         {expanded ? <ChevronUp size={14} style={{ color: 'var(--muted)' }} /> : <ChevronDown size={14} style={{ color: 'var(--muted)' }} />}
@@ -714,10 +715,14 @@ export default function ProjectDetailPage() {
                   </select>
                 ) : (
                   <button onClick={() => isAdmin && setEditingStatus(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-semibold"
-                    style={{ background: st.bg, color: st.color }}>
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-semibold transition-all"
+                    style={{
+                      background: st.bg, color: st.color,
+                      border: isAdmin ? `1.5px dashed ${st.color}50` : '1.5px solid transparent',
+                    }}
+                    title={isAdmin ? 'คลิกเพื่อเปลี่ยนสถานะ' : undefined}>
                     {st.icon} {st.label}
-                    {isAdmin && <Pencil size={11} className="opacity-60" />}
+                    {isAdmin && <Pencil size={12} style={{ opacity: 0.7, marginLeft: 2 }} />}
                   </button>
                 )}
               </div>
@@ -734,22 +739,34 @@ export default function ProjectDetailPage() {
                     <CheckCircle2 size={13} /> ความคืบหน้า
                   </span>
                   {editingPct && isAdmin ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 rounded-lg px-2 py-1"
+                      style={{ background: `${PALETTE.primary}08`, border: `1.5px solid ${PALETTE.primary}` }}>
                       <input type="number" min={0} max={100}
-                        style={{ width: 56, padding: '2px 6px', borderRadius: 6, border: `1px solid ${PALETTE.primary}`, fontSize: 12, textAlign: 'center', background: `${PALETTE.primary}10`, color: PALETTE.primary }}
-                        value={pctVal} onChange={e => setPctVal(e.target.value)} autoFocus />
+                        style={{ width: 52, padding: '3px 6px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, fontWeight: 700, textAlign: 'center', background: '#fff', color: PALETTE.primary }}
+                        value={pctVal} onChange={e => setPctVal(e.target.value)} autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { const v = Math.min(100, Math.max(0, parseInt(pctVal) || 0)); updateProject({ completion_pct: v }); setEditingPct(false); }
+                          if (e.key === 'Escape') setEditingPct(false);
+                        }} />
+                      <span className="text-[12px] font-bold" style={{ color: PALETTE.primary }}>%</span>
                       <button onClick={async () => {
                         const v = Math.min(100, Math.max(0, parseInt(pctVal) || 0));
                         await updateProject({ completion_pct: v });
                         setEditingPct(false);
-                      }} className="p-1 rounded text-white text-[11px]" style={{ background: PALETTE.primary }}><Save size={11} /></button>
-                      <button onClick={() => setEditingPct(false)} className="p-1 rounded text-[11px]" style={{ color: 'var(--muted)' }}><X size={11} /></button>
+                      }} className="px-2 py-1 rounded-md text-white text-[11px] font-semibold" style={{ background: PALETTE.primary }}>บันทึก</button>
+                      <button onClick={() => setEditingPct(false)} className="px-1.5 py-1 rounded-md text-[11px] font-medium" style={{ color: '#6b7280', background: '#f3f4f6' }}>ยกเลิก</button>
                     </div>
                   ) : (
                     <button onClick={() => isAdmin && setEditingPct(true)}
-                      className="flex items-center gap-1 text-[13px] font-bold"
-                      style={{ color: barColor }}>
-                      {pct}% {isAdmin && <Pencil size={10} className="opacity-50" />}
+                      className="flex items-center gap-1.5 text-[14px] font-bold rounded-lg px-2.5 py-1 transition-all"
+                      style={{
+                        color: barColor,
+                        background: isAdmin ? `${barColor}08` : 'transparent',
+                        border: isAdmin ? `1.5px dashed ${barColor}50` : '1.5px solid transparent',
+                      }}
+                      title={isAdmin ? 'คลิกเพื่อแก้ไข' : undefined}>
+                      {pct}%
+                      {isAdmin && <Pencil size={12} style={{ opacity: 0.7 }} />}
                     </button>
                   )}
                 </div>
@@ -768,21 +785,32 @@ export default function ProjectDetailPage() {
                     <Wallet size={13} /> งบประมาณ
                   </span>
                   {editingBudget && isAdmin ? (
-                    <div className="flex items-center gap-1">
-                      <input type="number" style={{ width: 90, padding: '2px 6px', borderRadius: 6, border: `1px solid ${PALETTE.primary}`, fontSize: 12, background: `${PALETTE.primary}10`, color: PALETTE.primary }}
-                        value={budgetActual} onChange={e => setBudgetActual(e.target.value)} autoFocus />
+                    <div className="flex items-center gap-1.5 rounded-lg px-2 py-1"
+                      style={{ background: `${PALETTE.primary}08`, border: `1.5px solid ${PALETTE.primary}` }}>
+                      <input type="number" style={{ width: 100, padding: '3px 6px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, fontWeight: 700, background: '#fff', color: PALETTE.primary }}
+                        value={budgetActual} onChange={e => setBudgetActual(e.target.value)} autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { updateProject({ budget_actual: parseFloat(budgetActual) || 0 }); setEditingBudget(false); }
+                          if (e.key === 'Escape') setEditingBudget(false);
+                        }} />
+                      <span className="text-[11px] font-medium" style={{ color: '#6b7280' }}>บาท</span>
                       <button onClick={async () => {
                         await updateProject({ budget_actual: parseFloat(budgetActual) || 0 });
                         setEditingBudget(false);
-                      }} className="p-1 rounded text-white" style={{ background: PALETTE.primary }}><Save size={11} /></button>
-                      <button onClick={() => setEditingBudget(false)} className="p-1 rounded" style={{ color: 'var(--muted)' }}><X size={11} /></button>
+                      }} className="px-2 py-1 rounded-md text-white text-[11px] font-semibold" style={{ background: PALETTE.primary }}>บันทึก</button>
+                      <button onClick={() => setEditingBudget(false)} className="px-1.5 py-1 rounded-md text-[11px] font-medium" style={{ color: '#6b7280', background: '#f3f4f6' }}>ยกเลิก</button>
                     </div>
                   ) : (
                     <button onClick={() => isAdmin && setEditingBudget(true)}
-                      className="flex items-center gap-1 text-[13px] font-bold"
-                      style={{ color: overBudget ? STATUS.critical : PALETTE.primary }}>
+                      className="flex items-center gap-1.5 text-[13px] font-bold rounded-lg px-2.5 py-1 transition-all"
+                      style={{
+                        color: overBudget ? STATUS.critical : PALETTE.primary,
+                        background: isAdmin ? `${overBudget ? STATUS.critical : PALETTE.primary}08` : 'transparent',
+                        border: isAdmin ? `1.5px dashed ${overBudget ? STATUS.critical : PALETTE.primary}50` : '1.5px solid transparent',
+                      }}
+                      title={isAdmin ? 'คลิกเพื่อแก้ไข' : undefined}>
                       {overBudget ? '⚠' : '✓'} ใช้แล้ว {fmtB(project.budget_actual)} บาท
-                      {isAdmin && <Pencil size={10} className="opacity-50" />}
+                      {isAdmin && <Pencil size={12} style={{ opacity: 0.7 }} />}
                     </button>
                   )}
                 </div>

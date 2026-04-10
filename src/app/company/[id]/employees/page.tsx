@@ -8,6 +8,7 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { Search, Upload, Plus, Edit2, Trash2, X, GraduationCap, BookOpen, Users, Award, Image, AlertTriangle, Shield, Clock, CheckCircle, ChevronRight, FileText, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 
 /* ───── Interfaces ───── */
 interface Employee {
@@ -72,8 +73,8 @@ interface Certificate {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  active: { label: 'ทำงานอยู่', color: '#16a34a', bg: '#f0fdf4' },
-  resigned: { label: 'ลาออก', color: '#dc2626', bg: '#fef2f2' },
+  active: { label: 'ทำงานอยู่', color: STATUS.positive, bg: STATUS.positiveBg },
+  resigned: { label: 'ลาออก', color: STATUS.critical, bg: STATUS.criticalBg },
 };
 
 /* ───── Helpers ───── */
@@ -82,15 +83,15 @@ function normalize(s: string) {
 }
 
 function getCertExpiryStatus(cert: Certificate) {
-  if (cert.no_expiry) return { label: 'ไม่หมดอายุ', color: '#6366f1', bg: '#eef2ff', key: 'no_expiry' as const };
+  if (cert.no_expiry) return { label: 'ไม่หมดอายุ', color: PALETTE.primary, bg: '#eef2ff', key: 'no_expiry' as const };
   if (!cert.expiry_date) return { label: 'ไม่ระบุ', color: '#9ca3af', bg: '#f3f4f6', key: 'unknown' as const };
   const now = new Date();
   const exp = new Date(cert.expiry_date);
   const daysLeft = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysLeft < 0) return { label: 'หมดอายุแล้ว', color: '#dc2626', bg: '#fef2f2', key: 'expired' as const };
-  if (daysLeft <= 30) return { label: `เหลือ ${daysLeft} วัน`, color: '#ea580c', bg: '#fff7ed', key: 'expiring' as const };
-  if (daysLeft <= 90) return { label: `เหลือ ${daysLeft} วัน`, color: '#d97706', bg: '#fffbeb', key: 'warning' as const };
-  return { label: `เหลือ ${daysLeft} วัน`, color: '#16a34a', bg: '#f0fdf4', key: 'valid' as const };
+  if (daysLeft < 0) return { label: 'หมดอายุแล้ว', color: STATUS.critical, bg: STATUS.criticalBg, key: 'expired' as const };
+  if (daysLeft <= 30) return { label: `เหลือ ${daysLeft} วัน`, color: STATUS.warning, bg: '#fff7ed', key: 'expiring' as const };
+  if (daysLeft <= 90) return { label: `เหลือ ${daysLeft} วัน`, color: STATUS.warning, bg: '#fffbeb', key: 'warning' as const };
+  return { label: `เหลือ ${daysLeft} วัน`, color: STATUS.positive, bg: STATUS.positiveBg, key: 'valid' as const };
 }
 
 function getInitials(emp: Employee) {
@@ -313,6 +314,47 @@ export default function EmployeesPage() {
     }
     return { expiredCerts, expiringCerts, noCerts, incompleteData, expiredEmpIds, expiringEmpIds, noCertEmpIds, incompleteEmpIds };
   }, [employees, empCertSummary]);
+
+  /* ── Certificate Status Distribution (for overview chart) ── */
+  const certStatusDistribution = useMemo(() => {
+    const activeEmps = employees.filter(e => (e.employment_status || 'active') === 'active');
+    let validCount = 0, expiringCount = 0, expiredCount = 0, noCertCount = 0;
+
+    for (const emp of activeEmps) {
+      const empCerts = allCertificates.filter(c => c.employee_id === emp.id || c.emp_code === emp.emp_code);
+      
+      if (empCerts.length === 0) {
+        noCertCount++;
+      } else {
+        let hasExpired = false, hasExpiring = false, hasValid = false;
+        for (const cert of empCerts) {
+          const status = getCertExpiryStatus(cert);
+          if (status.key === 'expired') hasExpired = true;
+          else if (status.key === 'expiring') hasExpiring = true;
+          else if (status.key === 'valid') hasValid = true;
+        }
+        
+        // Prioritize: expired > expiring > valid
+        if (hasExpired) expiredCount++;
+        else if (hasExpiring) expiringCount++;
+        else if (hasValid) validCount++;
+        else noCertCount++;
+      }
+    }
+
+    const total = validCount + expiringCount + expiredCount + noCertCount;
+    return {
+      validCount,
+      expiringCount,
+      expiredCount,
+      noCertCount,
+      total,
+      validPct: total > 0 ? Math.round((validCount / total) * 100) : 0,
+      expiringPct: total > 0 ? Math.round((expiringCount / total) * 100) : 0,
+      expiredPct: total > 0 ? Math.round((expiredCount / total) * 100) : 0,
+      noCertPct: total > 0 ? Math.round((noCertCount / total) * 100) : 0,
+    };
+  }, [employees, allCertificates]);
 
   /* ── Filter & search ── */
   const filtered = useMemo(() => {
@@ -604,10 +646,10 @@ export default function EmployeesPage() {
             {/* ── KPI Alert Bar ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               {[
-                { key: 'expired', label: 'Cert หมดอายุ', value: kpiAlerts.expiredCerts, icon: <AlertTriangle size={16} />, color: '#dc2626', bg: '#fef2f2' },
-                { key: 'expiring', label: 'ใกล้หมดอายุ 30 วัน', value: kpiAlerts.expiringCerts, icon: <Clock size={16} />, color: '#ea580c', bg: '#fff7ed' },
-                { key: 'no_cert', label: 'ยังไม่มี Cert', value: kpiAlerts.noCerts, icon: <Shield size={16} />, color: '#6366f1', bg: '#eef2ff' },
-                { key: 'incomplete', label: 'ข้อมูลไม่ครบ', value: kpiAlerts.incompleteData, icon: <FileText size={16} />, color: '#d97706', bg: '#fffbeb' },
+                { key: 'expired', label: 'Cert หมดอายุ', value: kpiAlerts.expiredCerts, icon: <AlertTriangle size={16} />, color: STATUS.critical, bg: STATUS.criticalBg },
+                { key: 'expiring', label: 'ใกล้หมดอายุ 30 วัน', value: kpiAlerts.expiringCerts, icon: <Clock size={16} />, color: STATUS.warning, bg: '#fff7ed' },
+                { key: 'no_cert', label: 'ยังไม่มี Cert', value: kpiAlerts.noCerts, icon: <Shield size={16} />, color: PALETTE.primary, bg: '#eef2ff' },
+                { key: 'incomplete', label: 'ข้อมูลไม่ครบ', value: kpiAlerts.incompleteData, icon: <FileText size={16} />, color: STATUS.warning, bg: '#fffbeb' },
               ].map(a => (
                 <button key={a.key}
                   onClick={() => setAlertFilter(af => af === a.key ? '' : a.key)}
@@ -623,6 +665,106 @@ export default function EmployeesPage() {
                 </button>
               ))}
             </div>
+
+            {/* ── Cert Status Overview Chart ── */}
+            <div className="glass-card rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>สถานะใบอนุญาต/ใบรับรอง</h3>
+              
+              {certStatusDistribution.total > 0 ? (
+                <>
+                  {/* Stacked Bar */}
+                  <div className="flex gap-2 mb-3" style={{ height: 24 }}>
+                    {certStatusDistribution.validCount > 0 && (
+                      <div
+                        className="rounded-l-lg flex items-center justify-center text-[10px] font-bold text-white relative group"
+                        style={{
+                          width: `${certStatusDistribution.validPct}%`,
+                          background: STATUS.positive,
+                          minWidth: certStatusDistribution.validPct > 8 ? 'auto' : 0,
+                        }}
+                        title={`Valid: ${certStatusDistribution.validCount} employees`}
+                      >
+                        {certStatusDistribution.validPct > 8 && `${certStatusDistribution.validCount} (${certStatusDistribution.validPct}%)`}
+                      </div>
+                    )}
+                    
+                    {certStatusDistribution.expiringCount > 0 && (
+                      <div
+                        className="flex items-center justify-center text-[10px] font-bold text-white relative group"
+                        style={{
+                          width: `${certStatusDistribution.expiringPct}%`,
+                          background: STATUS.warning,
+                          minWidth: certStatusDistribution.expiringPct > 8 ? 'auto' : 0,
+                        }}
+                        title={`Expiring 30 days: ${certStatusDistribution.expiringCount} employees`}
+                      >
+                        {certStatusDistribution.expiringPct > 8 && `${certStatusDistribution.expiringCount} (${certStatusDistribution.expiringPct}%)`}
+                      </div>
+                    )}
+                    
+                    {certStatusDistribution.expiredCount > 0 && (
+                      <div
+                        className="flex items-center justify-center text-[10px] font-bold text-white relative group"
+                        style={{
+                          width: `${certStatusDistribution.expiredPct}%`,
+                          background: STATUS.critical,
+                          minWidth: certStatusDistribution.expiredPct > 8 ? 'auto' : 0,
+                        }}
+                        title={`Expired: ${certStatusDistribution.expiredCount} employees`}
+                      >
+                        {certStatusDistribution.expiredPct > 8 && `${certStatusDistribution.expiredCount} (${certStatusDistribution.expiredPct}%)`}
+                      </div>
+                    )}
+                    
+                    {certStatusDistribution.noCertCount > 0 && (
+                      <div
+                        className="rounded-r-lg flex items-center justify-center text-[10px] font-bold"
+                        style={{
+                          width: `${certStatusDistribution.noCertPct}%`,
+                          background: STATUS.neutral,
+                          color: 'var(--text-secondary)',
+                          minWidth: certStatusDistribution.noCertPct > 8 ? 'auto' : 0,
+                        }}
+                        title={`No Cert: ${certStatusDistribution.noCertCount} employees`}
+                      >
+                        {certStatusDistribution.noCertPct > 8 && `${certStatusDistribution.noCertCount} (${certStatusDistribution.noCertPct}%)`}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-4 text-[11px]">
+                    {certStatusDistribution.validCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ background: STATUS.positive }}></div>
+                        <span style={{ color: 'var(--text-secondary)' }}>ใบแบบมี: {certStatusDistribution.validCount}</span>
+                      </div>
+                    )}
+                    {certStatusDistribution.expiringCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ background: STATUS.warning }}></div>
+                        <span style={{ color: 'var(--text-secondary)' }}>ใกล้หมด 30 วัน: {certStatusDistribution.expiringCount}</span>
+                      </div>
+                    )}
+                    {certStatusDistribution.expiredCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ background: STATUS.critical }}></div>
+                        <span style={{ color: 'var(--text-secondary)' }}>หมดอายุ: {certStatusDistribution.expiredCount}</span>
+                      </div>
+                    )}
+                    {certStatusDistribution.noCertCount > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ background: STATUS.neutral }}></div>
+                        <span style={{ color: 'var(--text-secondary)' }}>ไม่มี: {certStatusDistribution.noCertCount}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>ยังไม่มีข้อมูลใบรับรอง</div>
+              )}
+            </div>
+
 
             {/* ── Toolbar ── */}
             <div className="glass-card rounded-xl p-3 mb-4">
@@ -672,7 +814,7 @@ export default function EmployeesPage() {
               {alertFilter && (
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
-                    style={{ background: '#fef2f2', color: '#dc2626' }}>
+                    style={{ background: STATUS.criticalBg, color: STATUS.critical }}>
                     กรองตาม: {alertFilter === 'expired' ? 'Cert หมดอายุ' : alertFilter === 'expiring' ? 'ใกล้หมดอายุ' : alertFilter === 'no_cert' ? 'ยังไม่มี Cert' : 'ข้อมูลไม่ครบ'}
                   </span>
                   <button onClick={() => setAlertFilter('')} className="text-[11px] underline" style={{ color: 'var(--accent)' }}>ล้าง</button>
@@ -735,12 +877,12 @@ export default function EmployeesPage() {
                             {/* Cert badges */}
                             <div className="flex items-center gap-1 flex-shrink-0">
                               {cs && cs.expired > 0 && (
-                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#dc2626' }}>
+                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: STATUS.critical }}>
                                   {cs.expired}
                                 </span>
                               )}
                               {cs && cs.expiring > 0 && (
-                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: '#ea580c' }}>
+                                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: STATUS.warning }}>
                                   {cs.expiring}
                                 </span>
                               )}
@@ -796,7 +938,7 @@ export default function EmployeesPage() {
                             <Edit2 size={15} />
                           </button>
                           <button onClick={() => handleStatusToggle(selectedEmp)} className="p-2 rounded-lg text-[10px] font-medium"
-                            style={{ color: (selectedEmp.employment_status || 'active') === 'active' ? '#dc2626' : '#16a34a', background: 'var(--bg-secondary)' }}>
+                            style={{ color: (selectedEmp.employment_status || 'active') === 'active' ? STATUS.critical : STATUS.positive, background: 'var(--bg-secondary)' }}>
                             {(selectedEmp.employment_status || 'active') === 'active' ? 'ลาออก' : 'กลับมา'}
                           </button>
                         </div>
@@ -810,11 +952,11 @@ export default function EmployeesPage() {
                         </div>
                         <div className="rounded-lg p-2.5 text-center" style={{ background: 'var(--bg-secondary)' }}>
                           <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Certificate</div>
-                          <div className="text-lg font-bold" style={{ color: '#6366f1' }}>{loadingCerts ? '...' : certificates.length}</div>
+                          <div className="text-lg font-bold" style={{ color: PALETTE.primary }}>{loadingCerts ? '...' : certificates.length}</div>
                         </div>
                         <div className="rounded-lg p-2.5 text-center" style={{ background: 'var(--bg-secondary)' }}>
                           <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Cert หมดอายุ</div>
-                          <div className="text-lg font-bold" style={{ color: certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length > 0 ? '#dc2626' : '#16a34a' }}>
+                          <div className="text-lg font-bold" style={{ color: certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length > 0 ? STATUS.critical : STATUS.positive }}>
                             {loadingCerts ? '...' : certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length}
                           </div>
                         </div>
@@ -852,8 +994,8 @@ export default function EmployeesPage() {
                           ].map((f, i) => (
                             <div key={i} className="flex items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
                               <span className="text-xs w-28 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>{f.label}</span>
-                              <span className="text-sm font-medium" style={{ color: f.value ? 'var(--text-primary)' : '#dc2626' }}>
-                                {f.value || <span className="text-[11px] italic" style={{ color: '#dc2626' }}>ยังไม่ระบุ</span>}
+                              <span className="text-sm font-medium" style={{ color: f.value ? 'var(--text-primary)' : STATUS.critical }}>
+                                {f.value || <span className="text-[11px] italic" style={{ color: STATUS.critical }}>ยังไม่ระบุ</span>}
                               </span>
                             </div>
                           ))}
@@ -865,7 +1007,7 @@ export default function EmployeesPage() {
                             </button>
                             <button onClick={() => handleDelete(selectedEmp)}
                               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium"
-                              style={{ color: '#dc2626', border: '1px solid #fecaca' }}>
+                              style={{ color: STATUS.critical, border: `1px solid ${STATUS.critical}30` }}>
                               <Trash2 size={13} /> ลบพนักงาน
                             </button>
                           </div>
@@ -896,8 +1038,8 @@ export default function EmployeesPage() {
                                     <div key={rec.id || i} className="rounded-lg p-3 flex items-center gap-3"
                                       style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                        style={{ background: isDone ? '#f0fdf4' : '#f3f4f6' }}>
-                                        {isDone ? <CheckCircle size={16} style={{ color: '#16a34a' }} /> : <Clock size={16} style={{ color: '#9ca3af' }} />}
+                                        style={{ background: isDone ? STATUS.positiveBg : '#f3f4f6' }}>
+                                        {isDone ? <CheckCircle size={16} style={{ color: STATUS.positive }} /> : <Clock size={16} style={{ color: '#9ca3af' }} />}
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
@@ -910,7 +1052,7 @@ export default function EmployeesPage() {
                                         </div>
                                       </div>
                                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                                        style={{ background: isDone ? '#f0fdf4' : session?.status === 'cancelled' ? '#fef2f2' : '#f3f4f6', color: isDone ? '#16a34a' : session?.status === 'cancelled' ? '#dc2626' : '#9ca3af' }}>
+                                        style={{ background: isDone ? STATUS.positiveBg : session?.status === 'cancelled' ? STATUS.criticalBg : '#f3f4f6', color: isDone ? STATUS.positive : session?.status === 'cancelled' ? STATUS.critical : '#9ca3af' }}>
                                         {isDone ? 'อบรมแล้ว' : session?.status === 'cancelled' ? 'ยกเลิก' : 'วางแผน'}
                                       </span>
                                     </div>
@@ -929,7 +1071,7 @@ export default function EmployeesPage() {
                             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                               {loadingCerts ? 'กำลังโหลด...' : `${certificates.length} ใบ`}
                               {certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length > 0 && (
-                                <span style={{ color: '#dc2626' }}> • หมดอายุ {certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length} ใบ</span>
+                                <span style={{ color: STATUS.critical }}> • หมดอายุ {certificates.filter(c => !c.no_expiry && c.expiry_date && new Date(c.expiry_date) < new Date()).length} ใบ</span>
                               )}
                             </span>
                             {!showCertForm && (
@@ -974,7 +1116,7 @@ export default function EmployeesPage() {
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-1.5">
                                         <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{cert.certificate_name}</span>
-                                        {isExpired && <AlertTriangle size={12} style={{ color: '#dc2626' }} />}
+                                        {isExpired && <AlertTriangle size={12} style={{ color: STATUS.critical }} />}
                                       </div>
                                       <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                                         {cert.issuer && <span>{cert.issuer} • </span>}
@@ -989,7 +1131,7 @@ export default function EmployeesPage() {
                                     <div className="flex gap-0.5 flex-shrink-0">
                                       {cert.image_url && <button onClick={() => setPreviewImage(cert.image_url)} className="p-1 rounded" style={{ color: 'var(--accent)' }}><Image size={13} /></button>}
                                       <button onClick={() => openEditCert(cert)} className="p-1 rounded" style={{ color: 'var(--warning)' }}><Edit2 size={13} /></button>
-                                      <button onClick={() => handleDeleteCert(cert)} className="p-1 rounded" style={{ color: '#dc2626' }}><Trash2 size={13} /></button>
+                                      <button onClick={() => handleDeleteCert(cert)} className="p-1 rounded" style={{ color: STATUS.critical }}><Trash2 size={13} /></button>
                                     </div>
                                   </div>
                                 );
@@ -1036,7 +1178,7 @@ export default function EmployeesPage() {
                         ].map((f, i) => (
                           <div key={i} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
                             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{f.l}</span>
-                            <span style={{ color: f.v ? 'var(--text-primary)' : '#dc2626' }}>{f.v || 'ยังไม่ระบุ'}</span>
+                            <span style={{ color: f.v ? 'var(--text-primary)' : STATUS.critical }}>{f.v || 'ยังไม่ระบุ'}</span>
                           </div>
                         ))}
                         <button onClick={() => openEdit(selectedEmp)} className="mt-3 w-full px-4 py-2 rounded-lg text-xs font-medium"
@@ -1143,7 +1285,7 @@ export default function EmployeesPage() {
                             </div>
                             <div className="text-right">
                               <div className="text-xs" style={{ color: 'var(--text-muted)' }}>อบรมแล้ว</div>
-                              <div className="text-sm font-bold" style={{ color: course.completed_count > 0 ? '#16a34a' : 'var(--text-muted)' }}>{course.completed_count}</div>
+                              <div className="text-sm font-bold" style={{ color: course.completed_count > 0 ? STATUS.positive : 'var(--text-muted)' }}>{course.completed_count}</div>
                             </div>
                           </div>
                         </button>
@@ -1168,8 +1310,8 @@ export default function EmployeesPage() {
                                   <tbody>
                                     {course.attendees.map((att, ai) => {
                                       const sLabel = att.session_status === 'completed' ? 'อบรมแล้ว' : att.session_status === 'cancelled' ? 'ยกเลิก' : 'วางแผน';
-                                      const sColor = att.session_status === 'completed' ? '#16a34a' : att.session_status === 'cancelled' ? '#dc2626' : 'var(--text-secondary)';
-                                      const sBg = att.session_status === 'completed' ? '#f0fdf4' : att.session_status === 'cancelled' ? '#fef2f2' : 'var(--bg-secondary)';
+                                      const sColor = att.session_status === 'completed' ? STATUS.positive : att.session_status === 'cancelled' ? STATUS.critical : 'var(--text-secondary)';
+                                      const sBg = att.session_status === 'completed' ? STATUS.positiveBg : att.session_status === 'cancelled' ? STATUS.criticalBg : 'var(--bg-secondary)';
                                       return (
                                         <tr key={ai} style={{ borderBottom: '1px solid var(--border)' }}>
                                           <td className="py-2 px-4 text-xs" style={{ color: 'var(--text-muted)' }}>{ai + 1}</td>
@@ -1266,7 +1408,7 @@ export default function EmployeesPage() {
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => { setShowCertForm(false); setEditingCert(null); }}>
             <div className="rounded-2xl w-full max-w-lg overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
               {/* Header */}
-              <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>
+              <div className="px-6 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${PALETTE.primary} 0%, #8b5cf6 100%)` }}>
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1309,7 +1451,7 @@ export default function EmployeesPage() {
                       วันหมดอายุ
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input type="checkbox" checked={certForm.no_expiry} onChange={e => setCertForm(f => ({ ...f, no_expiry: e.target.checked, expiry_date: '' }))} />
-                        <span className="text-[11px]" style={{ color: '#6366f1' }}>ไม่หมดอายุ</span>
+                        <span className="text-[11px]" style={{ color: PALETTE.primary }}>ไม่หมดอายุ</span>
                       </label>
                     </label>
                     {!certForm.no_expiry ? (
