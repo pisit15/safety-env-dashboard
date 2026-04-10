@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown, Check, Circle, CircleDot, Clock, Ban, CircleSlash, Minus, CalendarClock, Zap, FolderOpen, Folder, ClipboardCopy, CircleAlert, CircleDashed, Wallet, Pencil, Link2, ClipboardList, CircleCheckBig, Image, FileSpreadsheet } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown, Check, Circle, CircleDot, Clock, Ban, CircleSlash, Minus, CalendarClock, FolderOpen, Folder, CircleAlert, CircleDashed, Wallet, Pencil, Link2, ClipboardList, CircleCheckBig, Image, FileSpreadsheet } from 'lucide-react';
 import { MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
@@ -126,8 +126,6 @@ export default function CompanyDrilldown() {
   const [noteOverrides, setNoteOverrides] = useState<Record<string, string>>({});
   const [postponedOverrides, setPostponedOverrides] = useState<Record<string, string>>({});
   const [statusNote, setStatusNote] = useState('');
-  const [showBulkActions, setShowBulkActions] = useState(false);
-  const [bulkProcessing, setBulkProcessing] = useState(false);
   const [groupByCategory, setGroupByCategory] = useState(false);
 
   // Sort state
@@ -944,92 +942,6 @@ export default function CompanyDrilldown() {
 
   // Delete attachment
   // Bulk: mark all planned/overdue activities as done for current month
-  const handleBulkDoneCurrentMonth = async () => {
-    const currentMonth = MONTH_KEYS[currentMonthIdx];
-    const targetActs = enhancedFilteredActivities.filter((act: Activity & { _planTag?: string }) => {
-      const status = getEffectiveStatus(act, currentMonth);
-      return status === 'planned' || status === 'overdue';
-    });
-    if (targetActs.length === 0) { alert('ไม่มีกิจกรรมที่ต้องปิดงาน'); return; }
-    if (!confirm(`ยืนยันปิดงาน ${targetActs.length} กิจกรรมในเดือน ${MONTH_LABELS[currentMonthIdx]}?`)) return;
-    setBulkProcessing(true);
-    let count = 0;
-    for (const act of targetActs) {
-      const tag = (act as any)._planTag as string | undefined;
-      const actualPlanType = planType === 'total'
-        ? (tag === 'S' ? 'safety' : tag === 'E' ? 'environment' : planType)
-        : planType;
-      const actualActNo = planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no;
-      try {
-        await fetch('/api/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companyId,
-            planType: actualPlanType,
-            activityNo: actualActNo,
-            month: currentMonth,
-            status: 'done',
-            note: `[Bulk close: ${new Date().toISOString().split('T')[0]}]`,
-            updatedBy: loginDisplayName || loginCompanyName,
-          }),
-        });
-        const prefix = tag ? `${tag}:` : '';
-        const key = `${prefix}${act.no}:${currentMonth}`;
-        setOverrides(prev => ({ ...prev, [key]: 'done' }));
-        count++;
-      } catch { /* skip failed */ }
-    }
-    setBulkProcessing(false);
-    alert(`ปิดงานแล้ว ${count}/${targetActs.length} กิจกรรม`);
-  };
-
-  // Bulk: copy notes from previous month to current month for recurring activities
-  const handleBulkCopyNotes = async () => {
-    if (currentMonthIdx === 0) { alert('ไม่มีเดือนก่อนหน้า'); return; }
-    const prevMonth = MONTH_KEYS[currentMonthIdx - 1];
-    const currentMonth = MONTH_KEYS[currentMonthIdx];
-    const targetActs = enhancedFilteredActivities.filter((act: Activity & { _planTag?: string }) => {
-      const prefix = (act as any)._planTag ? `${(act as any)._planTag}:` : '';
-      const prevKey = `${prefix}${act.no}:${prevMonth}`;
-      const curKey = `${prefix}${act.no}:${currentMonth}`;
-      return noteOverrides[prevKey] && !noteOverrides[curKey] && act.isRecurring;
-    });
-    if (targetActs.length === 0) { alert('ไม่พบกิจกรรมที่ต้องคัดลอก note'); return; }
-    if (!confirm(`คัดลอก note จาก ${MONTH_LABELS[currentMonthIdx - 1]} → ${MONTH_LABELS[currentMonthIdx]} สำหรับ ${targetActs.length} กิจกรรม?`)) return;
-    setBulkProcessing(true);
-    let count = 0;
-    for (const act of targetActs) {
-      const tag = (act as any)._planTag as string | undefined;
-      const prefix = tag ? `${tag}:` : '';
-      const prevKey = `${prefix}${act.no}:${prevMonth}`;
-      const prevNote = noteOverrides[prevKey];
-      const actualPlanType = planType === 'total'
-        ? (tag === 'S' ? 'safety' : tag === 'E' ? 'environment' : planType)
-        : planType;
-      const actualActNo = planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no;
-      try {
-        await fetch('/api/status', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companyId,
-            planType: actualPlanType,
-            activityNo: actualActNo,
-            month: currentMonth,
-            note: prevNote,
-            updatedBy: loginDisplayName || loginCompanyName,
-          }),
-        });
-        const curKey = `${prefix}${act.no}:${currentMonth}`;
-        setNoteOverrides(prev => ({ ...prev, [curKey]: prevNote }));
-        count++;
-      } catch { /* skip */ }
-    }
-    setBulkProcessing(false);
-    alert(`คัดลอก note แล้ว ${count}/${targetActs.length} กิจกรรม`);
-  };
-
   const handleDeleteAttachment = async (attId: string) => {
     if (!confirm('ต้องการลบไฟล์นี้หรือไม่?')) return;
     setDeletingAttId(attId);
@@ -2347,6 +2259,14 @@ export default function CompanyDrilldown() {
                       ))}
                     </select>
                   </div>
+                  {/* Group by category toggle */}
+                  <button
+                    onClick={() => setGroupByCategory(!groupByCategory)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors"
+                    style={{ background: groupByCategory ? `${STATUS.warning}15` : 'var(--bg-hover)', color: groupByCategory ? STATUS.warning : 'var(--text-secondary)', border: groupByCategory ? `1px solid ${STATUS.warning}40` : '1px solid var(--border)' }}
+                  >
+                    {groupByCategory ? <FolderOpen size={11} className="inline" /> : <Folder size={11} className="inline" />} จัดกลุ่มตามหมวด
+                  </button>
                 </div>
                 {/* Legend + Export */}
                 <div className="flex items-center gap-3">
@@ -2384,40 +2304,6 @@ export default function CompanyDrilldown() {
                   </button>
                 </div>
               </div>
-              {/* Toolbar: Bulk Actions + Group by Category */}
-              {enhancedFilteredActivities.length > 0 && (
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setShowBulkActions(!showBulkActions)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    style={{ background: showBulkActions ? `${PALETTE.primary}15` : 'var(--bg-hover)', color: showBulkActions ? PALETTE.primary : 'var(--text-secondary)', border: showBulkActions ? `1px solid ${PALETTE.primary}40` : '1px solid var(--border)' }}
-                  >
-                    <Zap size={12} className="inline" /> Bulk Actions {showBulkActions ? '▲' : '▼'}
-                  </button>
-                  <button
-                    onClick={() => setGroupByCategory(!groupByCategory)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    style={{ background: groupByCategory ? `${STATUS.warning}15` : 'var(--bg-hover)', color: groupByCategory ? STATUS.warning : 'var(--text-secondary)', border: groupByCategory ? `1px solid ${STATUS.warning}40` : '1px solid var(--border)' }}
-                  >
-                    {groupByCategory ? <FolderOpen size={12} className="inline" /> : <Folder size={12} className="inline" />} จัดกลุ่มตามหมวด {groupByCategory ? '(เปิด)' : ''}
-                  </button>
-                  {showBulkActions && (
-                    <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: `${PALETTE.primary}0A`, border: `1px solid ${PALETTE.primary}25` }}>
-                      <button onClick={handleBulkDoneCurrentMonth} disabled={bulkProcessing}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                        style={{ background: STATUS.ok, color: '#fff', opacity: bulkProcessing ? 0.5 : 1 }}>
-                        <Check size={12} className="inline" /> ปิดงานเดือน {MONTH_LABELS[currentMonthIdx]} ทั้งหมด
-                      </button>
-                      <button onClick={handleBulkCopyNotes} disabled={bulkProcessing || currentMonthIdx === 0}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                        style={{ background: PALETTE.primary, color: '#fff', opacity: bulkProcessing || currentMonthIdx === 0 ? 0.5 : 1 }}>
-                        <ClipboardCopy size={12} className="inline" /> คัดลอก note จาก {currentMonthIdx > 0 ? MONTH_LABELS[currentMonthIdx - 1] : '...'} → {MONTH_LABELS[currentMonthIdx]}
-                      </button>
-                      {bulkProcessing && <span className="text-xs animate-pulse" style={{ color: PALETTE.textSecondary }}>กำลังดำเนินการ...</span>}
-                    </div>
-                  )}
-                </div>
-              )}
               {enhancedFilteredActivities.length > 0 ? (
                 <div>
                   <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed' }}>
