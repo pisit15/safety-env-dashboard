@@ -859,35 +859,49 @@ export default function ProjectDetailPage() {
               )}
             </div>
 
-            {/* Mini Gantt timeline — shows all milestones with dates as horizontal bars */}
+            {/* Mini Gantt timeline — row-based layout, one row per milestone */}
             {milestones.length > 0 && milestones.some(m => m.planned_start || m.planned_end) && (() => {
               const projStart = new Date(project.start_date).getTime();
               const projEnd = new Date(project.end_date).getTime();
               const range = projEnd - projStart || 1;
               const nowPct = Math.max(0, Math.min(100, ((Date.now() - projStart) / range) * 100));
+              const activeMilestones = milestones.filter(m => m.status !== 'cancelled');
               return (
                 <div className="mb-4 p-3 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                  <div className="text-[11px] font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Timeline Overview</div>
-                  <div className="relative" style={{ minHeight: milestones.length * 22 + 8 }}>
-                    {/* Today line */}
-                    <div className="absolute top-0 bottom-0" style={{ left: `${nowPct}%`, width: 1, background: STATUS.warning, zIndex: 2, opacity: 0.6 }} />
-                    {milestones.filter(m => m.status !== 'cancelled').map((m, i) => {
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Timeline</span>
+                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>{fmt(project.start_date)} — {fmt(project.end_date)}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {activeMilestones.map(m => {
                       const mStart = m.planned_start ? new Date(m.planned_start).getTime() : projStart;
                       const mEnd = m.planned_end ? new Date(m.planned_end).getTime() : projEnd;
                       const left = Math.max(0, ((mStart - projStart) / range) * 100);
-                      const width = Math.max(2, Math.min(100 - left, ((mEnd - mStart) / range) * 100));
+                      const rawWidth = ((mEnd - mStart) / range) * 100;
+                      const width = Math.max(3, Math.min(100 - left, rawWidth)); // min 3% visible
                       const msCfg = MILESTONE_STATUS_CONFIG[m.status];
                       return (
-                        <div key={m.id} className="absolute flex items-center" style={{ top: i * 22, left: `${left}%`, width: `${width}%`, height: 18 }}>
-                          <div className="h-2.5 rounded-full w-full" style={{ background: msCfg.color, opacity: m.status === 'done' ? 0.9 : 0.45 }} title={m.title} />
-                          <span className="absolute text-[9px] font-medium truncate pl-1" style={{ color: 'var(--text-secondary)', maxWidth: '100%' }}>{m.title}</span>
+                        <div key={m.id} className="flex items-center gap-2">
+                          {/* Label — fixed width */}
+                          <span className="text-[10px] truncate flex-shrink-0" style={{ width: 100, color: 'var(--text-secondary)' }} title={m.title}>
+                            {msCfg.icon} {m.title}
+                          </span>
+                          {/* Bar track */}
+                          <div className="flex-1 relative h-3 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}>
+                            {/* Today marker */}
+                            <div className="absolute top-0 bottom-0" style={{ left: `${nowPct}%`, width: 1, background: STATUS.warning, zIndex: 2, opacity: 0.5 }} />
+                            {/* Milestone bar */}
+                            <div className="absolute top-0.5 bottom-0.5 rounded-full"
+                              style={{ left: `${left}%`, width: `${width}%`, background: msCfg.color, opacity: m.status === 'done' ? 0.9 : 0.5 }}
+                              title={`${m.title}: ${fmt(m.planned_start)} — ${fmt(m.planned_end)}`} />
+                          </div>
+                          {/* Percentage */}
+                          <span className="text-[10px] font-medium flex-shrink-0 w-8 text-right" style={{ color: msCfg.color }}>
+                            {m.completion_pct}%
+                          </span>
                         </div>
                       );
                     })}
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{fmt(project.start_date)}</span>
-                    <span className="text-[9px]" style={{ color: 'var(--muted)' }}>{fmt(project.end_date)}</span>
                   </div>
                 </div>
               );
