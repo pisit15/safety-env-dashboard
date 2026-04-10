@@ -2290,12 +2290,12 @@ export default function CompanyDrilldown() {
                     <thead>
                       <tr style={{ borderBottom: `2px solid var(--border)` }}>
                         {/* sticky on each <th> for cross-browser support */}
-                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>ลำดับ</th>
+                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>ลำดับ</th>
                         {planType === 'total' && (
-                          <th className="text-center py-2 px-0.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>แผน</th>
+                          <th className="text-center py-2 px-0.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>แผน</th>
                         )}
-                        <th className="text-left py-2 px-1.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>กิจกรรม</th>
-                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>ผู้รับ</th>
+                        <th className="text-left py-2 px-1.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>กิจกรรม</th>
+                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>ผู้รับ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
@@ -2304,7 +2304,9 @@ export default function CompanyDrilldown() {
                               position: 'sticky', top: 0, zIndex: 20,
                               color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
                               background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--card-solid, #fff)',
-                              borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0'
+                              borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0',
+                              boxShadow: `0 -200px 0 200px ${idx === currentMonthIdx ? planConfig.accentColor : 'var(--card-solid, #fff)'}`,
+                              clipPath: 'inset(-200px -1px 0 -1px)'
                             }}
                           >
                             {m}
