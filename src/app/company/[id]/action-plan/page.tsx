@@ -2419,7 +2419,7 @@ export default function CompanyDrilldown() {
                 </div>
               )}
               {enhancedFilteredActivities.length > 0 ? (
-                <div className="max-h-[70vh] overflow-y-auto">
+                <div>
                   <table className="apple-table w-full text-[13px]" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
                       <col style={{ width: 56 }} />{/* ลำดับ */}
