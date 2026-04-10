@@ -8,6 +8,7 @@ import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from 
 import { DashboardData } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
 import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 import { YearlyKPISummary, QuarterlyKPI, getScoreColor, getScoreLabel } from '@/lib/kpi-calculator';
 import Link from 'next/link';
 
@@ -119,24 +120,52 @@ export default function HQOverview() {
             existing.enviBudget = c.budget;
             existing.overdueCount = (existing.overdueCount || 0) + (c.overdueCount || 0);
             existing.pctDone = existing.total > 0 ? Math.round(((existing.done + existing.notApplicable) / existing.total) * 1000) / 10 : 0;
+            // Merge per-company monthlyProgress (Safety + Environment)
+            if (c.monthlyProgress && existing.monthlyProgress) {
+              existing.monthlyProgress = existing.monthlyProgress.map((sm: any, i: number) => {
+                const em = (c.monthlyProgress || [])[i] || { planned: 0, doneCount: 0, cancelledCount: 0, notApplicableCount: 0 };
+                const planned = (sm.planned || 0) + (em.planned || 0);
+                const doneCount = (sm.doneCount ?? sm.completed ?? 0) + (em.doneCount ?? em.completed ?? 0);
+                const cancelledCount = (sm.cancelledCount ?? 0) + (em.cancelledCount ?? 0);
+                const naCount = (sm.notApplicableCount ?? 0) + (em.notApplicableCount ?? 0);
+                const denominator = planned - cancelledCount - naCount;
+                return {
+                  ...sm,
+                  planned,
+                  completed: doneCount,
+                  doneCount,
+                  cancelledCount,
+                  notApplicableCount: naCount,
+                  denominator,
+                  pctComplete: denominator > 0 ? Math.round((doneCount / denominator) * 1000) / 10 : 0,
+                };
+              });
+            } else if (c.monthlyProgress && !existing.monthlyProgress) {
+              existing.monthlyProgress = c.monthlyProgress;
+            }
           } else {
             companyMap.set(c.companyId, { ...c, notApplicable: c.notApplicable || 0, overdueCount: c.overdueCount || 0, safetyBudget: 0, enviBudget: c.budget });
           }
         });
         const mergedCompanies = Array.from(companyMap.values());
 
-        // Merge monthly progress
-        const monthlyProgress = (s.monthlyProgress || []).map((m, i) => {
-          const m2 = (e.monthlyProgress || [])[i] || { planned: 0, completed: 0, doneCount: 0, notApplicableCount: 0 };
-          const planned = m.planned + m2.planned;
-          const completed = m.completed + m2.completed;
+        // Merge global monthly progress (KPI formula: doneCount / denominator)
+        const monthlyProgress = (s.monthlyProgress || []).map((m: any, i: number) => {
+          const m2 = (e.monthlyProgress || [])[i] || { planned: 0, completed: 0, doneCount: 0, cancelledCount: 0, notApplicableCount: 0 };
+          const planned = (m.planned || 0) + (m2.planned || 0);
+          const doneCount = (m.doneCount ?? m.completed ?? 0) + (m2.doneCount ?? m2.completed ?? 0);
+          const cancelledCount = (m.cancelledCount ?? 0) + (m2.cancelledCount ?? 0);
+          const naCount = (m.notApplicableCount ?? 0) + (m2.notApplicableCount ?? 0);
+          const denominator = planned - cancelledCount - naCount;
           return {
             ...m,
             planned,
-            completed,
-            pctComplete: planned > 0 ? Math.round((completed / planned) * 1000) / 10 : 0,
-            doneCount: (m.doneCount ?? 0) + (m2.doneCount ?? 0),
-            notApplicableCount: (m.notApplicableCount ?? 0) + (m2.notApplicableCount ?? 0),
+            completed: doneCount,
+            doneCount,
+            cancelledCount,
+            notApplicableCount: naCount,
+            denominator,
+            pctComplete: denominator > 0 ? Math.round((doneCount / denominator) * 1000) / 10 : 0,
           };
         });
 
@@ -953,7 +982,7 @@ export default function HQOverview() {
                         const pct = mp ? mp.pctComplete : 0;
                         let bgColor = '#f5f5f5';
                         if (mp && mp.planned > 0) {
-                          bgColor = pct >= 80 ? '#34c759' : pct >= 40 ? '#ff9500' : '#ff453a';
+                          bgColor = pct >= 80 ? STATUS.positive : pct >= 40 ? STATUS.warning : STATUS.critical;
                         }
                         return (
                           <div
