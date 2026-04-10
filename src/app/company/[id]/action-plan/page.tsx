@@ -2068,7 +2068,7 @@ export default function CompanyDrilldown() {
 
             {/* Monthly Progress */}
             {effectiveMonthlyProgress && effectiveMonthlyProgress.length > 0 && (
-              <div className="glass-card rounded-xl p-5 mb-6 animate-fade-in-up">
+              <div className="glass-card rounded-xl p-5 mb-4 animate-fade-in-up">
                 <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
                   {planConfig.chartTitle}
                 </h3>
@@ -2124,7 +2124,7 @@ export default function CompanyDrilldown() {
 
             {/* Budget Tracking Chart — Planned vs Actual (cumulative) */}
             {effectiveSummary && effectiveSummary.budget > 0 && (
-              <div className="glass-card rounded-xl p-5 mb-6 animate-fade-in-up">
+              <div className="glass-card rounded-xl p-5 mb-4 animate-fade-in-up">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${STATUS.warning}` }}>
                     <Wallet size={14} className="inline mr-1.5" style={{ color: STATUS.warning }} />
@@ -2146,78 +2146,14 @@ export default function CompanyDrilldown() {
               </div>
             )}
 
-            {/* Quick Filters per tab */}
-            {planConfig.quickFilters.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3 animate-fade-in-up">
-                <span className="text-[11px] font-medium self-center mr-1" style={{ color: 'var(--muted)' }}>โฟกัส:</span>
-                {planConfig.quickFilters.map(f => {
-                  const count = f.key === 'overdue' ? quickFilterCounts.overdue
-                    : f.key === 'thisMonth' ? quickFilterCounts.thisMonth
-                    : f.key === 'notStarted' ? statusCounts.not_started
-                    : f.key === 'noEvidence' ? quickFilterCounts.noEvidence
-                    : f.key === 'postponed' ? quickFilterCounts.postponed
-                    : f.key === 'safetyOnly' ? quickFilterCounts.safetyOnly
-                    : f.key === 'enviOnly' ? quickFilterCounts.enviOnly
-                    : f.key === 'atRisk' ? quickFilterCounts.atRisk
-                    : f.key === 'hasProgress' ? quickFilterCounts.hasProgress
-                    : 0;
-                  return (
-                    <button
-                      key={f.key}
-                      onClick={() => setQuickFilter(quickFilter === f.key ? 'none' : f.key)}
-                      className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
-                      style={{
-                        background: quickFilter === f.key ? planConfig.accentBg : 'var(--bg-tertiary)',
-                        color: quickFilter === f.key ? planConfig.accentColor : 'var(--text-secondary)',
-                        border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
-                      }}
-                    >
-                      <f.Icon size={12} className="inline mr-1" />
-                      {f.label}
-                      <span className="ml-1 opacity-70">({count})</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Status Filter Tabs — labels change per tab personality */}
-            <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
-              {[
-                { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)', Icon: null as typeof Check | null },
-                { key: 'done', label: planConfig.statusLabels.done, color: STATUS.ok, Icon: Check },
-                { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? STATUS.critical : STATUS.warning, Icon: Clock },
-                { key: 'postponed', label: planConfig.statusLabels.postponed, color: STATUS.warning, Icon: Clock },
-                { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: PALETTE.textSecondary, Icon: Ban },
-                { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: PALETTE.muted, Icon: CircleSlash },
-              ].map(f => (
-                <button
-                  key={f.key}
-                  onClick={() => setStatusFilter(f.key)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1"
-                  style={{
-                    background: statusFilter === f.key ? planConfig.accentColor : 'var(--bg-tertiary)',
-                    color: statusFilter === f.key ? '#ffffff' : f.color,
-                    border: `1px solid ${statusFilter === f.key ? planConfig.accentColor : 'var(--border)'}`
-                  }}
-                >
-                  {f.Icon && <f.Icon size={12} />}
-                  <span>{f.label}</span>
-                  <span style={{ marginLeft: '0.375rem', opacity: 0.7 }}>
-                    ({statusCounts[f.key as keyof typeof statusCounts]})
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {/* Activity Table */}
-            <div className="glass-card rounded-xl p-5 animate-fade-in-up" style={{ overflow: 'visible' }}>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <div className="flex items-center gap-3">
+            {/* Activity Table — filters integrated inside card */}
+            <div className="glass-card rounded-xl p-4 sm:p-5 animate-fade-in-up" style={{ overflow: 'visible' }}>
+              {/* Row 1: Title + controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
                     รายละเอียดกิจกรรม ({enhancedFilteredActivities.length} รายการ)
                   </h3>
-                  {/* Filter by month */}
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px]" style={{ color: 'var(--muted)' }}>แสดงเดือน:</span>
                     <select
@@ -2232,7 +2168,6 @@ export default function CompanyDrilldown() {
                       ))}
                     </select>
                   </div>
-                  {/* Group by category toggle */}
                   <button
                     onClick={() => setGroupByCategory(!groupByCategory)}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors"
@@ -2241,16 +2176,14 @@ export default function CompanyDrilldown() {
                     {groupByCategory ? <FolderOpen size={11} className="inline" /> : <Folder size={11} className="inline" />} จัดกลุ่มตามหมวด
                   </button>
                 </div>
-                {/* Legend + Export */}
                 <div className="flex items-center gap-3">
-                  <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="hidden lg:flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
                     <span className="inline-flex items-center gap-0.5"><Check size={10} style={{ color: STATUS.ok }} /> เสร็จแล้ว</span>
                     <span className="inline-flex items-center gap-0.5"><CircleAlert size={10} style={{ color: STATUS.critical }} /> เกินกำหนด</span>
                     <span className="inline-flex items-center gap-0.5"><Circle size={10} style={{ color: PALETTE.muted }} /> มีแผน</span>
                     <span className="inline-flex items-center gap-0.5"><Clock size={10} style={{ color: STATUS.warning }} /> เลื่อน</span>
                     <span className="inline-flex items-center gap-0.5"><Ban size={10} style={{ color: PALETTE.textSecondary }} /> ยกเลิก</span>
                     <span className="inline-flex items-center gap-0.5"><CircleSlash size={10} style={{ color: PALETTE.muted }} /> ไม่เข้าเงื่อนไข</span>
-                    <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: STATUS.warning }}></span> แก้ไขจาก Dashboard</span>
                   </div>
                   <button
                     onClick={() => {
@@ -2277,9 +2210,73 @@ export default function CompanyDrilldown() {
                   </button>
                 </div>
               </div>
+
+              {/* Quick Filters + Status Tabs — compact inline */}
+              <div className="flex flex-col gap-2 mb-3 pb-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                {/* Quick filters */}
+                {planConfig.quickFilters.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-medium mr-0.5" style={{ color: 'var(--muted)' }}>โฟกัส:</span>
+                    {planConfig.quickFilters.map(f => {
+                      const count = f.key === 'overdue' ? quickFilterCounts.overdue
+                        : f.key === 'thisMonth' ? quickFilterCounts.thisMonth
+                        : f.key === 'notStarted' ? statusCounts.not_started
+                        : f.key === 'noEvidence' ? quickFilterCounts.noEvidence
+                        : f.key === 'postponed' ? quickFilterCounts.postponed
+                        : f.key === 'safetyOnly' ? quickFilterCounts.safetyOnly
+                        : f.key === 'enviOnly' ? quickFilterCounts.enviOnly
+                        : f.key === 'atRisk' ? quickFilterCounts.atRisk
+                        : f.key === 'hasProgress' ? quickFilterCounts.hasProgress
+                        : 0;
+                      return (
+                        <button
+                          key={f.key}
+                          onClick={() => setQuickFilter(quickFilter === f.key ? 'none' : f.key)}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                          style={{
+                            background: quickFilter === f.key ? planConfig.accentBg : 'var(--bg-tertiary)',
+                            color: quickFilter === f.key ? planConfig.accentColor : 'var(--text-secondary)',
+                            border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
+                          }}
+                        >
+                          <f.Icon size={10} className="inline mr-0.5" />
+                          {f.label} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Status filter tabs */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)', Icon: null as typeof Check | null },
+                    { key: 'done', label: planConfig.statusLabels.done, color: STATUS.ok, Icon: Check },
+                    { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? STATUS.critical : STATUS.warning, Icon: Clock },
+                    { key: 'postponed', label: planConfig.statusLabels.postponed, color: STATUS.warning, Icon: Clock },
+                    { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: PALETTE.textSecondary, Icon: Ban },
+                    { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: PALETTE.muted, Icon: CircleSlash },
+                  ].map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setStatusFilter(f.key)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-0.5"
+                      style={{
+                        background: statusFilter === f.key ? planConfig.accentColor : 'var(--bg-tertiary)',
+                        color: statusFilter === f.key ? '#ffffff' : f.color,
+                        border: `1px solid ${statusFilter === f.key ? planConfig.accentColor : 'var(--border)'}`
+                      }}
+                    >
+                      {f.Icon && <f.Icon size={10} />}
+                      {f.label}
+                      <span style={{ opacity: 0.7 }}>({statusCounts[f.key as keyof typeof statusCounts]})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {enhancedFilteredActivities.length > 0 ? (
-                <div>
-                  <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed' }}>
+                <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
+                  <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed', minWidth: 900 }}>
                     <colgroup>
                       <col style={{ width: 48 }} />{/* ลำดับ */}
                       {planType === 'total' && <col style={{ width: 38 }} />}{/* แผน S/E */}
