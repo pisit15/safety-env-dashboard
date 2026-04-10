@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'มีคำขอที่รอการอนุมัติอยู่แล้ว' }, { status: 409 });
     }
 
-    const { data, error } = await getServiceSupabase()
+    const supa = getServiceSupabase();
+    const { data, error } = await supa
       .from('cancellation_requests')
       .insert({
         company_id: companyId,
@@ -98,7 +99,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('cancellation_requests INSERT error:', JSON.stringify(error));
+      return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 });
     }
 
     // Audit log
