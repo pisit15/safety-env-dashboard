@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown, Check, Circle, CircleDot, Clock, Ban, CircleSlash, Minus, CalendarClock, Zap, FolderOpen, Folder, ClipboardCopy, CircleAlert, CircleDashed, Wallet, Pencil, Link2, ClipboardList, CircleCheckBig, Image, FileSpreadsheet } from 'lucide-react';
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
@@ -22,14 +22,24 @@ import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
-const STATUS_OPTIONS: { value: MonthStatus; label: string; icon: string; color: string }[] = [
-  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: STATUS.ok },
-  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: STATUS.critical },
-  { value: 'planned', label: 'มีแผน', icon: '○', color: PALETTE.muted },
-  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: STATUS.warning },
-  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: PALETTE.textSecondary },
-  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: PALETTE.muted },
-  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: PALETTE.border },
+const STATUS_ICONS: Record<MonthStatus, typeof Check> = {
+  done: Check,
+  overdue: CircleAlert,
+  planned: Circle,
+  postponed: Clock,
+  cancelled: Ban,
+  not_applicable: CircleSlash,
+  not_planned: Minus,
+};
+
+const STATUS_OPTIONS: { value: MonthStatus; label: string; Icon: typeof Check; color: string }[] = [
+  { value: 'done', label: 'เสร็จแล้ว', Icon: Check, color: STATUS.ok },
+  { value: 'overdue', label: 'เกินกำหนด', Icon: CircleAlert, color: STATUS.critical },
+  { value: 'planned', label: 'มีแผน', Icon: Circle, color: PALETTE.muted },
+  { value: 'postponed', label: 'เลื่อน', Icon: Clock, color: STATUS.warning },
+  { value: 'cancelled', label: 'ยกเลิก', Icon: Ban, color: PALETTE.textSecondary },
+  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', Icon: CircleSlash, color: PALETTE.muted },
+  { value: 'not_planned', label: 'ไม่มีแผน', Icon: Minus, color: PALETTE.border },
 ];
 
 interface StatusOverride {
@@ -1183,24 +1193,24 @@ export default function CompanyDrilldown() {
         accentBg: `${CATEGORY_COLORS.safety}20`,
         kpi: { total: 'รายการรายเดือน', done: 'ปิดงานแล้ว', notStarted: 'เสี่ยงสูง — ยังไม่เริ่ม', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
         quickFilters: [
-          { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
-          { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
-          { key: 'notStarted', label: '⏳ ยังไม่เริ่ม', icon: '' },
-          { key: 'noEvidence', label: '📎 หลักฐานไม่ครบ', icon: '' },
-          { key: 'atRisk', label: '⚠ เสี่ยงสูง', icon: '' },
-          { key: 'hasProgress', label: '◑ กำลังดำเนินการ', icon: '' },
+          { key: 'thisMonth', label: `เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, Icon: CalendarClock },
+          { key: 'overdue', label: 'เกินกำหนด', Icon: CircleAlert },
+          { key: 'notStarted', label: 'ยังไม่เริ่ม', Icon: Clock },
+          { key: 'noEvidence', label: 'หลักฐานไม่ครบ', Icon: Paperclip },
+          { key: 'atRisk', label: 'เสี่ยงสูง', Icon: AlertTriangle },
+          { key: 'hasProgress', label: 'กำลังดำเนินการ', Icon: CircleDashed },
         ],
         defaultSort: 'overdue-first' as const,
-        chartTitle: '🛡️ Safety Execution — ความก้าวหน้ารายเดือน',
+        chartTitle: 'Safety Execution — ความก้าวหน้ารายเดือน',
         tableTitle: 'รายละเอียดกิจกรรม Safety',
-        emptyIcon: '🛡️',
+        EmptyIcon: Shield,
         filterSummaryLabel: 'Safety',
         statusLabels: {
-          done: '✅ ปิดงานแล้ว',
-          not_started: '⚠️ ยังไม่เริ่ม',
-          postponed: '📅 เลื่อน',
-          cancelled: '❌ ยกเลิก',
-          not_applicable: '⊘ ไม่เข้าเงื่อนไข',
+          done: 'ปิดงานแล้ว',
+          not_started: 'ยังไม่เริ่ม',
+          postponed: 'เลื่อน',
+          cancelled: 'ยกเลิก',
+          not_applicable: 'ไม่เข้าเงื่อนไข',
         },
       };
     } else if (planType === 'environment') {
@@ -1211,24 +1221,24 @@ export default function CompanyDrilldown() {
         accentBg: `${CATEGORY_COLORS.environment}20`,
         kpi: { total: 'รายการรายเดือน', done: 'ดำเนินการแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
         quickFilters: [
-          { key: 'thisMonth', label: `📋 ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, icon: '' },
-          { key: 'overdue', label: '🔴 เกินกำหนด', icon: '' },
-          { key: 'noEvidence', label: '📎 ยังไม่แนบหลักฐาน', icon: '' },
-          { key: 'postponed', label: '📅 เลื่อน', icon: '' },
-          { key: 'atRisk', label: '⚠ เสี่ยง', icon: '' },
-          { key: 'hasProgress', label: '◑ กำลังดำเนินการ', icon: '' },
+          { key: 'thisMonth', label: `ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, Icon: CalendarClock },
+          { key: 'overdue', label: 'เกินกำหนด', Icon: CircleAlert },
+          { key: 'noEvidence', label: 'ยังไม่แนบหลักฐาน', Icon: Paperclip },
+          { key: 'postponed', label: 'เลื่อน', Icon: Clock },
+          { key: 'atRisk', label: 'เสี่ยง', Icon: AlertTriangle },
+          { key: 'hasProgress', label: 'กำลังดำเนินการ', Icon: CircleDashed },
         ],
         defaultSort: 'due-this-month' as const,
-        chartTitle: '📋 Compliance Calendar — สถานะรายเดือน',
+        chartTitle: 'Compliance Calendar — สถานะรายเดือน',
         tableTitle: 'รายละเอียดกิจกรรม Environment',
-        emptyIcon: '🌿',
+        EmptyIcon: Leaf,
         filterSummaryLabel: 'Environment',
         statusLabels: {
-          done: '✅ ดำเนินการแล้ว',
-          not_started: '⏳ รอดำเนินการ',
-          postponed: '📅 เลื่อน',
-          cancelled: '❌ ยกเลิก',
-          not_applicable: '⊘ ไม่เข้าเงื่อนไข',
+          done: 'ดำเนินการแล้ว',
+          not_started: 'รอดำเนินการ',
+          postponed: 'เลื่อน',
+          cancelled: 'ยกเลิก',
+          not_applicable: 'ไม่เข้าเงื่อนไข',
         },
       };
     } else {
@@ -1239,24 +1249,24 @@ export default function CompanyDrilldown() {
         accentBg: `${PALETTE.primary}20`,
         kpi: { total: 'รายการรายเดือน', done: 'เสร็จแล้ว', notStarted: 'ยังไม่เริ่ม', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบรวม' },
         quickFilters: [
-          { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
-          { key: 'overdue', label: '🔴 เกินกำหนดรวม', icon: '' },
-          { key: 'safetyOnly', label: '🛡️ เฉพาะ Safety', icon: '' },
-          { key: 'enviOnly', label: '🌿 เฉพาะ Envi', icon: '' },
-          { key: 'atRisk', label: '⚠ เสี่ยง', icon: '' },
-          { key: 'hasProgress', label: '◑ กำลังดำเนินการ', icon: '' },
+          { key: 'thisMonth', label: `เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, Icon: CalendarClock },
+          { key: 'overdue', label: 'เกินกำหนดรวม', Icon: CircleAlert },
+          { key: 'safetyOnly', label: 'เฉพาะ Safety', Icon: Shield },
+          { key: 'enviOnly', label: 'เฉพาะ Envi', Icon: Leaf },
+          { key: 'atRisk', label: 'เสี่ยง', Icon: AlertTriangle },
+          { key: 'hasProgress', label: 'กำลังดำเนินการ', Icon: CircleDashed },
         ],
         defaultSort: 'overdue-first' as const,
-        chartTitle: '📊 Timeline — ความก้าวหน้ารายเดือน',
+        chartTitle: 'Timeline — ความก้าวหน้ารายเดือน',
         tableTitle: 'รายละเอียดกิจกรรมทั้งหมด',
-        emptyIcon: '📊',
+        EmptyIcon: BarChart3,
         filterSummaryLabel: 'Total',
         statusLabels: {
-          done: '✅ เสร็จแล้ว',
-          not_started: '⏳ ยังไม่เริ่ม',
-          postponed: '📅 เลื่อน',
-          cancelled: '❌ ยกเลิก',
-          not_applicable: '⊘ ไม่เข้าเงื่อนไข',
+          done: 'เสร็จแล้ว',
+          not_started: 'ยังไม่เริ่ม',
+          postponed: 'เลื่อน',
+          cancelled: 'ยกเลิก',
+          not_applicable: 'ไม่เข้าเงื่อนไข',
         },
       };
     }
@@ -1687,8 +1697,8 @@ export default function CompanyDrilldown() {
           <div className="flex gap-2 items-center flex-wrap">
             {/* Auth indicator */}
             {isLoggedIn ? (
-              <span className="glass-card px-3 py-1.5 text-xs font-medium" style={{ color: 'var(--success)' }}>
-                ✓ {loginDisplayName || loginCompanyName}
+              <span className="glass-card px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1" style={{ color: STATUS.ok }}>
+                <Check size={12} /> {loginDisplayName || loginCompanyName}
               </span>
             ) : (
               <button
@@ -2022,7 +2032,7 @@ export default function CompanyDrilldown() {
                               <td style={{ padding: '8px', textAlign: 'center', color: q.postponedCount > 0 ? STATUS.warning : 'var(--muted)' }}>{q.postponedCount}</td>
                               <td style={{ padding: '8px', textAlign: 'center', color: q.cancelledCount > 0 ? PALETTE.textSecondary : 'var(--muted)' }}>{q.cancelledCount}</td>
                               <td style={{ padding: '8px', textAlign: 'center', color: 'var(--muted)' }}>{q.notApplicableCount}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', fontWeight: 500 }}>{q.denominator}{q.isEmptyBase ? ' ⚠' : ''}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', fontWeight: 500 }}>{q.denominator}{q.isEmptyBase && <AlertTriangle size={10} style={{ display: 'inline', marginLeft: 2, color: STATUS.warning }} />}</td>
                               <td style={{ padding: '8px', textAlign: 'center', fontWeight: 700, color: isActive ? q.scoreColor : 'var(--muted)' }}>{isActive ? `${q.percentage}%` : '—'}</td>
                               <td style={{ padding: '8px', textAlign: 'center' }}>
                                 {isActive ? (
@@ -2191,6 +2201,7 @@ export default function CompanyDrilldown() {
                         border: `1px solid ${quickFilter === f.key ? planConfig.accentColor : 'var(--border)'}`,
                       }}
                     >
+                      <f.Icon size={12} className="inline mr-1" />
                       {f.label}
                       <span className="ml-1 opacity-70">({count})</span>
                     </button>
@@ -2202,23 +2213,24 @@ export default function CompanyDrilldown() {
             {/* Status Filter Tabs — labels change per tab personality */}
             <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
               {[
-                { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)' },
-                { key: 'done', label: planConfig.statusLabels.done, color: STATUS.ok },
-                { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? STATUS.critical : STATUS.warning },
-                { key: 'postponed', label: planConfig.statusLabels.postponed, color: STATUS.warning },
-                { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: PALETTE.textSecondary },
-                { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: PALETTE.muted },
+                { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)', Icon: null as typeof Check | null },
+                { key: 'done', label: planConfig.statusLabels.done, color: STATUS.ok, Icon: Check },
+                { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? STATUS.critical : STATUS.warning, Icon: Clock },
+                { key: 'postponed', label: planConfig.statusLabels.postponed, color: STATUS.warning, Icon: Clock },
+                { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: PALETTE.textSecondary, Icon: Ban },
+                { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: PALETTE.muted, Icon: CircleSlash },
               ].map(f => (
                 <button
                   key={f.key}
                   onClick={() => setStatusFilter(f.key)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1"
                   style={{
                     background: statusFilter === f.key ? planConfig.accentColor : 'var(--bg-tertiary)',
                     color: statusFilter === f.key ? '#ffffff' : f.color,
                     border: `1px solid ${statusFilter === f.key ? planConfig.accentColor : 'var(--border)'}`
                   }}
                 >
+                  {f.Icon && <f.Icon size={12} />}
                   <span>{f.label}</span>
                   <span style={{ marginLeft: '0.375rem', opacity: 0.7 }}>
                     ({statusCounts[f.key as keyof typeof statusCounts]})
@@ -2253,12 +2265,12 @@ export default function CompanyDrilldown() {
                 {/* Legend + Export */}
                 <div className="flex items-center gap-3">
                   <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                    <span><span style={{ color: 'var(--success)' }}>●</span> เสร็จแล้ว</span>
-                    <span><span style={{ color: 'var(--danger)' }}>○</span> เกินกำหนด</span>
-                    <span><span style={{ color: 'var(--muted)' }}>○</span> มีแผน</span>
-                    <span><span style={{ color: 'var(--info)' }}>◐</span> เลื่อน</span>
-                    <span><span style={{ color: 'var(--danger)' }}>✕</span> ยกเลิก</span>
-                    <span><span style={{ color: 'var(--muted)' }}>⊘</span> ไม่เข้าเงื่อนไข</span>
+                    <span className="inline-flex items-center gap-0.5"><Check size={10} style={{ color: STATUS.ok }} /> เสร็จแล้ว</span>
+                    <span className="inline-flex items-center gap-0.5"><CircleAlert size={10} style={{ color: STATUS.critical }} /> เกินกำหนด</span>
+                    <span className="inline-flex items-center gap-0.5"><Circle size={10} style={{ color: PALETTE.muted }} /> มีแผน</span>
+                    <span className="inline-flex items-center gap-0.5"><Clock size={10} style={{ color: STATUS.warning }} /> เลื่อน</span>
+                    <span className="inline-flex items-center gap-0.5"><Ban size={10} style={{ color: PALETTE.textSecondary }} /> ยกเลิก</span>
+                    <span className="inline-flex items-center gap-0.5"><CircleSlash size={10} style={{ color: PALETTE.muted }} /> ไม่เข้าเงื่อนไข</span>
                     <span><span className="inline-block w-2.5 h-2.5 ring-1 rounded-sm mr-0.5 align-middle" style={{ borderColor: 'var(--warning)' }}></span> แก้ไขจาก Dashboard</span>
                   </div>
                   <button
@@ -2294,26 +2306,26 @@ export default function CompanyDrilldown() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                     style={{ background: showBulkActions ? `${PALETTE.primary}15` : 'var(--bg-hover)', color: showBulkActions ? PALETTE.primary : 'var(--text-secondary)', border: showBulkActions ? `1px solid ${PALETTE.primary}40` : '1px solid var(--border)' }}
                   >
-                    ⚡ Bulk Actions {showBulkActions ? '▲' : '▼'}
+                    <Zap size={12} className="inline" /> Bulk Actions {showBulkActions ? '▲' : '▼'}
                   </button>
                   <button
                     onClick={() => setGroupByCategory(!groupByCategory)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                     style={{ background: groupByCategory ? `${STATUS.warning}15` : 'var(--bg-hover)', color: groupByCategory ? STATUS.warning : 'var(--text-secondary)', border: groupByCategory ? `1px solid ${STATUS.warning}40` : '1px solid var(--border)' }}
                   >
-                    {groupByCategory ? '📂' : '📁'} จัดกลุ่มตามหมวด {groupByCategory ? '(เปิด)' : ''}
+                    {groupByCategory ? <FolderOpen size={12} className="inline" /> : <Folder size={12} className="inline" />} จัดกลุ่มตามหมวด {groupByCategory ? '(เปิด)' : ''}
                   </button>
                   {showBulkActions && (
                     <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)' }}>
                       <button onClick={handleBulkDoneCurrentMonth} disabled={bulkProcessing}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
                         style={{ background: STATUS.ok, color: '#fff', opacity: bulkProcessing ? 0.5 : 1 }}>
-                        ✓ ปิดงานเดือน {MONTH_LABELS[currentMonthIdx]} ทั้งหมด
+                        <Check size={12} className="inline" /> ปิดงานเดือน {MONTH_LABELS[currentMonthIdx]} ทั้งหมด
                       </button>
                       <button onClick={handleBulkCopyNotes} disabled={bulkProcessing || currentMonthIdx === 0}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
                         style={{ background: PALETTE.primary, color: '#fff', opacity: bulkProcessing || currentMonthIdx === 0 ? 0.5 : 1 }}>
-                        📋 คัดลอก note จาก {currentMonthIdx > 0 ? MONTH_LABELS[currentMonthIdx - 1] : '...'} → {MONTH_LABELS[currentMonthIdx]}
+                        <ClipboardCopy size={12} className="inline" /> คัดลอก note จาก {currentMonthIdx > 0 ? MONTH_LABELS[currentMonthIdx - 1] : '...'} → {MONTH_LABELS[currentMonthIdx]}
                       </button>
                       {bulkProcessing && <span className="text-xs animate-pulse" style={{ color: PALETTE.textSecondary }}>กำลังดำเนินการ...</span>}
                     </div>
@@ -2369,21 +2381,21 @@ export default function CompanyDrilldown() {
                                 const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
                                 return s === 'overdue' || s === 'planned';
                               });
-                              const badgeCfg: Record<string, { label: string; bg: string; color: string }> = {
-                                done: { label: '✓ เสร็จ', bg: `${STATUS.ok}20`, color: STATUS.ok },
+                              const badgeCfg: Record<string, { label: string; Icon: typeof Check; bg: string; color: string }> = {
+                                done: { label: 'เสร็จ', Icon: Check, bg: `${STATUS.ok}20`, color: STATUS.ok },
                                 not_started: hasOverdueM
-                                  ? { label: '⚠ เสี่ยง', bg: `${STATUS.warning}25`, color: STATUS.warning }
-                                  : { label: '⏳ ดำเนินการ', bg: `${PALETTE.muted}20`, color: PALETTE.muted },
-                                postponed: { label: '◐ เลื่อน', bg: `${STATUS.warning}20`, color: STATUS.warning },
-                                cancelled: { label: '✕ ยกเลิก', bg: `${PALETTE.textSecondary}15`, color: PALETTE.textSecondary },
-                                not_applicable: { label: '⊘ N/A', bg: 'rgba(156,163,175,0.1)', color: 'var(--muted)' },
+                                  ? { label: 'เสี่ยง', Icon: AlertTriangle, bg: `${STATUS.warning}25`, color: STATUS.warning }
+                                  : { label: 'ดำเนินการ', Icon: Clock, bg: `${PALETTE.muted}20`, color: PALETTE.muted },
+                                postponed: { label: 'เลื่อน', Icon: Clock, bg: `${STATUS.warning}20`, color: STATUS.warning },
+                                cancelled: { label: 'ยกเลิก', Icon: Ban, bg: `${PALETTE.textSecondary}15`, color: PALETTE.textSecondary },
+                                not_applicable: { label: 'N/A', Icon: CircleSlash, bg: `${PALETTE.muted}15`, color: PALETTE.muted },
                               };
                               const cfg = badgeCfg[overallSt];
                               if (!cfg) return null;
                               return (
-                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
                                   style={{ background: cfg.bg, color: cfg.color }}>
-                                  {cfg.label}
+                                  <cfg.Icon size={9} /> {cfg.label}
                                 </span>
                               );
                             })()}
@@ -2431,20 +2443,20 @@ export default function CompanyDrilldown() {
                             const planMark = act.planMonths?.[k] || '';
                             const actualMark = act.actualMonths?.[k] || '';
                             const isCurrent = idx === currentMonthIdx;
-                            const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = {
-                              not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' },
-                              planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` },
-                              done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` },
-                              overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` },
-                              postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` },
-                              cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` },
-                              not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' },
+                            const statusConfig: Record<MonthStatus, { Icon: typeof Check; color: string; title: string }> = {
+                              not_planned: { Icon: Minus, color: 'var(--bg-hover)', title: 'ไม่มีแผน' },
+                              planned: { Icon: Circle, color: PALETTE.muted, title: `แผน: ${planMark}` },
+                              done: { Icon: Check, color: STATUS.ok, title: `เสร็จ: ${actualMark}` },
+                              overdue: { Icon: CircleAlert, color: STATUS.critical, title: `เกินกำหนด (แผน: ${planMark})` },
+                              postponed: { Icon: Clock, color: STATUS.warning, title: `เลื่อน: ${actualMark}` },
+                              cancelled: { Icon: Ban, color: PALETTE.textSecondary, title: `ยกเลิก: ${actualMark}` },
+                              not_applicable: { Icon: CircleSlash, color: PALETTE.muted, title: 'ไม่เข้าเงื่อนไข' },
                             };
                             const cfg = statusConfig[effectiveStatus];
                             const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
                             const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
-                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}>✎</span>}</td>);
+                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
                           })}
                         </tr>
                         ))
@@ -2459,21 +2471,21 @@ export default function CompanyDrilldown() {
                                 const s = getEffectiveStatus(act as Activity & { _planTag?: string }, mk);
                                 return s === 'overdue' || s === 'planned';
                               });
-                              const badgeCfg: Record<string, { label: string; bg: string; color: string }> = {
-                                done: { label: '✓ เสร็จ', bg: `${STATUS.ok}20`, color: STATUS.ok },
+                              const badgeCfg: Record<string, { label: string; Icon: typeof Check; bg: string; color: string }> = {
+                                done: { label: 'เสร็จ', Icon: Check, bg: `${STATUS.ok}20`, color: STATUS.ok },
                                 not_started: hasOverdueM
-                                  ? { label: '⚠ เสี่ยง', bg: `${STATUS.warning}25`, color: STATUS.warning }
-                                  : { label: '⏳ ดำเนินการ', bg: `${PALETTE.muted}20`, color: PALETTE.muted },
-                                postponed: { label: '◐ เลื่อน', bg: `${STATUS.warning}20`, color: STATUS.warning },
-                                cancelled: { label: '✕ ยกเลิก', bg: `${PALETTE.textSecondary}15`, color: PALETTE.textSecondary },
-                                not_applicable: { label: '⊘ N/A', bg: 'rgba(156,163,175,0.1)', color: 'var(--muted)' },
+                                  ? { label: 'เสี่ยง', Icon: AlertTriangle, bg: `${STATUS.warning}25`, color: STATUS.warning }
+                                  : { label: 'ดำเนินการ', Icon: Clock, bg: `${PALETTE.muted}20`, color: PALETTE.muted },
+                                postponed: { label: 'เลื่อน', Icon: Clock, bg: `${STATUS.warning}20`, color: STATUS.warning },
+                                cancelled: { label: 'ยกเลิก', Icon: Ban, bg: `${PALETTE.textSecondary}15`, color: PALETTE.textSecondary },
+                                not_applicable: { label: 'N/A', Icon: CircleSlash, bg: `${PALETTE.muted}15`, color: PALETTE.muted },
                               };
                               const cfg = badgeCfg[overallSt];
                               if (!cfg) return null;
                               return (
-                                <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
                                   style={{ background: cfg.bg, color: cfg.color }}>
-                                  {cfg.label}
+                                  <cfg.Icon size={9} /> {cfg.label}
                                 </span>
                               );
                             })()}
@@ -2549,7 +2561,7 @@ export default function CompanyDrilldown() {
                                         style={{ background: 'rgba(0,0,0,0.06)', color: 'var(--text-secondary)' }}
                                         title="งบตามแผน"
                                       >
-                                        💰 {actBudget.toLocaleString()}
+                                        <Wallet size={10} /> {actBudget.toLocaleString()}
                                       </span>
                                     )}
                                     {actActual > 0 && (
@@ -2561,7 +2573,7 @@ export default function CompanyDrilldown() {
                                         }}
                                         title={overBudget ? `ใช้จริง (เกินงบ ${Math.abs(actActual - actBudget).toLocaleString()})` : 'ใช้จริง'}
                                       >
-                                        {overBudget ? '⚠' : '✓'} ใช้จริง {actActual.toLocaleString()}
+                                        {overBudget ? <AlertTriangle size={10} /> : <Check size={10} />} ใช้จริง {actActual.toLocaleString()}
                                       </span>
                                     )}
                                   </>
@@ -2575,19 +2587,19 @@ export default function CompanyDrilldown() {
                                 if (indicator === 'attached') return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
                                     style={{ background: `${STATUS.ok}18`, color: STATUS.ok }} title="แนบหลักฐานแล้ว">
-                                    ✓ แนบแล้ว
+                                    <Check size={10} /> แนบแล้ว
                                   </span>
                                 );
                                 if (indicator === 'missing') return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold animate-pulse"
                                     style={{ background: `${STATUS.critical}18`, color: STATUS.critical }} title="ดำเนินการแล้วแต่ยังไม่แนบหลักฐาน">
-                                    ⚠ รอหลักฐาน
+                                    <AlertTriangle size={10} /> รอหลักฐาน
                                   </span>
                                 );
                                 if (indicator === 'required') return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
                                     style={{ background: `${STATUS.warning}15`, color: STATUS.warning }} title="ต้องใช้หลักฐานเมื่อดำเนินการเสร็จ">
-                                    📋 ต้องใช้หลักฐาน
+                                    <ClipboardList size={10} /> ต้องใช้หลักฐาน
                                   </span>
                                 );
                                 return null;
@@ -2608,7 +2620,7 @@ export default function CompanyDrilldown() {
                                         style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary }}
                                         title={`${totalAtt} ไฟล์แนบ`}
                                       >
-                                        📎 {totalAtt}
+                                        <Paperclip size={10} /> {totalAtt}
                                       </span>
                                     )}
                                     {totalNotes > 0 && (
@@ -2616,7 +2628,7 @@ export default function CompanyDrilldown() {
                                         style={{ background: `${STATUS.warning}15`, color: STATUS.warning }}
                                         title={`${totalNotes} เดือนมีหมายเหตุ`}
                                       >
-                                        ✎ {totalNotes}
+                                        <Pencil size={10} /> {totalNotes}
                                       </span>
                                     )}
                                   </>
@@ -2629,15 +2641,15 @@ export default function CompanyDrilldown() {
                                 const tier = evidenceTiers[actKey];
                                 if (!tier || tier.tier === 'none') return null;
                                 const tierConfig = {
-                                  basic: { label: '◑ Basic', bg: `${STATUS.warning}15`, color: STATUS.warning },
-                                  standard: { label: '◕ Standard', bg: `${PALETTE.primary}15`, color: PALETTE.primary },
-                                  full: { label: '● Full', bg: `${STATUS.ok}15`, color: STATUS.ok },
+                                  basic: { label: 'Basic', Icon: CircleDashed, bg: `${STATUS.warning}15`, color: STATUS.warning },
+                                  standard: { label: 'Standard', Icon: CircleDot, bg: `${PALETTE.primary}15`, color: PALETTE.primary },
+                                  full: { label: 'Full', Icon: CircleCheckBig, bg: `${STATUS.ok}15`, color: STATUS.ok },
                                 };
                                 const cfg = tierConfig[tier.tier];
                                 return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
                                     style={{ background: cfg.bg, color: cfg.color }} title={tier.details}>
-                                    {cfg.label}
+                                    <cfg.Icon size={10} /> {cfg.label}
                                   </span>
                                 );
                               })()}
@@ -2651,7 +2663,7 @@ export default function CompanyDrilldown() {
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help"
                                     style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary }}
                                     title={related.map(r => `${r.relatedTag}:${r.relatedNo} ${r.relatedName}`).join('\n')}>
-                                    🔗 {related.length} linked
+                                    <Link2 size={10} /> {related.length} linked
                                   </span>
                                 );
                               })()}
@@ -2697,14 +2709,14 @@ export default function CompanyDrilldown() {
                             const actualMark = act.actualMonths?.[k] || '';
                             const isCurrent = idx === currentMonthIdx;
 
-                            const statusConfig: Record<MonthStatus, { icon: string; color: string; title: string }> = {
-                              not_planned: { icon: '-', color: 'var(--bg-hover)', title: 'ไม่มีแผน' },
-                              planned: { icon: '○', color: 'var(--muted)', title: `แผน: ${planMark}` },
-                              done: { icon: '●', color: 'var(--success)', title: `เสร็จ: ${actualMark}` },
-                              overdue: { icon: '○', color: 'var(--danger)', title: `เกินกำหนด (แผน: ${planMark})` },
-                              postponed: { icon: '◐', color: 'var(--info)', title: `เลื่อน: ${actualMark}` },
-                              cancelled: { icon: '✕', color: 'var(--danger)', title: `ยกเลิก: ${actualMark}` },
-                              not_applicable: { icon: '⊘', color: 'var(--muted)', title: 'ไม่เข้าเงื่อนไข' },
+                            const statusConfig: Record<MonthStatus, { Icon: typeof Check; color: string; title: string }> = {
+                              not_planned: { Icon: Minus, color: 'var(--bg-hover)', title: 'ไม่มีแผน' },
+                              planned: { Icon: Circle, color: PALETTE.muted, title: `แผน: ${planMark}` },
+                              done: { Icon: Check, color: STATUS.ok, title: `เสร็จ: ${actualMark}` },
+                              overdue: { Icon: CircleAlert, color: STATUS.critical, title: `เกินกำหนด (แผน: ${planMark})` },
+                              postponed: { Icon: Clock, color: STATUS.warning, title: `เลื่อน: ${actualMark}` },
+                              cancelled: { Icon: Ban, color: PALETTE.textSecondary, title: `ยกเลิก: ${actualMark}` },
+                              not_applicable: { Icon: CircleSlash, color: PALETTE.muted, title: 'ไม่เข้าเงื่อนไข' },
                             };
                             const cfg = statusConfig[effectiveStatus];
 
@@ -2717,15 +2729,15 @@ export default function CompanyDrilldown() {
                                 key={k}
                                 className="text-center py-2.5 px-1 cursor-pointer transition-colors relative"
                                 style={{
-                                  background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent',
-                                  borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none',
-                                  borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none',
+                                  background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent',
+                                  borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
+                                  borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
                                   border: hasOverride && !isCurrent ? '1px solid rgba(255,159,10,0.3)' : undefined,
                                   borderRadius: hasOverride && !isCurrent ? '4px' : '0px'
                                 }}
                                 onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}
                               >
-                                <span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>
+                                <span title={cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>
                                 {attCount > 0 && (
                                   <span
                                     className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1"
@@ -2741,7 +2753,7 @@ export default function CompanyDrilldown() {
                                     style={{ background: STATUS.warning, color: '#fff' }}
                                     title="มีหมายเหตุ"
                                   >
-                                    ✎
+                                    <Pencil size={7} />
                                   </span>
                                 )}
                               </td>
@@ -2754,7 +2766,7 @@ export default function CompanyDrilldown() {
                 </div>
               ) : (
                 <div className="text-center py-10" style={{ color: 'var(--text-secondary)' }}>
-                  <p className="text-4xl mb-3">📌</p>
+                  <ClipboardList size={36} className="mx-auto mb-3" style={{ color: PALETTE.muted }} />
                   <p>ไม่พบกิจกรรม{statusFilter !== 'all' ? 'ในสถานะที่เลือก' : ''}</p>
                   <p className="text-[11px] mt-1">ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น</p>
                 </div>
@@ -2779,8 +2791,8 @@ export default function CompanyDrilldown() {
                           <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{person.name}</div>
                           <div className="flex items-center gap-2 text-[10px] mt-0.5">
                             <span style={{ color: 'var(--muted)' }}>{person.total} งาน</span>
-                            {person.done > 0 && <span style={{ color: 'var(--success)' }}>✓ {person.done}</span>}
-                            {person.overdue > 0 && <span className="font-semibold" style={{ color: 'var(--danger)' }}>⚠ ค้าง {person.overdue}</span>}
+                            {person.done > 0 && <span className="inline-flex items-center gap-0.5" style={{ color: STATUS.ok }}><Check size={9} /> {person.done}</span>}
+                            {person.overdue > 0 && <span className="inline-flex items-center gap-0.5 font-semibold" style={{ color: STATUS.critical }}><AlertTriangle size={9} /> ค้าง {person.overdue}</span>}
                             {person.open > 0 && <span style={{ color: 'var(--muted)' }}>เปิด {person.open}</span>}
                           </div>
                           <div className="h-1 rounded-full mt-1.5 overflow-hidden" style={{ background: 'var(--border)' }}>

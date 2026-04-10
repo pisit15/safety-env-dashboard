@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
-import { X, ChevronUp, ChevronDown, Paperclip, ExternalLink, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { X, ChevronUp, ChevronDown, Paperclip, ExternalLink, Trash2, TrendingUp, TrendingDown, Check, Circle, CircleAlert, Clock, Ban, CircleSlash, Minus, AlertTriangle, Shield, ClipboardList, Link2, Image, FileText, FileSpreadsheet, Lock } from 'lucide-react';
 import { Activity, MonthStatus } from '@/lib/types';
 import { STATUS, PALETTE, CATEGORY_COLORS } from '@/lib/she-theme';
 import dynamic from 'next/dynamic';
@@ -12,14 +12,14 @@ const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ss
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
-const STATUS_OPTIONS: { value: MonthStatus; label: string; icon: string; color: string }[] = [
-  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: STATUS.ok },
-  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: STATUS.critical },
-  { value: 'planned', label: 'มีแผน', icon: '○', color: PALETTE.muted },
-  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: STATUS.warning },
-  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: PALETTE.textSecondary },
-  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: PALETTE.muted },
-  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: PALETTE.border },
+const STATUS_OPTIONS: { value: MonthStatus; label: string; Icon: typeof Check; color: string }[] = [
+  { value: 'done', label: 'เสร็จแล้ว', Icon: Check, color: STATUS.ok },
+  { value: 'overdue', label: 'เกินกำหนด', Icon: CircleAlert, color: STATUS.critical },
+  { value: 'planned', label: 'มีแผน', Icon: Circle, color: PALETTE.muted },
+  { value: 'postponed', label: 'เลื่อน', Icon: Clock, color: STATUS.warning },
+  { value: 'cancelled', label: 'ยกเลิก', Icon: Ban, color: PALETTE.textSecondary },
+  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', Icon: CircleSlash, color: PALETTE.muted },
+  { value: 'not_planned', label: 'ไม่มีแผน', Icon: Minus, color: PALETTE.border },
 ];
 
 interface Attachment {
@@ -293,7 +293,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   className="hover:underline"
                   style={{ color: 'rgba(255,255,255,0.9)' }}
                 >
-                  👤 {modalResponsible}
+                  {modalResponsible}
                 </button>
               </div>
             </div>
@@ -368,12 +368,12 @@ export default function ActivityDrawer(props: DrawerProps) {
         {/* ── Lock Notice ── */}
         {!checkingLock && deadlineLocked && !hasApproval && !isAdmin && (
           <div className="flex-shrink-0 px-5 py-2.5" style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
-            <p className="text-xs font-medium" style={{ color: STATUS.critical }}>🔒 เลยกำหนดเวลาแก้ไข — ต้องขออนุมัติ</p>
+            <p className="text-xs font-medium inline-flex items-center gap-1" style={{ color: STATUS.critical }}><Lock size={11} /> เลยกำหนดเวลาแก้ไข — ต้องขออนุมัติ</p>
           </div>
         )}
         {!checkingLock && deadlineLocked && isAdmin && (
           <div className="flex-shrink-0 px-5 py-2" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a' }}>
-            <p className="text-xs font-medium" style={{ color: '#d97706' }}>⚠ เลยกำหนด — แก้ไขได้ (Admin)</p>
+            <p className="text-xs font-medium" style={{ color: '#d97706' }}><AlertTriangle size={11} className="inline mr-0.5" /> เลยกำหนด — แก้ไขได้ (Admin)</p>
           </div>
         )}
 
@@ -402,7 +402,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                             opacity: savingStatus ? 0.5 : 1,
                           }}
                         >
-                          <span style={{ color: opt.color }} className="text-sm">{opt.icon}</span>
+                          <opt.Icon size={14} style={{ color: opt.color }} />
                           <span>{opt.label}</span>
                         </button>
                       );
@@ -423,7 +423,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                         <button onClick={() => onSaveStatus('done')} disabled={!completionDate || savingStatus}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                           style={{ background: STATUS.ok, color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1 }}>
-                          {savingStatus ? 'กำลังบันทึก...' : '✓ ยืนยัน'}
+                          {savingStatus ? 'กำลังบันทึก...' : <><Check size={11} className="inline mr-0.5" /> ยืนยัน</>}
                         </button>
                       </div>
                     </div>
@@ -467,10 +467,10 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {/* Phase 4: Approval Request Form (cancel, N/A, plan changes) */}
                   {pendingCancel && (() => {
                     const labels: Record<string, { title: string; placeholder: string; color: string; bg: string; border: string }> = {
-                      cancelled: { title: '⚠️ ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: PALETTE.textSecondary, bg: `${PALETTE.textSecondary}0A`, border: `${PALETTE.textSecondary}30` },
-                      not_applicable: { title: '⊘ ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: PALETTE.muted, bg: `${PALETTE.muted}12`, border: `${PALETTE.muted}30` },
-                      not_planned: { title: '📋 ขอนำออกจากแผน (→ ไม่มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: STATUS.warning, bg: `${STATUS.warning}0A`, border: `${STATUS.warning}30` },
-                      planned: { title: '📋 ขอเพิ่มเข้าแผน (→ มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: PALETTE.primary, bg: `${PALETTE.primary}0A`, border: `${PALETTE.primary}30` },
+                      cancelled: { title: 'ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: PALETTE.textSecondary, bg: `${PALETTE.textSecondary}0A`, border: `${PALETTE.textSecondary}30` },
+                      not_applicable: { title: 'ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: PALETTE.muted, bg: `${PALETTE.muted}12`, border: `${PALETTE.muted}30` },
+                      not_planned: { title: 'ขอนำออกจากแผน (→ ไม่มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: STATUS.warning, bg: `${STATUS.warning}0A`, border: `${STATUS.warning}30` },
+                      planned: { title: 'ขอเพิ่มเข้าแผน (→ มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: PALETTE.primary, bg: `${PALETTE.primary}0A`, border: `${PALETTE.primary}30` },
                     };
                     const cfg = labels[pendingCancel] || labels.cancelled;
                     return (
@@ -549,7 +549,7 @@ export default function ActivityDrawer(props: DrawerProps) {
               {/* Helper tips */}
               {isSafety && (
                 <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
-                  <span className="text-sm mt-0.5">🛡️</span>
+                  <Shield size={14} className="mt-0.5 flex-shrink-0" style={{ color: CATEGORY_COLORS.safety }} />
                   <div className="text-[11px]" style={{ color: '#6b7280' }}>
                     <p className="font-semibold mb-0.5" style={{ color: CATEGORY_COLORS.safety }}>ปิดกิจกรรม Safety</p>
                     <p>1. อัปเดตสถานะ "เสร็จแล้ว" → 2. แนบหลักฐาน → 3. ระบุรายละเอียด</p>
@@ -558,7 +558,7 @@ export default function ActivityDrawer(props: DrawerProps) {
               )}
               {isEnvi && (
                 <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: `${CATEGORY_COLORS.environment}0A`, border: `1px solid ${CATEGORY_COLORS.environment}30` }}>
-                  <span className="text-sm mt-0.5">📋</span>
+                  <ClipboardList size={14} className="mt-0.5 flex-shrink-0" style={{ color: CATEGORY_COLORS.environment }} />
                   <div className="text-[11px]" style={{ color: '#6b7280' }}>
                     <p className="font-semibold mb-0.5" style={{ color: CATEGORY_COLORS.environment }}>Compliance — แนบหลักฐานจำเป็น</p>
                     <p>อัปเดตสถานะ → แนบหลักฐาน (ใบอนุญาต/รายงาน) → บันทึกรายละเอียด</p>
@@ -612,7 +612,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                 }>
                   <Paperclip size={28} className="mx-auto mb-2" style={{ color: isEnvi ? STATUS.critical : '#d1d5db' }} />
                   <p className="text-xs font-medium" style={{ color: isEnvi ? STATUS.critical : '#9ca3af' }}>
-                    {isEnvi ? '⚠ ยังไม่มีหลักฐาน — ต้องอัปโหลดเพื่อ compliance' : 'ยังไม่มีไฟล์แนบ'}
+                    {isEnvi ? <><AlertTriangle size={11} className="inline mr-0.5" /> ยังไม่มีหลักฐาน — ต้องอัปโหลดเพื่อ compliance</> : 'ยังไม่มีไฟล์แนบ'}
                   </p>
                 </div>
               ) : (
@@ -620,8 +620,8 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {attachments.map(att => (
                     <div key={att.id} className="flex items-center justify-between rounded-lg px-3 py-2.5" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm flex-shrink-0">
-                          {att.file_type === 'link' ? '🔗' : att.file_type?.includes('image') ? '🖼️' : att.file_type?.includes('pdf') ? '📄' : att.file_type?.includes('excel') ? '📊' : '📎'}
+                        <span className="flex-shrink-0" style={{ color: PALETTE.textSecondary }}>
+                          {att.file_type === 'link' ? <Link2 size={14} /> : att.file_type?.includes('image') ? <Image size={14} /> : att.file_type?.includes('pdf') ? <FileText size={14} /> : att.file_type?.includes('excel') ? <FileSpreadsheet size={14} /> : <Paperclip size={14} />}
                         </span>
                         <div className="min-w-0">
                           <p className="text-xs truncate" style={{ color: '#1f2937' }}>{att.file_name}</p>
@@ -738,7 +738,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                         disabled={savingBudget}
                         className="px-4 py-2 rounded-lg text-xs font-medium transition-opacity"
                         style={{ background: STATUS.warning, color: '#fff', opacity: savingBudget ? 0.5 : 1 }}>
-                        {savingBudget ? '...' : '💾 บันทึก'}
+                        {savingBudget ? '...' : 'บันทึก'}
                       </button>
                     </div>
                   </div>
@@ -760,7 +760,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   <button onClick={() => onSaveNote(statusNote)} disabled={savingNote}
                     className="mt-2 px-4 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
                     style={{ background: PALETTE.primary, color: '#fff', opacity: savingNote ? 0.5 : 1 }}>
-                    {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
+                    {savingNote ? 'กำลังบันทึก...' : 'บันทึกหมายเหตุ'}
                   </button>
                 </div>
               ) : statusNote ? (
