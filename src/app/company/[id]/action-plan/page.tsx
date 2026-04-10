@@ -2420,13 +2420,13 @@ export default function CompanyDrilldown() {
               )}
               {enhancedFilteredActivities.length > 0 ? (
                 <div>
-                  <table className="apple-table w-full text-[13px]" style={{ tableLayout: 'fixed' }}>
+                  <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                      <col style={{ width: 56 }} />{/* ลำดับ */}
-                      {planType === 'total' && <col style={{ width: 36 }} />}{/* แผน S/E */}
-                      <col />{/* กิจกรรม — flexible remaining space */}
-                      <col style={{ width: 64 }} />{/* ผู้รับผิดชอบ */}
-                      {MONTH_KEYS.map(k => <col key={k} style={{ width: 36 }} />)}{/* 12 months × 36px */}
+                      <col style={{ width: 52 }} />{/* ลำดับ */}
+                      {planType === 'total' && <col style={{ width: 32 }} />}{/* แผน S/E */}
+                      <col style={{ width: '30%' }} />{/* กิจกรรม — 30% of table width */}
+                      <col style={{ width: 60 }} />{/* ผู้รับผิดชอบ */}
+                      {MONTH_KEYS.map(k => <col key={k} />)}{/* 12 months — share remaining space equally */}
                     </colgroup>
                     <thead className="sticky top-0 z-20" style={{ background: 'var(--bg-primary, #fff)' }}>
                       <tr style={{ borderBottom: `2px solid var(--border)` }}>
@@ -2506,7 +2506,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
+                          <td className="py-2 px-1.5 text-[11px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                             <div>{act.activity}</div>
                             <div className="flex flex-wrap items-center gap-1 mt-1">
                               {(() => {
@@ -2596,7 +2596,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2.5 px-2 text-xs" style={{ color: 'var(--text-primary)' }}>
+                          <td className="py-2 px-1.5 text-[11px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                             <div>{act.activity}</div>
                             {/* Badges row: overdue + postponed + budget */}
                             <div className="flex flex-wrap items-center gap-1 mt-1">
