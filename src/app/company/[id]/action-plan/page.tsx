@@ -1630,7 +1630,7 @@ export default function CompanyDrilldown() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto" id="pdf-content">
         {/* Breadcrumb */}
@@ -2238,7 +2238,7 @@ export default function CompanyDrilldown() {
             </div>
 
             {/* Activity Table */}
-            <div className="glass-card rounded-xl p-5 animate-fade-in-up">
+            <div className="glass-card rounded-xl p-5 animate-fade-in-up" style={{ overflow: 'visible' }}>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <div className="flex items-center gap-3">
                   <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
