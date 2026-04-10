@@ -1,11 +1,15 @@
-import { createClient } from '@supabase/supabase-js';
 import { COMPANIES, DEFAULT_YEAR, AVAILABLE_YEARS } from './companies';
+import { getServiceSupabase } from './supabase';
 import { CompanyConfig } from './types';
 
 /**
  * Server-side utility to get companies with DB overrides merged.
  * This reads from the company_settings table and merges with static config.
  * Use this in API routes instead of directly using COMPANIES/getCompanyById.
+ *
+ * IMPORTANT: Uses getServiceSupabase() from ./supabase which:
+ *   1. Uses service-role key (bypasses RLS)
+ *   2. Uses cache:'no-store' fetch (avoids Next.js Data Cache)
  */
 
 interface DbSetting {
@@ -23,11 +27,6 @@ let cachedSettings: DbSetting[] | null = null;
 let cacheTime = 0;
 const CACHE_TTL = 30_000; // 30 seconds
 
-function getSupabase() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
-}
-
 async function fetchDbSettings(): Promise<DbSetting[]> {
   const now = Date.now();
   if (cachedSettings && (now - cacheTime) < CACHE_TTL) {
@@ -35,7 +34,7 @@ async function fetchDbSettings(): Promise<DbSetting[]> {
   }
 
   try {
-    const { data, error } = await getSupabase()
+    const { data, error } = await getServiceSupabase()
       .from('company_settings')
       .select('*');
 
