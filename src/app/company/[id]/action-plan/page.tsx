@@ -2409,7 +2409,9 @@ export default function CompanyDrilldown() {
                             const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
                             const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
-                            return (<td key={k} className="text-center py-2.5 px-0 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
+                            const cancelKey = `${planType === 'total' ? ((act as any)._planTag === 'S' ? 'safety' : 'environment') : planType}:${planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no}:${k}`;
+                            const pendingCancel = pendingCancellations[cancelKey];
+                            return (<td key={k} className="text-center py-2.5 px-0 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : pendingCancel ? `${STATUS.warning}18` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={pendingCancel ? `รอ Admin อนุมัติ: ${pendingCancel === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancel === 'cancelled' ? 'ยกเลิก' : pendingCancel === 'postponed' ? 'เลื่อน' : pendingCancel}` : cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{pendingCancel && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.warning }} title="รอ Admin อนุมัติ" />}{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
                           })}
                         </tr>
                         ))
@@ -2662,13 +2664,15 @@ export default function CompanyDrilldown() {
                             const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
                             const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
+                            const cancelKey2 = `${planType === 'total' ? ((act as any)._planTag === 'S' ? 'safety' : 'environment') : planType}:${planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no}:${k}`;
+                            const pendingCancel2 = pendingCancellations[cancelKey2];
 
                             return (
                               <td
                                 key={k}
                                 className="text-center py-2.5 px-0 cursor-pointer transition-colors relative"
                                 style={{
-                                  background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent',
+                                  background: isCurrent ? `${PALETTE.primary}0F` : pendingCancel2 ? `${STATUS.warning}18` : hasOverride ? `${STATUS.warning}12` : 'transparent',
                                   borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
                                   borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
                                   border: hasOverride && !isCurrent ? `1px solid ${STATUS.warning}4D` : undefined,
@@ -2676,7 +2680,8 @@ export default function CompanyDrilldown() {
                                 }}
                                 onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}
                               >
-                                <span title={cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>
+                                <span title={pendingCancel2 ? `รอ Admin อนุมัติ: ${pendingCancel2 === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancel2 === 'cancelled' ? 'ยกเลิก' : pendingCancel2 === 'postponed' ? 'เลื่อน' : pendingCancel2}` : cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>
+                                {pendingCancel2 && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.warning }} title="รอ Admin อนุมัติ" />}
                                 {attCount > 0 && (
                                   <span
                                     className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1"
