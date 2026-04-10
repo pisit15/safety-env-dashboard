@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getServiceSupabase } from '@/lib/supabase';
 
 /**
  * Phase 4: Cancellation/N/A Approval Workflow
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status') || 'pending';
   const planType = searchParams.get('planType');
 
-  let query = getSupabase()
+  let query = getServiceSupabase()
     .from('cancellation_requests')
     .select('*')
     .order('created_at', { ascending: false });
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for existing pending request for same cell
-    const { data: existing } = await getSupabase()
+    const { data: existing } = await getServiceSupabase()
       .from('cancellation_requests')
       .select('id')
       .eq('company_id', companyId)
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'มีคำขอที่รอการอนุมัติอยู่แล้ว' }, { status: 409 });
     }
 
-    const { data, error } = await getSupabase()
+    const { data, error } = await getServiceSupabase()
       .from('cancellation_requests')
       .insert({
         company_id: companyId,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Audit log
-    await getSupabase().from('audit_log').insert({
+    await getServiceSupabase().from('audit_log').insert({
       company_id: companyId,
       plan_type: planType,
       action: 'cancellation_request',
@@ -129,7 +129,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get the request first
-    const { data: req } = await getSupabase()
+    const { data: req } = await getServiceSupabase()
       .from('cancellation_requests')
       .select('*')
       .eq('id', id)
@@ -140,7 +140,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the request status
-    const { error: updateError } = await getSupabase()
+    const { error: updateError } = await getServiceSupabase()
       .from('cancellation_requests')
       .update({
         status: newStatus,
@@ -155,7 +155,7 @@ export async function PUT(request: NextRequest) {
 
     // If approved → apply the status override
     if (newStatus === 'approved') {
-      const { error: overrideError } = await getSupabase()
+      const { error: overrideError } = await getServiceSupabase()
         .from('status_overrides')
         .upsert({
           company_id: req.company_id,
@@ -176,7 +176,7 @@ export async function PUT(request: NextRequest) {
       }
 
       // Audit log for the actual status change
-      await getSupabase().from('audit_log').insert({
+      await getServiceSupabase().from('audit_log').insert({
         company_id: req.company_id,
         plan_type: req.plan_type,
         action: 'status_change',
@@ -189,7 +189,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Audit log for the review action
-    await getSupabase().from('audit_log').insert({
+    await getServiceSupabase().from('audit_log').insert({
       company_id: req.company_id,
       plan_type: req.plan_type,
       action: newStatus === 'approved' ? 'cancellation_approved' : 'cancellation_rejected',
