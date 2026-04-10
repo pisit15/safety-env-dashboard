@@ -2422,25 +2422,27 @@ export default function CompanyDrilldown() {
                 <div>
                   <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
-                      <col style={{ width: 52 }} />{/* ลำดับ */}
-                      {planType === 'total' && <col style={{ width: 32 }} />}{/* แผน S/E */}
-                      <col style={{ width: '30%' }} />{/* กิจกรรม — 30% of table width */}
-                      <col style={{ width: 60 }} />{/* ผู้รับผิดชอบ */}
+                      <col style={{ width: 48 }} />{/* ลำดับ */}
+                      {planType === 'total' && <col style={{ width: 30 }} />}{/* แผน S/E */}
+                      <col style={{ width: '35%' }} />{/* กิจกรรม — 35% of table width */}
+                      <col style={{ width: 52 }} />{/* ผู้รับผิดชอบ */}
                       {MONTH_KEYS.map(k => <col key={k} />)}{/* 12 months — share remaining space equally */}
                     </colgroup>
-                    <thead className="sticky top-0 z-20" style={{ background: 'var(--bg-primary, #fff)' }}>
+                    <thead>
                       <tr style={{ borderBottom: `2px solid var(--border)` }}>
-                        <th className="text-left py-3 px-1.5 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ลำดับ</th>
+                        {/* sticky on each <th> for cross-browser support */}
+                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ลำดับ</th>
                         {planType === 'total' && (
-                          <th className="text-center py-3 px-1 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>แผน</th>
+                          <th className="text-center py-2 px-0.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>แผน</th>
                         )}
-                        <th className="text-left py-3 px-2 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>กิจกรรม</th>
-                        <th className="text-left py-3 px-1.5 font-semibold text-[11px]" style={{ color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ผู้รับ</th>
+                        <th className="text-left py-2 px-1.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>กิจกรรม</th>
+                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ผู้รับ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
-                            className="text-center py-3 px-0 font-semibold text-[10px]"
+                            className="text-center py-2 px-0 font-semibold text-[10px]"
                             style={{
+                              position: 'sticky', top: 0, zIndex: 20,
                               color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
                               background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--bg-primary, #fff)',
                               borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0'
@@ -2486,7 +2488,7 @@ export default function CompanyDrilldown() {
                               const cfg = badgeCfg[overallSt];
                               if (!cfg) return null;
                               return (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
+                                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[8px] font-semibold mt-0.5 whitespace-nowrap"
                                   style={{ background: cfg.bg, color: cfg.color }}>
                                   <cfg.Icon size={9} /> {cfg.label}
                                 </span>
@@ -2514,7 +2516,7 @@ export default function CompanyDrilldown() {
                                 const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue');
                                 if (overdueMonths.length === 0) return null;
                                 const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
-                                return (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />เกินกำหนด: {labels}</span>);
+                                return (<span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />เกินกำหนด: {labels}</span>);
                               })()}
                             </div>
                             {(() => {
@@ -2576,7 +2578,7 @@ export default function CompanyDrilldown() {
                               const cfg = badgeCfg[overallSt];
                               if (!cfg) return null;
                               return (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold mt-0.5 whitespace-nowrap"
+                                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full text-[8px] font-semibold mt-0.5 whitespace-nowrap"
                                   style={{ background: cfg.bg, color: cfg.color }}>
                                   <cfg.Icon size={9} /> {cfg.label}
                                 </span>
@@ -2607,7 +2609,7 @@ export default function CompanyDrilldown() {
                                 if (overdueMonths.length === 0) return null;
                                 const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
                                 return (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium"
                                     style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}
                                     title={`เกินกำหนด: ${labels} — ยังไม่มีผลดำเนินการ`}>
                                     <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />
