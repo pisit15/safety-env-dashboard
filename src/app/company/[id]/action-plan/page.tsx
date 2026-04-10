@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
-import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown, Check, Circle, CircleDot, Clock, Ban, CircleSlash, Minus, CalendarClock, FolderOpen, Folder, CircleAlert, CircleDashed, Wallet, Pencil, Link2, ClipboardList, CircleCheckBig, Image, FileSpreadsheet } from 'lucide-react';
+import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown, Check, Circle, CircleDot, Clock, Ban, CircleSlash, Minus, CalendarClock, FolderOpen, Folder, CircleAlert, CircleDashed, Wallet, Pencil, ClipboardList, CircleCheckBig, Image, FileSpreadsheet } from 'lucide-react';
 import { MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
@@ -1532,33 +1532,6 @@ export default function CompanyDrilldown() {
     return groups;
   }, [enhancedFilteredActivities]);
 
-  // Cross-module links: find related activities between Safety and Environment
-  const crossModuleLinks = useMemo(() => {
-    if (planType !== 'total') return {};
-    const links: Record<string, { relatedTag: string; relatedNo: string; relatedName: string }[]> = {};
-    const safetyActs = activities.filter((a: any) => a._planTag === 'S');
-    const enviActs = activities.filter((a: any) => a._planTag === 'E');
-    // Link by same responsible person AND overlapping months
-    safetyActs.forEach(sAct => {
-      const sResp = getEffectiveResponsible(sAct).toLowerCase();
-      const sMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(sAct, mk) !== 'not_planned');
-      const sKey = `S:${sAct.no}`;
-      enviActs.forEach(eAct => {
-        const eResp = getEffectiveResponsible(eAct).toLowerCase();
-        const eMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(eAct, mk) !== 'not_planned');
-        if (sResp === eResp && sResp !== '-' && sResp !== '' && sMonths.some(m => eMonths.includes(m))) {
-          if (!links[sKey]) links[sKey] = [];
-          links[sKey].push({ relatedTag: 'E', relatedNo: eAct.no, relatedName: eAct.activity });
-          const eKey = `E:${eAct.no}`;
-          if (!links[eKey]) links[eKey] = [];
-          links[eKey].push({ relatedTag: 'S', relatedNo: sAct.no, relatedName: sAct.activity });
-        }
-      });
-    });
-    return links;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activities, planType, overrides]);
-
   // Responsible person stats: activities count, overdue count, done count
   const responsibleStats = useMemo(() => {
     const stats: Record<string, { name: string; total: number; done: number; overdue: number; open: number }> = {};
@@ -2317,12 +2290,12 @@ export default function CompanyDrilldown() {
                     <thead>
                       <tr style={{ borderBottom: `2px solid var(--border)` }}>
                         {/* sticky on each <th> for cross-browser support */}
-                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ลำดับ</th>
+                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>ลำดับ</th>
                         {planType === 'total' && (
-                          <th className="text-center py-2 px-0.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>แผน</th>
+                          <th className="text-center py-2 px-0.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>แผน</th>
                         )}
-                        <th className="text-left py-2 px-1.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>กิจกรรม</th>
-                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--bg-primary, #fff)' }}>ผู้รับ</th>
+                        <th className="text-left py-2 px-1.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>กิจกรรม</th>
+                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)' }}>ผู้รับ</th>
                         {MONTH_LABELS.map((m, idx) => (
                           <th
                             key={m}
@@ -2330,7 +2303,7 @@ export default function CompanyDrilldown() {
                             style={{
                               position: 'sticky', top: 0, zIndex: 20,
                               color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
-                              background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--bg-primary, #fff)',
+                              background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--card-solid, #fff)',
                               borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0'
                             }}
                           >
@@ -2631,20 +2604,6 @@ export default function CompanyDrilldown() {
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
                                     style={{ background: cfg.bg, color: cfg.color }} title={tier.details}>
                                     <cfg.Icon size={10} /> {cfg.label}
-                                  </span>
-                                );
-                              })()}
-                              {/* Cross-module link badge (Total view) */}
-                              {planType === 'total' && (() => {
-                                const tag = (act as any)._planTag as string | undefined;
-                                const linkKey = tag ? `${tag}:${act.no}` : act.no;
-                                const related = crossModuleLinks[linkKey];
-                                if (!related || related.length === 0) return null;
-                                return (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help"
-                                    style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary }}
-                                    title={related.map(r => `${r.relatedTag}:${r.relatedNo} ${r.relatedName}`).join('\n')}>
-                                    <Link2 size={10} /> {related.length} linked
                                   </span>
                                 );
                               })()}
