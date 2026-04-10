@@ -222,6 +222,27 @@ export async function GET(request: Request) {
     const totalNAAll = all.reduce((s, c) => s + (c.notApplicable || 0), 0);
     const totalOverdue = all.reduce((s, c) => s + (c.overdueCount || 0), 0);
 
+    // Fetch actual costs from budget_overrides (summed per company)
+    let actualCostByCompany: Record<string, number> = {};
+    try {
+      const { data: budgetRows, error: budgetError } = await sb
+        .from('budget_overrides')
+        .select('company_id, actual_cost')
+        .eq('plan_type', planType)
+        .eq('year', year);
+      if (!budgetError && budgetRows) {
+        budgetRows.forEach((r: any) => {
+          actualCostByCompany[r.company_id] = (actualCostByCompany[r.company_id] || 0) + (r.actual_cost || 0);
+        });
+      }
+    } catch {
+      // budget_overrides table might not exist yet — ignore
+    }
+    // Attach actualCost to each company summary
+    all.forEach((c: any) => {
+      c.actualCost = actualCostByCompany[c.companyId] || 0;
+    });
+
     // Phase B: Fetch priority breakdown from activity_metadata
     let priorityBreakdown = { critical: 0, high: 0, medium: 0, low: 0 };
     try {
@@ -258,6 +279,7 @@ export async function GET(request: Request) {
       monthlyProgress,
       totalOverdue,
       priorityBreakdown,
+      totalActualCost: Object.values(actualCostByCompany).reduce((s, v) => s + v, 0),
     };
 
     return NextResponse.json(data);

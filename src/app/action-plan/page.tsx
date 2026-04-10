@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Shield, Leaf, BarChart3, Calendar, Key, LogOut, AlertTriangle, ChevronUp, ChevronDown, RotateCcw, Info, TrendingUp, TrendingDown, Award, CheckCircle, XCircle, Clock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
-import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart } from '@/components/Charts';
+import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
 import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
@@ -119,6 +119,7 @@ export default function HQOverview() {
             existing.budget += c.budget;
             existing.enviBudget = c.budget;
             existing.overdueCount = (existing.overdueCount || 0) + (c.overdueCount || 0);
+            existing.actualCost = (existing.actualCost || 0) + ((c as any).actualCost || 0);
             existing.pctDone = existing.total > 0 ? Math.round(((existing.done + existing.notApplicable) / existing.total) * 1000) / 10 : 0;
             // Merge per-company monthlyProgress (Safety + Environment)
             if (c.monthlyProgress && existing.monthlyProgress) {
@@ -191,7 +192,8 @@ export default function HQOverview() {
             medium: (s.priorityBreakdown?.medium || 0) + (e.priorityBreakdown?.medium || 0),
             low: (s.priorityBreakdown?.low || 0) + (e.priorityBreakdown?.low || 0),
           },
-        });
+          totalActualCost: ((s as any).totalActualCost || 0) + ((e as any).totalActualCost || 0),
+        } as any);
         setLoading(false);
       }).catch(() => setLoading(false));
     } else {
@@ -451,6 +453,39 @@ export default function HQOverview() {
     });
     return overdue;
   }, [data, currentMonthIdx]);
+
+  // Budget Tracking: cumulative planned vs actual across all companies
+  const budgetTrackingData = useMemo<MonthlyBudget[]>(() => {
+    if (!data || !data.companies) return [];
+    const monthLabels = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const totalBudget = data.totalBudget || 0;
+    const totalActual = (data as any).totalActualCost || 0;
+    if (totalBudget <= 0 && totalActual <= 0) return [];
+
+    // Distribute planned budget proportionally based on activity count per month
+    const mp = data.monthlyProgress || [];
+    const totalPlannedActs = mp.reduce((s, m) => s + (m.planned || 0), 0);
+
+    const monthlyPlanned = mp.map(m => {
+      if (totalPlannedActs <= 0) return totalBudget / 12;
+      return totalBudget * ((m.planned || 0) / totalPlannedActs);
+    });
+
+    // For actual cost: distribute proportionally based on done activities per month
+    const totalDoneActs = mp.reduce((s, m) => s + (m.doneCount ?? m.completed ?? 0), 0);
+    const monthlyActual = mp.map(m => {
+      if (totalDoneActs <= 0) return 0;
+      return totalActual * ((m.doneCount ?? m.completed ?? 0) / totalDoneActs);
+    });
+
+    // Build cumulative
+    let cumP = 0, cumA = 0;
+    return monthLabels.map((label, i) => {
+      cumP += monthlyPlanned[i] || 0;
+      cumA += monthlyActual[i] || 0;
+      return { month: label, planned: Math.round(cumP), actual: Math.round(cumA) };
+    });
+  }, [data]);
 
   const monthNames = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const monthFullNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
@@ -2007,6 +2042,32 @@ export default function HQOverview() {
             <BudgetChart companies={data.companies} />
           </div>
         </div>
+
+        {/* Budget Tracking — Cumulative Planned vs Actual */}
+        {budgetTrackingData.length > 0 && (
+          <div className="glass-card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-[13px] font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <span className="w-0.5 h-4 rounded-full" style={{ background: STATUS.warning }}></span>
+                งบประมาณ — วางแผน vs ใช้จริง (สะสม)
+              </h3>
+              <div className="flex gap-4 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                <span>แผน <strong style={{ color: PALETTE.primary }}>{(data.totalBudget || 0).toLocaleString()}</strong> ฿</span>
+                <span>ใช้จริง <strong style={{ color: STATUS.warning }}>{((data as any).totalActualCost || 0).toLocaleString()}</strong> ฿</span>
+                {data.totalBudget > 0 && (
+                  <span style={{
+                    color: ((data as any).totalActualCost || 0) > data.totalBudget ? STATUS.critical : STATUS.positive,
+                  }}>
+                    ({Math.round((((data as any).totalActualCost || 0) / data.totalBudget) * 100)}%)
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ height: 280 }}>
+              <BudgetTrackingChart data={budgetTrackingData} totalPlanned={data.totalBudget} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

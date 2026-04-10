@@ -679,3 +679,199 @@ export function MonthlyProgressChart({ monthlyProgress }: MonthlyProgressChartPr
 
   return <canvas ref={canvasRef} />;
 }
+
+// Budget Tracking Chart — Cumulative planned vs actual budget line chart
+export interface MonthlyBudget {
+  month: string;       // 'ม.ค.', 'ก.พ.', etc.
+  planned: number;     // cumulative planned budget up to this month
+  actual: number;      // cumulative actual cost up to this month
+}
+
+interface BudgetTrackingChartProps {
+  data: MonthlyBudget[];
+  totalPlanned?: number;
+}
+
+export function BudgetTrackingChart({ data, totalPlanned }: BudgetTrackingChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current || typeof Chart === 'undefined' || !data.length) return;
+
+    const isDark = getTheme();
+    const colors = getThemeColors(isDark);
+    const currentMonth = new Date().getMonth();
+
+    const labels = data.map(d => d.month);
+    const plannedData = data.map(d => d.planned);
+    const actualData = data.map(d => d.actual);
+
+    const fmtBudget = (v: number) => {
+      if (v >= 1000000) return (v / 1000000).toFixed(2) + 'M';
+      if (v >= 1000) return (v / 1000).toFixed(0) + 'K';
+      return v.toLocaleString();
+    };
+
+    if (chartRef.current) chartRef.current.destroy();
+
+    const buildChart = (themeColors: ReturnType<typeof getThemeColors>) => new Chart(canvasRef.current!, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'งบที่วางแผน (สะสม)',
+            data: plannedData,
+            borderColor: statusColors.blue,
+            backgroundColor: statusColors.blue + '18',
+            borderWidth: 2,
+            borderDash: [6, 3],
+            fill: false,
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: statusColors.blue,
+          },
+          {
+            label: 'ใช้จริง (สะสม)',
+            data: actualData,
+            borderColor: statusColors.orange,
+            backgroundColor: statusColors.orange + '18',
+            borderWidth: 2.5,
+            fill: false,
+            tension: 0.1,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: statusColors.orange,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1.5,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: themeColors.legend, padding: 12, font: { size: 10 }, usePointStyle: true, pointStyle: 'circle' },
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx: any) => `${ctx.dataset.label}: ${fmtBudget(ctx.raw)} บาท`,
+              afterBody: (ctx: any) => {
+                const idx = ctx[0].dataIndex;
+                const plan = plannedData[idx] || 0;
+                const act = actualData[idx] || 0;
+                if (plan <= 0) return '';
+                const pct = Math.round((act / plan) * 100);
+                const diff = act - plan;
+                const sign = diff >= 0 ? '+' : '';
+                return `\nใช้ไป ${pct}% ของแผน (${sign}${fmtBudget(diff)} บาท)`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: themeColors.grid },
+            ticks: {
+              color: (ctx: any) => ctx.index <= currentMonth ? themeColors.label : themeColors.tick,
+              font: { size: 11, weight: (ctx: any) => ctx.index === currentMonth ? 'bold' : 'normal' },
+            },
+          },
+          y: {
+            grid: { color: themeColors.grid },
+            ticks: {
+              color: themeColors.tick,
+              callback: (v: number) => fmtBudget(v),
+            },
+            beginAtZero: true,
+          },
+        },
+      },
+      plugins: [
+        {
+          id: 'currentMonthLine',
+          afterDraw(chart: any) {
+            const xScale = chart.scales.x;
+            const x = xScale.getPixelForValue(currentMonth);
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = statusColors.orange;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, chart.chartArea.top);
+            ctx.lineTo(x, chart.chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+          },
+        },
+        {
+          id: 'gapShading',
+          beforeDatasetsDraw(chart: any) {
+            const meta0 = chart.getDatasetMeta(0);
+            const meta1 = chart.getDatasetMeta(1);
+            if (!meta0.data.length || !meta1.data.length) return;
+            const ctx = chart.ctx;
+            ctx.save();
+            const limit = Math.min(currentMonth + 1, meta0.data.length);
+            for (let i = 0; i < limit - 1; i++) {
+              const p0 = meta0.data[i];
+              const p1 = meta0.data[i + 1];
+              const a0 = meta1.data[i];
+              const a1 = meta1.data[i + 1];
+              const overBudget = actualData[i + 1] > plannedData[i + 1];
+              ctx.fillStyle = overBudget ? statusColors.red + '12' : statusColors.green + '0C';
+              ctx.beginPath();
+              ctx.moveTo(p0.x, p0.y);
+              ctx.lineTo(p1.x, p1.y);
+              ctx.lineTo(a1.x, a1.y);
+              ctx.lineTo(a0.x, a0.y);
+              ctx.closePath();
+              ctx.fill();
+            }
+            ctx.restore();
+          },
+        },
+        {
+          id: 'endLabels',
+          afterDraw(chart: any) {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textBaseline = 'middle';
+            const actualMeta = chart.getDatasetMeta(1);
+            const limitIdx = Math.min(currentMonth, actualMeta.data.length - 1);
+            if (limitIdx >= 0 && actualData[limitIdx] > 0) {
+              const pt = actualMeta.data[limitIdx];
+              ctx.fillStyle = statusColors.orange;
+              ctx.fillText(fmtBudget(actualData[limitIdx]) + ' ฿', pt.x + 8, pt.y);
+            }
+            ctx.restore();
+          },
+        },
+      ],
+    });
+
+    chartRef.current = buildChart(colors);
+
+    const observer = new MutationObserver(() => {
+      if (chartRef.current) chartRef.current.destroy();
+      if (canvasRef.current) {
+        chartRef.current = buildChart(getThemeColors(getTheme()));
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+      observer.disconnect();
+    };
+  }, [data, totalPlanned]);
+
+  return <canvas ref={canvasRef} />;
+}

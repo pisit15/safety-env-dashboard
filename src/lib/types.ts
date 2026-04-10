@@ -117,6 +117,7 @@ export interface DashboardData {
   overallPct: number;
   monthlyProgress: MonthlyProgress[];
   // Phase B: aggregate overdue + priority breakdown
+  totalActualCost?: number;
   totalOverdue?: number;
   priorityBreakdown?: {
     critical: number;

@@ -7,7 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import KPICard from '@/components/KPICard';
 
 import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSign, Calendar, Trash2, ExternalLink, AlertTriangle, FileText, Paperclip, StickyNote, X, ChevronRight, TrendingUp, TrendingDown, Check, Circle, CircleDot, Clock, Ban, CircleSlash, Minus, CalendarClock, Zap, FolderOpen, Folder, ClipboardCopy, CircleAlert, CircleDashed, Wallet, Pencil, Link2, ClipboardList, CircleCheckBig, Image, FileSpreadsheet } from 'lucide-react';
-import { MonthlyProgressChart } from '@/components/Charts';
+import { MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
 import { STATUS, PALETTE, CATEGORY_COLORS } from '@/lib/she-theme';
@@ -1471,6 +1471,52 @@ export default function CompanyDrilldown() {
     return total;
   }, [budgetOverrides]);
 
+  // Budget tracking: cumulative planned vs actual by month
+  const budgetTrackingData = useMemo<MonthlyBudget[]>(() => {
+    // For each activity, distribute its planned budget across its planned months
+    // Actual: if activity has actual_cost in budget_overrides, distribute across done months
+    const monthlyPlanned = new Array(12).fill(0);
+    const monthlyActual = new Array(12).fill(0);
+
+    activities.forEach(act => {
+      const prefix = getOverridePrefix(act as Activity & { _planTag?: string });
+      const actKey = `${prefix}${act.no}`;
+      const budget = act.budget || 0;
+      if (budget <= 0 && !budgetOverrides[actKey]) return;
+
+      // Find planned months for this activity
+      const plannedMonthIndices: number[] = [];
+      const doneMonthIndices: number[] = [];
+      MONTH_KEYS.forEach((mk, i) => {
+        const st = getEffectiveStatus(act, mk);
+        if (st !== 'not_planned') plannedMonthIndices.push(i);
+        if (st === 'done') doneMonthIndices.push(i);
+      });
+
+      // Distribute planned budget evenly across planned months
+      if (budget > 0 && plannedMonthIndices.length > 0) {
+        const perMonth = budget / plannedMonthIndices.length;
+        plannedMonthIndices.forEach(i => { monthlyPlanned[i] += perMonth; });
+      }
+
+      // Actual cost: use budget_overrides actual_cost, distributed across done months
+      const actualCost = budgetOverrides[actKey]?.actual_cost || 0;
+      if (actualCost > 0 && doneMonthIndices.length > 0) {
+        const perMonth = actualCost / doneMonthIndices.length;
+        doneMonthIndices.forEach(i => { monthlyActual[i] += perMonth; });
+      }
+    });
+
+    // Build cumulative data
+    let cumPlanned = 0;
+    let cumActual = 0;
+    return MONTH_LABELS.map((label, i) => {
+      cumPlanned += monthlyPlanned[i];
+      cumActual += monthlyActual[i];
+      return { month: label, planned: Math.round(cumPlanned), actual: Math.round(cumActual) };
+    });
+  }, [activities, budgetOverrides, overrides]);
+
   // Evidence indicator per activity: 'required' | 'attached' | 'missing' | 'na'
   // For Environment tab: evidence is expected for any month with status 'done'
   const evidenceIndicators = useMemo(() => {
@@ -2187,6 +2233,30 @@ export default function CompanyDrilldown() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Budget Tracking Chart — Planned vs Actual (cumulative) */}
+            {effectiveSummary && effectiveSummary.budget > 0 && (
+              <div className="glass-card rounded-xl p-5 mb-6 animate-fade-in-up">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${STATUS.warning}` }}>
+                    <Wallet size={14} className="inline mr-1.5" style={{ color: STATUS.warning }} />
+                    งบประมาณ — วางแผน vs ใช้จริง (สะสม)
+                  </h3>
+                  <div className="flex gap-3 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                    <span>แผน <strong style={{ color: PALETTE.primary }}>{effectiveSummary.budget.toLocaleString()}</strong> ฿</span>
+                    <span>ใช้จริง <strong style={{ color: STATUS.warning }}>{totalActualCost.toLocaleString()}</strong> ฿</span>
+                    {effectiveSummary.budget > 0 && (
+                      <span style={{ color: totalActualCost > effectiveSummary.budget ? STATUS.critical : STATUS.positive }}>
+                        ({Math.round((totalActualCost / effectiveSummary.budget) * 100)}%)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ height: 220 }}>
+                  <BudgetTrackingChart data={budgetTrackingData} totalPlanned={effectiveSummary.budget} />
                 </div>
               </div>
             )}
