@@ -15,6 +15,7 @@
  */
 
 import { MonthStatus } from './types';
+import { STATUS, PALETTE } from './she-theme';
 
 // ── Quarter definitions ──────────────────────────────────────────
 export const QUARTERS = [
@@ -36,13 +37,14 @@ export function getKPIScore(pct: number): number {
 }
 
 export function getScoreColor(score: number): string {
+  // Sequential blue→orange scale (colorblind-safe, per she-theme.ts)
   switch (score) {
-    case 5: return '#34c759'; // green
-    case 4: return '#30d158'; // light green
-    case 3: return '#ff9f0a'; // orange
-    case 2: return '#ff6b35'; // dark orange
-    case 1: return '#ff3b30'; // red
-    default: return '#8e8e93'; // gray
+    case 5: return STATUS.ok;        // #4E79A7 — steel blue (excellent)
+    case 4: return '#76B7B2';        // teal (good)
+    case 3: return STATUS.warning;   // #F28E2B — orange (fair)
+    case 2: return '#E15759';        // salmon-red (needs improvement)
+    case 1: return STATUS.critical;  // #C23B22 — dark red (critical)
+    default: return PALETTE.muted;   // #BAB0AC — gray
   }
 }
 

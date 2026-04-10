@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
 import { X, ChevronUp, ChevronDown, Paperclip, ExternalLink, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Activity, MonthStatus } from '@/lib/types';
+import { STATUS, PALETTE, CATEGORY_COLORS } from '@/lib/she-theme';
 import dynamic from 'next/dynamic';
 
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false });
@@ -12,13 +13,13 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
 const STATUS_OPTIONS: { value: MonthStatus; label: string; icon: string; color: string }[] = [
-  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: '#34c759' },
-  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: '#ff3b30' },
-  { value: 'planned', label: 'มีแผน', icon: '○', color: '#8e8e93' },
-  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: '#007aff' },
-  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: '#ff3b30' },
-  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: '#8e8e93' },
-  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: '#c7c7cc' },
+  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: STATUS.ok },
+  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: STATUS.critical },
+  { value: 'planned', label: 'มีแผน', icon: '○', color: PALETTE.muted },
+  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: STATUS.warning },
+  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: PALETTE.textSecondary },
+  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: PALETTE.muted },
+  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: PALETTE.border },
 ];
 
 interface Attachment {
@@ -186,8 +187,8 @@ export default function ActivityDrawer(props: DrawerProps) {
   const isOverBudget = budgetPctUsed > 100;
   const budgetVariance = modalBudget - (parseFloat(editingActualCost) || modalActualCost);
 
-  const accentColor = isSafety ? '#ff6b35' : isEnvi ? '#34c759' : '#007aff';
-  const accentBg = isSafety ? 'rgba(255,107,53,0.08)' : isEnvi ? 'rgba(52,199,89,0.08)' : 'rgba(0,122,255,0.08)';
+  const accentColor = isSafety ? CATEGORY_COLORS.safety : isEnvi ? CATEGORY_COLORS.environment : PALETTE.primary;
+  const accentBg = `${accentColor}12`;
 
   const handleSaveStatusWrapped = (status: MonthStatus) => {
     if (status === 'postponed' && !pendingPostpone) {
@@ -271,11 +272,7 @@ export default function ActivityDrawer(props: DrawerProps) {
       >
         {/* ── Header ── */}
         <div className="flex-shrink-0 px-5 py-4" style={{
-          background: isSafety
-            ? 'linear-gradient(135deg, #ff6b35 0%, #e8451a 100%)'
-            : isEnvi
-            ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)'
-            : 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)',
+          background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}CC 100%)`,
         }}>
           <div className="flex items-start justify-between">
             <div className="flex-1 mr-3 min-w-0">
@@ -371,7 +368,7 @@ export default function ActivityDrawer(props: DrawerProps) {
         {/* ── Lock Notice ── */}
         {!checkingLock && deadlineLocked && !hasApproval && !isAdmin && (
           <div className="flex-shrink-0 px-5 py-2.5" style={{ background: '#fef2f2', borderBottom: '1px solid #fecaca' }}>
-            <p className="text-xs font-medium" style={{ color: '#dc2626' }}>🔒 เลยกำหนดเวลาแก้ไข — ต้องขออนุมัติ</p>
+            <p className="text-xs font-medium" style={{ color: STATUS.critical }}>🔒 เลยกำหนดเวลาแก้ไข — ต้องขออนุมัติ</p>
           </div>
         )}
         {!checkingLock && deadlineLocked && isAdmin && (
@@ -415,7 +412,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {/* Completion flow */}
                   {pendingDone && (
                     <div className="rounded-lg p-3" style={{ background: 'rgba(52,199,89,0.06)', border: '1px solid rgba(52,199,89,0.3)' }}>
-                      <p className="text-xs font-semibold mb-2" style={{ color: '#16a34a' }}>บันทึกการดำเนินงาน</p>
+                      <p className="text-xs font-semibold mb-2" style={{ color: STATUS.ok }}>บันทึกการดำเนินงาน</p>
                       <div>
                         <label className="text-[11px] block mb-1" style={{ color: '#6b7280' }}>วันที่ดำเนินการเสร็จ</label>
                         <DateInput value={completionDate} onChange={v => setCompletionDate(v)} inputStyle={{ background: '#fff', border: '1px solid #d1d5db', color: '#1f2937' }} />
@@ -425,7 +422,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
                         <button onClick={() => onSaveStatus('done')} disabled={!completionDate || savingStatus}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: '#16a34a', color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1 }}>
+                          style={{ background: STATUS.ok, color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1 }}>
                           {savingStatus ? 'กำลังบันทึก...' : '✓ ยืนยัน'}
                         </button>
                       </div>
@@ -435,7 +432,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {/* Postpone flow */}
                   {pendingPostpone && (
                     <div className="rounded-lg p-3" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: '#2563eb' }}>เลือกเดือนที่จะเลื่อนไป:</p>
+                      <p className="text-xs font-medium mb-2" style={{ color: PALETTE.primary }}>เลือกเดือนที่จะเลื่อนไป:</p>
                       <div className="grid grid-cols-6 gap-1.5 mb-2">
                         {MONTH_KEYS.map((mk, idx) => {
                           const isPast = idx < new Date().getMonth();
@@ -446,10 +443,10 @@ export default function ActivityDrawer(props: DrawerProps) {
                             <button key={mk} onClick={() => !disabled && setPostponeMonth(mk)} disabled={disabled}
                               className="px-2 py-1.5 rounded text-xs transition-colors"
                               style={{
-                                background: isSelected ? '#2563eb' : disabled ? '#f3f4f6' : '#e5e7eb',
+                                background: isSelected ? PALETTE.primary : disabled ? '#f3f4f6' : '#e5e7eb',
                                 color: isSelected ? '#fff' : disabled ? '#d1d5db' : '#374151',
                                 cursor: disabled ? 'not-allowed' : 'pointer',
-                                border: isSelected ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                                border: isSelected ? `2px solid ${PALETTE.primary}` : '1px solid #e5e7eb',
                               }}
                             >{MONTH_LABELS[idx]}</button>
                           );
@@ -460,7 +457,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: '#e5e7eb', color: '#374151' }}>ยกเลิก</button>
                         <button onClick={() => onSaveStatus('postponed')} disabled={!postponeMonth || savingStatus}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: '#2563eb', color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}>
+                          style={{ background: PALETTE.primary, color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}>
                           {savingStatus ? '...' : `เลื่อนไป ${postponeMonth ? MONTH_LABELS[MONTH_KEYS.indexOf(postponeMonth)] : '...'}`}
                         </button>
                       </div>
@@ -470,10 +467,10 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {/* Phase 4: Approval Request Form (cancel, N/A, plan changes) */}
                   {pendingCancel && (() => {
                     const labels: Record<string, { title: string; placeholder: string; color: string; bg: string; border: string }> = {
-                      cancelled: { title: '⚠️ ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: '#ff3b30', bg: 'rgba(255,59,48,0.06)', border: 'rgba(255,59,48,0.2)' },
-                      not_applicable: { title: '⊘ ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: '#636366', bg: 'rgba(142,142,147,0.08)', border: 'rgba(142,142,147,0.2)' },
-                      not_planned: { title: '📋 ขอนำออกจากแผน (→ ไม่มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: '#ff9500', bg: 'rgba(255,149,0,0.06)', border: 'rgba(255,149,0,0.2)' },
-                      planned: { title: '📋 ขอเพิ่มเข้าแผน (→ มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: '#007aff', bg: 'rgba(0,122,255,0.06)', border: 'rgba(0,122,255,0.2)' },
+                      cancelled: { title: '⚠️ ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: PALETTE.textSecondary, bg: `${PALETTE.textSecondary}0A`, border: `${PALETTE.textSecondary}30` },
+                      not_applicable: { title: '⊘ ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: PALETTE.muted, bg: `${PALETTE.muted}12`, border: `${PALETTE.muted}30` },
+                      not_planned: { title: '📋 ขอนำออกจากแผน (→ ไม่มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: STATUS.warning, bg: `${STATUS.warning}0A`, border: `${STATUS.warning}30` },
+                      planned: { title: '📋 ขอเพิ่มเข้าแผน (→ มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: PALETTE.primary, bg: `${PALETTE.primary}0A`, border: `${PALETTE.primary}30` },
                     };
                     const cfg = labels[pendingCancel] || labels.cancelled;
                     return (
@@ -505,8 +502,8 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {/* Pending approval badge */}
                   {pendingCancellationStatus && !pendingCancel && (
                     <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.2)' }}>
-                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#ff9500' }} />
-                      <span className="text-[11px]" style={{ color: '#ff9500' }}>
+                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: STATUS.warning }} />
+                      <span className="text-[11px]" style={{ color: STATUS.warning }}>
                         คำขอ{pendingCancellationStatus === 'cancelled' ? 'ยกเลิก' : pendingCancellationStatus === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancellationStatus === 'not_planned' ? 'นำออกจากแผน' : pendingCancellationStatus === 'planned' ? 'เพิ่มเข้าแผน' : pendingCancellationStatus}รอการอนุมัติจาก Admin
                       </span>
                     </div>
@@ -530,7 +527,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {MONTH_KEYS.map((mk, idx) => {
                     const st = activity.monthStatuses?.[mk] || 'not_planned';
                     const isCurrent = mk === editingCell.month;
-                    const dotColor = st === 'done' ? '#34c759' : st === 'overdue' ? '#ff3b30' : st === 'planned' ? '#8e8e93' : st === 'postponed' ? '#007aff' : '#e5e7eb';
+                    const dotColor = st === 'done' ? STATUS.ok : st === 'overdue' ? STATUS.critical : st === 'planned' ? PALETTE.muted : st === 'postponed' ? STATUS.warning : PALETTE.border;
                     return (
                       <button
                         key={mk}
@@ -554,16 +551,16 @@ export default function ActivityDrawer(props: DrawerProps) {
                 <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
                   <span className="text-sm mt-0.5">🛡️</span>
                   <div className="text-[11px]" style={{ color: '#6b7280' }}>
-                    <p className="font-semibold mb-0.5" style={{ color: '#ff6b35' }}>ปิดกิจกรรม Safety</p>
+                    <p className="font-semibold mb-0.5" style={{ color: CATEGORY_COLORS.safety }}>ปิดกิจกรรม Safety</p>
                     <p>1. อัปเดตสถานะ "เสร็จแล้ว" → 2. แนบหลักฐาน → 3. ระบุรายละเอียด</p>
                   </div>
                 </div>
               )}
               {isEnvi && (
-                <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: 'rgba(52,199,89,0.06)', border: '1px solid rgba(52,199,89,0.2)' }}>
+                <div className="rounded-lg p-3 flex items-start gap-2" style={{ background: `${CATEGORY_COLORS.environment}0A`, border: `1px solid ${CATEGORY_COLORS.environment}30` }}>
                   <span className="text-sm mt-0.5">📋</span>
                   <div className="text-[11px]" style={{ color: '#6b7280' }}>
-                    <p className="font-semibold mb-0.5" style={{ color: '#34c759' }}>Compliance — แนบหลักฐานจำเป็น</p>
+                    <p className="font-semibold mb-0.5" style={{ color: CATEGORY_COLORS.environment }}>Compliance — แนบหลักฐานจำเป็น</p>
                     <p>อัปเดตสถานะ → แนบหลักฐาน (ใบอนุญาต/รายงาน) → บันทึกรายละเอียด</p>
                   </div>
                 </div>
@@ -575,7 +572,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   {!showEditRequest ? (
                     <button onClick={() => setShowEditRequest(true)}
                       className="w-full px-3 py-2.5 rounded-lg text-sm font-medium"
-                      style={{ background: '#4f46e5', color: '#fff' }}>
+                      style={{ background: PALETTE.primary, color: '#fff' }}>
                       ขอแก้ไขข้อมูลย้อนหลัง
                     </button>
                   ) : (
@@ -592,7 +589,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                         <button onClick={() => { onRequestEdit(editRequestReason); setShowEditRequest(false); setEditRequestReason(''); }}
                           disabled={!editRequestReason.trim()}
                           className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: '#4f46e5', color: '#fff', opacity: !editRequestReason.trim() ? 0.5 : 1 }}>
+                          style={{ background: PALETTE.primary, color: '#fff', opacity: !editRequestReason.trim() ? 0.5 : 1 }}>
                           ส่งคำขอ
                         </button>
                       </div>
@@ -613,8 +610,8 @@ export default function ActivityDrawer(props: DrawerProps) {
                   ? { background: 'rgba(255,59,48,0.04)', border: '2px dashed rgba(255,59,48,0.3)' }
                   : { background: '#f9fafb', border: '2px dashed #d1d5db' }
                 }>
-                  <Paperclip size={28} className="mx-auto mb-2" style={{ color: isEnvi ? '#ff3b30' : '#d1d5db' }} />
-                  <p className="text-xs font-medium" style={{ color: isEnvi ? '#ff3b30' : '#9ca3af' }}>
+                  <Paperclip size={28} className="mx-auto mb-2" style={{ color: isEnvi ? STATUS.critical : '#d1d5db' }} />
+                  <p className="text-xs font-medium" style={{ color: isEnvi ? STATUS.critical : '#9ca3af' }}>
                     {isEnvi ? '⚠ ยังไม่มีหลักฐาน — ต้องอัปโหลดเพื่อ compliance' : 'ยังไม่มีไฟล์แนบ'}
                   </p>
                 </div>
@@ -636,11 +633,11 @@ export default function ActivityDrawer(props: DrawerProps) {
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                         <a href={att.file_url || att.drive_url || '#'} target="_blank" rel="noopener noreferrer"
-                          className="text-xs transition-opacity hover:opacity-80" style={{ color: '#2563eb' }}>เปิด</a>
+                          className="text-xs transition-opacity hover:opacity-80" style={{ color: PALETTE.primary }}>เปิด</a>
                         {canEdit && (
                           <button onClick={() => onDeleteAttachment(att.id)} disabled={deletingAttId === att.id}
                             className="p-1 rounded transition-opacity hover:opacity-70"
-                            style={{ color: '#dc2626', opacity: deletingAttId === att.id ? 0.3 : 1 }}>
+                            style={{ color: STATUS.critical, opacity: deletingAttId === att.id ? 0.3 : 1 }}>
                             <Trash2 size={13} />
                           </button>
                         )}
@@ -654,7 +651,7 @@ export default function ActivityDrawer(props: DrawerProps) {
               {canEdit && (
                 <div className="space-y-3">
                   <label className={`inline-flex items-center justify-center w-full px-4 py-3 rounded-lg text-xs font-medium cursor-pointer transition-opacity ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}
-                    style={{ background: isEnvi ? '#16a34a' : '#2563eb', color: '#fff' }}>
+                    style={{ background: isEnvi ? STATUS.ok : PALETTE.primary, color: '#fff' }}>
                     {uploadingFile ? 'กำลังอัปโหลด...' : '+ อัปโหลดไฟล์'}
                     <input type="file" accept="image/*,.pdf,.xlsx,.xls,.doc,.docx" className="hidden"
                       onChange={e => { const file = e.target.files?.[0]; if (file) onUploadFile(file); e.target.value = ''; }}
@@ -677,7 +674,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                         onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); }} />
                       <button onClick={handleAddLink} disabled={addingLink || !externalLink.trim()}
                         className="px-3 py-1.5 rounded text-xs font-medium transition-opacity"
-                        style={{ background: '#2563eb', color: '#fff', opacity: addingLink || !externalLink.trim() ? 0.5 : 1 }}>
+                        style={{ background: PALETTE.primary, color: '#fff', opacity: addingLink || !externalLink.trim() ? 0.5 : 1 }}>
                         {addingLink ? '...' : '+ เพิ่ม'}
                       </button>
                     </div>
@@ -701,7 +698,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   </div>
                   <div>
                     <p className="text-[11px] mb-0.5" style={{ color: '#9ca3af' }}>ใช้จริง</p>
-                    <p className="text-xl font-bold" style={{ color: isOverBudget ? '#dc2626' : '#16a34a' }}>
+                    <p className="text-xl font-bold" style={{ color: isOverBudget ? STATUS.critical : STATUS.ok }}>
                       {modalActualCost > 0 ? modalActualCost.toLocaleString() : '-'}
                       {modalActualCost > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: '#9ca3af' }}>บาท</span>}
                     </p>
@@ -711,7 +708,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   <div className="mb-3">
                     <div className="flex items-center justify-between text-[11px] mb-1">
                       <span style={{ color: '#6b7280' }}>ใช้ไป {budgetPctUsed}%</span>
-                      <span className="flex items-center gap-1" style={{ color: isOverBudget ? '#dc2626' : '#16a34a' }}>
+                      <span className="flex items-center gap-1" style={{ color: isOverBudget ? STATUS.critical : STATUS.ok }}>
                         {isOverBudget ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                         {isOverBudget ? `เกินงบ ${Math.abs(budgetVariance).toLocaleString()}` : `เหลือ ${budgetVariance.toLocaleString()}`}
                       </span>
@@ -719,7 +716,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                     <div className="h-2 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
                       <div className="h-full rounded-full transition-all" style={{
                         width: `${Math.min(budgetPctUsed, 100)}%`,
-                        background: isOverBudget ? '#dc2626' : budgetPctUsed >= 85 ? '#f59e0b' : '#16a34a',
+                        background: isOverBudget ? STATUS.critical : budgetPctUsed >= 85 ? STATUS.warning : STATUS.ok,
                       }} />
                     </div>
                   </div>
@@ -740,7 +737,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                         onClick={() => onSaveBudget(editingCell.actNo, parseFloat(editingActualCost) || 0)}
                         disabled={savingBudget}
                         className="px-4 py-2 rounded-lg text-xs font-medium transition-opacity"
-                        style={{ background: '#f59e0b', color: '#fff', opacity: savingBudget ? 0.5 : 1 }}>
+                        style={{ background: STATUS.warning, color: '#fff', opacity: savingBudget ? 0.5 : 1 }}>
                         {savingBudget ? '...' : '💾 บันทึก'}
                       </button>
                     </div>
@@ -762,7 +759,7 @@ export default function ActivityDrawer(props: DrawerProps) {
                   />
                   <button onClick={() => onSaveNote(statusNote)} disabled={savingNote}
                     className="mt-2 px-4 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                    style={{ background: '#8b5cf6', color: '#fff', opacity: savingNote ? 0.5 : 1 }}>
+                    style={{ background: PALETTE.primary, color: '#fff', opacity: savingNote ? 0.5 : 1 }}>
                     {savingNote ? 'กำลังบันทึก...' : '💾 บันทึกหมายเหตุ'}
                   </button>
                 </div>

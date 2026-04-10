@@ -10,6 +10,7 @@ import { Search, Key, Download, BarChart3, Shield, Leaf, LogOut, Users, DollarSi
 import { MonthlyProgressChart } from '@/components/Charts';
 import { Activity, ActivityStatus, CompanySummary, MonthStatus } from '@/lib/types';
 import { YearlyKPISummary, QuarterlyKPI, getKPIScore, getScoreColor, getScoreLabel, QUARTERS } from '@/lib/kpi-calculator';
+import { STATUS, PALETTE, CATEGORY_COLORS } from '@/lib/she-theme';
 import { useAuth } from '@/components/AuthContext';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import dynamic from 'next/dynamic';
@@ -22,13 +23,13 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
 const STATUS_OPTIONS: { value: MonthStatus; label: string; icon: string; color: string }[] = [
-  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: 'var(--success)' },
-  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: 'var(--danger)' },
-  { value: 'planned', label: 'มีแผน', icon: '○', color: 'var(--muted)' },
-  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: 'var(--info)' },
-  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: 'var(--danger)' },
-  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: 'var(--muted)' },
-  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: 'var(--bg-hover)' },
+  { value: 'done', label: 'เสร็จแล้ว', icon: '●', color: STATUS.ok },
+  { value: 'overdue', label: 'เกินกำหนด', icon: '○', color: STATUS.critical },
+  { value: 'planned', label: 'มีแผน', icon: '○', color: PALETTE.muted },
+  { value: 'postponed', label: 'เลื่อน', icon: '◐', color: STATUS.warning },
+  { value: 'cancelled', label: 'ยกเลิก', icon: '✕', color: PALETTE.textSecondary },
+  { value: 'not_applicable', label: 'ไม่เข้าเงื่อนไข', icon: '⊘', color: PALETTE.muted },
+  { value: 'not_planned', label: 'ไม่มีแผน', icon: '-', color: PALETTE.border },
 ];
 
 interface StatusOverride {
@@ -1178,8 +1179,8 @@ export default function CompanyDrilldown() {
       return {
         headline: `Safety Action Plan ${selectedYear}`,
         subtitle: 'ขับเคลื่อนงานลดความเสี่ยง — ติดตาม ปิดงาน ป้องกันอุบัติเหตุ',
-        accentColor: '#ff6b35',
-        accentBg: 'rgba(255,107,53,0.15)',
+        accentColor: CATEGORY_COLORS.safety,
+        accentBg: `${CATEGORY_COLORS.safety}20`,
         kpi: { total: 'รายการรายเดือน', done: 'ปิดงานแล้ว', notStarted: 'เสี่ยงสูง — ยังไม่เริ่ม', postponed: 'เลื่อน (ติดตาม)', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Safety' },
         quickFilters: [
           { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
@@ -1206,8 +1207,8 @@ export default function CompanyDrilldown() {
       return {
         headline: `Environment Action Plan ${selectedYear}`,
         subtitle: 'ควบคุม compliance — ติดตามใบอนุญาต รายงาน หลักฐาน',
-        accentColor: '#34c759',
-        accentBg: 'rgba(52,199,89,0.15)',
+        accentColor: CATEGORY_COLORS.environment,
+        accentBg: `${CATEGORY_COLORS.environment}20`,
         kpi: { total: 'รายการรายเดือน', done: 'ดำเนินการแล้ว', notStarted: 'รอดำเนินการ', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบ Envi' },
         quickFilters: [
           { key: 'thisMonth', label: `📋 ถึงกำหนด ${MONTH_LABELS[currentMonthIdx]}`, icon: '' },
@@ -1234,8 +1235,8 @@ export default function CompanyDrilldown() {
       return {
         headline: `ภาพรวมแผนงาน ${selectedYear}`,
         subtitle: 'บริหารจัดลำดับระหว่าง Safety + Environment',
-        accentColor: 'var(--accent)',
-        accentBg: 'rgba(10,132,255,0.15)',
+        accentColor: PALETTE.primary,
+        accentBg: `${PALETTE.primary}20`,
         kpi: { total: 'รายการรายเดือน', done: 'เสร็จแล้ว', notStarted: 'ยังไม่เริ่ม', postponed: 'เลื่อน', cancelled: 'ยกเลิก', na: 'ไม่เข้าเงื่อนไข', budget: 'งบรวม' },
         quickFilters: [
           { key: 'thisMonth', label: `📅 เดือนนี้ (${MONTH_LABELS[currentMonthIdx]})`, icon: '' },
@@ -1703,7 +1704,7 @@ export default function CompanyDrilldown() {
                 onClick={() => { setPlanType('total'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'total'
-                  ? { background: 'var(--accent)', color: '#ffffff' }
+                  ? { background: PALETTE.primary, color: '#ffffff' }
                   : { color: 'var(--muted)' }}
               >
                 <BarChart3 size={14} className="inline mr-1" /> Total
@@ -1712,7 +1713,7 @@ export default function CompanyDrilldown() {
                 onClick={() => { setPlanType('safety'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'safety'
-                  ? { background: '#ff6b35', color: '#ffffff', boxShadow: '0 2px 10px rgba(255,107,53,0.3)' }
+                  ? { background: CATEGORY_COLORS.safety, color: '#ffffff', boxShadow: `0 2px 10px ${CATEGORY_COLORS.safety}50` }
                   : { color: 'var(--muted)' }}
               >
                 <Shield size={14} className="inline mr-1" /> Safety
@@ -1721,7 +1722,7 @@ export default function CompanyDrilldown() {
                 onClick={() => { setPlanType('environment'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'environment'
-                  ? { background: '#34c759', color: '#ffffff', boxShadow: '0 2px 10px rgba(52,199,89,0.3)' }
+                  ? { background: CATEGORY_COLORS.environment, color: '#ffffff', boxShadow: `0 2px 10px ${CATEGORY_COLORS.environment}50` }
                   : { color: 'var(--muted)' }}
               >
                 <Leaf size={14} className="inline mr-1" /> Environment
@@ -1739,7 +1740,7 @@ export default function CompanyDrilldown() {
                 color: 'var(--text-secondary)',
                 transition: 'all 0.2s ease',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(10,132,255,0.1)'; e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${PALETTE.primary}18`; e.currentTarget.style.color = PALETTE.primary; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
             >
               <Download size={16} />
@@ -1804,7 +1805,7 @@ export default function CompanyDrilldown() {
             ))}
           </select>
           {timeRange !== 'year' && (
-            <span className="text-[11px] px-2 py-1 rounded-md" style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}>
+            <span className="text-[11px] px-2 py-1 rounded-md" style={{ background: `${STATUS.warning}15`, color: STATUS.warning }}>
               {timeRange === 'ytd' ? `ม.ค. – ${MONTH_LABELS[currentMonthIdx]}` : MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]} เท่านั้น
             </span>
           )}
@@ -1825,7 +1826,7 @@ export default function CompanyDrilldown() {
                 <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: planConfig.accentBg, color: planConfig.accentColor }}>
                   {planConfig.filterSummaryLabel}
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,149,0,0.15)', color: '#ff9500' }}>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${STATUS.warning}15`, color: STATUS.warning }}>
                   {selectedYear}
                 </span>
                 <span style={{ color: 'var(--muted)' }}>•</span>
@@ -1835,7 +1836,7 @@ export default function CompanyDrilldown() {
                 {timeRange !== 'year' && timeRange !== 'ytd' && (
                   <>
                     <span style={{ color: 'var(--muted)' }}>•</span>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(88,86,214,0.15)', color: '#5856d6' }}>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary }}>
                       {MONTH_LABELS[MONTH_KEYS.indexOf(timeRange)]}
                     </span>
                   </>
@@ -1843,7 +1844,7 @@ export default function CompanyDrilldown() {
                 {quickFilter !== 'none' && (
                   <>
                     <span style={{ color: 'var(--muted)' }}>•</span>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }}>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}>
                       {planConfig.quickFilters.find(f => f.key === quickFilter)?.label || quickFilter}
                     </span>
                   </>
@@ -1851,7 +1852,7 @@ export default function CompanyDrilldown() {
                 {statusFilter !== 'all' && (
                   <>
                     <span style={{ color: 'var(--muted)' }}>•</span>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(10,132,255,0.12)', color: 'var(--accent)' }}>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${PALETTE.primary}18`, color: PALETTE.primary }}>
                       {statusFilter}
                     </span>
                   </>
@@ -1872,8 +1873,8 @@ export default function CompanyDrilldown() {
                 <div title={`สำเร็จจริง ${(effectiveSummary as any)?.pctPureDone || 0}% (${effectiveSummary?.done || 0} รายการ)\nรวม N/A ${effectiveSummary?.pctDone || 0}% (+${effectiveSummary?.notApplicable || 0} ไม่เข้าเงื่อนไข)`}>
                   <KPICard label={planConfig.kpi.done} value={effectiveSummary?.done || 0} color="var(--success)" progress={effectiveSummary?.pctDone || 0} delta={`${(effectiveSummary as any)?.pctPureDone || 0}%`} subtext={effectiveSummary?.notApplicable ? `+${effectiveSummary.notApplicable} N/A = ${effectiveSummary?.pctDone || 0}%` : undefined} />
                 </div>
-                <KPICard label="Safety ยังเปิด" value={crossPlanStats.safetyOpen} color="#ff6b35" subtext={`จาก ${crossPlanStats.safetyTotal} กิจกรรม`} />
-                <KPICard label="Envi ยังเปิด" value={crossPlanStats.enviOpen} color="#34c759" subtext={`จาก ${crossPlanStats.enviTotal} กิจกรรม`} />
+                <KPICard label="Safety ยังเปิด" value={crossPlanStats.safetyOpen} color={CATEGORY_COLORS.safety} subtext={`จาก ${crossPlanStats.safetyTotal} กิจกรรม`} />
+                <KPICard label="Envi ยังเปิด" value={crossPlanStats.enviOpen} color={CATEGORY_COLORS.environment} subtext={`จาก ${crossPlanStats.enviTotal} กิจกรรม`} />
                 <KPICard label="Overdue รวม" value={(crossPlanStats.safetyOverdue + crossPlanStats.enviOverdue)} color="var(--danger)" subtext={`S:${crossPlanStats.safetyOverdue} / E:${crossPlanStats.enviOverdue}`} />
                 <KPICard label={planConfig.kpi.budget} value={effectiveSummary?.budget ? effectiveSummary.budget.toLocaleString() : '-'} color="var(--accent)" subtext={totalActualCost > 0 ? `ใช้จริง ${totalActualCost.toLocaleString()}` : effectiveSummary?.safetyBudget !== undefined ? `S:${(effectiveSummary.safetyBudget || 0).toLocaleString()} / E:${(effectiveSummary.enviBudget || 0).toLocaleString()}` : 'บาท'} />
               </div>
@@ -1970,17 +1971,17 @@ export default function CompanyDrilldown() {
                         {isActive && (q.highPostponedRate || q.highCancelledRate || q.consecutiveLow) && (
                           <div className="flex gap-1 mt-1">
                             {q.highPostponedRate && (
-                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: 'rgba(0,122,255,0.1)', color: '#007aff' }}>
+                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: `${STATUS.warning}15`, color: STATUS.warning }}>
                                 เลื่อนมาก
                               </span>
                             )}
                             {q.highCancelledRate && (
-                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}>
+                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}>
                                 ยกเลิกมาก
                               </span>
                             )}
                             {q.consecutiveLow && (
-                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}>
+                              <span className="text-[8px] px-1 py-0.5 rounded" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}>
                                 ต่ำติดต่อกัน
                               </span>
                             )}
@@ -1999,11 +2000,11 @@ export default function CompanyDrilldown() {
                         <tr style={{ borderBottom: '2px solid var(--border)' }}>
                           <th style={{ padding: '6px 8px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>ไตรมาส</th>
                           <th style={{ padding: '6px 8px', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>รายการ</th>
-                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#34c759', fontWeight: 600 }}>สำเร็จ</th>
-                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#ff3b30', fontWeight: 600 }}>เกินกำหนด</th>
-                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#007aff', fontWeight: 600 }}>เลื่อน</th>
-                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#ff3b30', fontWeight: 600 }}>ยกเลิก</th>
-                          <th style={{ padding: '6px 8px', textAlign: 'center', color: '#8e8e93', fontWeight: 600 }}>N/A</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: STATUS.ok, fontWeight: 600 }}>สำเร็จ</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: STATUS.critical, fontWeight: 600 }}>เกินกำหนด</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: STATUS.warning, fontWeight: 600 }}>เลื่อน</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: PALETTE.textSecondary, fontWeight: 600 }}>ยกเลิก</th>
+                          <th style={{ padding: '6px 8px', textAlign: 'center', color: PALETTE.muted, fontWeight: 600 }}>N/A</th>
                           <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>ฐาน</th>
                           <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>%</th>
                           <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>คะแนน</th>
@@ -2016,10 +2017,10 @@ export default function CompanyDrilldown() {
                             <tr key={q.quarter} style={{ borderBottom: '1px solid var(--border)', opacity: isActive ? 1 : 0.4 }}>
                               <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-primary)' }}>{q.label}</td>
                               <td style={{ padding: '8px', textAlign: 'center' }}>{q.totalItems}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', color: '#34c759', fontWeight: 600 }}>{q.doneCount}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', color: q.overdueCount > 0 ? '#ff3b30' : 'var(--muted)' }}>{q.overdueCount}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', color: q.postponedCount > 0 ? '#007aff' : 'var(--muted)' }}>{q.postponedCount}</td>
-                              <td style={{ padding: '8px', textAlign: 'center', color: q.cancelledCount > 0 ? '#ff3b30' : 'var(--muted)' }}>{q.cancelledCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: STATUS.ok, fontWeight: 600 }}>{q.doneCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: q.overdueCount > 0 ? STATUS.critical : 'var(--muted)' }}>{q.overdueCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: q.postponedCount > 0 ? STATUS.warning : 'var(--muted)' }}>{q.postponedCount}</td>
+                              <td style={{ padding: '8px', textAlign: 'center', color: q.cancelledCount > 0 ? PALETTE.textSecondary : 'var(--muted)' }}>{q.cancelledCount}</td>
                               <td style={{ padding: '8px', textAlign: 'center', color: 'var(--muted)' }}>{q.notApplicableCount}</td>
                               <td style={{ padding: '8px', textAlign: 'center', fontWeight: 500 }}>{q.denominator}{q.isEmptyBase ? ' ⚠' : ''}</td>
                               <td style={{ padding: '8px', textAlign: 'center', fontWeight: 700, color: isActive ? q.scoreColor : 'var(--muted)' }}>{isActive ? `${q.percentage}%` : '—'}</td>
@@ -2056,11 +2057,11 @@ export default function CompanyDrilldown() {
                     <div className="flex items-center gap-3 mt-3 flex-wrap">
                       <span className="text-[10px]" style={{ color: 'var(--muted)' }}>เกณฑ์:</span>
                       {[
-                        { s: 5, l: '100%', c: '#34c759' },
-                        { s: 4, l: '≥90%', c: '#30d158' },
-                        { s: 3, l: '≥80%', c: '#ff9f0a' },
-                        { s: 2, l: '≥70%', c: '#ff6b35' },
-                        { s: 1, l: '<70%', c: '#ff3b30' },
+                        { s: 5, l: '100%', c: STATUS.ok },
+                        { s: 4, l: '≥90%', c: '#76B7B2' },
+                        { s: 3, l: '≥80%', c: STATUS.warning },
+                        { s: 2, l: '≥70%', c: '#E15759' },
+                        { s: 1, l: '<70%', c: STATUS.critical },
                       ].map(x => (
                         <span key={x.s} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: x.c + '15', color: x.c }}>
                           {x.s} = {x.l}
@@ -2076,25 +2077,25 @@ export default function CompanyDrilldown() {
             {planType === 'total' && crossPlanStats && (crossPlanStats.safetyOverdue > 0 || crossPlanStats.enviOverdue > 0) && (
               <div className="mb-5 animate-fade-in-up">
                 <h3 className="text-[13px] font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                  <AlertTriangle size={14} style={{ color: '#ff453a' }} />
+                  <AlertTriangle size={14} style={{ color: STATUS.critical }} />
                   ต้องติดตามก่อน
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {crossPlanStats.safetyOverdue > 0 && (
-                    <div className="p-3.5 rounded-lg" style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.25)' }}>
-                      <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#ff6b35' }}>
+                    <div className="p-3.5 rounded-lg" style={{ background: `${CATEGORY_COLORS.safety}12`, border: `1px solid ${CATEGORY_COLORS.safety}40` }}>
+                      <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: CATEGORY_COLORS.safety }}>
                         <Shield size={12} /> งานค้าง Safety
                       </div>
-                      <div className="text-[20px] font-bold mt-1" style={{ color: '#ff6b35' }}>{crossPlanStats.safetyOverdue}</div>
+                      <div className="text-[20px] font-bold mt-1" style={{ color: CATEGORY_COLORS.safety }}>{crossPlanStats.safetyOverdue}</div>
                       <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>เดือน-กิจกรรมที่เกินกำหนด</div>
                     </div>
                   )}
                   {crossPlanStats.enviOverdue > 0 && (
-                    <div className="p-3.5 rounded-lg" style={{ background: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.25)' }}>
-                      <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#34c759' }}>
+                    <div className="p-3.5 rounded-lg" style={{ background: `${CATEGORY_COLORS.environment}12`, border: `1px solid ${CATEGORY_COLORS.environment}40` }}>
+                      <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: CATEGORY_COLORS.environment }}>
                         <Leaf size={12} /> งานค้าง Environment
                       </div>
-                      <div className="text-[20px] font-bold mt-1" style={{ color: '#34c759' }}>{crossPlanStats.enviOverdue}</div>
+                      <div className="text-[20px] font-bold mt-1" style={{ color: CATEGORY_COLORS.environment }}>{crossPlanStats.enviOverdue}</div>
                       <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>เดือน-กิจกรรมที่เกินกำหนด</div>
                     </div>
                   )}
@@ -2105,11 +2106,11 @@ export default function CompanyDrilldown() {
                     const enviThisMonth = activities.filter((a: any) => a._planTag === 'E' && getEffectiveStatus(a, curMK) !== 'not_planned' && getEffectiveStatus(a, curMK) !== 'done' && getEffectiveStatus(a, curMK) !== 'not_applicable').length;
                     if (safetyThisMonth > 0 && enviThisMonth > 0) {
                       return (
-                        <div className="p-3.5 rounded-lg" style={{ background: 'rgba(88,86,214,0.08)', border: '1px solid rgba(88,86,214,0.25)' }}>
-                          <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: '#5856d6' }}>
+                        <div className="p-3.5 rounded-lg" style={{ background: `${PALETTE.primary}12`, border: `1px solid ${PALETTE.primary}40` }}>
+                          <div className="text-[11px] font-semibold flex items-center gap-1" style={{ color: PALETTE.primary }}>
                             <Calendar size={12} /> สองแผนชนกัน {MONTH_LABELS[currentMonthIdx]}
                           </div>
-                          <div className="text-[12px] font-bold mt-1" style={{ color: '#5856d6' }}>
+                          <div className="text-[12px] font-bold mt-1" style={{ color: PALETTE.primary }}>
                             S:{safetyThisMonth} + E:{enviThisMonth}
                           </div>
                           <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>กิจกรรมที่ยังเปิดเดือนนี้</div>
@@ -2202,11 +2203,11 @@ export default function CompanyDrilldown() {
             <div className="flex flex-wrap gap-2 mb-4 animate-fade-in-up">
               {[
                 { key: 'all', label: 'ทั้งหมด', color: 'var(--text-primary)' },
-                { key: 'done', label: planConfig.statusLabels.done, color: 'var(--success)' },
-                { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? 'var(--danger)' : 'var(--warning)' },
-                { key: 'postponed', label: planConfig.statusLabels.postponed, color: 'var(--info)' },
-                { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: 'var(--danger)' },
-                { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: 'var(--text-secondary)' },
+                { key: 'done', label: planConfig.statusLabels.done, color: STATUS.ok },
+                { key: 'not_started', label: planConfig.statusLabels.not_started, color: planType === 'safety' ? STATUS.critical : STATUS.warning },
+                { key: 'postponed', label: planConfig.statusLabels.postponed, color: STATUS.warning },
+                { key: 'cancelled', label: planConfig.statusLabels.cancelled, color: PALETTE.textSecondary },
+                { key: 'not_applicable', label: planConfig.statusLabels.not_applicable, color: PALETTE.muted },
               ].map(f => (
                 <button
                   key={f.key}
@@ -2291,14 +2292,14 @@ export default function CompanyDrilldown() {
                   <button
                     onClick={() => setShowBulkActions(!showBulkActions)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    style={{ background: showBulkActions ? 'rgba(99,102,241,0.1)' : 'var(--bg-hover)', color: showBulkActions ? '#6366f1' : 'var(--text-secondary)', border: showBulkActions ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--border)' }}
+                    style={{ background: showBulkActions ? `${PALETTE.primary}15` : 'var(--bg-hover)', color: showBulkActions ? PALETTE.primary : 'var(--text-secondary)', border: showBulkActions ? `1px solid ${PALETTE.primary}40` : '1px solid var(--border)' }}
                   >
                     ⚡ Bulk Actions {showBulkActions ? '▲' : '▼'}
                   </button>
                   <button
                     onClick={() => setGroupByCategory(!groupByCategory)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    style={{ background: groupByCategory ? 'rgba(245,158,11,0.1)' : 'var(--bg-hover)', color: groupByCategory ? '#d97706' : 'var(--text-secondary)', border: groupByCategory ? '1px solid rgba(245,158,11,0.3)' : '1px solid var(--border)' }}
+                    style={{ background: groupByCategory ? `${STATUS.warning}15` : 'var(--bg-hover)', color: groupByCategory ? STATUS.warning : 'var(--text-secondary)', border: groupByCategory ? `1px solid ${STATUS.warning}40` : '1px solid var(--border)' }}
                   >
                     {groupByCategory ? '📂' : '📁'} จัดกลุ่มตามหมวด {groupByCategory ? '(เปิด)' : ''}
                   </button>
@@ -2306,15 +2307,15 @@ export default function CompanyDrilldown() {
                     <div className="flex flex-wrap items-center gap-2 mt-2 p-3 rounded-lg" style={{ background: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.15)' }}>
                       <button onClick={handleBulkDoneCurrentMonth} disabled={bulkProcessing}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                        style={{ background: '#16a34a', color: '#fff', opacity: bulkProcessing ? 0.5 : 1 }}>
+                        style={{ background: STATUS.ok, color: '#fff', opacity: bulkProcessing ? 0.5 : 1 }}>
                         ✓ ปิดงานเดือน {MONTH_LABELS[currentMonthIdx]} ทั้งหมด
                       </button>
                       <button onClick={handleBulkCopyNotes} disabled={bulkProcessing || currentMonthIdx === 0}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-                        style={{ background: '#8b5cf6', color: '#fff', opacity: bulkProcessing || currentMonthIdx === 0 ? 0.5 : 1 }}>
+                        style={{ background: PALETTE.primary, color: '#fff', opacity: bulkProcessing || currentMonthIdx === 0 ? 0.5 : 1 }}>
                         📋 คัดลอก note จาก {currentMonthIdx > 0 ? MONTH_LABELS[currentMonthIdx - 1] : '...'} → {MONTH_LABELS[currentMonthIdx]}
                       </button>
-                      {bulkProcessing && <span className="text-xs animate-pulse" style={{ color: '#6b7280' }}>กำลังดำเนินการ...</span>}
+                      {bulkProcessing && <span className="text-xs animate-pulse" style={{ color: PALETTE.textSecondary }}>กำลังดำเนินการ...</span>}
                     </div>
                   )}
                 </div>
@@ -2349,11 +2350,11 @@ export default function CompanyDrilldown() {
                       {/* Activity rows — with optional category grouping */}
                       {groupByCategory ? categoryGroups.flatMap(group => [
                         <tr key={`cat-header-${group.categoryNo}`}>
-                          <td colSpan={planType === 'total' ? 16 : 15} className="py-2 px-3 text-[12px] font-bold" style={{ background: 'rgba(245,158,11,0.08)', color: '#d97706', borderBottom: '2px solid rgba(245,158,11,0.25)' }}>
+                          <td colSpan={planType === 'total' ? 16 : 15} className="py-2 px-3 text-[12px] font-bold" style={{ background: `${STATUS.warning}10`, color: STATUS.warning, borderBottom: `2px solid ${STATUS.warning}40` }}>
                             <span className="inline-flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: '#d97706' }}>{group.categoryNo}</span>
+                              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: STATUS.warning }}>{group.categoryNo}</span>
                               {group.categoryGroup}
-                              <span className="text-[10px] font-normal" style={{ color: '#9ca3af' }}>({group.activities.length} กิจกรรม)</span>
+                              <span className="text-[10px] font-normal" style={{ color: PALETTE.muted }}>({group.activities.length} กิจกรรม)</span>
                             </span>
                           </td>
                         </tr>,
@@ -2369,12 +2370,12 @@ export default function CompanyDrilldown() {
                                 return s === 'overdue' || s === 'planned';
                               });
                               const badgeCfg: Record<string, { label: string; bg: string; color: string }> = {
-                                done: { label: '✓ เสร็จ', bg: 'rgba(52,199,89,0.15)', color: '#34c759' },
+                                done: { label: '✓ เสร็จ', bg: `${STATUS.ok}20`, color: STATUS.ok },
                                 not_started: hasOverdueM
-                                  ? { label: '⚠ เสี่ยง', bg: 'rgba(255,149,0,0.18)', color: '#f59e0b' }
-                                  : { label: '⏳ ดำเนินการ', bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
-                                postponed: { label: '◐ เลื่อน', bg: 'rgba(0,122,255,0.15)', color: 'var(--info)' },
-                                cancelled: { label: '✕ ยกเลิก', bg: 'rgba(255,59,48,0.1)', color: '#ff3b30' },
+                                  ? { label: '⚠ เสี่ยง', bg: `${STATUS.warning}25`, color: STATUS.warning }
+                                  : { label: '⏳ ดำเนินการ', bg: `${PALETTE.muted}20`, color: PALETTE.muted },
+                                postponed: { label: '◐ เลื่อน', bg: `${STATUS.warning}20`, color: STATUS.warning },
+                                cancelled: { label: '✕ ยกเลิก', bg: `${PALETTE.textSecondary}15`, color: PALETTE.textSecondary },
                                 not_applicable: { label: '⊘ N/A', bg: 'rgba(156,163,175,0.1)', color: 'var(--muted)' },
                               };
                               const cfg = badgeCfg[overallSt];
@@ -2392,8 +2393,8 @@ export default function CompanyDrilldown() {
                               <span
                                 className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
                                 style={{
-                                  background: (act as any)._planTag === 'S' ? 'rgba(255,107,53,0.15)' : 'rgba(52,199,89,0.15)',
-                                  color: (act as any)._planTag === 'S' ? '#ff6b35' : '#34c759',
+                                  background: (act as any)._planTag === 'S' ? `${CATEGORY_COLORS.safety}20` : `${CATEGORY_COLORS.environment}20`,
+                                  color: (act as any)._planTag === 'S' ? CATEGORY_COLORS.safety : CATEGORY_COLORS.environment,
                                 }}
                               >
                                 {(act as any)._planTag === 'S' ? 'S' : 'E'}
@@ -2408,7 +2409,7 @@ export default function CompanyDrilldown() {
                                 const overdueMonths = MONTH_KEYS.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'overdue');
                                 if (overdueMonths.length === 0) return null;
                                 const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
-                                return (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#ff3b30' }} />เกินกำหนด: {labels}</span>);
+                                return (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: `${STATUS.critical}15`, color: STATUS.critical }} title={`เกินกำหนด: ${labels}`}><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />เกินกำหนด: {labels}</span>);
                               })()}
                             </div>
                             {(() => {
@@ -2419,7 +2420,7 @@ export default function CompanyDrilldown() {
                               if (activePMg.length === 0) return null;
                               const donePMg = activePMg.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
                               const pctG = Math.round((donePMg.length / activePMg.length) * 100);
-                              const barColorG = pctG >= 75 ? 'var(--success)' : pctG >= 25 ? '#ff9500' : 'var(--danger)';
+                              const barColorG = pctG >= 75 ? STATUS.ok : pctG >= 25 ? STATUS.warning : STATUS.critical;
                               return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? 'var(--success)' : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
@@ -2443,7 +2444,7 @@ export default function CompanyDrilldown() {
                             const cellPrefix = getOverridePrefix(act as Activity & { _planTag?: string });
                             const attCount = attachmentCounts[`${cellPrefix}${act.no}:${k}`] || 0;
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
-                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? 'rgba(0, 122, 255, 0.06)' : hasOverride ? 'rgba(255,159,10,0.08)' : 'transparent', borderLeft: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none', borderRight: isCurrent ? '1px solid rgba(0, 122, 255, 0.15)' : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: 'var(--accent)', color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: '#ff9500', color: '#fff' }}>✎</span>}</td>);
+                            return (<td key={k} className="text-center py-2.5 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span style={{ color: cfg.color }} className="text-sm" title={cfg.title}>{cfg.icon}</span>{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}>✎</span>}</td>);
                           })}
                         </tr>
                         ))
@@ -2459,12 +2460,12 @@ export default function CompanyDrilldown() {
                                 return s === 'overdue' || s === 'planned';
                               });
                               const badgeCfg: Record<string, { label: string; bg: string; color: string }> = {
-                                done: { label: '✓ เสร็จ', bg: 'rgba(52,199,89,0.15)', color: '#34c759' },
+                                done: { label: '✓ เสร็จ', bg: `${STATUS.ok}20`, color: STATUS.ok },
                                 not_started: hasOverdueM
-                                  ? { label: '⚠ เสี่ยง', bg: 'rgba(255,149,0,0.18)', color: '#f59e0b' }
-                                  : { label: '⏳ ดำเนินการ', bg: 'rgba(156,163,175,0.15)', color: '#9ca3af' },
-                                postponed: { label: '◐ เลื่อน', bg: 'rgba(0,122,255,0.15)', color: 'var(--info)' },
-                                cancelled: { label: '✕ ยกเลิก', bg: 'rgba(255,59,48,0.1)', color: '#ff3b30' },
+                                  ? { label: '⚠ เสี่ยง', bg: `${STATUS.warning}25`, color: STATUS.warning }
+                                  : { label: '⏳ ดำเนินการ', bg: `${PALETTE.muted}20`, color: PALETTE.muted },
+                                postponed: { label: '◐ เลื่อน', bg: `${STATUS.warning}20`, color: STATUS.warning },
+                                cancelled: { label: '✕ ยกเลิก', bg: `${PALETTE.textSecondary}15`, color: PALETTE.textSecondary },
                                 not_applicable: { label: '⊘ N/A', bg: 'rgba(156,163,175,0.1)', color: 'var(--muted)' },
                               };
                               const cfg = badgeCfg[overallSt];
@@ -2482,8 +2483,8 @@ export default function CompanyDrilldown() {
                               <span
                                 className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
                                 style={{
-                                  background: (act as any)._planTag === 'S' ? 'rgba(255,107,53,0.15)' : 'rgba(52,199,89,0.15)',
-                                  color: (act as any)._planTag === 'S' ? '#ff6b35' : '#34c759',
+                                  background: (act as any)._planTag === 'S' ? `${CATEGORY_COLORS.safety}20` : `${CATEGORY_COLORS.environment}20`,
+                                  color: (act as any)._planTag === 'S' ? CATEGORY_COLORS.safety : CATEGORY_COLORS.environment,
                                 }}
                               >
                                 {(act as any)._planTag === 'S' ? 'S' : 'E'}
@@ -2502,9 +2503,9 @@ export default function CompanyDrilldown() {
                                 const labels = overdueMonths.map(mk => MONTH_LABELS[MONTH_KEYS.indexOf(mk)]).join(', ');
                                 return (
                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                    style={{ background: 'rgba(255,59,48,0.1)', color: '#ff3b30' }}
+                                    style={{ background: `${STATUS.critical}15`, color: STATUS.critical }}
                                     title={`เกินกำหนด: ${labels} — ยังไม่มีผลดำเนินการ`}>
-                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#ff3b30' }} />
+                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.critical }} />
                                     เกินกำหนด: {labels}
                                   </span>
                                 );
@@ -2524,7 +2525,7 @@ export default function CompanyDrilldown() {
                                   return (
                                     <span
                                       className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                      style={{ background: 'rgba(0,122,255,0.15)', color: 'var(--info)' }}
+                                      style={{ background: `${STATUS.warning}20`, color: STATUS.warning }}
                                       title={`เลื่อนจาก ${fromLabel} → ${toLabel}`}
                                     >
                                       เลื่อน → {toLabel}
@@ -2555,8 +2556,8 @@ export default function CompanyDrilldown() {
                                       <span
                                         className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
                                         style={{
-                                          background: overBudget ? 'rgba(255,59,48,0.12)' : 'rgba(52,199,89,0.12)',
-                                          color: overBudget ? 'var(--danger)' : 'var(--success)',
+                                          background: overBudget ? `${STATUS.critical}18` : `${STATUS.ok}18`,
+                                          color: overBudget ? STATUS.critical : STATUS.ok,
                                         }}
                                         title={overBudget ? `ใช้จริง (เกินงบ ${Math.abs(actActual - actBudget).toLocaleString()})` : 'ใช้จริง'}
                                       >
@@ -2573,19 +2574,19 @@ export default function CompanyDrilldown() {
                                 const indicator = evidenceIndicators[actKey];
                                 if (indicator === 'attached') return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                                    style={{ background: 'rgba(52,199,89,0.12)', color: '#34c759' }} title="แนบหลักฐานแล้ว">
+                                    style={{ background: `${STATUS.ok}18`, color: STATUS.ok }} title="แนบหลักฐานแล้ว">
                                     ✓ แนบแล้ว
                                   </span>
                                 );
                                 if (indicator === 'missing') return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold animate-pulse"
-                                    style={{ background: 'rgba(255,59,48,0.12)', color: '#ff3b30' }} title="ดำเนินการแล้วแต่ยังไม่แนบหลักฐาน">
+                                    style={{ background: `${STATUS.critical}18`, color: STATUS.critical }} title="ดำเนินการแล้วแต่ยังไม่แนบหลักฐาน">
                                     ⚠ รอหลักฐาน
                                   </span>
                                 );
                                 if (indicator === 'required') return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                    style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }} title="ต้องใช้หลักฐานเมื่อดำเนินการเสร็จ">
+                                    style={{ background: `${STATUS.warning}15`, color: STATUS.warning }} title="ต้องใช้หลักฐานเมื่อดำเนินการเสร็จ">
                                     📋 ต้องใช้หลักฐาน
                                   </span>
                                 );
@@ -2604,7 +2605,7 @@ export default function CompanyDrilldown() {
                                   <>
                                     {totalAtt > 0 && (
                                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                        style={{ background: 'rgba(10,132,255,0.1)', color: 'var(--accent)' }}
+                                        style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary }}
                                         title={`${totalAtt} ไฟล์แนบ`}
                                       >
                                         📎 {totalAtt}
@@ -2612,7 +2613,7 @@ export default function CompanyDrilldown() {
                                     )}
                                     {totalNotes > 0 && (
                                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                        style={{ background: 'rgba(255,149,0,0.1)', color: '#ff9500' }}
+                                        style={{ background: `${STATUS.warning}15`, color: STATUS.warning }}
                                         title={`${totalNotes} เดือนมีหมายเหตุ`}
                                       >
                                         ✎ {totalNotes}
@@ -2628,9 +2629,9 @@ export default function CompanyDrilldown() {
                                 const tier = evidenceTiers[actKey];
                                 if (!tier || tier.tier === 'none') return null;
                                 const tierConfig = {
-                                  basic: { label: '◑ Basic', bg: 'rgba(255,149,0,0.1)', color: '#d97706' },
-                                  standard: { label: '◕ Standard', bg: 'rgba(59,130,246,0.1)', color: '#2563eb' },
-                                  full: { label: '● Full', bg: 'rgba(22,163,74,0.1)', color: '#16a34a' },
+                                  basic: { label: '◑ Basic', bg: `${STATUS.warning}15`, color: STATUS.warning },
+                                  standard: { label: '◕ Standard', bg: `${PALETTE.primary}15`, color: PALETTE.primary },
+                                  full: { label: '● Full', bg: `${STATUS.ok}15`, color: STATUS.ok },
                                 };
                                 const cfg = tierConfig[tier.tier];
                                 return (
@@ -2648,7 +2649,7 @@ export default function CompanyDrilldown() {
                                 if (!related || related.length === 0) return null;
                                 return (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-help"
-                                    style={{ background: 'rgba(139,92,246,0.1)', color: '#7c3aed' }}
+                                    style={{ background: `${PALETTE.primary}15`, color: PALETTE.primary }}
                                     title={related.map(r => `${r.relatedTag}:${r.relatedNo} ${r.relatedName}`).join('\n')}>
                                     🔗 {related.length} linked
                                   </span>
@@ -2664,7 +2665,7 @@ export default function CompanyDrilldown() {
                               if (activePM.length === 0) return null;
                               const donePM = activePM.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
                               const pct = Math.round((donePM.length / activePM.length) * 100);
-                              const barColor = pct >= 75 ? 'var(--success)' : pct >= 25 ? '#ff9500' : 'var(--danger)';
+                              const barColor = pct >= 75 ? STATUS.ok : pct >= 25 ? STATUS.warning : STATUS.critical;
                               return (
                                 <div className="flex items-center gap-1.5 mt-1.5" title={`${donePM.length}/${activePM.length} เดือนเสร็จ (${pct}%)`}>
                                   <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}>
@@ -2737,7 +2738,7 @@ export default function CompanyDrilldown() {
                                 {hasNote && (
                                   <span
                                     className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none"
-                                    style={{ background: '#ff9500', color: '#fff' }}
+                                    style={{ background: STATUS.warning, color: '#fff' }}
                                     title="มีหมายเหตุ"
                                   >
                                     ✎
@@ -2771,7 +2772,7 @@ export default function CompanyDrilldown() {
                     return (
                       <div key={person.name} className="rounded-lg p-3 flex items-center gap-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                          style={{ background: person.overdue > 0 ? 'linear-gradient(135deg, #ff3b30, #ff6b35)' : pctDone >= 100 ? 'linear-gradient(135deg, #34c759, #30d158)' : 'linear-gradient(135deg, var(--accent), #5856d6)' }}>
+                          style={{ background: person.overdue > 0 ? `linear-gradient(135deg, ${STATUS.critical}, ${CATEGORY_COLORS.safety})` : pctDone >= 100 ? `linear-gradient(135deg, ${STATUS.ok}, #76B7B2)` : `linear-gradient(135deg, ${PALETTE.primary}, #76B7B2)` }}>
                           {person.name.slice(0, 2)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -2783,7 +2784,7 @@ export default function CompanyDrilldown() {
                             {person.open > 0 && <span style={{ color: 'var(--muted)' }}>เปิด {person.open}</span>}
                           </div>
                           <div className="h-1 rounded-full mt-1.5 overflow-hidden" style={{ background: 'var(--border)' }}>
-                            <div className="h-full rounded-full" style={{ width: `${pctDone}%`, background: pctDone >= 100 ? 'var(--success)' : pctDone >= 50 ? '#ff9500' : 'var(--danger)' }} />
+                            <div className="h-full rounded-full" style={{ width: `${pctDone}%`, background: pctDone >= 100 ? STATUS.ok : pctDone >= 50 ? STATUS.warning : STATUS.critical }} />
                           </div>
                         </div>
                       </div>
@@ -2815,7 +2816,7 @@ export default function CompanyDrilldown() {
                     <div className="h-px" style={{ background: 'var(--border)' }} />
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(255,149,0,0.8)' }}></span>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: CATEGORY_COLORS.safety }}></span>
                         <span style={{ color: 'var(--text-secondary)' }}>Safety</span>
                       </span>
                       <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -2824,7 +2825,7 @@ export default function CompanyDrilldown() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'rgba(52,199,89,0.8)' }}></span>
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: CATEGORY_COLORS.environment }}></span>
                         <span style={{ color: 'var(--text-secondary)' }}>Environment</span>
                       </span>
                       <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -2835,8 +2836,8 @@ export default function CompanyDrilldown() {
                     <div className="flex h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
                       {effectiveSummary.budget > 0 && (
                         <>
-                          <div style={{ width: `${((effectiveSummary.safetyBudget || 0) / effectiveSummary.budget) * 100}%`, background: 'rgba(255,149,0,0.8)' }} />
-                          <div style={{ width: `${((effectiveSummary.enviBudget || 0) / effectiveSummary.budget) * 100}%`, background: 'rgba(52,199,89,0.8)' }} />
+                          <div style={{ width: `${((effectiveSummary.safetyBudget || 0) / effectiveSummary.budget) * 100}%`, background: CATEGORY_COLORS.safety }} />
+                          <div style={{ width: `${((effectiveSummary.enviBudget || 0) / effectiveSummary.budget) * 100}%`, background: CATEGORY_COLORS.environment }} />
                         </>
                       )}
                     </div>
@@ -2879,15 +2880,15 @@ export default function CompanyDrilldown() {
                               {doneNA}/{total}
                             </span>
                             <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{
-                              background: pct >= 80 ? 'rgba(48,209,88,0.15)' : pct >= 50 ? 'rgba(255,149,0,0.15)' : 'rgba(255,67,54,0.1)',
-                              color: pct >= 80 ? 'var(--success)' : pct >= 50 ? '#ff9500' : 'var(--danger)',
+                              background: pct >= 80 ? `${STATUS.ok}20` : pct >= 50 ? `${STATUS.warning}20` : `${STATUS.critical}15`,
+                              color: pct >= 80 ? STATUS.ok : pct >= 50 ? STATUS.warning : STATUS.critical,
                             }}>
                               {pct}%
                             </span>
                           </div>
                         </div>
                         <div className="flex h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
-                          <div style={{ width: `${pct}%`, background: pct >= 80 ? 'var(--success)' : pct >= 50 ? '#ff9500' : 'var(--danger)', transition: 'width 0.3s' }} />
+                          <div style={{ width: `${pct}%`, background: pct >= 80 ? STATUS.ok : pct >= 50 ? STATUS.warning : STATUS.critical, transition: 'width 0.3s' }} />
                         </div>
                       </div>
                     );
