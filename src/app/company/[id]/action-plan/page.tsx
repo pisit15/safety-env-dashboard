@@ -2278,9 +2278,9 @@ export default function CompanyDrilldown() {
                 <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
                   <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed', minWidth: 900 }}>
                     <colgroup>
-                      <col style={{ width: 48 }} />{/* ลำดับ */}
-                      {planType === 'total' && <col style={{ width: 38 }} />}{/* แผน S/E */}
-                      <col style={{ width: '35%' }} />{/* กิจกรรม — 35% of table width */}
+                      <col style={{ width: 44 }} />{/* ลำดับ */}
+                      {planType === 'total' && <col style={{ width: 44 }} />}{/* แผน S/E */}
+                      <col style={{ width: '30%' }} />{/* กิจกรรม */}
                       <col style={{ width: 52 }} />{/* ผู้รับผิดชอบ */}
                       {MONTH_KEYS.map(k => <col key={k} />)}{/* 12 months — share remaining space equally */}
                     </colgroup>
@@ -2366,7 +2366,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2 px-1.5 text-[10px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                          <td className="py-2 px-1.5 text-[9px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word', fontWeight: 400 }}>
                             <div>{act.activity}</div>
                             <div className="flex flex-wrap items-center gap-1 mt-1">
                               {(() => {
@@ -2456,7 +2456,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2 px-1.5 text-[10px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                          <td className="py-2 px-1.5 text-[9px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word', fontWeight: 400 }}>
                             <div>{act.activity}</div>
                             {/* Badges row: overdue + postponed + budget */}
                             <div className="flex flex-wrap items-center gap-1 mt-1">
