@@ -23,7 +23,11 @@ import {
   AlertTriangle,
   Settings,
   LogOut,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
+import type { DashboardData, CompanySummary } from '@/lib/types';
 
 export default function HomePage() {
   const auth = useAuth();
@@ -53,6 +57,51 @@ export default function HomePage() {
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+
+  // ─── Mini KPI state (admin only) ───
+  interface CompanyKPI {
+    safetyPct: number;
+    enviPct: number;
+    overdueTotal: number;
+    totalActivities: number;
+  }
+  const [companyKPIs, setCompanyKPIs] = useState<Record<string, CompanyKPI>>({});
+  const [kpiLoading, setKpiLoading] = useState(false);
+
+  useEffect(() => {
+    if (!auth.isAdmin) return;
+    let cancelled = false;
+    setKpiLoading(true);
+
+    Promise.all([
+      fetch('/api/dashboard?plan=safety').then(r => r.json()).catch(() => null),
+      fetch('/api/dashboard?plan=environment').then(r => r.json()).catch(() => null),
+    ]).then(([safetyData, enviData]: [DashboardData | null, DashboardData | null]) => {
+      if (cancelled) return;
+      const map: Record<string, CompanyKPI> = {};
+
+      // Process safety data
+      (safetyData?.companies || []).forEach((c: CompanySummary) => {
+        if (!map[c.companyId]) map[c.companyId] = { safetyPct: 0, enviPct: 0, overdueTotal: 0, totalActivities: 0 };
+        map[c.companyId].safetyPct = c.pctDone;
+        map[c.companyId].overdueTotal += c.overdueCount || 0;
+        map[c.companyId].totalActivities += c.total;
+      });
+
+      // Process environment data
+      (enviData?.companies || []).forEach((c: CompanySummary) => {
+        if (!map[c.companyId]) map[c.companyId] = { safetyPct: 0, enviPct: 0, overdueTotal: 0, totalActivities: 0 };
+        map[c.companyId].enviPct = c.pctDone;
+        map[c.companyId].overdueTotal += c.overdueCount || 0;
+        map[c.companyId].totalActivities += c.total;
+      });
+
+      setCompanyKPIs(map);
+      setKpiLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [auth.isAdmin]);
 
   const openLoginModal = (companyId: string, companyName: string, fullName?: string) => {
     const ca = auth.getCompanyAuth(companyId);
@@ -294,43 +343,102 @@ export default function HomePage() {
                   {group.companies.map((company) => {
                     const ca = auth.getCompanyAuth(company.id);
                     const isLoggedIn = ca.isLoggedIn || auth.isAdmin;
+                    const kpi = auth.isAdmin ? companyKPIs[company.id] : null;
+                    const hasOverdue = kpi && kpi.overdueTotal > 0;
+                    const avgPct = kpi && kpi.totalActivities > 0
+                      ? Math.round((kpi.safetyPct + kpi.enviPct) / 2)
+                      : null;
+                    // Urgency color for border: red if overdue, green if >70%, amber if 30-70%
+                    const urgencyBorder = hasOverdue
+                      ? 'rgba(194,59,34,0.4)'
+                      : isLoggedIn ? 'rgba(22,163,74,0.3)' : 'var(--border)';
                     return (
                       <button
                         key={company.id}
                         onClick={() => openLoginModal(company.id, company.shortName, company.fullName)}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                          borderRadius: 10, border: `1px solid ${isLoggedIn ? 'rgba(22,163,74,0.3)' : 'var(--border)'}`,
-                          background: isLoggedIn ? 'rgba(22,163,74,0.04)' : 'var(--card-solid)',
+                          display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px',
+                          borderRadius: 10, border: `1px solid ${urgencyBorder}`,
+                          background: hasOverdue ? 'rgba(194,59,34,0.03)' : isLoggedIn ? 'rgba(22,163,74,0.04)' : 'var(--card-solid)',
                           cursor: 'pointer', textAlign: 'left', width: '100%',
                           transition: 'all 0.15s', boxShadow: 'none',
                         }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = isLoggedIn ? 'rgba(22,163,74,0.3)' : 'var(--border)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = urgencyBorder; }}
                         title={`เลือก ${company.shortName} เพื่อเข้าสู่ระบบ`}
                       >
                         <div style={{
                           width: 38, height: 38, borderRadius: 10, flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 12, fontWeight: 700, color: '#fff',
+                          fontSize: 12, fontWeight: 700, color: '#fff', marginTop: 2,
                           background: `linear-gradient(135deg, ${group.color} 0%, ${group.color}cc 100%)`,
                         }}>
                           {company.shortName.substring(0, 2)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                            {company.shortName}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                              {company.shortName}
+                            </span>
+                            {isLoggedIn && !kpi && !kpiLoading && (
+                              <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>เข้าแล้ว</span>
+                            )}
                           </div>
                           {company.fullName && (
                             <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {company.fullName}
                             </div>
                           )}
+                          {/* Mini KPI badges — admin only */}
+                          {auth.isAdmin && kpi && kpi.totalActivities > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                              {/* Combined completion % */}
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                                background: avgPct !== null && avgPct >= 70 ? 'rgba(43,140,62,0.1)' : avgPct !== null && avgPct >= 30 ? 'rgba(242,142,43,0.1)' : 'rgba(194,59,34,0.1)',
+                                color: avgPct !== null && avgPct >= 70 ? '#2B8C3E' : avgPct !== null && avgPct >= 30 ? '#F28E2B' : '#C23B22',
+                              }}>
+                                <CheckCircle2 size={10} />
+                                {avgPct}%
+                              </span>
+                              {/* Safety % */}
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 2,
+                                padding: '1px 5px', borderRadius: 4, fontSize: 9, fontWeight: 500,
+                                background: 'rgba(78,121,167,0.08)', color: '#4E79A7',
+                              }}>
+                                S:{kpi.safetyPct}%
+                              </span>
+                              {/* Environment % */}
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 2,
+                                padding: '1px 5px', borderRadius: 4, fontSize: 9, fontWeight: 500,
+                                background: 'rgba(43,140,62,0.08)', color: '#2B8C3E',
+                              }}>
+                                E:{kpi.enviPct}%
+                              </span>
+                              {/* Overdue badge */}
+                              {hasOverdue && (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                                  padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                                  background: 'rgba(194,59,34,0.1)', color: '#C23B22',
+                                }}>
+                                  <AlertCircle size={10} />
+                                  {kpi.overdueTotal} เกินกำหนด
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {auth.isAdmin && kpiLoading && (
+                            <div style={{ marginTop: 6 }}>
+                              <Loader2 size={12} style={{ color: 'var(--muted)', animation: 'spin 1s linear infinite' }} />
+                            </div>
+                          )}
                         </div>
-                        {isLoggedIn ? (
-                          <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, flexShrink: 0 }}>เข้าแล้ว</span>
-                        ) : (
-                          <ArrowRight size={14} style={{ color: 'var(--border)', flexShrink: 0 }} />
+                        {!auth.isAdmin && !isLoggedIn && (
+                          <ArrowRight size={14} style={{ color: 'var(--border)', flexShrink: 0, marginTop: 4 }} />
                         )}
                       </button>
                     );

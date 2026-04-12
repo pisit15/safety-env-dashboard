@@ -1345,31 +1345,66 @@ export default function HQTrainingOverview() {
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' }}>
               เปรียบเทียบงบประมาณที่วางแผนกับค่าใช้จ่ายจริงในแต่ละเดือน
             </p>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, marginBottom: 8 }}>
-              {globalMonthly.map((d, i) => {
-                const maxBudget = Math.max(...globalMonthly.map(m => Math.max(m.budget, m.actual)), 1);
-                const budgetH = (d.budget / maxBudget) * 120;
-                const actualH = (d.actual / maxBudget) * 120;
-                return (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', width: '100%', justifyContent: 'center', height: 120 }}>
-                      <div style={{ width: '40%', height: budgetH || 1, background: '#93c5fd', borderRadius: '3px 3px 0 0' }} title={`งบ: ${d.budget.toLocaleString()}`} />
-                      <div style={{ width: '40%', height: actualH || 1, background: d.actual > d.budget ? '#f87171' : '#4ade80', borderRadius: '3px 3px 0 0' }} title={`จริง: ${d.actual.toLocaleString()}`} />
+            {/* Bullet Chart — Stephen Few style: budget as background band, actual as overlaid bar */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {(() => {
+                const maxVal = Math.max(...globalMonthly.map(m => Math.max(m.budget, m.actual)), 1);
+                // Only show months with data (trimmed)
+                const trimmed = globalMonthly.filter((d, i) => {
+                  // Show if this month or any prior has budget or actual
+                  return globalMonthly.slice(0, i + 1).some(m => m.budget > 0 || m.actual > 0)
+                    || i < 4; // always show at least first 4
+                });
+                return trimmed.map((d, i) => {
+                  const budgetPct = (d.budget / maxVal) * 100;
+                  const actualPct = (d.actual / maxVal) * 100;
+                  const overBudget = d.actual > d.budget && d.budget > 0;
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 32, fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right', flexShrink: 0 }}>
+                        {d.label}
+                      </span>
+                      <div style={{ flex: 1, position: 'relative', height: 20 }}
+                        title={`งบ: ${d.budget.toLocaleString()} | จริง: ${d.actual.toLocaleString()}`}
+                      >
+                        {/* Background track */}
+                        <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', background: '#f3f4f6', borderRadius: 4 }} />
+                        {/* Budget band (reference range) */}
+                        <div style={{ position: 'absolute', left: 0, top: 2, width: `${budgetPct}%`, height: 16, background: '#dbeafe', borderRadius: 3 }} />
+                        {/* Actual bar (thinner, overlaid) */}
+                        <div style={{
+                          position: 'absolute', left: 0, top: 5, height: 10, borderRadius: 2,
+                          width: `${actualPct}%`,
+                          background: overBudget ? '#ef4444' : d.actual > 0 ? '#4E79A7' : 'transparent',
+                          transition: 'width 0.3s ease',
+                        }} />
+                        {/* Budget target marker line */}
+                        {d.budget > 0 && (
+                          <div style={{
+                            position: 'absolute', left: `${budgetPct}%`, top: 1, width: 2, height: 18,
+                            background: '#3b82f6', borderRadius: 1,
+                          }} />
+                        )}
+                      </div>
+                      <span style={{ width: 50, fontSize: 9, color: overBudget ? '#ef4444' : 'var(--text-secondary)', textAlign: 'right', flexShrink: 0, fontWeight: overBudget ? 700 : 400 }}>
+                        {d.actual > 0 ? `${(d.actual / 1000).toFixed(0)}K` : '-'}
+                      </span>
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{d.label}</div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#93c5fd', display: 'inline-block' }} /> งบประมาณ
+                <span style={{ width: 16, height: 10, borderRadius: 2, background: '#dbeafe', display: 'inline-block' }} />
+                <span style={{ width: 2, height: 12, background: '#3b82f6', display: 'inline-block', borderRadius: 1 }} />
+                งบประมาณ
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> ค่าใช้จ่ายจริง
+                <span style={{ width: 16, height: 6, borderRadius: 2, background: '#4E79A7', display: 'inline-block' }} /> ค่าใช้จ่ายจริง
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f87171', display: 'inline-block' }} /> เกินงบ
+                <span style={{ width: 16, height: 6, borderRadius: 2, background: '#ef4444', display: 'inline-block' }} /> เกินงบ
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, padding: '10px 0', borderTop: '1px solid var(--border)', fontSize: 13 }}>
@@ -1382,7 +1417,7 @@ export default function HQTrainingOverview() {
 
         {/* Company Budget & Man-Hours Charts — side by side */}
         {historyTab === 'overview' && !loading && companySummaries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, marginBottom: 20 }}>
             {/* Left: Budget by Company */}
             <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px' }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
