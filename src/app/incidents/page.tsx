@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, ReactNode } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import {
   AlertTriangle, Activity, Clock, Shield, Users, DollarSign,
   TrendingUp, TrendingDown, BarChart3, Building2, ChevronRight, ChevronDown,
+  Skull, Hospital, Wallet,
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -236,32 +237,32 @@ export default function HQIncidentsPage() {
 
   // "ต้องดูวันนี้" alerts — with table filter key
   type AlertFilterKey = 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH';
-  const alerts: { icon: string; label: string; detail: string; severity: 'critical' | 'warning' | 'info'; companyId?: string; filterKey: AlertFilterKey }[] = [];
+  const alerts: { icon: ReactNode; label: string; detail: string; severity: 'critical' | 'warning' | 'info'; companyId?: string; filterKey: AlertFilterKey }[] = [];
 
   // 1. Fatality > 0
   const fatalCompanies = sortedCompanies.filter(([, s]) => s.fatality > 0);
   if (fatalCompanies.length > 0) {
     const totalFatal = fatalCompanies.reduce((s, [, st]) => s + st.fatality, 0);
     const names = fatalCompanies.map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ');
-    alerts.push({ icon: '💀', label: `มีผู้เสียชีวิต ${totalFatal} ราย`, detail: names, severity: 'critical', filterKey: 'fatality' });
+    alerts.push({ icon: <Skull size={16} />, label: `มีผู้เสียชีวิต ${totalFatal} ราย`, detail: names, severity: 'critical', filterKey: 'fatality' });
   }
   // 2. Companies with LTI > 0
   const ltiCompanies = sortedCompanies.filter(([, s]) => s.lti > 0);
   if (ltiCompanies.length > 0) {
     const totalLti = ltiCompanies.reduce((s, [, st]) => s + st.lti, 0);
-    alerts.push({ icon: '🏥', label: `LTI ${totalLti} ราย (${ltiCompanies.length} บริษัท)`, detail: ltiCompanies.slice(0, 3).map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ') + (ltiCompanies.length > 3 ? ` +${ltiCompanies.length - 3}` : ''), severity: 'critical', filterKey: 'lti' });
+    alerts.push({ icon: <Hospital size={16} />, label: `LTI ${totalLti} ราย (${ltiCompanies.length} บริษัท)`, detail: ltiCompanies.slice(0, 3).map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ') + (ltiCompanies.length > 3 ? ` +${ltiCompanies.length - 3}` : ''), severity: 'critical', filterKey: 'lti' });
   }
   // 3. Highest LTIFR
   if (ltifrValues.length > 0 && ltifrValues[0].ltifr! > 0) {
     const topId = ltifrValues[0].id;
     const name = COMPANIES.find(c => c.id === topId)?.shortName || topId.toUpperCase();
-    alerts.push({ icon: '🔺', label: `LTIFR สูงสุด: ${ltifrValues[0].ltifr!.toFixed(2)}`, detail: name, severity: 'warning', filterKey: 'highRate' });
+    alerts.push({ icon: <TrendingUp size={16} />, label: `LTIFR สูงสุด: ${ltifrValues[0].ltifr!.toFixed(2)}`, detail: name, severity: 'warning', filterKey: 'highRate' });
   }
   // 4. No man-hours but has incidents
   const noMHCompanies = sortedCompanies.filter(([cId, s]) => s.total > 0 && (!manHoursByCompany[cId] || manHoursByCompany[cId].total === 0));
   if (noMHCompanies.length > 0) {
     const names = noMHCompanies.map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ');
-    alerts.push({ icon: '⚠️', label: `ไม่มี man-hours (${noMHCompanies.length} บริษัท)`, detail: `${names} — TRIR/LTIFR คำนวณไม่ได้`, severity: 'warning', filterKey: 'noMH' });
+    alerts.push({ icon: <AlertTriangle size={16} />, label: `ไม่มี man-hours (${noMHCompanies.length} บริษัท)`, detail: `${names} — TRIR/LTIFR คำนวณไม่ได้`, severity: 'warning', filterKey: 'noMH' });
   }
   // 5. Highest cost company
   const costSorted = sortedCompanies
@@ -271,7 +272,7 @@ export default function HQIncidentsPage() {
   if (costSorted.length > 0) {
     const top = costSorted[0];
     const name = COMPANIES.find(c => c.id === top.cId)?.shortName || top.cId.toUpperCase();
-    alerts.push({ icon: '💰', label: `ค่าเสียหายสูงสุด: ${top.cost.toLocaleString()} ฿`, detail: name, severity: 'info', filterKey: 'highCost' });
+    alerts.push({ icon: <Wallet size={16} />, label: `ค่าเสียหายสูงสุด: ${top.cost.toLocaleString()} ฿`, detail: name, severity: 'info', filterKey: 'highCost' });
   }
 
   // Wave B: Previous year data for trend comparison
@@ -475,7 +476,7 @@ export default function HQIncidentsPage() {
                           }}
                           onClick={() => setTableFilter(isActive ? 'all' : alert.filterKey)}
                         >
-                          <span style={{ fontSize: 18, flexShrink: 0 }}>{alert.icon}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', color: isActive ? '#fff' : severityStyle.color, flexShrink: 0 }}>{alert.icon}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? '#fff' : severityStyle.color }}>{alert.label}</div>
                             <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : severityStyle.color, opacity: isActive ? 1 : 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.detail}</div>
@@ -499,9 +500,9 @@ export default function HQIncidentsPage() {
                   { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#22c55e', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null, subtitle: undefined as string | undefined },
                   { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null, subtitle: undefined as string | undefined },
                 ].map((kpi, idx) => (
-                  <div key={idx} className="rounded-2xl p-4" style={{
-                    background: kpi.emphasis ? '#fef2f2' : 'var(--card-solid)',
-                    border: kpi.emphasis ? '2px solid #ef4444' : '1px solid var(--border)',
+                  <div key={idx} className="glass-card rounded-2xl p-4" style={{
+                    background: kpi.emphasis ? '#fef2f2' : undefined,
+                    border: kpi.emphasis ? '2px solid #ef4444' : undefined,
                     boxShadow: kpi.emphasis ? '0 0 0 3px rgba(239,68,68,0.1)' : undefined,
                   }}>
                     <div className="flex items-center gap-2 mb-2">
@@ -523,20 +524,20 @@ export default function HQIncidentsPage() {
 
               {/* Supplementary: Man-hours + Injury count (secondary row) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <div className="glass-card rounded-2xl p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Man-hours รวม</p>
                   <p className="text-xl font-bold" style={{ color: totalManHours > 0 ? 'var(--text-primary)' : 'var(--muted)' }}>
                     {totalManHours > 0 ? totalManHours.toLocaleString() : 'ยังไม่มีข้อมูล'}
                   </p>
                 </div>
-                <div className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <div className="glass-card rounded-2xl p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>บาดเจ็บทั้งหมด</p>
                   <p className="text-xl font-bold" style={{ color: '#f97316' }}>
                     {totalSummary.totalInjuries}
                     {prevSummary && trendBadge(totalSummary.totalInjuries, prevSummary.totalInjuries)}
                   </p>
                 </div>
-                <div className="rounded-2xl p-4" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                <div className="glass-card rounded-2xl p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>ทรัพย์สินเสียหาย</p>
                   <p className="text-xl font-bold" style={{ color: '#22c55e' }}>
                     {totalSummary.propertyDamage}
@@ -545,7 +546,7 @@ export default function HQIncidentsPage() {
               </div>
 
               {/* ═══ Company Comparison Table — Triage-First ═══ */}
-              <div className="rounded-2xl overflow-hidden mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+              <div className="glass-card rounded-2xl overflow-hidden mb-6">
                 <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
                     เปรียบเทียบรายบริษัท — {yearLabel}
@@ -669,7 +670,7 @@ export default function HQIncidentsPage() {
               </div>
 
               {/* ═══ Wave C: Monthly Chart with Toggle ═══ */}
-              <div className="rounded-2xl p-5 mb-6" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+              <div className="glass-card rounded-2xl p-5 mb-6">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
                     อุบัติการณ์รายเดือน — {chartMode === 'all' ? 'ทุกบริษัท' : `Top 5 บริษัท`} ({yearLabel})

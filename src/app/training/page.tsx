@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
-import { Calendar, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Calendar, Search, CheckCircle, XCircle, Clock, BookOpen, CheckCircle2, CalendarCheck, Users, AlertTriangle, ClipboardList, BarChart3, GraduationCap, Wallet } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -697,8 +697,8 @@ export default function HQTrainingOverview() {
 
       <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            🎓 HQ Training Overview
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <GraduationCap size={24} /> HQ Training Overview
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: '4px 0', fontSize: 14 }}>
             ภาพรวมแผนอบรมทุกบริษัทในกลุ่ม EA • ปี {selectedYear}
@@ -713,8 +713,8 @@ export default function HQTrainingOverview() {
           </select>
 
           <button style={{ padding: '6px 14px', borderRadius: 6, border: '2px solid var(--accent)',
-                background: 'var(--accent)', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
-              📊 ภาพรวม
+                background: 'var(--accent)', color: '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <BarChart3 size={14} /> ภาพรวม
           </button>
         </div>
 
@@ -811,9 +811,9 @@ export default function HQTrainingOverview() {
                           <td style={{ padding: '8px 10px', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{req.reason}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'center' }}>{req.requested_by || '-'}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                            {req.status === 'pending' && <span style={{ color: '#ff9500', fontWeight: 600 }}>⏳ รอ</span>}
-                            {req.status === 'approved' && <span style={{ color: '#34c759', fontWeight: 600 }}>✓ อนุมัติ</span>}
-                            {req.status === 'rejected' && <span style={{ color: '#ff3b30', fontWeight: 600 }}>✕ ปฏิเสธ</span>}
+                            {req.status === 'pending' && <span style={{ color: '#ff9500', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}><Clock size={14} /> รอ</span>}
+                            {req.status === 'approved' && <span style={{ color: '#34c759', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}><CheckCircle size={14} /> อนุมัติ</span>}
+                            {req.status === 'rejected' && <span style={{ color: '#ff3b30', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}><XCircle size={14} /> ปฏิเสธ</span>}
                           </td>
                           <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                             {req.status === 'pending' ? (
@@ -853,12 +853,12 @@ export default function HQTrainingOverview() {
               <>
                 {/* KPI Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-                  <KPIBox icon="📚" label="หลักสูตรรวม" value={totals.courses} />
-                  <KPIBox icon="✅" label="อบรมแล้ว" value={`${totals.completed}`} sub={`${overallPct}%`} color="var(--success)" />
-                  <KPIBox icon="📅" label="กำหนดวันแล้ว" value={`${totals.scheduled}`} color="#3b82f6" />
-                  <KPIBox icon="⏳" label="รอดำเนินการ" value={`${totals.pending}`} color="#f59e0b" />
-                  <KPIBox icon="👥" label="ผู้เข้าอบรม" value={totals.participants} />
-                  {totals.warnings > 0 && <KPIBox icon="⚠️" label="ต้องเร่ง" value={totals.warnings} color="var(--danger)" />}
+                  <KPIBox icon={<BookOpen size={14} />} label="หลักสูตรรวม" value={totals.courses} />
+                  <KPIBox icon={<CheckCircle2 size={14} />} label="อบรมแล้ว" value={`${totals.completed}`} sub={`${overallPct}%`} color="var(--success)" />
+                  <KPIBox icon={<CalendarCheck size={14} />} label="กำหนดวันแล้ว" value={`${totals.scheduled}`} color="#3b82f6" />
+                  <KPIBox icon={<Clock size={14} />} label="รอดำเนินการ" value={`${totals.pending}`} color="#f59e0b" />
+                  <KPIBox icon={<Users size={14} />} label="ผู้เข้าอบรม" value={totals.participants} />
+                  {totals.warnings > 0 && <KPIBox icon={<AlertTriangle size={14} />} label="ต้องเร่ง" value={totals.warnings} color="var(--danger)" />}
                 </div>
 
                 {/* Monthly Overview Chart */}
@@ -934,8 +934,8 @@ export default function HQTrainingOverview() {
                     if (!md || md.courses.length === 0) return null;
                     return (
                       <div style={{ marginTop: 16, padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-                          📋 รายการอบรมเดือน{md.label} ({md.courses.length} หลักสูตร)
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <ClipboardList size={14} /> รายการอบรมเดือน{md.label} ({md.courses.length} หลักสูตร)
                         </div>
                         <div style={{ overflowX: 'auto', borderRadius: 6, border: '1px solid var(--border)' }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -979,8 +979,8 @@ export default function HQTrainingOverview() {
 
                 {/* Company % Completion per Month — Matrix Table */}
                 <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                    📊 % อบรมตามแผนรายเดือน แยกตามบริษัท
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <BarChart3 size={14} /> % อบรมตามแผนรายเดือน แยกตามบริษัท
                   </h3>
                   <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' }}>
                     แสดงเฉพาะเดือนที่มีแผนอบรม
@@ -998,7 +998,7 @@ export default function HQTrainingOverview() {
                           {[
                             { key: 'company', label: 'บริษัท', align: 'left' as const, sticky: true },
                             { key: 'total', label: 'รวม', align: 'center' as const },
-                            { key: 'pct', label: '✅', align: 'center' as const },
+                            { key: 'pct', label: <CheckCircle2 size={12} />, align: 'center' as const },
                           ].map(col => (
                             <th key={col.key}
                               onClick={() => handleSort(col.key)}
@@ -1088,8 +1088,8 @@ export default function HQTrainingOverview() {
                 <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                     <div>
-                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                        📋 ติดตามข้อมูลหลักสูตรอบรม
+                      <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <ClipboardList size={14} /> ติดตามข้อมูลหลักสูตรอบรม
                       </h3>
                       <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
                         {trackingMode === 'pending'
@@ -1101,15 +1101,15 @@ export default function HQTrainingOverview() {
                     <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
                       <button
                         onClick={() => setTrackingMode('pending')}
-                        style={{ padding: '6px 16px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: trackingMode === 'pending' ? 'var(--accent)' : 'var(--bg)', color: trackingMode === 'pending' ? '#fff' : 'var(--text-secondary)' }}
+                        style={{ padding: '6px 16px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: trackingMode === 'pending' ? 'var(--accent)' : 'var(--bg)', color: trackingMode === 'pending' ? '#fff' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}
                       >
-                        ⏳ ยังไม่อบรม ({trackingList.length})
+                        <Clock size={12} /> ยังไม่อบรม ({trackingList.length})
                       </button>
                       <button
                         onClick={() => setTrackingMode('completed')}
-                        style={{ padding: '6px 16px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: '1px solid var(--border)', background: trackingMode === 'completed' ? '#16a34a' : 'var(--bg)', color: trackingMode === 'completed' ? '#fff' : 'var(--text-secondary)' }}
+                        style={{ padding: '6px 16px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: '1px solid var(--border)', background: trackingMode === 'completed' ? '#16a34a' : 'var(--bg)', color: trackingMode === 'completed' ? '#fff' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}
                       >
-                        ✅ อบรมแล้ว ({completedList.length})
+                        <CheckCircle2 size={12} /> อบรมแล้ว ({completedList.length})
                       </button>
                     </div>
                   </div>
@@ -1264,8 +1264,8 @@ export default function HQTrainingOverview() {
 
                 {/* Warning */}
                 {totals.warnings > 0 && (
-                  <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e' }}>
-                    ⚠️ มี {totals.warnings} หลักสูตรใกล้ถึงกำหนดแต่ยังไม่กำหนดวันอบรม
+                  <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <AlertTriangle size={14} /> มี {totals.warnings} หลักสูตรใกล้ถึงกำหนดแต่ยังไม่กำหนดวันอบรม
                   </div>
                 )}
               </>
@@ -1308,8 +1308,8 @@ export default function HQTrainingOverview() {
         {/* Budget Overview Chart — moved to bottom */}
         {historyTab === 'overview' && !loading && (
           <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-              💰 งบประมาณ vs ค่าใช้จ่ายจริง รายเดือน
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Wallet size={14} /> งบประมาณ vs ค่าใช้จ่ายจริง รายเดือน
             </h3>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 16px' }}>
               เปรียบเทียบงบประมาณที่วางแผนกับค่าใช้จ่ายจริงในแต่ละเดือน
@@ -1354,8 +1354,8 @@ export default function HQTrainingOverview() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             {/* Left: Budget by Company */}
             <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                💰 งบประมาณ vs ค่าใช้จ่ายจริง แยกบริษัท
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Wallet size={14} /> งบประมาณ vs ค่าใช้จ่ายจริง แยกบริษัท
               </h3>
               <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
                 เปรียบเทียบงบประมาณตามแผนกับค่าใช้จ่ายจริง
@@ -1505,7 +1505,7 @@ export default function HQTrainingOverview() {
               <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
                 {/* Status bar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '10px 16px', borderRadius: 8, background: detailCourse.status === 'completed' ? '#f0fdf4' : detailCourse.status === 'scheduled' ? '#eff6ff' : '#f9fafb', border: `1px solid ${detailCourse.status === 'completed' ? '#bbf7d0' : detailCourse.status === 'scheduled' ? '#bfdbfe' : '#e5e7eb'}` }}>
-                  <span style={{ fontSize: 20 }}>{detailCourse.status === 'completed' ? '✅' : detailCourse.status === 'scheduled' ? '📅' : '⏳'}</span>
+                  {detailCourse.status === 'completed' ? <CheckCircle2 size={20} color="#16a34a" /> : detailCourse.status === 'scheduled' ? <CalendarCheck size={20} color="#2563eb" /> : <Clock size={20} color="#6b7280" />}
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: detailCourse.status === 'completed' ? '#16a34a' : detailCourse.status === 'scheduled' ? '#2563eb' : '#6b7280' }}>
                       {detailCourse.status === 'completed' ? 'อบรมแล้ว' : detailCourse.status === 'scheduled' ? 'กำหนดวันแล้ว' : 'ยังไม่กำหนดวัน'}
@@ -1533,7 +1533,7 @@ export default function HQTrainingOverview() {
                     <tbody>
                       {/* Month / Date */}
                       <tr style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={labelTd}>📅 เดือน / วันที่อบรม</td>
+                        <td style={labelTd}><CalendarCheck size={14} /> เดือน / วันที่อบรม</td>
                         <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {MONTH_LABELS[detailCourse.plannedMonth - 1]}
                         </td>
@@ -1552,7 +1552,7 @@ export default function HQTrainingOverview() {
                       </tr>
                       {/* Participants */}
                       <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-                        <td style={labelTd}>👥 จำนวนผู้เข้าอบรม</td>
+                        <td style={labelTd}><Users size={14} /> จำนวนผู้เข้าอบรม</td>
                         <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {detailCourse.participants ? `${detailCourse.participants} คน` : '-'}
                         </td>
@@ -1587,7 +1587,7 @@ export default function HQTrainingOverview() {
                       </tr>
                       {/* Total Man-Hours */}
                       <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-                        <td style={labelTd}>📊 จำนวนชั่วโมงรวม (Man-hrs)</td>
+                        <td style={labelTd}><BarChart3 size={14} /> จำนวนชั่วโมงรวม (Man-hrs)</td>
                         <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {plannedTotalHours ? `${plannedTotalHours.toLocaleString()} ชม.` : '-'}
                         </td>
@@ -1608,7 +1608,7 @@ export default function HQTrainingOverview() {
                       </tr>
                       {/* Budget */}
                       <tr style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={labelTd}>💰 งบประมาณ</td>
+                        <td style={labelTd}><Wallet size={14} /> งบประมาณ</td>
                         <td style={{ ...cmpTd, color: 'var(--text-primary)' }}>
                           {detailCourse.budget ? `${detailCourse.budget.toLocaleString()} ฿` : '-'}
                         </td>
@@ -1638,7 +1638,7 @@ export default function HQTrainingOverview() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 20 }}>
                     {detailCourse.instructorName && (
                       <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>🎓 วิทยากร</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}><GraduationCap size={11} /> วิทยากร</div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{detailCourse.instructorName}</div>
                       </div>
                     )}
@@ -1650,7 +1650,7 @@ export default function HQTrainingOverview() {
                     )}
                     {detailCourse.trainingMethod && (
                       <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>📋 รูปแบบการอบรม</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}><ClipboardList size={11} /> รูปแบบการอบรม</div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{detailCourse.trainingMethod}</div>
                       </div>
                     )}
@@ -1665,8 +1665,8 @@ export default function HQTrainingOverview() {
 
                 {/* Attendees */}
                 <div style={{ marginBottom: 20 }}>
-                  <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-primary)' }}>
-                    👥 รายชื่อผู้เข้าอบรม ({detailLoading ? '...' : detailAttendees.length} คน)
+                  <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 8px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Users size={14} /> รายชื่อผู้เข้าอบรม ({detailLoading ? '...' : detailAttendees.length} คน)
                   </h4>
                   {detailLoading ? (
                     <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>กำลังโหลด...</div>
@@ -1816,10 +1816,10 @@ function formatDate(d: string): string {
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
-function KPIBox({ icon, label, value, sub, color }: { icon: string; label: string; value: string | number; sub?: string; color?: string }) {
+function KPIBox({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div style={{ background: 'var(--card-solid)', borderRadius: 8, padding: '12px 16px', border: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{icon} {label}</div>
+    <div className="glass-card" style={{ padding: '12px 16px' }}>
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>{icon} {label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: color || 'var(--text-primary)' }}>{value}</div>
         {sub && <span style={{ fontSize: 12, color: color || 'var(--text-secondary)', fontWeight: 600 }}>{sub}</span>}

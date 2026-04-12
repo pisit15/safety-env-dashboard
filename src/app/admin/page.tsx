@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { COMPANY_GROUPS, COMPANY_BUS, CompanyGroup, CompanyBU } from '@/lib/types';
+import { RefreshCw, UserCog, Paperclip, Trash2, FileEdit } from 'lucide-react';
 
 const MONTH_LABELS: Record<string, string> = {
   jan: 'ม.ค.', feb: 'ก.พ.', mar: 'มี.ค.', apr: 'เม.ย.',
@@ -15,11 +16,19 @@ const MONTH_LABELS: Record<string, string> = {
 };
 
 const ACTION_LABELS: Record<string, string> = {
-  status_change: '🔄 เปลี่ยนสถานะ',
-  responsible_change: '👤 เปลี่ยนผู้รับผิดชอบ',
-  file_upload: '📎 อัปโหลดไฟล์',
-  file_delete: '🗑️ ลบไฟล์',
-  edit_request: '📝 ขอแก้ไขหลัง deadline',
+  status_change: 'เปลี่ยนสถานะ',
+  responsible_change: 'เปลี่ยนผู้รับผิดชอบ',
+  file_upload: 'อัปโหลดไฟล์',
+  file_delete: 'ลบไฟล์',
+  edit_request: 'ขอแก้ไขหลัง deadline',
+};
+
+const ACTION_ICONS: Record<string, React.ReactNode> = {
+  status_change: <RefreshCw size={14} />,
+  responsible_change: <UserCog size={14} />,
+  file_upload: <Paperclip size={14} />,
+  file_delete: <Trash2 size={14} />,
+  edit_request: <FileEdit size={14} />,
 };
 
 interface AuditEntry {
@@ -894,7 +903,7 @@ export default function AdminPage() {
                       <tr key={entry.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
                         <td className="py-2 px-2 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
                         <td className="py-2 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>{entry.company_id.toUpperCase()}</td>
-                        <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{ACTION_LABELS[entry.action] || entry.action}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{ACTION_ICONS[entry.action]}{ACTION_LABELS[entry.action] || entry.action}</span></td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.activity_no}</td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[entry.month] || entry.month}</td>
                         <td className="py-2 px-2">
