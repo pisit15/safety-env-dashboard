@@ -504,7 +504,7 @@ export default function HQOverview() {
         kpi: {
           total: 'กิจกรรมความปลอดภัย',
           done: 'ดำเนินการแล้ว',
-          pctClose: '% ปิดงาน Safety',
+          pctClose: 'ปิดงานได้เพียง',
           notStarted: 'ยังไม่เริ่ม (ความเสี่ยง)',
           postponed: 'เลื่อน (ต้องติดตาม)',
           cancelled: 'ยกเลิก',
@@ -522,7 +522,7 @@ export default function HQOverview() {
         rankingTitle: 'Ranking % สำเร็จ — Safety',
         pieTitle: 'สัดส่วนสถานะ Safety',
         budgetTitle: 'งบประมาณ Safety รายบริษัท (บาท)',
-        overdueLabel: 'Overdue (เกินกำหนด)',
+        overdueLabel: 'เกินกำหนดต้องเร่ง',
       };
     } else if (planType === 'environment') {
       return {
@@ -533,7 +533,7 @@ export default function HQOverview() {
         kpi: {
           total: 'กิจกรรมสิ่งแวดล้อม',
           done: 'ดำเนินการแล้ว',
-          pctClose: '% ปิดงาน Envi',
+          pctClose: 'ปิดงานได้เพียง',
           notStarted: 'ยังไม่เริ่ม (compliance risk)',
           postponed: 'เลื่อน (ติดตาม)',
           cancelled: 'ยกเลิก',
@@ -551,7 +551,7 @@ export default function HQOverview() {
         rankingTitle: 'Ranking % สำเร็จ — Environment',
         pieTitle: 'สัดส่วนสถานะ Envi',
         budgetTitle: 'งบประมาณ Envi รายบริษัท (บาท)',
-        overdueLabel: 'Overdue (เกินกำหนด)',
+        overdueLabel: 'เกินกำหนดต้องเร่ง',
       };
     } else {
       return {
@@ -562,7 +562,7 @@ export default function HQOverview() {
         kpi: {
           total: 'กิจกรรมทั้งหมด',
           done: 'เสร็จแล้ว',
-          pctClose: '% ปิดงาน',
+          pctClose: 'ปิดงานได้เพียง',
           notStarted: 'ยังไม่เริ่ม',
           postponed: 'เลื่อน',
           cancelled: 'ยกเลิก',
@@ -580,7 +580,7 @@ export default function HQOverview() {
         rankingTitle: 'Ranking % สำเร็จ รายบริษัท',
         pieTitle: 'สัดส่วนสถานะกิจกรรม',
         budgetTitle: 'งบประมาณรายบริษัท (บาท)',
-        overdueLabel: 'Overdue (เกินกำหนด)',
+        overdueLabel: 'เกินกำหนดต้องเร่ง',
       };
     }
   }, [planType, selectedYear]);

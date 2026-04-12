@@ -86,6 +86,10 @@ export default function AdminPage() {
   const [auditFilter, setAuditFilter] = useState('all');
   const [requestFilter, setRequestFilter] = useState('pending');
   const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [auditPage, setAuditPage] = useState(1);
+  const AUDIT_PAGE_SIZE = 30;
   const [deadlineEnabled, setDeadlineEnabled] = useState(true);
   const [deadlineToggleLoading, setDeadlineToggleLoading] = useState(false);
 
@@ -875,31 +879,63 @@ export default function AdminPage() {
                 <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
                 <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>ประวัติการแก้ไขทั้งหมด</h3>
               </div>
-              <select value={auditFilter} onChange={e => setAuditFilter(e.target.value)} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px]" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
-                <option value="all">ทุกบริษัท</option>
-                {activeCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div className="flex items-center gap-3 flex-wrap">
+                <select value={auditFilter} onChange={e => { setAuditFilter(e.target.value); setAuditPage(1); }} className="bg-transparent border rounded-xl px-3 py-1.5 text-[11px]" style={{ color: 'var(--text-primary)', borderColor: 'var(--border)' }}>
+                  <option value="all">ทุกบริษัท</option>
+                  {activeCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setAuditPage(1); }}
+                  style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 12px', fontSize: '0.875rem', color: 'var(--text-primary)' }}
+                />
+                <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>ถึง</span>
+                <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setAuditPage(1); }}
+                  style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 12px', fontSize: '0.875rem', color: 'var(--text-primary)' }}
+                />
+              </div>
             </div>
             {loading ? (
               <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</p>
             ) : auditEntries.length === 0 ? (
               <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีประวัติการแก้ไข</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="apple-table w-full text-[11px]">
-                  <thead>
-                    <tr style={{ borderColor: 'var(--border)' }}>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เวลา</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>การดำเนินการ</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เดือน</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ค่าเดิม → ค่าใหม่</th>
-                      <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ผู้ดำเนินการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {auditEntries.map(entry => (
+              <>
+                {(() => {
+                  const filteredAudit = auditEntries.filter(e => {
+                    if (auditFilter !== 'all' && e.company_id !== auditFilter) return false;
+                    if (dateFrom && new Date(e.created_at) < new Date(dateFrom)) return false;
+                    if (dateTo && new Date(e.created_at) > new Date(dateTo + 'T23:59:59')) return false;
+                    return true;
+                  });
+                  const totalAuditPages = Math.ceil(filteredAudit.length / AUDIT_PAGE_SIZE);
+                  const pagedAudit = filteredAudit.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE);
+
+                  return (
+                    <>
+                      <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                          ทั้งหมด {filteredAudit.length} รายการ
+                        </span>
+                        {filteredAudit.length > 0 && (
+                          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                            ล่าสุด: {new Date(filteredAudit[0]?.created_at).toLocaleDateString('th-TH')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="apple-table w-full text-[11px]">
+                          <thead>
+                            <tr style={{ borderColor: 'var(--border)' }}>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เวลา</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>การดำเนินการ</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เดือน</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ค่าเดิม → ค่าใหม่</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ผู้ดำเนินการ</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pagedAudit.map(entry => (
                       <tr key={entry.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
                         <td className="py-2 px-2 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
                         <td className="py-2 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>{entry.company_id.toUpperCase()}</td>
@@ -913,10 +949,29 @@ export default function AdminPage() {
                         </td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.performed_by}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {totalAuditPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '12px 0' }}>
+                          <button onClick={() => setAuditPage(p => Math.max(1, p-1))} disabled={auditPage === 1}
+                            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', cursor: auditPage === 1 ? 'default' : 'pointer', opacity: auditPage === 1 ? 0.4 : 1 }}>
+                            ← ก่อนหน้า
+                          </button>
+                          <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>
+                            หน้า {auditPage} / {totalAuditPages} ({filteredAudit.length} รายการ)
+                          </span>
+                          <button onClick={() => setAuditPage(p => Math.min(totalAuditPages, p+1))} disabled={auditPage === totalAuditPages}
+                            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', cursor: auditPage === totalAuditPages ? 'default' : 'pointer', opacity: auditPage === totalAuditPages ? 0.4 : 1 }}>
+                            ถัดไป →
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
             )}
           </div>
         )}

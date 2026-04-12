@@ -89,14 +89,29 @@ export default function OverviewWorkspace({
   const totalCost = liveStats.totalDirectCost + liveStats.totalIndirectCost;
   const trirVal = trirCombined !== null ? trirCombined.toFixed(2) : '—';
   const ltifrVal = ltifrCombined !== null ? ltifrCombined.toFixed(2) : '—';
+  const fatalityCount = liveStats.fatalities;
 
-  type KPIItem = { label: string; value: string | number; sub?: string; icon: typeof AlertTriangle; color: string };
-  const kpis: KPIItem[] = [
+  // Tier 1: Hero KPI (Fatality)
+  const tier1Kpi = {
+    label: 'เสียชีวิต',
+    value: fatalityCount,
+    icon: AlertTriangle,
+    isCritical: fatalityCount > 0,
+  };
+
+  // Tier 2: Key Rates (TRIR, LTIFR)
+  type Tier2KPIItem = { label: string; value: string | number; target?: string; icon: typeof TrendingUp; color: string };
+  const tier2Kpis: Tier2KPIItem[] = [
+    { label: 'TRIR', value: trirVal, target: 'เป้า: <3.0', icon: TrendingUp, color: '#8b5cf6' },
+    { label: 'LTIFR', value: ltifrVal, target: 'เป้า: <1.0', icon: TrendingDown, color: '#ec4899' },
+  ];
+
+  // Tier 3: Supporting KPIs
+  type Tier3KPIItem = { label: string; value: string | number; sub?: string; icon: typeof AlertTriangle; color: string };
+  const tier3Kpis: Tier3KPIItem[] = [
     { label: 'อุบัติการณ์ทั้งหมด', value: liveStats.totalIncidents, icon: AlertTriangle, color: '#6366f1' },
     { label: 'บาดเจ็บ (TRC)', value: liveStats.totalInjuries, icon: Activity, color: '#f97316' },
     { label: 'หยุดงาน (LTI)', value: liveStats.ltiCases, icon: Clock, color: '#ef4444' },
-    { label: 'TRIR', value: trirVal, sub: 'ต่อล้านชม.', icon: TrendingUp, color: '#8b5cf6' },
-    { label: 'LTIFR', value: ltifrVal, sub: 'ต่อล้านชม.', icon: TrendingDown, color: '#ec4899' },
     { label: 'ค่าเสียหายรวม', value: fmtCost(totalCost), icon: DollarSign, color: '#22c55e' },
   ];
 
@@ -150,24 +165,86 @@ export default function OverviewWorkspace({
 
   return (
     <div>
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        {kpis.map((kpi) => {
+      {/* Tier 1: Hero - Fatality Card (Full Width) */}
+      <div className="mb-6">
+        {(() => {
+          const isCritical = tier1Kpi.isCritical;
+          const Icon = tier1Kpi.icon;
+          const bgColor = isCritical ? 'rgba(194,59,34,0.08)' : 'rgba(43,140,62,0.08)';
+          const borderColor = isCritical ? '2px solid #C23B22' : '2px solid #2B8C3E';
+          const textColor = isCritical ? '#C23B22' : '#2B8C3E';
+          
+          return (
+            <div
+              className="rounded-2xl p-8 flex flex-col gap-3"
+              style={{ background: bgColor, border: borderColor }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>เสียชีวิต — ความสำคัญสูงสุด</p>
+                  <p className="text-[44px] font-bold" style={{ color: textColor }}>{tier1Kpi.value}</p>
+                  <p className="text-[13px] mt-2" style={{ color: isCritical ? '#C23B22' : '#2B8C3E' }}>
+                    {isCritical ? '⚠️ ต้องสอบสวนทันที' : '✓ ปลอดภัย — ไม่มีผู้เสียชีวิต'}
+                  </p>
+                </div>
+                <div className="w-20 h-20 rounded-xl flex items-center justify-center" style={{ background: `${textColor}20` }}>
+                  <Icon size={40} style={{ color: textColor }} />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Tier 2: Key Rates - TRIR & LTIFR */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {tier2Kpis.map((kpi) => {
+          const Icon = kpi.icon;
+          const isAboveTarget = typeof kpi.value === 'string' && parseFloat(kpi.value) > (kpi.label === 'TRIR' ? 3.0 : 1.0);
+          const cardColor = isAboveTarget ? '#F28E2B' : '#2B8C3E';
+          
+          return (
+            <div
+              key={kpi.label}
+              className="rounded-2xl p-5 flex flex-col gap-3"
+              style={{ background: 'var(--card-solid)', border: `2px solid ${cardColor}30` }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[12px] font-medium" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</p>
+                  <p className="text-[28px] font-bold mt-1" style={{ color: cardColor }}>{kpi.value}</p>
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>{kpi.target}</p>
+                </div>
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ background: `${cardColor}15` }}>
+                  <Icon size={20} style={{ color: cardColor }} />
+                </div>
+              </div>
+              <p className="text-[11px]" style={{ color: isAboveTarget ? '#F28E2B' : '#2B8C3E' }}>
+                {isAboveTarget ? '↑ ต้องปรับปรุง' : '↓ ในเป้าหมาย'}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tier 3: Supporting KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {tier3Kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
             <div
               key={kpi.label}
-              className="rounded-2xl p-4 flex flex-col gap-2"
+              className="rounded-2xl p-3 flex flex-col gap-2"
               style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
-                  <Icon size={14} style={{ color: kpi.color }} />
+                <p className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>{kpi.label}</p>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
+                  <Icon size={12} style={{ color: kpi.color }} />
                 </div>
               </div>
-              <p className="text-[20px] font-bold" style={{ color: 'var(--text-primary)' }}>{kpi.value}</p>
-              {kpi.sub && <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{kpi.sub}</p>}
+              <p className="text-[18px] font-bold" style={{ color: 'var(--text-primary)' }}>{kpi.value}</p>
+              {kpi.sub && <p className="text-[9px]" style={{ color: 'var(--text-secondary)' }}>{kpi.sub}</p>}
             </div>
           );
         })}

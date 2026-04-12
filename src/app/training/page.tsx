@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
-import { Calendar, Search, CheckCircle, XCircle, Clock, BookOpen, CheckCircle2, CalendarCheck, Users, AlertTriangle, ClipboardList, BarChart3, GraduationCap, Wallet } from 'lucide-react';
+import { Calendar, Search, CheckCircle, XCircle, Clock, BookOpen, CheckCircle2, CalendarCheck, Users, AlertTriangle, ClipboardList, BarChart3, GraduationCap, Wallet, ChevronDown, ChevronRight } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -80,6 +80,13 @@ export default function HQTrainingOverview() {
 
   // Expanded month detail
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set([]));
+  const toggleSection = (id: string) => {
+    const newSet = new Set(collapsedSections);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setCollapsedSections(newSet);
+  };
 
   // ═══ Cancellation Approval ═══
   const [cancelRequests, setCancelRequests] = useState<any[]>([]);
@@ -862,7 +869,13 @@ export default function HQTrainingOverview() {
                 </div>
 
                 {/* Monthly Overview Chart */}
-                <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <button onClick={() => toggleSection('monthly-chart')} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0' }}>
+                    {collapsedSections.has('monthly-chart') ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Monthly Training Hours</h2>
+                  </button>
+                  {!collapsedSections.has('monthly-chart') && (
+                    <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <div>
                       <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -975,10 +988,18 @@ export default function HQTrainingOverview() {
                       </div>
                     );
                   })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Company % Completion per Month — Matrix Table */}
-                <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <button onClick={() => toggleSection('company-table')} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0' }}>
+                    {collapsedSections.has('company-table') ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Company Training by Month</h2>
+                  </button>
+                  {!collapsedSections.has('company-table') && (
+                    <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
                   <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <BarChart3 size={14} /> % อบรมตามแผนรายเดือน แยกตามบริษัท
                   </h3>
@@ -1082,10 +1103,18 @@ export default function HQTrainingOverview() {
                       </tbody>
                     </table>
                   </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tracking: Course tracking with toggle */}
-                <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <button onClick={() => toggleSection('course-tracking')} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0' }}>
+                    {collapsedSections.has('course-tracking') ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                    <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Course Tracking</h2>
+                  </button>
+                  {!collapsedSections.has('course-tracking') && (
+                    <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginBottom: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                     <div>
                       <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1260,6 +1289,8 @@ export default function HQTrainingOverview() {
                       </div>
                     );
                   })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Warning */}

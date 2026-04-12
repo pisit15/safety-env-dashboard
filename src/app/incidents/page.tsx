@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, ReactNode } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
+import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
 import {
   AlertTriangle, Activity, Clock, Shield, Users, DollarSign,
   TrendingUp, TrendingDown, BarChart3, Building2, ChevronRight, ChevronDown,
@@ -174,6 +175,12 @@ export default function HQIncidentsPage() {
     }
   });
 
+  // Convert monthlyData to array and trim empty months
+  const monthlyDataArray = MONTHS.map(m => monthlyData[m]);
+  const trimmedMonthlyArray = trimEmptyMonths(monthlyDataArray, ['total', 'injuries', 'nearMiss', 'propertyDamage']);
+  const trimmedMonthIndices = trimmedMonthlyArray.map((_, idx) => monthlyDataArray.indexOf(_));
+  const displayMonths = trimmedMonthIndices.map(idx => MONTHS[idx]);
+
   // Wave C: Monthly data by company (top 5 by total incidents)
   const top5Companies = Object.entries(companyStats)
     .sort((a, b) => b[1].total - a[1].total)
@@ -193,8 +200,16 @@ export default function HQIncidentsPage() {
       monthlyByCompany[inc.company_id][m]++;
     }
   });
+
+  // Convert monthlyByCompany to array format for trimming
+  const monthlyByCompanyArray = MONTHS.map(m =>
+    Object.fromEntries(top5Companies.map(cId => [cId, monthlyByCompany[cId][m]]))
+  );
+  const trimmedByCompanyArray = trimEmptyMonths(monthlyByCompanyArray, top5Companies);
+  const displayMonthsByCompany = trimmedByCompanyArray.map((_, idx) => MONTHS[monthlyByCompanyArray.indexOf(_)]);
+
   const maxMonthlyByCompany = Math.max(
-    ...MONTHS.map(m => top5Companies.reduce((s, cId) => s + (monthlyByCompany[cId]?.[m] || 0), 0)),
+    ...displayMonthsByCompany.map(m => top5Companies.reduce((s, cId) => s + (monthlyByCompany[cId]?.[m] || 0), 0)),
     1
   );
 
@@ -232,7 +247,7 @@ export default function HQIncidentsPage() {
   const totalTRIR = totalManHours > 0 ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
   const totalLTIFR = totalManHours > 0 ? (totalSummary.ltiCases / totalManHours) * 1000000 : null;
 
-  const maxMonthly = Math.max(...Object.values(monthlyData).map(m => m.total), 1);
+  const maxMonthly = Math.max(...displayMonths.map(m => monthlyData[m]?.total || 0), 1);
   const yearLabel = selectedYears.length === 1 ? String(selectedYears[0]) : `${selectedYears[0]}-${selectedYears[selectedYears.length - 1]}`;
 
   // "ต้องดูวันนี้" alerts — with table filter key
@@ -489,60 +504,83 @@ export default function HQIncidentsPage() {
                 </div>
               )}
 
-              {/* ═══ Wave A: Reordered KPI Cards — Severity Priority ═══ */}
-              {/* Fatality → LTI → TRIR → LTIFR → ค่าเสียหาย → Near Miss */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style={{ marginTop: alerts.length > 0 ? 0 : 16 }}>
-                {[
-                  { label: 'เสียชีวิต', value: totalSummary.fatalities, icon: Users, color: totalSummary.fatalities > 0 ? '#ef4444' : '#9ca3af', emphasis: totalSummary.fatalities > 0, trend: prevSummary ? trendBadge(totalSummary.fatalities, prevSummary.fatalities) : null, subtitle: undefined as string | undefined },
-                  { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: '#ef4444', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null, subtitle: undefined as string | undefined },
-                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', icon: Activity, color: totalTRIR !== null ? '#f97316' : '#9ca3af', emphasis: false, trend: null, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${totalManHours.toLocaleString()}` },
-                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', icon: BarChart3, color: totalLTIFR !== null ? '#ef4444' : '#9ca3af', emphasis: false, trend: null, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
-                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#22c55e', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null, subtitle: undefined as string | undefined },
-                  { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', emphasis: false, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null, subtitle: undefined as string | undefined },
-                ].map((kpi, idx) => (
-                  <div key={idx} className="glass-card rounded-2xl p-4" style={{
-                    background: kpi.emphasis ? '#fef2f2' : undefined,
-                    border: kpi.emphasis ? '2px solid #ef4444' : undefined,
-                    boxShadow: kpi.emphasis ? '0 0 0 3px rgba(239,68,68,0.1)' : undefined,
-                  }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${kpi.color}15` }}>
-                        <kpi.icon size={16} style={{ color: kpi.color }} />
+              {/* ═══ Tier 1: Hero — Fatality (most critical metric) ═══ */}
+              <div className="mb-4" style={{ marginTop: alerts.length > 0 ? 0 : 16 }}>
+                <div className="glass-card rounded-2xl p-5" style={{
+                  background: totalSummary.fatalities > 0 ? 'rgba(194,59,34,0.08)' : 'rgba(43,140,62,0.08)',
+                  border: `2px solid ${totalSummary.fatalities > 0 ? '#C23B22' : '#2B8C3E'}`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: totalSummary.fatalities > 0 ? 'rgba(194,59,34,0.15)' : 'rgba(43,140,62,0.15)' }}>
+                      <Users size={24} style={{ color: totalSummary.fatalities > 0 ? '#C23B22' : '#2B8C3E' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p className="text-[11px] uppercase tracking-[0.08em] font-semibold" style={{ color: 'var(--muted)' }}>ผู้เสียชีวิตจากการทำงาน</p>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                        <span style={{ fontSize: 40, fontWeight: 700, color: totalSummary.fatalities > 0 ? '#C23B22' : '#2B8C3E', lineHeight: 1.1 }}>{totalSummary.fatalities}</span>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: totalSummary.fatalities > 0 ? '#C23B22' : '#2B8C3E' }}>
+                          {totalSummary.fatalities > 0 ? 'ราย — ต้องสอบสวนทันที' : 'ราย — ปลอดภัย ไม่มีผู้เสียชีวิต'}
+                        </span>
+                        {prevSummary && trendBadge(totalSummary.fatalities, prevSummary.fatalities)}
                       </div>
                     </div>
-                    <p className="text-2xl font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
-                      <span className="text-[11px]" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
-                      {kpi.trend}
-                    </div>
-                    {kpi.subtitle && (
-                      <p className="text-[9px] mt-1" style={{ color: 'var(--muted)', opacity: 0.7 }}>{kpi.subtitle}</p>
-                    )}
                   </div>
-                ))}
+                </div>
               </div>
 
-              {/* Supplementary: Man-hours + Injury count (secondary row) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="glass-card rounded-2xl p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>Man-hours รวม</p>
-                  <p className="text-xl font-bold" style={{ color: totalManHours > 0 ? 'var(--text-primary)' : 'var(--muted)' }}>
-                    {totalManHours > 0 ? totalManHours.toLocaleString() : 'ยังไม่มีข้อมูล'}
-                  </p>
-                </div>
-                <div className="glass-card rounded-2xl p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>บาดเจ็บทั้งหมด</p>
-                  <p className="text-xl font-bold" style={{ color: '#f97316' }}>
-                    {totalSummary.totalInjuries}
-                    {prevSummary && trendBadge(totalSummary.totalInjuries, prevSummary.totalInjuries)}
-                  </p>
-                </div>
-                <div className="glass-card rounded-2xl p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--muted)' }}>ทรัพย์สินเสียหาย</p>
-                  <p className="text-xl font-bold" style={{ color: '#22c55e' }}>
-                    {totalSummary.propertyDamage}
-                  </p>
-                </div>
+              {/* ═══ Tier 2: Key Safety Rates — TRIR + LTIFR with targets ═══ */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {[
+                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: 3.0, icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${totalManHours.toLocaleString()}` },
+                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: 1.0, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
+                ].map((kpi, idx) => {
+                  const numVal = parseFloat(String(kpi.value));
+                  const aboveTarget = !isNaN(numVal) && numVal > kpi.target;
+                  const rateColor = kpi.value === 'N/A' ? '#9ca3af' : aboveTarget ? '#F28E2B' : '#2B8C3E';
+                  return (
+                    <div key={idx} className="glass-card rounded-2xl p-4" style={{ borderLeft: `3px solid ${rateColor}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${rateColor}18` }}>
+                          <kpi.icon size={16} style={{ color: rateColor }} />
+                        </div>
+                        <span className="text-[11px] uppercase tracking-[0.06em] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
+                      </div>
+                      <p style={{ fontSize: 28, fontWeight: 700, color: rateColor, lineHeight: 1 }}>{kpi.value}</p>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>เป้า: &lt;{kpi.target.toFixed(1)}</span>
+                        {!isNaN(numVal) && (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: aboveTarget ? '#F28E2B' : '#2B8C3E' }}>
+                            {aboveTarget ? '↑ เกินเป้า' : '↓ ในเป้าหมาย'}
+                          </span>
+                        )}
+                      </div>
+                      {kpi.subtitle && <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{kpi.subtitle}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ═══ Tier 3: Supporting KPIs (compact row) ═══ */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+                {[
+                  { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: '#ef4444', trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null },
+                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#f97316', trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null },
+                  { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null },
+                  { label: 'Man-hours', value: totalManHours > 0 ? totalManHours.toLocaleString() : 'N/A', icon: Activity, color: totalManHours > 0 ? 'var(--text-primary)' : '#9ca3af', trend: null },
+                  { label: 'บาดเจ็บทั้งหมด', value: totalSummary.totalInjuries, icon: Users, color: '#f97316', trend: prevSummary ? trendBadge(totalSummary.totalInjuries, prevSummary.totalInjuries) : null },
+                  { label: 'ทรัพย์สินเสียหาย', value: totalSummary.propertyDamage, icon: Building2, color: '#22c55e', trend: null },
+                ].map((kpi, idx) => (
+                  <div key={idx} className="glass-card rounded-2xl p-3">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                      <kpi.icon size={12} style={{ color: kpi.color }} />
+                      <span className="text-[10px] uppercase tracking-[0.06em] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: kpi.color }}>{kpi.value}</span>
+                      {kpi.trend}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               {/* ═══ Company Comparison Table — Triage-First ═══ */}
@@ -700,7 +738,7 @@ export default function HQIncidentsPage() {
                 {chartMode === 'all' && (
                   <>
                     <div className="flex items-end gap-2" style={{ height: 180 }}>
-                      {MONTHS.map(m => {
+                      {displayMonths.map(m => {
                         const d = monthlyData[m] || { total: 0, injuries: 0, nearMiss: 0, propertyDamage: 0 };
                         const h = d.total > 0 ? (d.total / maxMonthly) * 150 : 0;
                         return (
@@ -736,7 +774,7 @@ export default function HQIncidentsPage() {
                 {chartMode === 'byCompany' && (
                   <>
                     <div className="flex items-end gap-2" style={{ height: 180 }}>
-                      {MONTHS.map(m => {
+                      {displayMonthsByCompany.map(m => {
                         const monthTotal = top5Companies.reduce((s, cId) => s + (monthlyByCompany[cId]?.[m] || 0), 0);
                         const h = monthTotal > 0 ? (monthTotal / maxMonthlyByCompany) * 150 : 0;
                         return (
