@@ -160,9 +160,9 @@ function StepNumber({ n, color = '#007aff' }: { n: number; color?: string }) {
 export default function GuidePage() {
   const params = useParams();
   const companyId = params.id as string;
-  const [activeTab, setActiveTab] = useState<'action-plan' | 'training'>('action-plan');
+  const [activeTab, setActiveTab] = useState<'action-plan' | 'training' | 'incidents'>('action-plan');
 
-  const accentColor = activeTab === 'action-plan' ? '#5856d6' : '#34c759';
+  const accentColor = activeTab === 'action-plan' ? '#5856d6' : activeTab === 'training' ? '#34c759' : '#dc2626';
 
   return (
     <div className="flex min-h-screen">
@@ -173,7 +173,9 @@ export default function GuidePage() {
         <div style={{
           background: activeTab === 'action-plan'
             ? 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'
-            : 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)',
+            : activeTab === 'training'
+              ? 'linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%)'
+              : 'linear-gradient(135deg, #450a0a 0%, #7f1d1d 50%, #991b1b 100%)',
           padding: '48px 32px 40px',
           position: 'relative',
           overflow: 'hidden',
@@ -220,6 +222,7 @@ export default function GuidePage() {
             {([
               { key: 'action-plan' as const, label: 'แผนงานประจำปี (Action Plan)', icon: <ClipboardList size={16} />, color: '#5856d6' },
               { key: 'training' as const, label: 'แผนอบรมประจำปี (Training)', icon: <GraduationCap size={16} />, color: '#34c759' },
+              { key: 'incidents' as const, label: 'บันทึกอุบัติเหตุ (Incidents)', icon: <AlertTriangle size={16} />, color: '#dc2626' },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -896,6 +899,358 @@ export default function GuidePage() {
               { tip: 'เลื่อนแทนยกเลิก', desc: 'ถ้ายังจัดได้แต่ไม่ทันเดือนนี้ ใช้ "เลื่อน" ไม่ต้องขออนุมัติ', icon: '➡️' },
               { tip: 'เขียนเหตุผลยกเลิกให้ชัดเจน', desc: 'เหตุผลที่ดีช่วยให้ Admin อนุมัติเร็วขึ้น', icon: '✍️' },
               { tip: 'ดู KPI รายไตรมาสใน tab ภาพรวม', desc: 'ตรวจสอบคะแนนประจำไตรมาสเพื่อวางแผนการจัดอบรม', icon: '🎯' },
+            ]} />
+
+          </>)}
+
+          {/* ══════════════════════════════════════════════ */}
+          {/* ══════ TAB: INCIDENTS ══════ */}
+          {/* ══════════════════════════════════════════════ */}
+          {activeTab === 'incidents' && (<>
+
+            {/* ── Step 1: เปิดฟอร์มบันทึกอุบัติเหตุ ── */}
+            <StepSection
+              step={1}
+              color="#dc2626"
+              title="เปิดฟอร์มบันทึกอุบัติเหตุ"
+              subtitle="เข้าสู่หน้าสถิติอุบัติเหตุ แล้วกดปุ่ม + บันทึกอุบัติเหตุ"
+            >
+              <p style={pStyle}>
+                ไปที่เมนู <strong style={{ color: 'var(--text-primary)' }}>สถิติอุบัติเหตุ</strong> ใน Sidebar
+                จากนั้นคลิกปุ่ม <strong style={{ color: '#dc2626' }}>+ บันทึกอุบัติเหตุ</strong> มุมขวาบน
+                ฟอร์มจะเปิดขึ้นเป็น Drawer ด้านขวา พร้อมให้กรอกข้อมูลทันที
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+                <MockScreen label="Sidebar" width={120}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {['Dashboard', 'สถิติอุบัติเหตุ', 'Near Miss'].map((item, i) => (
+                      <div key={i} style={{
+                        padding: '5px 8px', borderRadius: 5, fontSize: 9, fontWeight: i === 1 ? 700 : 400,
+                        background: i === 1 ? '#dc262615' : 'transparent',
+                        color: i === 1 ? '#dc2626' : '#6b7280',
+                        border: i === 1 ? '1px solid #dc262625' : 'none',
+                      }}>{item}</div>
+                    ))}
+                  </div>
+                </MockScreen>
+                <ChevronRight size={20} color="#d1d5db" />
+                <MockScreen label="หน้าสถิติอุบัติเหตุ" width={200}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#1f2937' }}>รายการอุบัติเหตุ</span>
+                    <div style={{ padding: '3px 8px', borderRadius: 5, background: '#dc2626', color: '#fff', fontSize: 8, fontWeight: 700 }}>+ บันทึกอุบัติเหตุ</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ flex: 1, height: 6, borderRadius: 2, background: '#e5e7eb' }} />
+                    <div style={{ flex: 1, height: 6, borderRadius: 2, background: '#e5e7eb' }} />
+                  </div>
+                </MockScreen>
+              </div>
+              <Tip>ท่านสามารถสลับมุมมองระหว่าง Dashboard (ภาพรวมสถิติ) กับ รายการ (ตารางรายเหตุการณ์) โดยใช้ปุ่มสลับมุมขวาบน</Tip>
+            </StepSection>
+
+            {/* ── Step 2: เลือกประเภทอุบัติการณ์ ── */}
+            <StepSection
+              step={2}
+              color="#ef4444"
+              title="เลือกประเภทอุบัติการณ์"
+              subtitle="Section 1: IDENTIFICATION — จุดเริ่มต้นของฟอร์ม"
+            >
+              <p style={pStyle}>
+                ช่องแรกที่ต้องกรอกคือ <strong style={{ color: 'var(--text-primary)' }}>ประเภทอุบัติการณ์</strong> ซึ่งเป็นช่องบังคับ
+                การเลือกประเภทจะกำหนดว่าฟอร์มจะแสดงส่วนใดบ้าง
+              </p>
+              {/* Incident type cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 6, marginTop: 14 }}>
+                {[
+                  { label: 'เสียชีวิต (Fatality)', color: '#991b1b', note: 'ร้ายแรงที่สุด' },
+                  { label: 'บาดเจ็บ - หยุดงาน > 3 วัน', color: '#ef4444', note: 'LTI' },
+                  { label: 'บาดเจ็บ - หยุดงาน ≤ 3 วัน', color: '#f97316', note: 'LTI' },
+                  { label: 'บาดเจ็บ - ทำงานอย่างจำกัด', color: '#eab308', note: 'RW' },
+                  { label: 'บาดเจ็บ - ไม่หยุดงาน', color: '#22c55e', note: 'MTC/FA' },
+                  { label: 'ทรัพย์สินเสียหาย', color: '#3b82f6', note: 'ไม่มีคนบาดเจ็บ' },
+                  { label: 'เพลิงไหม้ (Fire)', color: '#dc2626', note: '' },
+                  { label: 'สารเคมีรั่วไหล', color: '#d946ef', note: '' },
+                  { label: 'Near Miss', color: '#22c55e', note: 'เกือบเกิดเหตุ' },
+                  { label: 'โรคจากการทำงาน', color: '#64748b', note: '' },
+                  { label: 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', color: '#14b8a6', note: '' },
+                  { label: 'สิ่งแวดล้อม', color: '#84cc16', note: '' },
+                ].map((t, i) => (
+                  <div key={i} style={{
+                    padding: '6px 10px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                    background: `${t.color}08`, border: `1px solid ${t.color}25`, color: t.color,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
+                  }}>
+                    <span>{t.label}</span>
+                    {t.note && <span style={{ fontSize: 8, opacity: 0.7 }}>{t.note}</span>}
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...pStyle, marginTop: 14 }}>
+                นอกจากประเภทแล้ว ต้องกรอกข้อมูลอื่นในส่วน Identification ได้แก่
+                <strong style={{ color: 'var(--text-primary)' }}> วันที่เกิดเหตุ</strong> (บังคับ),
+                เวลาเกิดเหตุ, กะการทำงาน (Day/Night/OT), วันที่รายงาน และชื่อผู้รายงาน
+              </p>
+              <ExampleBox color="#ef4444">
+                เหตุการณ์: พนักงานถูกเศษโลหะบาดมือขณะตัดเหล็ก ไปพบแพทย์ ไม่หยุดงาน → เลือก &quot;บาดเจ็บ - ไม่หยุดงาน&quot;
+              </ExampleBox>
+              <Tip>
+                หากเลือกประเภทที่เกี่ยวกับ<strong>คนบาดเจ็บ</strong> (บาดเจ็บ/เสียชีวิต/โรคจากการทำงาน)
+                ฟอร์มจะแสดง Section WHO ให้กรอกข้อมูลผู้บาดเจ็บเพิ่มเติม
+              </Tip>
+            </StepSection>
+
+            {/* ── Step 3: ข้อมูลผู้บาดเจ็บ ── */}
+            <StepSection
+              step={3}
+              color="#2563eb"
+              title="ข้อมูลผู้บาดเจ็บ (WHO)"
+              subtitle="Section 2 — แสดงเฉพาะเมื่อเลือกประเภทที่มีคนบาดเจ็บ"
+            >
+              <p style={pStyle}>
+                ส่วนนี้ใช้บันทึกรายละเอียดผู้ได้รับบาดเจ็บ สามารถเพิ่มผู้บาดเจ็บได้หลายคน
+                กรอกข้อมูลครบถ้วนเพื่อใช้ในการวิเคราะห์สถิติและคำนวณ TRIR/LTIFR
+              </p>
+              {/* WHO fields summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
+                {[
+                  { group: 'ข้อมูลบุคคล', fields: 'ประเภทบุคคล, ชื่อ-นามสกุล, ตำแหน่ง, แผนก, อายุงาน, สถานะอบรม', color: '#2563eb' },
+                  { group: 'ข้อมูลการบาดเจ็บ', fields: 'ความรุนแรง (FA/MTC/RW/LTI/PD/Fatal), ลักษณะบาดเจ็บ, อวัยวะ, ข้างที่บาดเจ็บ', color: '#7c3aed' },
+                  { group: 'วันหยุดงาน (LTI)', fields: 'เป็น LTI ใช่/ไม่, จำนวนวันหยุด, วันเริ่มลา, วันกลับทำงาน', color: '#dc2626' },
+                  { group: 'การรักษา', fields: 'ประเภทการรักษา, ชื่อโรงพยาบาล, ค่ารักษาพยาบาล', color: '#16a34a' },
+                ].map((g, i) => (
+                  <div key={i} style={{
+                    padding: '10px 12px', borderRadius: 10,
+                    background: `${g.color}06`, border: `1px solid ${g.color}15`,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: g.color, marginBottom: 4 }}>{g.group}</div>
+                    <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.6 }}>{g.fields}</div>
+                  </div>
+                ))}
+              </div>
+              <Tip>
+                กรณีมีผู้บาดเจ็บหลายคน กดปุ่ม <strong>&quot;+ เพิ่มผู้บาดเจ็บ&quot;</strong> เพื่อเพิ่มรายชื่อ
+                ข้อมูลแต่ละคนจะถูกบันทึกแยกกัน ทำให้สถิติถูกต้อง
+              </Tip>
+              <ExampleBox color="#2563eb">
+                ผู้บาดเจ็บ: นายสมชาย (ผู้รับเหมา) → ฟกช้ำที่แขนซ้าย → ความรุนแรง FA ปฐมพยาบาล → ไม่เป็น LTI → รักษาในห้องพยาบาลโรงงาน
+              </ExampleBox>
+            </StepSection>
+
+            {/* ── Step 4: WHAT & WHERE ── */}
+            <StepSection
+              step={4}
+              color="#ea580c"
+              title="เกิดอะไร ที่ไหน (WHAT & WHERE)"
+              subtitle="Section 3 — รายละเอียดเหตุการณ์ สถานที่ สภาพแวดล้อม"
+            >
+              <p style={pStyle}>
+                บันทึกรายละเอียดสำคัญของเหตุการณ์ ได้แก่ เกี่ยวกับงานหรือไม่,
+                กิจกรรมขณะเกิดเหตุ, รายละเอียดเหตุการณ์, พื้นที่/โซน, และสภาพแวดล้อม
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 14 }}>
+                {[
+                  { label: 'กิจกรรมขณะเกิดเหตุ', items: 'ปฏิบัติงานปกติ, ซ่อมบำรุง, ทำความสะอาด, ขนย้ายวัสดุ, ขับรถ...', color: '#ea580c' },
+                  { label: 'ประเภทการสัมผัส', items: 'กระแทก, ถูกหนีบ, บาด/ตัด, ตกจากที่สูง, ลื่น/สะดุด, สารเคมี...', color: '#dc2626' },
+                  { label: 'สภาพแวดล้อม', items: 'แสงสว่างไม่พอ, เสียงดัง, พื้นเปียก, ฝุ่น/ควัน, ที่สูง, พื้นที่คับแคบ...', color: '#16a34a' },
+                ].map((c, i) => (
+                  <div key={i} style={{
+                    padding: '10px 12px', borderRadius: 10,
+                    background: `${c.color}06`, border: `1px solid ${c.color}15`,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: c.color, marginBottom: 4 }}>{c.label}</div>
+                    <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.5 }}>{c.items}</div>
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...pStyle, marginTop: 14 }}>
+                กรณี<strong style={{ color: 'var(--text-primary)' }}>มีคนบาดเจ็บ</strong> จะมีช่องเพิ่มเติม ได้แก่
+                ความรุนแรงจริง (S0-S6), ความรุนแรงที่อาจเกิด (P0-P6), จำนวนผู้บาดเจ็บ,
+                ประเภทการสัมผัส และแหล่งที่มาของอันตราย
+              </p>
+              <Tip>
+                ช่อง <strong>&quot;รายละเอียดเหตุการณ์&quot;</strong> ควรเขียนให้ชัดเจน
+                ระบุ ใคร ทำอะไร ที่ไหน เมื่อไหร่ อย่างไร เพื่อประโยชน์ในการสอบสวนภายหลัง
+              </Tip>
+            </StepSection>
+
+            {/* ── Step 5: ทรัพย์สินเสียหาย + ค่าเสียหาย ── */}
+            <StepSection
+              step={5}
+              color="#7c3aed"
+              title="ทรัพย์สินเสียหาย & ค่าเสียหาย"
+              subtitle="Section 4 (Property Damage) & Section 5 (Consequence)"
+            >
+              <p style={pStyle}>
+                บันทึกความเสียหายที่เกิดขึ้นกับทรัพย์สินและค่าใช้จ่ายที่เกี่ยวข้อง
+              </p>
+              <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200, padding: '12px 14px', borderRadius: 10, background: '#7c3aed06', border: '1px solid #7c3aed15' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', marginBottom: 8 }}>ทรัพย์สินเสียหาย</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.6 }}>
+                    ประเภท: เครื่องจักร, อาคาร, ยานพาหนะ, ระบบไฟฟ้า, ท่อ/วาล์ว, เพลิงไหม้, ระเบิด ฯลฯ
+                    <br />มีช่องรายละเอียดและอุปกรณ์ดับเพลิงที่ใช้ (ถ้ามี)
+                  </div>
+                </div>
+                <div style={{ flex: 1, minWidth: 200, padding: '12px 14px', borderRadius: 10, background: '#16a34a06', border: '1px solid #16a34a15' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#16a34a', marginBottom: 8 }}>ค่าเสียหาย (Consequence)</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.6 }}>
+                    ค่าเสียหายทางตรง (บาท), ค่าเสียหายทางอ้อม (บาท),
+                    ผลกระทบต่อการผลิต (ไม่มี → หยุดทั้งโรงงาน),
+                    สถานะการเคลมประกัน
+                  </div>
+                </div>
+              </div>
+              <ExampleBox color="#7c3aed">
+                สายพานลำเลียงขาด → ประเภท: เครื่องจักร/อุปกรณ์ → ค่าเสียหายตรง: 50,000 บาท → ผลกระทบ: ลดกำลังผลิต &lt; 25% → เคลม: อยู่ระหว่างเคลม
+              </ExampleBox>
+            </StepSection>
+
+            {/* ── Step 6: การสอบสวน ── */}
+            <StepSection
+              step={6}
+              color="#ca8a04"
+              title="การสอบสวนเหตุการณ์ (Investigation)"
+              subtitle="Section 6 — ระดับการสอบสวน, RCA, สาเหตุราก"
+            >
+              <p style={pStyle}>
+                กำหนดระดับการสอบสวนและบันทึกผลการวิเคราะห์สาเหตุ ระบบรองรับ 4 ระดับ ตั้งแต่บันทึกเท่านั้นจนถึง Team Investigation
+              </p>
+              <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+                {[
+                  { level: 'Level 0', label: 'บันทึกเท่านั้น', desc: 'Near Miss, เหตุเล็กน้อย', color: '#22c55e' },
+                  { level: 'Level 1', label: 'ACA', desc: 'บาดเจ็บไม่หยุดงาน ทรัพย์สิน', color: '#f97316' },
+                  { level: 'Level 2', label: 'RCA', desc: 'LTI, เหตุซ้ำซ้อน', color: '#ef4444' },
+                  { level: 'Level 3', label: 'Team Investigation', desc: 'เสียชีวิต, เหตุร้ายแรง', color: '#991b1b' },
+                ].map((lv, i) => (
+                  <div key={i} style={{
+                    flex: 1, minWidth: 120, padding: '10px 12px', borderRadius: 10,
+                    background: `${lv.color}06`, border: `1px solid ${lv.color}20`, textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: lv.color }}>{lv.level}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#1f2937', marginTop: 2 }}>{lv.label}</div>
+                    <div style={{ fontSize: 9, color: '#6b7280', marginTop: 2 }}>{lv.desc}</div>
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...pStyle, marginTop: 14 }}>
+                สำหรับ Level 1 ขึ้นไป ต้องระบุ:
+                <strong style={{ color: 'var(--text-primary)' }}> วิธี RCA</strong> (5 Whys, Fishbone, FTA, TapRooT ฯลฯ),
+                <strong style={{ color: 'var(--text-primary)' }}> หมวดหมู่สาเหตุราก</strong> (ขั้นตอนปฏิบัติ, การฝึกอบรม, การออกแบบ, MOC ฯลฯ),
+                สาเหตุเฉพาะหน้า, สาเหตุร่วม, สาเหตุราก และ
+                <strong style={{ color: 'var(--text-primary)' }}> Just Culture</strong> (Human Error / At-Risk / Reckless)
+              </p>
+              <Tip>
+                การเลือก <strong>Just Culture Classification</strong> ช่วยแยกแยะว่าเหตุการณ์เกิดจากความผิดพลาดโดยสุจริต (ให้โค้ช)
+                หรือพฤติกรรมเสี่ยง (ให้ปรับเปลี่ยน) หรือประมาทเลินเล่อ (ลงโทษ)
+              </Tip>
+            </StepSection>
+
+            {/* ── Step 7: แผนแก้ไข ── */}
+            <StepSection
+              step={7}
+              color="#0d9488"
+              title="แผนแก้ไข (Corrective Action)"
+              subtitle="Section 7 — กำหนดมาตรการแก้ไข 2 รายการ ตาม Hierarchy of Controls"
+            >
+              <p style={pStyle}>
+                ระบุมาตรการแก้ไขได้สูงสุด 2 รายการ (CA1, CA2) แต่ละรายการต้องระบุ
+                รายละเอียด, ประเภทตาม Hierarchy of Controls, ผู้รับผิดชอบ, กำหนดเสร็จ และสถานะ
+              </p>
+              {/* Hierarchy of Controls pyramid */}
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
+                {[
+                  { label: '1. Elimination', desc: 'กำจัดอันตรายออกไปเลย', color: '#16a34a', w: 160 },
+                  { label: '2. Substitution', desc: 'เปลี่ยนเป็นสิ่งที่อันตรายน้อยกว่า', color: '#22c55e', w: 200 },
+                  { label: '3. Engineering Controls', desc: 'ติดตั้ง guard, interlock, ventilation', color: '#eab308', w: 240 },
+                  { label: '4. Administrative Controls', desc: 'WI, training, signage, rotation', color: '#f97316', w: 280 },
+                  { label: '5. PPE', desc: 'อุปกรณ์ป้องกันส่วนบุคคล', color: '#ef4444', w: 320 },
+                ].map((hoc, i) => (
+                  <div key={i} style={{
+                    width: hoc.w, maxWidth: '100%', padding: '6px 12px', borderRadius: 8,
+                    background: `${hoc.color}10`, border: `1px solid ${hoc.color}25`,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
+                  }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: hoc.color, whiteSpace: 'nowrap' }}>{hoc.label}</span>
+                    <span style={{ fontSize: 9, color: '#6b7280', textAlign: 'right' }}>{hoc.desc}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...pStyle, marginTop: 14 }}>
+                สถานะของแผนแก้ไขมี 6 ระดับ:
+              </p>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+                {[
+                  { label: 'Open', color: '#6b7280' },
+                  { label: 'In Progress', color: '#3b82f6' },
+                  { label: 'Completed', color: '#22c55e' },
+                  { label: 'Verified', color: '#16a34a' },
+                  { label: 'Overdue', color: '#ef4444' },
+                  { label: 'Cancelled', color: '#9ca3af' },
+                ].map((s, i) => (
+                  <span key={i} style={{
+                    padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                    background: `${s.color}12`, color: s.color, border: `1px solid ${s.color}25`,
+                  }}>{s.label}</span>
+                ))}
+              </div>
+              <Tip>
+                พยายามเลือกมาตรการแก้ไขในระดับสูงของ Hierarchy (Elimination &gt; Substitution &gt; Engineering)
+                เพราะมีประสิทธิภาพในการป้องกันสูงกว่า PPE หรือ Administrative Controls
+              </Tip>
+            </StepSection>
+
+            {/* ── Step 8: แนบรูปภาพ & บันทึก ── */}
+            <StepSection
+              step={8}
+              color="#2563eb"
+              title="แนบรูปภาพ & บันทึก"
+              subtitle="Section 8 — อัปโหลดรูปภาพหลักฐาน แล้วกดบันทึก"
+            >
+              <p style={pStyle}>
+                สามารถแนบรูปภาพประกอบได้สูงสุด <strong style={{ color: 'var(--text-primary)' }}>5 รูป</strong> ต่อเหตุการณ์
+                เช่น ภาพสถานที่เกิดเหตุ อุปกรณ์ที่เสียหาย หรือบาดแผล
+                เมื่อกรอกข้อมูลครบแล้ว กดปุ่ม <strong style={{ color: '#16a34a' }}>บันทึก</strong> ที่ด้านล่างฟอร์ม
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+                <MockScreen label="อัปโหลดรูปภาพ" width={180}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {[1, 2, 3].map(n => (
+                      <div key={n} style={{
+                        width: 36, height: 36, borderRadius: 6, background: n <= 2 ? '#dbeafe' : '#f3f4f6',
+                        border: `1px dashed ${n <= 2 ? '#3b82f6' : '#d1d5db'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 9, color: n <= 2 ? '#3b82f6' : '#9ca3af',
+                      }}>
+                        {n <= 2 ? `${n}.jpg` : '+'}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 9, color: '#9ca3af' }}>สูงสุด 5 รูป</div>
+                </MockScreen>
+                <ChevronRight size={20} color="#d1d5db" />
+                <MockScreen label="บันทึกสำเร็จ" width={140}>
+                  <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    <CheckCircle size={24} color="#16a34a" />
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#16a34a', marginTop: 4 }}>บันทึกเรียบร้อย</div>
+                    <div style={{ fontSize: 8, color: '#6b7280', marginTop: 2 }}>INC-2026-001</div>
+                  </div>
+                </MockScreen>
+              </div>
+              <Tip>
+                หลังบันทึกแล้ว ข้อมูลจะปรากฏในตารางรายการและ Dashboard ทันที
+                สามารถคลิกที่รายการเพื่อแก้ไขข้อมูลได้ตลอดเวลา
+              </Tip>
+            </StepSection>
+
+            {/* ── Tips ── */}
+            <TipsSection tips={[
+              { tip: 'เลือกประเภทอุบัติการณ์ให้ถูกต้อง', desc: 'ประเภทกำหนดว่าต้องกรอกส่วนใดบ้าง และส่งผลต่อสถิติ TRIR/LTIFR โดยตรง', icon: '🎯' },
+              { tip: 'กรอก Severity ทั้ง Actual และ Potential', desc: 'Potential Severity ช่วยให้เห็นว่าเหตุการณ์อาจรุนแรงกว่านี้ได้แค่ไหน ใช้จัดลำดับความสำคัญ', icon: '📊' },
+              { tip: 'เขียนรายละเอียดเหตุการณ์ให้ชัดเจน', desc: 'ระบุ ใคร-ทำอะไร-ที่ไหน-เมื่อไหร่-อย่างไร จะช่วยในขั้นตอนสอบสวนอย่างมาก', icon: '✍️' },
+              { tip: 'แนบรูปภาพสถานที่เกิดเหตุ', desc: 'ภาพช่วยให้ทีมสอบสวนเข้าใจสถานการณ์ได้ดีขึ้น ถ่ายทันทีหลังเกิดเหตุ', icon: '📸' },
+              { tip: 'ใช้ RCA Method ที่เหมาะสม', desc: '5 Whys เหมาะกับเหตุเล็กน้อย, Fishbone เหมาะกับเหตุซับซ้อน, TapRooT เหมาะกับเหตุร้ายแรง', icon: '🔍' },
+              { tip: 'เลือก Corrective Action ตาม Hierarchy of Controls', desc: 'พยายามกำจัดอันตราย (Elimination) ก่อน ค่อยลดระดับลงมา PPE เป็นทางเลือกสุดท้าย', icon: '🛡️' },
+              { tip: 'อัปเดตสถานะ Corrective Action สม่ำเสมอ', desc: 'เปลี่ยนจาก Open → In Progress → Completed → Verified เมื่อดำเนินการเสร็จ', icon: '✅' },
             ]} />
 
           </>)}
