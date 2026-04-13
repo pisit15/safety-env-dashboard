@@ -1110,38 +1110,376 @@ export default function GuidePage() {
               step={6}
               color="#ca8a04"
               title="การสอบสวนเหตุการณ์ (Investigation)"
-              subtitle="Section 6 — ระดับการสอบสวน, RCA, สาเหตุราก"
+              subtitle="Section 6 — ระดับการสอบสวน, RCA, สาเหตุราก, Just Culture"
             >
               <p style={pStyle}>
                 กำหนดระดับการสอบสวนและบันทึกผลการวิเคราะห์สาเหตุ ระบบรองรับ 4 ระดับ ตั้งแต่บันทึกเท่านั้นจนถึง Team Investigation
+                การสอบสวนที่ดีต้องมุ่งหาสาเหตุเชิงระบบ (System Cause) ไม่ใช่โทษบุคคล
               </p>
-              <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
+
+              {/* ─── 6.1 Investigation Levels ─── */}
+              <div style={{ marginTop: 18, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#ca8a04', marginBottom: 10 }}>6.1 ระดับการสอบสวน (Investigation Level)</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {[
-                  { level: 'Level 0', label: 'บันทึกเท่านั้น', desc: 'Near Miss, เหตุเล็กน้อย', color: '#22c55e' },
-                  { level: 'Level 1', label: 'ACA', desc: 'บาดเจ็บไม่หยุดงาน ทรัพย์สิน', color: '#f97316' },
-                  { level: 'Level 2', label: 'RCA', desc: 'LTI, เหตุซ้ำซ้อน', color: '#ef4444' },
-                  { level: 'Level 3', label: 'Team Investigation', desc: 'เสียชีวิต, เหตุร้ายแรง', color: '#991b1b' },
+                  { level: 'Level 0', label: 'บันทึกเท่านั้น', color: '#22c55e',
+                    when: 'Near Miss เล็กน้อย, เหตุไม่มีผู้บาดเจ็บและไม่มีความเสียหาย',
+                    who: 'หัวหน้างาน/ผู้พบเหตุ',
+                    action: 'บันทึกข้อมูลเบื้องต้นในฟอร์ม ไม่ต้องทำ RCA',
+                    timeline: 'ภายใน 24 ชม.' },
+                  { level: 'Level 1', label: 'ACA (Apparent Cause Analysis)', color: '#f97316',
+                    when: 'บาดเจ็บไม่หยุดงาน, ทรัพย์สินเสียหายเล็กน้อย, Near Miss ที่มี Potential สูง',
+                    who: 'หัวหน้างาน + Safety Officer',
+                    action: 'วิเคราะห์สาเหตุเบื้องต้น ใช้ 5 Whys หรือ Fishbone กำหนดแผนแก้ไข',
+                    timeline: 'ภายใน 3 วัน' },
+                  { level: 'Level 2', label: 'RCA (Root Cause Analysis)', color: '#ef4444',
+                    when: 'LTI (หยุดงาน), เหตุซ้ำซ้อน, ทรัพย์สินเสียหายมาก, Potential Severity สูง',
+                    who: 'Safety Manager + ทีมข้ามสายงาน 3-5 คน',
+                    action: 'RCA เต็มรูปแบบ (Fishbone, FTA, SOURCE ฯลฯ) ระบุสาเหตุราก กำหนด CA ตาม HoC',
+                    timeline: 'ภายใน 7 วัน' },
+                  { level: 'Level 3', label: 'Team Investigation', color: '#991b1b',
+                    when: 'เสียชีวิต (Fatality), ทุพพลภาพถาวร, เหตุร้ายแรงมีผลกระทบวงกว้าง, เพลิงไหม้/ระเบิดใหญ่',
+                    who: 'ผู้บริหารระดับสูง + ทีมสอบสวน 5-8 คน + ผู้เชี่ยวชาญภายนอก (ถ้าจำเป็น)',
+                    action: 'สอบสวนเต็มรูปแบบด้วย TapRooT หรือ SOURCE ทำ Timeline, Barrier Analysis, Fault Tree รายงานต่อผู้บริหาร',
+                    timeline: 'ภายใน 14 วัน' },
                 ].map((lv, i) => (
                   <div key={i} style={{
-                    flex: 1, minWidth: 120, padding: '10px 12px', borderRadius: 10,
-                    background: `${lv.color}06`, border: `1px solid ${lv.color}20`, textAlign: 'center',
+                    flex: '1 1 220px', minWidth: 220, padding: '14px 16px', borderRadius: 12,
+                    background: `${lv.color}06`, border: `1px solid ${lv.color}20`,
                   }}>
-                    <div style={{ fontSize: 10, fontWeight: 800, color: lv.color }}>{lv.level}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#1f2937', marginTop: 2 }}>{lv.label}</div>
-                    <div style={{ fontSize: 9, color: '#6b7280', marginTop: 2 }}>{lv.desc}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: lv.color, padding: '2px 8px', borderRadius: 6 }}>{lv.level}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1f2937' }}>{lv.label}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#374151', lineHeight: 1.6 }}>
+                      <div><strong style={{ color: lv.color }}>เมื่อไหร่:</strong> {lv.when}</div>
+                      <div style={{ marginTop: 4 }}><strong style={{ color: lv.color }}>ใครนำ:</strong> {lv.who}</div>
+                      <div style={{ marginTop: 4 }}><strong style={{ color: lv.color }}>ทำอะไร:</strong> {lv.action}</div>
+                      <div style={{ marginTop: 4 }}><strong style={{ color: lv.color }}>กรอบเวลา:</strong> {lv.timeline}</div>
+                    </div>
                   </div>
                 ))}
               </div>
-              <p style={{ ...pStyle, marginTop: 14 }}>
-                สำหรับ Level 1 ขึ้นไป ต้องระบุ:
-                <strong style={{ color: 'var(--text-primary)' }}> วิธี RCA</strong> (5 Whys, Fishbone, FTA, TapRooT ฯลฯ),
-                <strong style={{ color: 'var(--text-primary)' }}> หมวดหมู่สาเหตุราก</strong> (ขั้นตอนปฏิบัติ, การฝึกอบรม, การออกแบบ, MOC ฯลฯ),
-                สาเหตุเฉพาะหน้า, สาเหตุร่วม, สาเหตุราก และ
-                <strong style={{ color: 'var(--text-primary)' }}> Just Culture</strong> (Human Error / At-Risk / Reckless)
+
+              <p style={{ ...pStyle, marginTop: 16 }}>
+                สำหรับ Level 1 ขึ้นไป ฟอร์มจะแสดงช่องเพิ่มเติม: <strong style={{ color: 'var(--text-primary)' }}>วันเริ่มสอบสวน, หัวหน้าทีมสอบสวน, วิธี RCA, หมวดหมู่สาเหตุราก, Barrier Failure, Just Culture</strong> และช่องข้อความ 3 ช่อง ได้แก่ สาเหตุเฉพาะหน้า (Immediate Cause), สาเหตุร่วม (Contributing Cause) และสาเหตุราก (Root Cause)
               </p>
+
+              {/* ─── 6.2 RCA Methods ─── */}
+              <div style={{ marginTop: 28, marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#ca8a04', marginBottom: 4 }}>6.2 วิธีการวิเคราะห์สาเหตุราก (RCA Methods)</div>
+                <p style={{ ...pStyle, margin: 0 }}>ระบบรองรับ 10 วิธี เลือกให้เหมาะกับลักษณะเหตุการณ์</p>
+              </div>
+
+              {/* RCA Method cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* 5 Whys */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>5 Whys</span>
+                    <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>⚡ เร็ว &amp; ง่าย</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    ถาม &quot;ทำไม?&quot; ซ้ำ 5 ครั้ง (หรือมากกว่า) เพื่อเจาะลึกจากอาการที่เห็นไปสู่สาเหตุราก เหมาะกับเหตุการณ์ที่ไม่ซับซ้อน มีสาเหตุค่อนข้างเดี่ยว
+                  </p>
+                  <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 6 }}>ตัวอย่าง:</div>
+                    <div style={{ fontSize: 10, color: '#374151', lineHeight: 1.8 }}>
+                      ทำไมลื่นล้ม? → พื้นเปียก → ทำไมพื้นเปียก? → น้ำรั่วจากท่อ → ทำไมท่อรั่ว? → ท่อผุกร่อน → ทำไมไม่ซ่อม? → ไม่มีแผน PM → ทำไมไม่มีแผน PM? → <strong style={{ color: '#ca8a04' }}>ไม่มีระบบบำรุงรักษาเชิงป้องกัน (Root Cause)</strong>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> เหตุเล็กน้อย, Near Miss, Level 1 ACA, ปัญหาเร่งด่วนที่ต้องการคำตอบเร็ว
+                  </div>
+                </div>
+
+                {/* Fishbone / Ishikawa */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>Fishbone / Ishikawa</span>
+                    <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 600 }}>📊 หลายปัจจัย</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    จัดกลุ่มสาเหตุที่เป็นไปได้ตาม 6 หมวด (6M): Man, Machine, Material, Method, Measurement, Mother Nature (สภาพแวดล้อม) แล้ววิเคราะห์หาสาเหตุรากในแต่ละก้าง
+                  </p>
+                  <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ padding: '10px 16px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb', maxWidth: 400, width: '100%' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 8, textAlign: 'center' }}>โครงสร้าง Fishbone Diagram (6M)</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, textAlign: 'center' }}>
+                        {['Man (คน)', 'Machine (เครื่องจักร)', 'Material (วัสดุ)', 'Method (วิธีการ)', 'Measurement (การวัด)', 'Mother Nature (สิ่งแวดล้อม)'].map((m, i) => (
+                          <div key={i} style={{ fontSize: 9, padding: '4px 6px', borderRadius: 6, background: '#ca8a0408', border: '1px solid #ca8a0415', color: '#92400e', fontWeight: 600 }}>{m}</div>
+                        ))}
+                      </div>
+                      <div style={{ textAlign: 'center', marginTop: 6, fontSize: 10, fontWeight: 700, color: '#ca8a04' }}>→ ปัญหา (Effect) ←</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> เหตุที่มีหลายปัจจัย, ปัญหาคุณภาพ, Level 2 RCA, ใช้ร่วมกับ 5 Whys ได้ดี
+                  </div>
+                </div>
+
+                {/* FTA */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>FTA (Fault Tree Analysis)</span>
+                    <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>🔧 ซับซ้อน/เชิงระบบ</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    วิเคราะห์จากบนลงล่าง (Top-Down) เริ่มจาก &quot;เหตุการณ์สูงสุด&quot; (Top Event) แตกย่อยด้วย Logic Gate (AND/OR) จนถึงสาเหตุพื้นฐาน (Basic Events) เหมาะกับเหตุที่ซับซ้อนมีหลายปัจจัยร่วม
+                  </p>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> ระบบซับซ้อน, อุบัติเหตุจากหลายปัจจัยรวมกัน, Level 2-3, ต้องการหาว่า &quot;อะไรต้องเกิดพร้อมกัน&quot; ถึงจะเกิดเหตุ
+                  </div>
+                </div>
+
+                {/* SOURCE */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>SOURCE™</span>
+                    <span style={{ fontSize: 10, color: '#7c3aed', fontWeight: 600 }}>🏭 อุบัติเหตุร้ายแรง</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    กระบวนการสอบสวนเชิงลึกแบบครบวงจร ย่อมาจาก <strong>S</strong>ecure Scene → <strong>O</strong>rganize Team → <strong>U</strong>nderstand What Happened → <strong>R</strong>oot Cause Analysis → <strong>C</strong>orrective Actions → <strong>E</strong>valuate &amp; Share ออกแบบสำหรับอุบัติเหตุร้ายแรงที่ต้องการความรอบคอบสูง
+                  </p>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> Fatality, LTI ร้ายแรง, เหตุร้ายแรงที่ต้องรายงานต่อหน่วยงานรัฐ, Level 3
+                  </div>
+                </div>
+
+                {/* DO IT² */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>DO IT²</span>
+                    <span style={{ fontSize: 10, color: '#0d9488', fontWeight: 600 }}>🔄 ปัญหาคุณภาพ/ผลิตภัณฑ์</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    ย่อมาจาก <strong>D</strong>efine → <strong>O</strong>rganize → <strong>I</strong>nvestigate → <strong>T</strong>reat → <strong>I</strong>mplement → <strong>T</strong>rack เน้นการแก้ปัญหาที่ &quot;วนซ้ำ&quot; โดยเฉพาะปัญหาคุณภาพและกระบวนการผลิต
+                  </p>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> ปัญหาคุณภาพ/ผลิตภัณฑ์, ปัญหาที่เกิดซ้ำ, Rework, ของเสีย, Level 2
+                  </div>
+                </div>
+
+                {/* PROACT */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>PROACT®</span>
+                    <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>⚙️ Equipment Failure</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    ย่อมาจาก <strong>P</strong>reserving → <strong>R</strong>CA Order → <strong>O</strong>rganize → <strong>A</strong>nalyze → <strong>C</strong>ommunicate → <strong>T</strong>rack เน้นวิเคราะห์ความเสียหายของอุปกรณ์/เครื่องจักร โดยแยก Physical Root → Human Root → System Root
+                  </p>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> เครื่องจักรเสียซ้ำ, Equipment Failure, Reliability issues, Level 2-3
+                  </div>
+                </div>
+
+                {/* TapRooT */}
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', background: '#ca8a0412', padding: '2px 10px', borderRadius: 6 }}>TapRooT®</span>
+                    <span style={{ fontSize: 10, color: '#991b1b', fontWeight: 600 }}>🎯 เชิงระบบขั้นสูง</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.7, margin: 0 }}>
+                    ระบบสอบสวนเชิงระบบขั้นสูง ใช้ Root Cause Tree (ต้นไม้สาเหตุ) ที่ครอบคลุมทุกมิติ ทำ SnapCharT® (Timeline) → Root Cause Tree → Corrective Action Helper ช่วยลด bias ของผู้สอบสวน
+                  </p>
+                  <div style={{ marginTop: 6, fontSize: 10, color: '#6b7280' }}>
+                    <strong>เหมาะกับ:</strong> เหตุร้ายแรง, เหตุซับซ้อน, องค์กรที่ต้องการมาตรฐานสูง, Level 3
+                  </div>
+                </div>
+
+                {/* Change Analysis, Barrier Analysis, Bow Tie — compact row */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[
+                    { name: 'Change Analysis', tag: '🔄 การเปลี่ยนแปลง',
+                      desc: 'เปรียบเทียบสิ่งที่เปลี่ยนแปลงก่อน/หลังเกิดเหตุ เช่น เปลี่ยนวัตถุดิบ, เปลี่ยนวิธีการ, เปลี่ยนคน เพื่อหาว่า "อะไรที่เปลี่ยนไป" เป็นสาเหตุ',
+                      fit: 'เหตุที่เกิดหลังมีการเปลี่ยนแปลง, MOC-related' },
+                    { name: 'Barrier Analysis', tag: '🛡️ ระบบป้องกัน',
+                      desc: 'วิเคราะห์ว่า Barrier (มาตรการป้องกัน) แต่ละชั้นทำงานหรือไม่ ทำไมไม่ทำงาน — ไม่มี, ไม่เพียงพอ, Failed, Bypassed',
+                      fit: 'ระบบป้องกันล้มเหลว, ต้องการเสริม Defense-in-Depth' },
+                    { name: 'Bow Tie', tag: '🎀 ภาพรวมความเสี่ยง',
+                      desc: 'รวม FTA (ด้านซ้าย=สาเหตุ) + ETA (ด้านขวา=ผลกระทบ) แสดง Prevention Barriers และ Mitigation Barriers ทั้งหมดในภาพเดียว',
+                      fit: 'ต้องการแสดงภาพรวมของ Barrier ทั้งระบบ, สื่อสารกับผู้บริหาร' },
+                  ].map((m, i) => (
+                    <div key={i} style={{ flex: '1 1 180px', minWidth: 180, padding: '12px 14px', borderRadius: 12, background: '#fefce806', border: '1px solid #ca8a0418' }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#ca8a04', marginBottom: 2 }}>{m.name}</div>
+                      <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginBottom: 6 }}>{m.tag}</div>
+                      <p style={{ fontSize: 10, color: '#374151', lineHeight: 1.6, margin: 0 }}>{m.desc}</p>
+                      <div style={{ marginTop: 6, fontSize: 9, color: '#6b7280' }}><strong>เหมาะกับ:</strong> {m.fit}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* RCA selection guide */}
+              <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 12, background: '#fffbeb', border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', marginBottom: 8 }}>🧭 แนวทางเลือกวิธี RCA</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  {[
+                    ['เหตุเล็กน้อย / เร่งด่วน', '5 Whys (+ Fishbone)'],
+                    ['เหตุหลายปัจจัย / คุณภาพ', 'Fishbone / DO IT²'],
+                    ['Equipment failure ซ้ำ', 'PROACT'],
+                    ['เหตุร้ายแรง / ซับซ้อน', 'SOURCE / TapRooT'],
+                    ['เกิดหลังเปลี่ยนแปลง', 'Change Analysis'],
+                    ['ระบบป้องกันล้มเหลว', 'Barrier Analysis / Bow Tie'],
+                    ['ระบบซับซ้อน / หลายปัจจัยรวม', 'FTA'],
+                    ['ต้องการสื่อสารผู้บริหาร', 'Bow Tie'],
+                  ].map(([situation, method], i) => (
+                    <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline', fontSize: 10, color: '#374151' }}>
+                      <span style={{ color: '#92400e', fontWeight: 600, minWidth: 0, flex: 1 }}>{situation}</span>
+                      <span style={{ color: '#ca8a04', fontWeight: 700, whiteSpace: 'nowrap' }}>→ {method}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ─── 6.3 Root Cause Categories ─── */}
+              <div style={{ marginTop: 28, marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#ca8a04', marginBottom: 4 }}>6.3 หมวดหมู่สาเหตุราก (Root Cause Categories)</div>
+                <p style={{ ...pStyle, margin: 0 }}>เมื่อวิเคราะห์ RCA เสร็จ ให้จำแนกสาเหตุรากเข้าหมวดหมู่ใดหมวดหมู่หนึ่ง (เลือกได้ 1)</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 4 }}>
+                {[
+                  { cat: 'ขั้นตอนปฏิบัติ/WI', desc: 'SOP ไม่มี/ไม่ชัด/ล้าสมัย' },
+                  { cat: 'การฝึกอบรม', desc: 'ไม่ได้อบรม/อบรมไม่พอ' },
+                  { cat: 'การสื่อสาร', desc: 'ข้อมูลไม่ถึง/สื่อสารผิด' },
+                  { cat: 'การจัดการ/กำกับดูแล', desc: 'กำกับไม่เพียงพอ' },
+                  { cat: 'การออกแบบ/วิศวกรรม', desc: 'ออกแบบไม่เหมาะสม' },
+                  { cat: 'การบำรุงรักษา', desc: 'PM ไม่มี/ไม่ทำ/ล่าช้า' },
+                  { cat: 'มาตรฐาน/ข้อกำหนด', desc: 'มาตรฐานไม่ครอบคลุม' },
+                  { cat: 'การจัดซื้อ/วัสดุ', desc: 'วัสดุไม่ได้มาตรฐาน' },
+                  { cat: 'MOC', desc: 'เปลี่ยนแปลงโดยไม่ทำ MOC' },
+                  { cat: 'วัฒนธรรมความปลอดภัย', desc: 'ไม่ให้ความสำคัญกับ Safety' },
+                  { cat: 'อุปกรณ์/เครื่องมือ', desc: 'เครื่องมือชำรุด/ไม่เหมาะสม' },
+                  { cat: 'ทรัพยากร/งบประมาณ', desc: 'ทรัพยากรไม่เพียงพอ' },
+                  { cat: 'สภาพแวดล้อม', desc: 'แสง/เสียง/อุณหภูมิ/พื้นผิว' },
+                  { cat: 'การวางแผนงาน', desc: 'วางแผนไม่ดี/กดดันเวลา' },
+                  { cat: 'จัดการผู้รับเหมา', desc: 'ผู้รับเหมาไม่ปฏิบัติตาม' },
+                  { cat: 'Human Factors', desc: 'ความเหนื่อยล้า/เครียด/ฯลฯ' },
+                  { cat: 'อื่นๆ', desc: 'ไม่เข้าหมวดหมู่ข้างต้น' },
+                ].map((rc, i) => (
+                  <div key={i} style={{ padding: '6px 10px', borderRadius: 8, background: '#fefce806', border: '1px solid #e5e7eb', fontSize: 10 }}>
+                    <div style={{ fontWeight: 700, color: '#1f2937' }}>{rc.cat}</div>
+                    <div style={{ color: '#6b7280', fontSize: 9, marginTop: 1 }}>{rc.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ─── 6.4 Barrier Failure ─── */}
+              <div style={{ marginTop: 28, marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#ca8a04', marginBottom: 4 }}>6.4 Barrier Failure (ระบบป้องกันล้มเหลว)</div>
+                <p style={{ ...pStyle, margin: 0 }}>ระบุว่า Barrier (มาตรการป้องกัน) ที่ควรมีนั้น ล้มเหลวอย่างไร</p>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'ไม่มี Barrier', desc: 'ไม่เคยมีมาตรการป้องกันสำหรับอันตรายนี้', color: '#ef4444' },
+                  { label: 'ไม่เพียงพอ', desc: 'มี Barrier แต่ไม่แข็งแรง/ครอบคลุมพอ', color: '#f97316' },
+                  { label: 'ไม่ทำงาน (Failed)', desc: 'มี Barrier แต่ขัดข้อง/เสีย/ชำรุด', color: '#dc2626' },
+                  { label: 'ถูกข้ามไป (Bypassed)', desc: 'มี Barrier แต่ถูกปิด/ข้ามโดยตั้งใจ', color: '#991b1b' },
+                  { label: 'ไม่เหมาะสม', desc: 'มี Barrier แต่ไม่ใช่ประเภทที่ถูกต้องสำหรับอันตรายนี้', color: '#7c3aed' },
+                  { label: 'ไม่ทราบ', desc: 'ยังไม่สามารถระบุได้', color: '#6b7280' },
+                ].map((bf, i) => (
+                  <div key={i} style={{
+                    flex: '1 1 140px', minWidth: 140, padding: '8px 12px', borderRadius: 10,
+                    background: `${bf.color}06`, border: `1px solid ${bf.color}18`,
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: bf.color }}>{bf.label}</div>
+                    <div style={{ fontSize: 9, color: '#6b7280', marginTop: 2, lineHeight: 1.5 }}>{bf.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ─── 6.5 Just Culture ─── */}
+              <div style={{ marginTop: 28, marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#ca8a04', marginBottom: 4 }}>6.5 Just Culture Classification</div>
+                <p style={{ ...pStyle, margin: 0 }}>ประเมินพฤติกรรมของผู้เกี่ยวข้อง เพื่อกำหนดแนวทางตอบสนองที่เป็นธรรม</p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { type: 'Human Error', label: 'Honest Mistake', color: '#22c55e', icon: '💚',
+                    desc: 'ทำผิดพลาดโดยไม่ตั้งใจ แม้ตั้งใจทำถูก เช่น ลืม, หลุด, สับสน',
+                    response: 'ให้โค้ช (Coach) — ปรับปรุงระบบ/กระบวนการ ไม่ลงโทษ',
+                    question: 'ถ้าคนอื่น 10 คน อยู่สถานการณ์เดียวกัน จะทำผิดพลาดเหมือนกันหรือไม่?' },
+                  { type: 'At-Risk Behavior', label: 'Drift', color: '#f97316', icon: '🟡',
+                    desc: 'เลือกทำทางลัด/ข้ามขั้นตอน โดยไม่รู้ตัวว่าเสี่ยง เพราะเคยทำแล้วไม่เป็นไร',
+                    response: 'ให้ปรับเปลี่ยน (Adjust) — สร้างความตระหนัก, ทำ Incentive ให้ทำถูก',
+                    question: 'เขารู้ตัวหรือไม่ว่าพฤติกรรมนี้เสี่ยง? (ส่วนใหญ่ไม่รู้ตัว)' },
+                  { type: 'Reckless Behavior', label: 'จงใจเสี่ยง', color: '#ef4444', icon: '🔴',
+                    desc: 'รู้ทั้งรู้ว่าเสี่ยงอันตรายแต่เลือกทำ เพราะประมาทเลินเล่ออย่างร้ายแรง',
+                    response: 'ให้ลงโทษ (Punish) — ตามระเบียบวินัย',
+                    question: 'เขาเลือกที่จะเสี่ยงโดยรู้ตัว โดยไม่สนใจอันตรายต่อผู้อื่นใช่หรือไม่?' },
+                ].map((jc, i) => (
+                  <div key={i} style={{
+                    flex: '1 1 200px', minWidth: 200, padding: '14px 16px', borderRadius: 12,
+                    background: `${jc.color}06`, border: `1px solid ${jc.color}20`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontSize: 16 }}>{jc.icon}</span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: jc.color }}>{jc.type}</div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: '#6b7280' }}>({jc.label})</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: '#374151', lineHeight: 1.6 }}>
+                      <div>{jc.desc}</div>
+                      <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 8, background: `${jc.color}08`, border: `1px solid ${jc.color}12` }}>
+                        <strong style={{ color: jc.color }}>แนวทาง:</strong> {jc.response}
+                      </div>
+                      <div style={{ marginTop: 6, fontStyle: 'italic', color: '#6b7280', fontSize: 9 }}>
+                        คำถามทดสอบ: {jc.question}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'ไม่เกี่ยวกับ Human Error', desc: 'สาเหตุเป็นเชิงระบบ/อุปกรณ์ล้วนๆ', color: '#6b7280' },
+                  { label: 'ยังไม่ได้ประเมิน', desc: 'อยู่ระหว่างสอบสวน', color: '#9ca3af' },
+                ].map((jc, i) => (
+                  <div key={i} style={{
+                    flex: '1 1 180px', padding: '8px 12px', borderRadius: 10,
+                    background: `${jc.color}06`, border: `1px solid ${jc.color}18`, fontSize: 10,
+                  }}>
+                    <span style={{ fontWeight: 700, color: jc.color }}>{jc.label}</span>
+                    <span style={{ color: '#6b7280', marginLeft: 6 }}>— {jc.desc}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* ─── 6.6 Investigation form fields ─── */}
+              <div style={{ marginTop: 28, marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#ca8a04', marginBottom: 4 }}>6.6 ช่องข้อมูลในฟอร์ม</div>
+                <p style={{ ...pStyle, margin: 0 }}>เมื่อเลือก Investigation Level ≥ 1 ระบบจะแสดงช่องเพิ่มเติมดังนี้</p>
+              </div>
+              <MockScreen label="ฟอร์ม Investigation (Level 2 ขึ้นไป)" width={420}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { field: 'วันเริ่มสอบสวน', type: 'Date Picker' },
+                    { field: 'หัวหน้าทีมสอบสวน', type: 'Text Input' },
+                    { field: 'วิธี RCA', type: 'Dropdown (10 วิธี)' },
+                    { field: 'หมวดหมู่สาเหตุราก', type: 'Dropdown (17 หมวด)' },
+                    { field: 'Barrier Failure', type: 'Dropdown (6 ประเภท)' },
+                    { field: 'สาเหตุเฉพาะหน้า (Immediate Cause)', type: 'Textarea — อะไรเกิดขึ้นทันที' },
+                    { field: 'สาเหตุร่วม (Contributing Cause)', type: 'Textarea — ปัจจัยที่ทำให้เกิด' },
+                    { field: 'สาเหตุราก (Root Cause)', type: 'Textarea — สาเหตุเชิงระบบที่แท้จริง' },
+                    { field: 'Just Culture', type: 'Dropdown (5 ตัวเลือก)' },
+                  ].map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#374151', minWidth: 140 }}>{f.field}</div>
+                      <div style={{ fontSize: 8, color: '#9ca3af', flex: 1 }}>{f.type}</div>
+                    </div>
+                  ))}
+                </div>
+              </MockScreen>
+
+              <ExampleBox color="#ca8a04">
+                คนงานตกจากนั่งร้าน → Level 2 RCA → วิธี: Fishbone + 5 Whys → หมวดสาเหตุ: การจัดการผู้รับเหมา → Barrier: ถูกข้ามไป (Bypassed) — เข็มขัดนิรภัยมีแต่ไม่ใส่ → Immediate: ลื่นหลุดจากนั่งร้านชั้น 3 → Contributing: ไม่มี Supervisor กำกับ, ฝนตก → Root Cause: ไม่มีระบบตรวจสอบ PPE ก่อนขึ้นที่สูง → Just Culture: At-Risk Behavior (Drift)
+              </ExampleBox>
+
               <Tip>
-                การเลือก <strong>Just Culture Classification</strong> ช่วยแยกแยะว่าเหตุการณ์เกิดจากความผิดพลาดโดยสุจริต (ให้โค้ช)
-                หรือพฤติกรรมเสี่ยง (ให้ปรับเปลี่ยน) หรือประมาทเลินเล่อ (ลงโทษ)
+                หลักการสำคัญของการสอบสวน: <strong>มุ่งหาสาเหตุเชิงระบบ ไม่ใช่โทษบุคคล</strong> (No Blame ≠ No Accountability) — หาว่าระบบอะไรที่ต้องแก้ไขเพื่อไม่ให้เกิดซ้ำ ไม่ใช่หาคนผิด ยกเว้นกรณี Reckless Behavior
               </Tip>
             </StepSection>
 
