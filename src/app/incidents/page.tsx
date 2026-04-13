@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
+import { STATUS, PALETTE } from '@/lib/she-theme';
 import {
   AlertTriangle, Activity, Clock, Shield, Users, DollarSign,
   TrendingUp, TrendingDown, BarChart3, Building2, ChevronRight, ChevronDown,
-  Skull, Hospital, Wallet,
+  Skull, Hospital, Wallet, Circle, ArrowUpDown, ChevronUp,
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -61,7 +62,8 @@ const YEAR_PRESETS: { label: string; years: number[] }[] = [
 ];
 
 // Chart company colors
-const COMPANY_COLORS = ['#3b82f6', '#f97316', '#16a34a', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b', '#6366f1', '#84cc16'];
+// Chart company colors — derived from theme palette for consistency
+const COMPANY_COLORS = [PALETTE.primary, PALETTE.secondary, STATUS.positive, PALETTE.accent, '#8b5cf6', '#14b8a6', '#ec4899', STATUS.neutral, '#6366f1', '#84cc16'];
 
 export default function HQIncidentsPage() {
   const auth = useAuth();
@@ -76,6 +78,9 @@ export default function HQIncidentsPage() {
   const [chartMode, setChartMode] = useState<'all' | 'byCompany'>('all');
   // Table filter from alert clicks
   const [tableFilter, setTableFilter] = useState<'all' | 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH'>('all');
+  // Column sorting
+  const [sortCol, setSortCol] = useState<string>('risk');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -175,6 +180,19 @@ export default function HQIncidentsPage() {
     }
   });
 
+  // Extended monthly data for sparklines
+  const monthlyExt: Record<string, { lti: number; fatality: number; cost: number }> = {};
+  MONTHS.forEach(m => { monthlyExt[m] = { lti: 0, fatality: 0, cost: 0 }; });
+  baseInc.forEach(inc => {
+    const num = parseInt(String(inc.month));
+    const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(inc.month);
+    if (monthlyExt[m]) {
+      if ((inc.incident_type || '').includes('เสียชีวิต') || (inc.incident_type || '').includes('Fatal')) monthlyExt[m].fatality++;
+      if ((inc.incident_type || '').includes('LTI') || (inc.incident_type || '').includes('หยุดงาน')) monthlyExt[m].lti++;
+      monthlyExt[m].cost += (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
+    }
+  });
+
   // Convert monthlyData to array and trim empty months
   const monthlyDataArray = MONTHS.map(m => monthlyData[m]);
   const trimmedMonthlyArray = trimEmptyMonths(monthlyDataArray, ['total', 'injuries', 'nearMiss', 'propertyDamage']);
@@ -232,7 +250,7 @@ export default function HQIncidentsPage() {
   const top3LtifrIds = new Set(ltifrValues.slice(0, 3).map(x => x.id));
 
   // Filter table by alert selection
-  const filteredCompanies = sortedCompanies.filter(([cId, s]) => {
+  const tableFiltered = sortedCompanies.filter(([cId, s]) => {
     if (tableFilter === 'all') return true;
     if (tableFilter === 'fatality') return s.fatality > 0;
     if (tableFilter === 'lti') return s.lti > 0;
@@ -241,6 +259,34 @@ export default function HQIncidentsPage() {
     if (tableFilter === 'noMH') return s.trir === null && s.total > 0;
     return true;
   });
+
+  // Column sort
+  const handleSort = (col: string) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('desc'); }
+  };
+  const filteredCompanies = useMemo(() => {
+    if (sortCol === 'risk') return tableFiltered; // default risk-score order
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...tableFiltered].sort((a, b) => {
+      const sa = a[1], sb = b[1];
+      const colVal = (s: CompanyStat): number => {
+        switch (sortCol) {
+          case 'total': return s.total;
+          case 'injuries': return s.injuries;
+          case 'lti': return s.lti;
+          case 'nearMiss': return s.nearMiss;
+          case 'propertyDamage': return s.propertyDamage;
+          case 'fatality': return s.fatality;
+          case 'trir': return s.trir ?? -1;
+          case 'ltifr': return s.ltifr ?? -1;
+          case 'cost': return s.directCost + s.indirectCost;
+          default: return 0;
+        }
+      };
+      return (colVal(sa) - colVal(sb)) * dir;
+    });
+  }, [tableFiltered, sortCol, sortDir]);
 
   // Total man-hours
   const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mh.total, 0);
@@ -475,9 +521,9 @@ export default function HQIncidentsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
                     {alerts.map((alert, idx) => {
                       const severityStyle = {
-                        critical: { bg: '#fef2f2', border: '#fca5a5', color: '#991b1b' },
-                        warning: { bg: '#fefce8', border: '#fde68a', color: '#92400e' },
-                        info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' },
+                        critical: { bg: `${STATUS.critical}10`, border: `${STATUS.critical}40`, color: STATUS.critical },
+                        warning: { bg: `${STATUS.warning}10`, border: `${STATUS.warning}40`, color: STATUS.warning },
+                        info: { bg: `${PALETTE.primary}10`, border: `${PALETTE.primary}40`, color: PALETTE.primary },
                       }[alert.severity];
                       const isActive = tableFilter === alert.filterKey;
                       return (
@@ -531,7 +577,7 @@ export default function HQIncidentsPage() {
               {/* ═══ Tier 2: Key Safety Rates — TRIR + LTIFR with targets ═══ */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
-                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: 3.0, icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${totalManHours.toLocaleString()}` },
+                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: 3.0, icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}` },
                   { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: 1.0, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
                 ].map((kpi, idx) => {
                   const numVal = parseFloat(String(kpi.value));
@@ -560,27 +606,42 @@ export default function HQIncidentsPage() {
                 })}
               </div>
 
-              {/* ═══ Tier 3: Supporting KPIs (compact row) ═══ */}
+              {/* ═══ Tier 3: Supporting KPIs (compact row) with sparklines ═══ */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
                 {[
-                  { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: '#ef4444', trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null },
-                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: '#f97316', trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null },
-                  { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: '#8b5cf6', trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null },
-                  { label: 'Man-hours', value: totalManHours > 0 ? totalManHours.toLocaleString() : 'N/A', icon: Activity, color: totalManHours > 0 ? 'var(--text-primary)' : '#9ca3af', trend: null },
-                  { label: 'บาดเจ็บทั้งหมด', value: totalSummary.totalInjuries, icon: Users, color: '#f97316', trend: prevSummary ? trendBadge(totalSummary.totalInjuries, prevSummary.totalInjuries) : null },
-                  { label: 'ทรัพย์สินเสียหาย', value: totalSummary.propertyDamage, icon: Building2, color: '#22c55e', trend: null },
-                ].map((kpi, idx) => (
-                  <div key={idx} className="glass-card rounded-2xl p-3">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                      <kpi.icon size={12} style={{ color: kpi.color }} />
-                      <span className="text-[10px] uppercase tracking-[0.06em] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
+                  { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: STATUS.critical, trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null, spark: displayMonths.map(m => monthlyExt[m]?.lti || 0) },
+                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: STATUS.warning, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null, spark: displayMonths.map(m => monthlyExt[m]?.cost || 0) },
+                  { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: PALETTE.primary, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null, spark: displayMonths.map(m => monthlyData[m]?.nearMiss || 0) },
+                  { label: 'Man-hours', value: totalManHours > 0 ? Math.round(totalManHours).toLocaleString() : 'N/A', icon: Activity, color: totalManHours > 0 ? 'var(--text-primary)' : STATUS.neutral, trend: null, spark: [] as number[] },
+                  { label: 'บาดเจ็บทั้งหมด', value: totalSummary.totalInjuries, icon: Users, color: STATUS.warning, trend: prevSummary ? trendBadge(totalSummary.totalInjuries, prevSummary.totalInjuries) : null, spark: displayMonths.map(m => monthlyData[m]?.injuries || 0) },
+                  { label: 'ทรัพย์สินเสียหาย', value: totalSummary.propertyDamage, icon: Building2, color: STATUS.positive, trend: null, spark: displayMonths.map(m => monthlyData[m]?.propertyDamage || 0) },
+                ].map((kpi, idx) => {
+                  const sparkMax = Math.max(...kpi.spark, 1);
+                  return (
+                    <div key={idx} className="glass-card rounded-2xl p-3">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                        <kpi.icon size={12} style={{ color: kpi.color }} />
+                        <span className="text-[10px] uppercase tracking-[0.06em] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: kpi.color }}>{kpi.value}</span>
+                        {kpi.trend}
+                      </div>
+                      {kpi.spark.length > 0 && kpi.spark.some(v => v > 0) && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 20, marginTop: 6 }}>
+                          {kpi.spark.map((v, si) => (
+                            <div key={si} style={{
+                              flex: 1, minWidth: 2,
+                              height: v > 0 ? Math.max((v / sparkMax) * 18, 2) : 0,
+                              background: v > 0 ? `${kpi.color}60` : 'transparent',
+                              borderRadius: '1px 1px 0 0',
+                            }} />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                      <span style={{ fontSize: 18, fontWeight: 700, color: kpi.color }}>{kpi.value}</span>
-                      {kpi.trend}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* ═══ Company Comparison Table — Triage-First ═══ */}
@@ -595,7 +656,14 @@ export default function HQIncidentsPage() {
                     )}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: 'var(--muted)' }}>เรียงตาม Risk Score</span>
+                    <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                      เรียงตาม {sortCol === 'risk' ? 'Risk Score' : sortCol.toUpperCase()} {sortCol !== 'risk' && (sortDir === 'asc' ? '↑' : '↓')}
+                    </span>
+                    {sortCol !== 'risk' && (
+                      <button onClick={() => { setSortCol('risk'); setSortDir('desc'); }} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer', marginLeft: 4 }}>
+                        Reset
+                      </button>
+                    )}
                     {tableFilter !== 'all' && (
                       <button onClick={() => setTableFilter('all')} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer' }}>
                         แสดงทั้งหมด
@@ -607,9 +675,40 @@ export default function HQIncidentsPage() {
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)' }}>
-                        {['', 'บริษัท', 'รวม', 'บาดเจ็บ', 'LTI', 'Near Miss', 'ทรัพย์สิน', 'เสียชีวิต', 'TRIR', 'LTIFR', 'ค่าเสียหาย', ...(hasPrevYear ? ['Δ ปีก่อน'] : [])].map(h => (
-                          <th key={h} className="text-left px-3 py-3 font-semibold whitespace-nowrap" style={{ color: 'var(--muted)', fontSize: 11 }}>{h}</th>
-                        ))}
+                        {([
+                          { key: '', label: '' },
+                          { key: 'company', label: 'บริษัท' },
+                          { key: 'total', label: 'รวม' },
+                          { key: 'injuries', label: 'บาดเจ็บ' },
+                          { key: 'lti', label: 'LTI' },
+                          { key: 'nearMiss', label: 'Near Miss' },
+                          { key: 'propertyDamage', label: 'ทรัพย์สิน' },
+                          { key: 'fatality', label: 'เสียชีวิต' },
+                          { key: 'trir', label: 'TRIR' },
+                          { key: 'ltifr', label: 'LTIFR' },
+                          { key: 'cost', label: 'ค่าเสียหาย' },
+                          ...(hasPrevYear ? [{ key: 'delta', label: 'Δ ปีก่อน' }] : []),
+                        ] as { key: string; label: string }[]).map(h => {
+                          const sortable = !['', 'company', 'delta'].includes(h.key);
+                          const isActive = sortCol === h.key;
+                          return (
+                            <th
+                              key={h.key || h.label}
+                              className="text-left px-3 py-3 font-semibold whitespace-nowrap"
+                              style={{ color: isActive ? 'var(--accent)' : 'var(--muted)', fontSize: 11, cursor: sortable ? 'pointer' : 'default', userSelect: 'none' }}
+                              onClick={() => sortable && handleSort(h.key)}
+                            >
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                {h.label}
+                                {sortable && (
+                                  isActive
+                                    ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
+                                    : <ArrowUpDown size={10} style={{ opacity: 0.4 }} />
+                                )}
+                              </span>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -622,7 +721,13 @@ export default function HQIncidentsPage() {
                         const rowBg = hasFatality ? '#fef2f2' : isTopLtifr ? '#fefce8' : noManHours ? '#fff7ed' : undefined;
                         const rowBorder = hasFatality ? '#fca5a5' : isTopLtifr ? '#fde68a' : noManHours ? '#fed7aa' : 'var(--border)';
                         // Risk indicator
-                        const riskDot = hasFatality ? '🔴' : isTopLtifr ? '🟡' : noManHours ? '🟠' : '';
+                        const riskDot = hasFatality
+                          ? <Circle size={10} fill={STATUS.critical} color={STATUS.critical} />
+                          : isTopLtifr
+                            ? <Circle size={10} fill={STATUS.warning} color={STATUS.warning} />
+                            : noManHours
+                              ? <Circle size={10} fill="#f97316" color="#f97316" />
+                              : null;
                         // Per-company delta
                         const prev = prevCompanyStats[companyId];
                         const deltaTotal = prev ? stats.total - prev.total : null;
@@ -645,17 +750,17 @@ export default function HQIncidentsPage() {
                               {noManHours && <span style={{ fontSize: 9, marginLeft: 4, padding: '1px 4px', borderRadius: 3, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>ไม่มี MH</span>}
                             </td>
                             <td className="px-3 py-3 font-bold" style={{ color: 'var(--text-primary)' }}>{stats.total}</td>
-                            <td className="px-3 py-3" style={{ color: '#f97316' }}>{stats.injuries}</td>
-                            <td className="px-3 py-3 font-semibold" style={{ color: stats.lti > 0 ? '#ef4444' : 'var(--muted)' }}>{stats.lti}</td>
-                            <td className="px-3 py-3" style={{ color: '#8b5cf6' }}>{stats.nearMiss}</td>
-                            <td className="px-3 py-3" style={{ color: '#22c55e' }}>{stats.propertyDamage}</td>
-                            <td className="px-3 py-3 font-bold" style={{ color: hasFatality ? '#ef4444' : 'var(--muted)' }}>{stats.fatality}</td>
-                            <td className="px-3 py-3 font-mono" style={{ color: stats.trir !== null ? '#f97316' : 'var(--muted)' }}>
+                            <td className="px-3 py-3" style={{ color: STATUS.warning }}>{stats.injuries}</td>
+                            <td className="px-3 py-3 font-semibold" style={{ color: stats.lti > 0 ? STATUS.critical : 'var(--muted)' }}>{stats.lti}</td>
+                            <td className="px-3 py-3" style={{ color: PALETTE.primary }}>{stats.nearMiss}</td>
+                            <td className="px-3 py-3" style={{ color: STATUS.positive }}>{stats.propertyDamage}</td>
+                            <td className="px-3 py-3 font-bold" style={{ color: hasFatality ? STATUS.critical : 'var(--muted)' }}>{stats.fatality}</td>
+                            <td className="px-3 py-3 font-mono" style={{ color: stats.trir !== null ? STATUS.warning : 'var(--muted)' }}>
                               {stats.trir !== null ? stats.trir.toFixed(2) : (
                                 <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
                               )}
                             </td>
-                            <td className="px-3 py-3 font-mono" style={{ color: stats.ltifr !== null ? (isTopLtifr ? '#dc2626' : '#ef4444') : 'var(--muted)', fontWeight: isTopLtifr ? 700 : undefined }}>
+                            <td className="px-3 py-3 font-mono" style={{ color: stats.ltifr !== null ? (isTopLtifr ? STATUS.critical : STATUS.warning) : 'var(--muted)', fontWeight: isTopLtifr ? 700 : undefined }}>
                               {stats.ltifr !== null ? stats.ltifr.toFixed(2) : (
                                 <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
                               )}
@@ -698,9 +803,9 @@ export default function HQIncidentsPage() {
                 {/* Table legend */}
                 {filteredCompanies.length > 0 && (
                   <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 10, color: 'var(--muted)', flexWrap: 'wrap' }}>
-                    <span>🔴 มีผู้เสียชีวิต</span>
-                    <span>🟡 LTIFR สูงสุด 3 อันดับ</span>
-                    <span>🟠 ไม่มี man-hours</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill={STATUS.critical} color={STATUS.critical} /> มีผู้เสียชีวิต</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill={STATUS.warning} color={STATUS.warning} /> LTIFR สูงสุด 3 อันดับ</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill="#f97316" color="#f97316" /> ไม่มี man-hours</span>
                     <span>N/A = ไม่มีข้อมูล man-hours</span>
                     <span style={{ marginLeft: 'auto', opacity: 0.7 }}>คลิก row เพื่อดูรายละเอียดบริษัท</span>
                   </div>
@@ -734,32 +839,89 @@ export default function HQIncidentsPage() {
                   </div>
                 </div>
 
-                {/* Chart: Combined mode */}
+                {/* Chart: Combined mode — Grouped bar with y-axis gridlines */}
                 {chartMode === 'all' && (
                   <>
-                    <div className="flex items-end gap-2" style={{ height: 180 }}>
-                      {displayMonths.map(m => {
-                        const d = monthlyData[m] || { total: 0, injuries: 0, nearMiss: 0, propertyDamage: 0 };
-                        const h = d.total > 0 ? (d.total / maxMonthly) * 150 : 0;
-                        return (
-                          <div key={m} className="flex-1 flex flex-col items-center">
-                            <span className="text-[10px] font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{d.total || ''}</span>
-                            <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden" style={{ height: Math.max(h, 2) }}>
-                              {d.injuries > 0 && <div style={{ height: `${(d.injuries / d.total) * 100}%`, background: '#f97316', minHeight: 2 }} />}
-                              {d.nearMiss > 0 && <div style={{ height: `${(d.nearMiss / d.total) * 100}%`, background: '#8b5cf6', minHeight: 2 }} />}
-                              {d.propertyDamage > 0 && <div style={{ height: `${(d.propertyDamage / d.total) * 100}%`, background: '#22c55e', minHeight: 2 }} />}
-                              {d.total === 0 && <div style={{ height: 2, background: 'var(--border)' }} />}
-                            </div>
-                            <span className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>{MONTH_TH[m]}</span>
+                    {(() => {
+                      const chartH = 160;
+                      // Compute nice y-axis ticks
+                      const rawMax = Math.max(...displayMonths.map(m => {
+                        const d = monthlyData[m] || { injuries: 0, nearMiss: 0, propertyDamage: 0 };
+                        return Math.max(d.injuries, d.nearMiss, d.propertyDamage);
+                      }), 1);
+                      const step = rawMax <= 5 ? 1 : rawMax <= 10 ? 2 : rawMax <= 30 ? 5 : 10;
+                      const yMax = Math.ceil(rawMax / step) * step || step;
+                      const ticks = Array.from({ length: Math.floor(yMax / step) + 1 }, (_, i) => i * step);
+
+                      return (
+                        <div style={{ display: 'flex', height: chartH + 28 }}>
+                          {/* Y-axis labels */}
+                          <div style={{ width: 28, position: 'relative', marginRight: 4, flexShrink: 0 }}>
+                            {ticks.map(t => (
+                              <span key={t} style={{
+                                position: 'absolute', right: 2,
+                                bottom: (t / yMax) * chartH + 20,
+                                fontSize: 9, color: 'var(--muted)', lineHeight: 1, transform: 'translateY(50%)',
+                              }}>{t}</span>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
+                          {/* Chart area */}
+                          <div style={{ flex: 1, position: 'relative' }}>
+                            {/* Gridlines */}
+                            {ticks.map(t => (
+                              <div key={t} style={{
+                                position: 'absolute', left: 0, right: 0,
+                                bottom: (t / yMax) * chartH + 20,
+                                height: 1, background: PALETTE.grid,
+                              }} />
+                            ))}
+                            {/* Grouped bars */}
+                            <div style={{ display: 'flex', gap: 6, height: chartH + 28, alignItems: 'flex-end', position: 'relative', zIndex: 1 }}>
+                              {displayMonths.map(m => {
+                                const d = monthlyData[m] || { total: 0, injuries: 0, nearMiss: 0, propertyDamage: 0 };
+                                const categories = [
+                                  { val: d.injuries, color: STATUS.warning },
+                                  { val: d.nearMiss, color: PALETTE.primary },
+                                  { val: d.propertyDamage, color: STATUS.positive },
+                                ];
+                                return (
+                                  <div key={m} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    {/* Grouped bars for this month */}
+                                    <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', width: '100%', justifyContent: 'center', height: chartH }}>
+                                      {categories.map((cat, ci) => {
+                                        const h = cat.val > 0 ? (cat.val / yMax) * chartH : 0;
+                                        return (
+                                          <div key={ci} style={{
+                                            flex: 1, maxWidth: 18, minWidth: 4,
+                                            height: Math.max(h, cat.val > 0 ? 3 : 0),
+                                            background: cat.color, borderRadius: '3px 3px 0 0',
+                                            position: 'relative',
+                                          }}
+                                            title={`${['บาดเจ็บ', 'Near Miss', 'ทรัพย์สิน'][ci]}: ${cat.val}`}
+                                          >
+                                            {cat.val > 0 && (
+                                              <span style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                                {cat.val}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    <span style={{ fontSize: 10, marginTop: 4, color: 'var(--muted)' }}>{MONTH_TH[m]}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-6 mt-4 justify-center">
                       {[
-                        { label: 'บาดเจ็บ', color: '#f97316' },
-                        { label: 'Near Miss', color: '#8b5cf6' },
-                        { label: 'ทรัพย์สิน', color: '#22c55e' },
+                        { label: 'บาดเจ็บ', color: STATUS.warning },
+                        { label: 'Near Miss', color: PALETTE.primary },
+                        { label: 'ทรัพย์สิน', color: STATUS.positive },
                       ].map(l => (
                         <div key={l.label} className="flex items-center gap-1.5">
                           <div className="w-3 h-3 rounded-sm" style={{ background: l.color }} />
