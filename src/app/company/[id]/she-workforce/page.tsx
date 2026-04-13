@@ -65,6 +65,9 @@ interface Workload {
   time_usage_min: number;
   frequency: string;
   frequency_count: number;
+  work_section: string;
+  assigned_personnel_ids: string[];
+  worker_type: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────
@@ -74,7 +77,18 @@ const RESPONSIBILITIES = ['Safety', 'Environment', 'Occupational Health', 'Admin
 // Colors imported from @/lib/she-theme
 const FREQ_LABELS: Record<string, string> = { daily: 'รายวัน', weekly: 'รายสัปดาห์', monthly: 'รายเดือน', yearly: 'รายปี' };
 const FREQ_MULTIPLIER: Record<string, number> = { daily: 232, weekly: 48, monthly: 12, yearly: 1 };
+const FREQ_MULTIPLIER_6DAY: Record<string, number> = { daily: 284, weekly: 52, monthly: 12, yearly: 1 };
 const ANNUAL_MINUTES_PER_PERSON = 97440;
+const ANNUAL_MINUTES_6DAY = 119280;
+const WORK_SECTIONS = ['SHE', 'Safety', 'Environment', 'ISO', 'Safety & ISO', 'อื่นๆ'];
+const WORK_SECTION_COLORS: Record<string, string> = {
+  'SHE': '#0f3460', 'Safety': '#e94560', 'Environment': '#0f9b58',
+  'ISO': '#4285f4', 'Safety & ISO': '#ff6d00', 'อื่นๆ': '#6b7280'
+};
+const WORKER_TYPE_INFO = {
+  '5day': { label: 'ทำงาน 5 วัน (จ-ศ)', days: 232, hours: 1624, minutes: 97440, color: '#4285f4' },
+  '6day': { label: 'ทำงาน 6 วัน (จ-ส)', days: 284, hours: 1988, minutes: 119280, color: '#ff6d00' },
+};
 
 // ── Shared styles (outside component to avoid re-creation) ────
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#f3f4f6', fontSize: 14, color: '#111', outline: 'none' };
@@ -114,7 +128,7 @@ function emptyReq(companyId: string): LegalReq {
   return { company_id: companyId, name: '', short_name: '', category: 'safety', required_count: 0, description: '', law_reference: '', sort_order: 0, is_active: true, is_required: true };
 }
 function emptyWorkload(companyId: string): Workload {
-  return { company_id: companyId, function_name: '', job_level1: '', job_level2: '', job_level3: '', job_rank: 'B', job_type: 'fixed', time_usage_min: 0, frequency: 'daily', frequency_count: 1 };
+  return { company_id: companyId, function_name: '', job_level1: '', job_level2: '', job_level3: '', job_rank: 'B', job_type: 'fixed', time_usage_min: 0, frequency: 'daily', frequency_count: 1, work_section: 'SHE', assigned_personnel_ids: [], worker_type: '5day' };
 }
 
 // ================================================================
@@ -311,14 +325,20 @@ export default function SHEWorkforcePage() {
 
   // Workload totals
   const workloadByFn: Record<string, { totalMin: number; entries: number }> = {};
+  const workloadBySection: Record<string, { totalMin: number; entries: number }> = {};
   let grandTotalMin = 0;
   workload.forEach(w => {
-    const annual = w.time_usage_min * w.frequency_count * (FREQ_MULTIPLIER[w.frequency] || 1);
+    const mult = w.worker_type === '6day' ? FREQ_MULTIPLIER_6DAY : FREQ_MULTIPLIER;
+    const annual = w.time_usage_min * w.frequency_count * (mult[w.frequency] || 1);
     grandTotalMin += annual;
     const fn = w.function_name || 'ไม่ระบุ';
     if (!workloadByFn[fn]) workloadByFn[fn] = { totalMin: 0, entries: 0 };
     workloadByFn[fn].totalMin += annual;
     workloadByFn[fn].entries++;
+    const sec = w.work_section || 'SHE';
+    if (!workloadBySection[sec]) workloadBySection[sec] = { totalMin: 0, entries: 0 };
+    workloadBySection[sec].totalMin += annual;
+    workloadBySection[sec].entries++;
   });
   const manpowerNeed = grandTotalMin / ANNUAL_MINUTES_PER_PERSON;
   const manpowerGap = sheCount - manpowerNeed; // positive = surplus
@@ -784,26 +804,36 @@ export default function SHEWorkforcePage() {
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                           <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)' }}>
-                            {['#', 'Function', 'Level 1', 'Level 2', 'Level 3', 'Rank', 'Type', 'เวลา(นาที)', 'ความถี่', 'รวม/ปี', ''].map((h, i) => (
+                            {['#', 'ส่วนงาน', 'Function', 'Level 1', 'Level 2', 'Level 3', 'ผู้รับผิดชอบ', 'วันทำงาน', 'Rank', 'Type', 'เวลา(นาที)', 'ความถี่', 'รวม/ปี', ''].map((h, i) => (
                               <th key={i} style={thStyle}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {workload.length === 0 ? (
-                            <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            <tr><td colSpan={14} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
                               <FileText size={32} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
                               <div>ยังไม่มีข้อมูลภาระงาน</div>
                             </td></tr>
                           ) : workload.map((w, i) => {
-                            const annual = w.time_usage_min * w.frequency_count * (FREQ_MULTIPLIER[w.frequency] || 1);
+                            const mult = w.worker_type === '6day' ? FREQ_MULTIPLIER_6DAY : FREQ_MULTIPLIER;
+                            const annual = w.time_usage_min * w.frequency_count * (mult[w.frequency] || 1);
+                            const assignedNames = (w.assigned_personnel_ids || []).map(pid => {
+                              const p = personnel.find(pp => pp.id === pid);
+                              return p ? (p.nick_name || p.full_name.split(' ')[0]) : '';
+                            }).filter(Boolean);
+                            const secColor = WORK_SECTION_COLORS[w.work_section] || '#6b7280';
+                            const wtInfo = WORKER_TYPE_INFO[w.worker_type as keyof typeof WORKER_TYPE_INFO] || WORKER_TYPE_INFO['5day'];
                             return (
                               <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
                                 <td style={{ ...tdStyle, color: 'var(--text-secondary)', width: 40 }}>{i + 1}</td>
+                                <td style={tdStyle}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: `${secColor}15`, color: secColor, fontWeight: 600, whiteSpace: 'nowrap' }}>{w.work_section || 'SHE'}</span></td>
                                 <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text-primary)' }}>{w.function_name || '-'}</td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_level1 || '-'}</td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_level2 || '-'}</td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_level3 || '-'}</td>
+                                <td style={{ ...tdStyle, fontSize: 11 }}>{assignedNames.length > 0 ? assignedNames.join(', ') : <span style={{ color: 'var(--text-secondary)' }}>-</span>}</td>
+                                <td style={tdStyle}><span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: `${wtInfo.color}15`, color: wtInfo.color, fontWeight: 600 }}>{w.worker_type === '6day' ? '6วัน' : '5วัน'}</span></td>
                                 <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: w.job_rank === 'A' ? `${STATUS.critical}15` : w.job_rank === 'B' ? `${STATUS.warning}15` : `${PALETTE.primary}15`, color: w.job_rank === 'A' ? STATUS.critical : w.job_rank === 'B' ? STATUS.warning : PALETTE.primary, fontWeight: 700 }}>{w.job_rank}</span></td>
                                 <td style={{ ...tdStyle, fontSize: 12 }}>{w.job_type === 'fixed' ? 'Fixed' : 'Variable'}</td>
                                 <td style={{ ...tdStyle, textAlign: 'right' }}>{w.time_usage_min.toLocaleString()}</td>
@@ -821,6 +851,74 @@ export default function SHEWorkforcePage() {
                     </div>
                   </div>
 
+                  {/* Working Hours Reference Card */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                    {(['5day', '6day'] as const).map(wt => {
+                      const info = WORKER_TYPE_INFO[wt];
+                      return (
+                        <div key={wt} style={{ padding: 16, borderRadius: 12, border: `1.5px solid ${info.color}30`, background: `${info.color}05` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: 4, background: info.color }} />
+                            <span style={{ fontSize: 13, fontWeight: 700, color: info.color }}>{info.label}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                            <div style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: `${info.color}10` }}>
+                              <div style={{ fontSize: 20, fontWeight: 800, color: info.color }}>{info.days}</div>
+                              <div style={{ fontSize: 10, color: '#666' }}>วัน/ปี</div>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: `${info.color}10` }}>
+                              <div style={{ fontSize: 20, fontWeight: 800, color: info.color }}>{info.hours.toLocaleString()}</div>
+                              <div style={{ fontSize: 10, color: '#666' }}>ชม./ปี</div>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: 8, borderRadius: 8, background: `${info.color}10` }}>
+                              <div style={{ fontSize: 20, fontWeight: 800, color: info.color }}>{info.minutes.toLocaleString()}</div>
+                              <div style={{ fontSize: 10, color: '#666' }}>นาที/ปี</div>
+                            </div>
+                          </div>
+                          {wt === '6day' && (
+                            <div style={{ marginTop: 8, fontSize: 10, color: '#888', lineHeight: 1.5 }}>
+                              365 วัน − วันหยุดนักขัตฤกษ์ 15 วัน − วันหยุด ส. 52 วัน − Heat break 6 วัน − ลาป่วย 5 วัน − ลาอื่น 3 วัน = 284 วัน
+                            </div>
+                          )}
+                          {wt === '5day' && (
+                            <div style={{ marginTop: 8, fontSize: 10, color: '#888', lineHeight: 1.5 }}>
+                              กำลังคน 1 คน × {info.days} วันทำงาน × 7 ชม./วัน = {info.hours.toLocaleString()} ชม. = {info.minutes.toLocaleString()} นาที/ปี
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Section Summary with horizontal bars */}
+                  {Object.keys(workloadBySection).length > 0 && (() => {
+                    const secEntries = Object.entries(workloadBySection).sort((a, b) => b[1].totalMin - a[1].totalMin);
+                    const secMax = secEntries[0]?.[1].totalMin || 1;
+                    return (
+                      <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))', marginBottom: 14 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>สรุปตามส่วนงาน</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {secEntries.map(([sec, data]) => {
+                            const manpower = data.totalMin / ANNUAL_MINUTES_PER_PERSON;
+                            const sColor = WORK_SECTION_COLORS[sec] || '#6b7280';
+                            return (
+                              <div key={sec}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: sColor, flex: 1 }}>{sec}</span>
+                                  <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{data.entries} งาน</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: sColor, minWidth: 45, textAlign: 'right' }}>{manpower.toFixed(1)} คน</span>
+                                </div>
+                                <div style={{ height: 7, borderRadius: 4, background: BULLET.bgBand }}>
+                                  <div style={{ height: '100%', borderRadius: 4, width: `${(data.totalMin / secMax) * 100}%`, background: sColor, transition: 'width 0.3s' }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Function Summary with horizontal bars */}
                   {Object.keys(workloadByFn).length > 0 && (() => {
                     const fnEntries = Object.entries(workloadByFn).sort((a, b) => b[1].totalMin - a[1].totalMin);
@@ -829,7 +927,7 @@ export default function SHEWorkforcePage() {
                       <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid, var(--bg-secondary))' }}>
                         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>สรุปตาม Function</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          {fnEntries.map(([fn, data], i) => {
+                          {fnEntries.map(([fn, data]) => {
                             const manpower = data.totalMin / ANNUAL_MINUTES_PER_PERSON;
                             return (
                               <div key={fn}>
@@ -950,10 +1048,87 @@ export default function SHEWorkforcePage() {
         <Modal show={showWModal} title={editW?.id ? 'แก้ไขรายการ' : 'เพิ่มรายการภาระงาน'} onClose={() => { setShowWModal(false); setEditW(null); }} onSave={saveWorkload} saving={saving}>
           {editW && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Work Section & Worker Type */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div><FieldLabel>ส่วนงาน</FieldLabel>
+                  <div style={{ position: 'relative' }}>
+                    <select style={selectStyle} value={editW.work_section} onChange={e => setEditW({ ...editW, work_section: e.target.value })}>
+                      {WORK_SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <ChevronDown size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#6b7280' }} />
+                  </div>
+                </div>
+                <div><FieldLabel>ประเภทวันทำงาน</FieldLabel>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {(['5day', '6day'] as const).map(wt => {
+                      const info = WORKER_TYPE_INFO[wt];
+                      const isActive = editW.worker_type === wt;
+                      return (
+                        <button key={wt} onClick={() => setEditW({ ...editW, worker_type: wt })} style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 8, border: `2px solid ${isActive ? info.color : '#e5e7eb'}`,
+                          background: isActive ? `${info.color}10` : '#f9fafb', cursor: 'pointer', textAlign: 'center',
+                          fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? info.color : '#6b7280', transition: 'all 0.15s',
+                        }}>
+                          {wt === '5day' ? '5 วัน' : '6 วัน'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              {/* Worker type info */}
+              {(() => {
+                const wti = WORKER_TYPE_INFO[editW.worker_type as keyof typeof WORKER_TYPE_INFO] || WORKER_TYPE_INFO['5day'];
+                return (
+                  <div style={{ padding: '8px 12px', borderRadius: 8, background: `${wti.color}08`, border: `1px solid ${wti.color}20`, fontSize: 11, color: '#555' }}>
+                    <b style={{ color: wti.color }}>{wti.label}</b>: {wti.days} วัน/ปี · {wti.hours.toLocaleString()} ชม. · {wti.minutes.toLocaleString()} นาที
+                    {editW.worker_type === '6day' && (
+                      <div style={{ marginTop: 4, fontSize: 10, color: '#888' }}>
+                        หักวันหยุดนักขัตฤกษ์ 15 วัน, วันหยุดสุดสัปดาห์ 52 วัน, Heat break 6 วัน, ลาป่วย 5 วัน, ลาอื่น 3 วัน
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div><FieldLabel>Function</FieldLabel><input style={inputStyle} placeholder="Safety & Health" value={editW.function_name} onChange={e => setEditW({ ...editW, function_name: e.target.value })} /></div>
               <div><FieldLabel>Level 1 (หัวข้องานหลัก)</FieldLabel><input style={inputStyle} value={editW.job_level1} onChange={e => setEditW({ ...editW, job_level1: e.target.value })} /></div>
               <div><FieldLabel>Level 2 (ฟังก์ชั่นย่อย)</FieldLabel><input style={inputStyle} value={editW.job_level2} onChange={e => setEditW({ ...editW, job_level2: e.target.value })} /></div>
               <div><FieldLabel>Level 3 (รายละเอียด)</FieldLabel><input style={inputStyle} value={editW.job_level3} onChange={e => setEditW({ ...editW, job_level3: e.target.value })} /></div>
+              {/* Assigned Personnel Multi-select */}
+              <div>
+                <FieldLabel>ผู้รับผิดชอบ (เลือกได้หลายคน)</FieldLabel>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', maxHeight: 150, overflowY: 'auto', padding: 6 }}>
+                  {personnel.filter(p => p.is_active).length === 0 ? (
+                    <div style={{ padding: 8, color: '#999', fontSize: 12 }}>ยังไม่มีบุคลากร — เพิ่มในแท็บ &quot;บุคลากร&quot;</div>
+                  ) : personnel.filter(p => p.is_active).map(p => {
+                    const isSelected = (editW.assigned_personnel_ids || []).includes(p.id!);
+                    return (
+                      <div key={p.id} onClick={() => {
+                        const ids = editW.assigned_personnel_ids || [];
+                        setEditW({ ...editW, assigned_personnel_ids: isSelected ? ids.filter(id => id !== p.id!) : [...ids, p.id!] });
+                      }} style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, cursor: 'pointer',
+                        background: isSelected ? `${PALETTE.primary}10` : 'transparent', transition: 'background 0.1s',
+                      }}>
+                        <div style={{
+                          width: 18, height: 18, borderRadius: 4, border: `2px solid ${isSelected ? PALETTE.primary : '#d1d5db'}`,
+                          background: isSelected ? PALETTE.primary : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.15s', flexShrink: 0,
+                        }}>
+                          {isSelected && <Check size={12} color="#fff" strokeWidth={3} />}
+                        </div>
+                        <span style={{ fontSize: 13, color: '#333' }}>{p.nick_name ? `${p.nick_name} (${p.full_name})` : p.full_name}</span>
+                        <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>{p.position}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {(editW.assigned_personnel_ids || []).length > 0 && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: PALETTE.primary }}>
+                    เลือกแล้ว {editW.assigned_personnel_ids.length} คน
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                 <div><FieldLabel>Job Rank</FieldLabel>
                   <div style={{ position: 'relative' }}>
