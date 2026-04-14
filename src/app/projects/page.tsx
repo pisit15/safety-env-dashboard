@@ -4,16 +4,20 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
+import { useCompanies } from '@/hooks/useCompanies';
 import { PROJECTS, type ProjectId } from '@/lib/projects';
-import { Shield, LogIn, X, User, Lock, ArrowRight, Loader2, Key } from 'lucide-react';
+import { Shield, LogIn, X, User, Lock, ArrowRight, Loader2, Key, Building2 } from 'lucide-react';
 
 export default function ProjectsLandingPage() {
   const router = useRouter();
   const auth = useAuth();
+  const { companies } = useCompanies();
 
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
 
   const [loginFor, setLoginFor] = useState<ProjectId | null>(null);
+  const [loginMode, setLoginMode] = useState<'admin' | 'company'>('admin');
+  const [loginCompanyId, setLoginCompanyId] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -28,13 +32,16 @@ export default function ProjectsLandingPage() {
     }
   };
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginFor) return;
     setLoginLoading(true);
     setLoginError('');
     try {
-      const result = await auth.adminLogin(username, password);
+      const result =
+        loginMode === 'admin'
+          ? await auth.adminLogin(username, password)
+          : await auth.companyLogin(loginCompanyId, username, password);
       if (result.success) {
         router.push(`/projects/${loginFor}`);
       } else {
@@ -151,7 +158,7 @@ export default function ProjectsLandingPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Key size={20} className="text-blue-600" />
-                Admin Login
+                เข้าสู่ระบบ
               </h3>
               <button
                 onClick={() => setLoginFor(null)}
@@ -160,21 +167,55 @@ export default function ProjectsLandingPage() {
                 <X size={20} />
               </button>
             </div>
-            <p className="text-sm text-gray-600 mb-2">
-              เข้าสู่ระบบเพื่อใช้งาน{' '}
+            <p className="text-sm text-gray-600 mb-4">
+              เพื่อใช้งาน{' '}
               <strong className="text-gray-900">
                 {PROJECTS.find((p) => p.id === loginFor)?.name}
               </strong>
             </p>
-            <p className="text-xs text-gray-500 mb-5">
-              ผู้ใช้บริษัท (Company User): กรุณา{' '}
-              <Link href="/" className="text-blue-600 underline">
-                เลือกบริษัทและเข้าสู่ระบบที่หน้าแรก
-              </Link>
-            </p>
-            <form onSubmit={handleAdminLogin} className="space-y-3">
+
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => { setLoginMode('admin'); setLoginError(''); }}
+                className={`flex-1 py-2 px-3 text-sm rounded-md transition ${loginMode === 'admin' ? 'bg-white text-gray-900 shadow font-semibold' : 'text-gray-600'}`}
+              >
+                <Key size={14} className="inline mr-1" /> Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginMode('company'); setLoginError(''); }}
+                className={`flex-1 py-2 px-3 text-sm rounded-md transition ${loginMode === 'company' ? 'bg-white text-gray-900 shadow font-semibold' : 'text-gray-600'}`}
+              >
+                <Building2 size={14} className="inline mr-1" /> ผู้ใช้บริษัท
+              </button>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-3">
+              {loginMode === 'company' && (
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">บริษัท</label>
+                  <div className="relative">
+                    <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <select
+                      value={loginCompanyId}
+                      onChange={(e) => setLoginCompanyId(e.target.value)}
+                      required
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm appearance-none bg-white"
+                    >
+                      <option value="">-- เลือกบริษัทของคุณ --</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} — {c.fullName || c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
               <div>
-                <label className="text-xs text-gray-600 mb-1 block">Admin Username</label>
+                <label className="text-xs text-gray-600 mb-1 block">{loginMode === 'admin' ? 'Admin Username' : 'Username'}</label>
                 <div className="relative">
                   <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
