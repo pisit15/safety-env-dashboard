@@ -9,8 +9,12 @@ const nextConfig = {
       // Employees
       { source: '/employees', destination: '/projects/employees', permanent: false },
       { source: '/company/:id/employees', destination: '/projects/employees/:id', permanent: false },
-      { source: '/she-workforce', destination: '/projects/employees/she-workforce', permanent: false },
-      { source: '/company/:id/she-workforce', destination: '/projects/employees/she-workforce/:id', permanent: false },
+      // SHE Workforce moved to tools.eashe.org (external)
+      { source: '/she-workforce', destination: 'https://tools.eashe.org/she-workforce', permanent: false, basePath: false },
+      { source: '/company/:id/she-workforce', destination: 'https://tools.eashe.org/she-workforce', permanent: false, basePath: false },
+      { source: '/admin/she-workforce', destination: 'https://tools.eashe.org/she-workforce', permanent: false, basePath: false },
+      { source: '/projects/employees/she-workforce', destination: 'https://tools.eashe.org/she-workforce', permanent: false, basePath: false },
+      { source: '/projects/employees/she-workforce/:id', destination: 'https://tools.eashe.org/she-workforce', permanent: false, basePath: false },
       // Risk Assessment
       { source: '/company/:id/risk', destination: '/projects/risk/:id', permanent: false },
       { source: '/company/:id/risk/guide', destination: '/projects/risk/:id/guide', permanent: false },
@@ -30,7 +34,6 @@ const nextConfig = {
       { source: '/company/:id/action-plan', destination: '/projects/action-plan/:id', permanent: false },
       // Admin legacy
       { source: '/admin', destination: '/projects', permanent: false },
-      { source: '/admin/she-workforce', destination: '/projects/employees/she-workforce', permanent: false },
     ];
   },
 };

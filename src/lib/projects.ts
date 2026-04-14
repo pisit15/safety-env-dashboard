@@ -132,14 +132,13 @@ export const PROJECTS: ProjectConfig[] = [
     id: 'employees',
     name: 'จัดการพนักงาน',
     shortName: 'Employees',
-    description: 'ทะเบียนพนักงานและ SHE Workforce',
+    description: 'ทะเบียนพนักงาน',
     icon: Users,
     color: 'from-slate-500 to-gray-700',
     accentColor: '#64748b',
     ready: true,
     nav: [
       { id: 'employees', label: 'ทะเบียนพนักงาน', icon: Users, href: (cid) => cid === 'all' ? '/projects/employees' : `/projects/employees/${cid}` },
-      { id: 'she-workforce', label: 'SHE Workforce', icon: Users, href: (cid) => cid === 'all' ? '/projects/employees/she-workforce' : `/projects/employees/she-workforce/${cid}` },
     ],
   },
 ];
