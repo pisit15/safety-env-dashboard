@@ -513,7 +513,7 @@ function EditProjectModal({ project, companyId, onClose, onSaved }: {
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function ProjectDetailPage() {
-  const { id, pid } = useParams() as { id: string; pid: string };
+  const { companyId: id, pid } = useParams() as { companyId: string; pid: string };
   const router = useRouter();
   const auth = useAuth();
   const isAdmin = auth.isAdmin || !!auth.companyAuth[id];

@@ -57,7 +57,7 @@ interface ResponsibleOverride {
 export default function CompanyDrilldown() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const companyId = params.id as string;
+  const companyId = params.companyId as string;
   const auth = useAuth();
   const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>(() => {
     // Read ?plan=environment from URL (e.g. from sidebar Environment link)

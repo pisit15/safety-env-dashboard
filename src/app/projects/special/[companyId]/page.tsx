@@ -399,7 +399,7 @@ function ProjectCard({ project, onClick }: { project: SpecialProject; onClick: (
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function ProjectsPage() {
-  const { id } = useParams() as { id: string };
+  const { companyId: id } = useParams() as { companyId: string };
   const router = useRouter();
   const auth = useAuth();
   const company = COMPANIES.find(c => c.id === id);

@@ -72,7 +72,7 @@ const selectStyle: React.CSSProperties = {
 };
 
 export default function ManHoursPage() {
-  const { id } = useParams() as { id: string };
+  const { companyId: id } = useParams() as { companyId: string };
   const auth = useAuth();
   const { getCompanyById } = useCompanies();
   const company = getCompanyById(id);
