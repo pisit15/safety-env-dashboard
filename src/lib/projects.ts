@@ -138,8 +138,8 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#64748b',
     ready: true,
     nav: [
-      { id: 'employees', label: 'ทะเบียนพนักงาน', icon: Users, href: (cid) => cid === 'all' ? '/employees' : `/company/${cid}/employees` },
-      { id: 'she-workforce', label: 'SHE Workforce', icon: Users, href: (cid) => cid === 'all' ? '/admin/she-workforce' : `/company/${cid}/she-workforce` },
+      { id: 'employees', label: 'ทะเบียนพนักงาน', icon: Users, href: (cid) => cid === 'all' ? '/projects/employees' : `/projects/employees/${cid}` },
+      { id: 'she-workforce', label: 'SHE Workforce', icon: Users, href: (cid) => cid === 'all' ? '/projects/employees/she-workforce' : `/projects/employees/she-workforce/${cid}` },
     ],
   },
 ];
