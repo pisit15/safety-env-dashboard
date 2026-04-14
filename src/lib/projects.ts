@@ -109,8 +109,8 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#f59e0b',
     ready: true,
     nav: [
-      { id: 'admin', label: 'Admin Dashboard', icon: FileText, href: () => '/admin/nearmiss', adminOnly: true },
-      { id: 'company', label: 'จัดการข้อมูลบริษัท', icon: FileText, href: (cid) => `/company/${cid}/nearmiss`, companyRequired: true },
+      { id: 'admin', label: 'Admin Dashboard', icon: FileText, href: () => '/projects/nearmiss', adminOnly: true },
+      { id: 'company', label: 'จัดการข้อมูลบริษัท', icon: FileText, href: (cid) => `/projects/nearmiss/${cid}`, companyRequired: true },
       { id: 'report-link', label: 'ลิงก์รายงาน (สำหรับพนักงาน)', icon: FileText, href: (cid) => cid === 'all' ? '/report/nearmiss' : `/report/nearmiss/${cid}` },
     ],
   },
