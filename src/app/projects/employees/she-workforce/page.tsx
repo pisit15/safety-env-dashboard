@@ -108,7 +108,7 @@ export default function AdminSHEWorkforcePage() {
   // ── Auth gate ──
   if (!auth.isAdmin || auth.adminRole !== 'super_admin') {
     return (
-      <div style={{ minHeight: "100%", background: "var(--bg)" }}>        <main className=" p-8" style={{ color: 'var(--text-primary)', background: 'var(--bg-primary)' }}>
+      <div className="flex min-h-screen">        <main className="flex-1 p-8" style={{ color: 'var(--text-primary)', background: 'var(--bg-primary)' }}>
           <div style={{ textAlign: 'center', marginTop: 100 }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
             <h2 style={{ fontSize: 20, fontWeight: 700 }}>เฉพาะ Super Admin</h2>
@@ -121,7 +121,7 @@ export default function AdminSHEWorkforcePage() {
 
   // ── Main ──
   return (
-    <div style={{ minHeight: "100%", background: "var(--bg)" }} style={{ background: 'var(--bg-primary)' }}>      <main className=" overflow-y-auto">
+    <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>      <main className="flex-1 overflow-y-auto">
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px' }}>
 
           {/* ── Header ── */}

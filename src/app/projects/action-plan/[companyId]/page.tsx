@@ -1557,7 +1557,7 @@ export default function CompanyDrilldown() {
   // ── View Gate: require login to see company data ──
   if (!isLoggedIn && !auth.isAdmin) {
     return (
-      <div style={{ minHeight: "100%", background: "var(--bg)" }}>        <main className=" p-8 flex items-center justify-center">
+      <div className="flex min-h-screen">        <main className="flex-1 p-8 flex items-center justify-center">
           <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center" style={{ backdropFilter: 'blur(40px)' }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
               style={{ background: `linear-gradient(135deg, ${PALETTE.primary} 0%, ${PALETTE.primary}CC 100%)` }}>
@@ -1600,7 +1600,7 @@ export default function CompanyDrilldown() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">      <main className=" p-6 lg:p-8 overflow-y-auto" id="pdf-content">
+    <div className="flex h-screen overflow-hidden">      <main className="flex-1 p-6 lg:p-8 overflow-y-auto" id="pdf-content">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs mb-1">
           <Link href="/" style={{ color: 'var(--muted)' }} className="hover:opacity-70">Home</Link>
@@ -2298,7 +2298,7 @@ export default function CompanyDrilldown() {
                               const donePMg = activePMg.filter(mk => getEffectiveStatus(act as Activity & { _planTag?: string }, mk) === 'done');
                               const pctG = Math.round((donePMg.length / activePMg.length) * 100);
                               const barColorG = pctG >= 75 ? STATUS.ok : pctG >= 25 ? STATUS.warning : STATUS.critical;
-                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className=" h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
+                              return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
                           <td className="py-2.5 px-1.5 text-[11px] cursor-pointer truncate" style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))} title={getEffectiveResponsible(act)}>{getEffectiveResponsible(act)}</td>
@@ -2533,7 +2533,7 @@ export default function CompanyDrilldown() {
                               const barColor = pct >= 75 ? STATUS.ok : pct >= 25 ? STATUS.warning : STATUS.critical;
                               return (
                                 <div className="flex items-center gap-1.5 mt-1.5" title={`${donePM.length}/${activePM.length} เดือนเสร็จ (${pct}%)`}>
-                                  <div className=" h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}>
+                                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}>
                                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
                                   </div>
                                   <span className="text-[9px] font-medium" style={{ color: pct >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePM.length}/{activePM.length}</span>
@@ -2643,7 +2643,7 @@ export default function CompanyDrilldown() {
                           style={{ background: person.overdue > 0 ? `linear-gradient(135deg, ${STATUS.critical}, ${CATEGORY_COLORS.safety})` : pctDone >= 100 ? `linear-gradient(135deg, ${STATUS.ok}, #76B7B2)` : `linear-gradient(135deg, ${PALETTE.primary}, #76B7B2)` }}>
                           {person.name.slice(0, 2)}
                         </div>
-                        <div className=" min-w-0">
+                        <div className="flex-1 min-w-0">
                           <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{person.name}</div>
                           <div className="flex items-center gap-2 text-[10px] mt-0.5">
                             <span style={{ color: 'var(--muted)' }}>{person.total} งาน</span>
@@ -2795,7 +2795,7 @@ export default function CompanyDrilldown() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowLoginModal(false)}
-                  className=" px-3 py-2 rounded-lg text-sm transition-colors"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
                   style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                 >
                   ยกเลิก
@@ -2926,7 +2926,7 @@ export default function CompanyDrilldown() {
               <div className="flex gap-2">
                 <button
                   onClick={() => { setShowResponsibleModal(false); setEditingResponsible(null); }}
-                  className=" px-3 py-2 rounded-lg text-sm transition-colors"
+                  className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
                   style={{ background: 'var(--border)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                 >
                   ยกเลิก

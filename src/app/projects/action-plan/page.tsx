@@ -599,7 +599,7 @@ export default function HQOverview() {
   // ── Admin Login Gate ──
   if (!auth.isAdmin) {
     return (
-      <div style={{ minHeight: "100%", background: "var(--bg)" }}>        <main className=" p-8 flex items-center justify-center">
+      <div className="flex min-h-screen">        <main className="flex-1 p-8 flex items-center justify-center">
           <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center" style={{ backdropFilter: 'blur(40px)' }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
               style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #5856d6 100%)' }}>
@@ -641,7 +641,7 @@ export default function HQOverview() {
 
   if (!data) {
     return (
-      <div style={{ minHeight: "100%", background: "var(--bg)" }}>        <main className=" p-8 flex items-center justify-center">
+      <div className="flex min-h-screen">        <main className="flex-1 p-8 flex items-center justify-center">
           <div className="text-center">
             <div className="w-10 h-10 border-2 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'var(--accent)', borderTopColor: 'transparent' }}></div>
             <p className="text-[13px]" style={{ color: 'var(--muted)' }}>กำลังโหลดข้อมูล...</p>
@@ -652,7 +652,7 @@ export default function HQOverview() {
   }
 
   return (
-    <div style={{ minHeight: "100%", background: "var(--bg)" }}>      <main className=" p-6 lg:p-8 overflow-y-auto">
+    <div className="flex min-h-screen">      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-[12px] mb-2">
           <Link href="/" style={{ color: 'var(--muted)' }} className="hover:opacity-70">Home</Link>
@@ -1055,7 +1055,7 @@ export default function HQOverview() {
               <div className="flex" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div className="w-32 px-2 py-2 text-[11px] font-semibold text-right" style={{ color: 'var(--text-secondary)' }}>บริษัท</div>
                 {MONTH_KEYS_ARR.map((name, i) => (
-                  <div key={i} className=" min-w-[52px] text-center px-1 py-2 text-[10px] font-medium" style={{
+                  <div key={i} className="flex-1 min-w-[52px] text-center px-1 py-2 text-[10px] font-medium" style={{
                     color: i === currentMonthIdx ? '#ff9500' : 'var(--muted)',
                     fontWeight: i === currentMonthIdx ? 700 : 500,
                   }}>
@@ -1106,7 +1106,7 @@ export default function HQOverview() {
                         return (
                           <div
                             key={i}
-                            className=" min-w-[52px] px-1 py-2.5 text-center text-[9px] font-semibold relative"
+                            className="flex-1 min-w-[52px] px-1 py-2.5 text-center text-[9px] font-semibold relative"
                             style={{
                               background: bgColor,
                               color: textColor,
