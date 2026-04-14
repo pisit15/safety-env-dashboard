@@ -95,8 +95,8 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#ef4444',
     ready: true,
     nav: [
-      { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, href: (cid) => cid === 'all' ? '/incidents' : `/company/${cid}/incidents` },
-      { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: AlertTriangle, href: (cid) => `/company/${cid}/manhours`, companyRequired: true },
+      { id: 'incidents', label: 'สถิติอุบัติเหตุ', icon: AlertTriangle, href: (cid) => cid === 'all' ? '/projects/incidents' : `/projects/incidents/${cid}` },
+      { id: 'manhours', label: 'ชั่วโมงการทำงาน', icon: AlertTriangle, href: (cid) => `/projects/incidents/${cid}/manhours`, companyRequired: true },
     ],
   },
   {
