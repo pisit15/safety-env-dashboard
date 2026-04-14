@@ -15,6 +15,26 @@ export default function ProjectsLandingPage() {
 
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
 
+  // Resolve the right landing URL for a project based on user role:
+  // - Admin → project HQ overview (cid='all')
+  // - Company user → their own company page (cid=<their companyId>)
+  // - Fallback → project hub
+  const resolveProjectUrl = (projectId: ProjectId, overrideCompanyId?: string) => {
+    const project = PROJECTS.find((p) => p.id === projectId);
+    if (!project) return `/projects/${projectId}`;
+    const firstNav = project.nav[0];
+    if (!firstNav) return `/projects/${projectId}`;
+    // Decide active companyId
+    let cid = 'all';
+    if (overrideCompanyId) {
+      cid = overrideCompanyId;
+    } else if (!auth.isAdmin) {
+      const companyIds = Object.keys(auth.companyAuth);
+      if (companyIds.length > 0) cid = companyIds[0];
+    }
+    return firstNav.href(cid);
+  };
+
   const [loginFor, setLoginFor] = useState<ProjectId | null>(null);
   const [loginMode, setLoginMode] = useState<'admin' | 'company'>('admin');
   const [loginCompanyId, setLoginCompanyId] = useState('');
@@ -25,7 +45,7 @@ export default function ProjectsLandingPage() {
 
   const handleProjectClick = (projectId: ProjectId) => {
     if (isAuthed) {
-      router.push(`/projects/${projectId}`);
+      router.push(resolveProjectUrl(projectId));
     } else {
       setLoginFor(projectId);
       setLoginError('');
@@ -43,7 +63,8 @@ export default function ProjectsLandingPage() {
           ? await auth.adminLogin(username, password)
           : await auth.companyLogin(loginCompanyId, username, password);
       if (result.success) {
-        router.push(`/projects/${loginFor}`);
+        const cid = loginMode === 'company' ? loginCompanyId : undefined;
+        router.push(resolveProjectUrl(loginFor, cid));
       } else {
         setLoginError(result.error || 'Username หรือ Password ไม่ถูกต้อง');
       }
