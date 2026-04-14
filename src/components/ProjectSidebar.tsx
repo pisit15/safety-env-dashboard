@@ -48,9 +48,24 @@ export default function ProjectSidebar({ project }: Props) {
 
   const handleCompanyChange = (cid: string) => {
     setCompanyId(cid);
+    // Navigate to a company-aware URL. Try to preserve the current nav item
+    // by finding which nav item matches the current pathname; otherwise fall
+    // back to the project's first nav item.
+    const currentItem =
+      project.nav.find((item) => {
+        const h = item.href(companyId).split('?')[0];
+        return h === pathname;
+      }) || project.nav.find((item) => !item.adminOnly && !(item.companyRequired && cid === 'all')) || project.nav[0];
+
+    // Preserve existing query params (e.g. ?plan=safety) except 'company'
     const params = new URLSearchParams(searchParams.toString());
-    params.set('company', cid);
-    router.push(`${pathname}?${params.toString()}`);
+    params.delete('company');
+    const queryStr = params.toString();
+    const baseHref = currentItem.href(cid);
+    const [base, existingQuery] = baseHref.split('?');
+    const mergedQuery = [existingQuery, queryStr].filter(Boolean).join('&');
+    const finalUrl = mergedQuery ? `${base}?${mergedQuery}` : base;
+    router.push(finalUrl);
   };
 
   const handleLogout = () => {
