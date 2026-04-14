@@ -82,7 +82,7 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#3b82f6',
     ready: true,
     nav: [
-      { id: 'plan', label: 'แผนอบรม', icon: GraduationCap, href: (cid) => cid === 'all' ? '/training' : `/company/${cid}/training` },
+      { id: 'plan', label: 'แผนอบรม', icon: GraduationCap, href: (cid) => cid === 'all' ? '/projects/training' : `/projects/training/${cid}` },
     ],
   },
   {
