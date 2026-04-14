@@ -119,6 +119,25 @@ export default function ProjectsLandingPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Admin overview stats (only fetched when admin is logged in)
+  const [adminStats, setAdminStats] = useState<{
+    nearMissTotal: number | null;
+    nearMissPending: number | null;
+  }>({ nearMissTotal: null, nearMissPending: null });
+
+  useEffect(() => {
+    if (!auth.isAdmin) return;
+    fetch('/api/nearmiss/admin?view=summary')
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        const total = list.reduce((s: number, c: { total?: number }) => s + (c.total || 0), 0);
+        const pending = list.reduce((s: number, c: { pending?: number; new?: number }) => s + (c.pending || c.new || 0), 0);
+        setAdminStats({ nearMissTotal: total, nearMissPending: pending });
+      })
+      .catch(() => {});
+  }, [auth.isAdmin]);
+
   // Close modal with Escape key (but NOT by clicking outside — prevents accidental dismissal)
   useEffect(() => {
     if (!loginFor) return;
@@ -238,6 +257,67 @@ export default function ProjectsLandingPage() {
           เลือกโครงการเพื่อเริ่มต้น — บริหารจัดการความปลอดภัยและสิ่งแวดล้อม ครบวงจร 13 บริษัทในเครือ EA
         </p>
       </section>
+
+      {/* Admin overview banner (admin only) */}
+      {auth.isAdmin && (
+        <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 22px 24px' }}>
+          <div
+            style={{
+              background: p.cardBg,
+              border: `1px solid ${p.cardBorder}`,
+              borderRadius: 16,
+              padding: '20px 24px',
+              boxShadow: p.cardShadow,
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 20,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'linear-gradient(135deg, #ffcc00, #ff9500)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Sparkles size={18} color="#fff" />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: p.mutedLight }}>
+                  Admin Overview
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: p.text }}>
+                  ยินดีต้อนรับ · {auth.adminName}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, minWidth: 200 }} />
+
+            <StatItem label="บริษัททั้งหมด" value={companies.length.toString()} color={p.text} mutedColor={p.mutedLight} />
+            <div style={{ height: 32, width: 1, background: p.cardBorder }} />
+            <StatItem label="โครงการ" value={`${PROJECTS.filter((pr) => pr.ready).length}/${PROJECTS.length}`} color={p.text} mutedColor={p.mutedLight} />
+            <div style={{ height: 32, width: 1, background: p.cardBorder }} />
+            <StatItem
+              label="Near Miss รวม"
+              value={adminStats.nearMissTotal?.toLocaleString() ?? '—'}
+              color={p.text}
+              mutedColor={p.mutedLight}
+            />
+            {adminStats.nearMissPending !== null && adminStats.nearMissPending > 0 && (
+              <>
+                <div style={{ height: 32, width: 1, background: p.cardBorder }} />
+                <StatItem
+                  label="รอติดตาม"
+                  value={adminStats.nearMissPending.toLocaleString()}
+                  color="#ff9500"
+                  mutedColor={p.mutedLight}
+                />
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Project grid */}
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 22px 96px' }}>
@@ -732,6 +812,19 @@ export default function ProjectsLandingPage() {
         </div>
         );
       })()}
+    </div>
+  );
+}
+
+function StatItem({ label, value, color, mutedColor }: { label: string; value: string; color: string; mutedColor: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 80 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: mutedColor }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color, lineHeight: 1.1 }}>
+        {value}
+      </span>
     </div>
   );
 }

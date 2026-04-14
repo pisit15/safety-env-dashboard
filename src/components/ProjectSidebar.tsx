@@ -141,25 +141,57 @@ export default function ProjectSidebar({ project }: Props) {
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {project.nav.map((item) => {
-          const ItemIcon = item.icon;
-          if (item.adminOnly && !isAdmin) return null;
-          if (item.companyRequired && companyId === 'all') return null;
-          const href = item.href(companyId);
-          const isActive = pathname === href.split('?')[0];
-          return (
+        {(() => {
+          // Determine which nav item is currently active. Strategy:
+          // 1. Find all items whose pathname matches the current pathname
+          // 2. Among those, prefer item whose ?plan= query param matches current ?plan=
+          // 3. If no plan match, pick the one with no plan query (default/overview)
+          const currentPlan = searchParams.get('plan');
+          const pathMatches = project.nav.filter((item) => {
+            if (item.adminOnly && !isAdmin) return false;
+            if (item.companyRequired && companyId === 'all') return false;
+            const baseHref = item.href(companyId).split('?')[0];
+            return baseHref === pathname;
+          });
+
+          const activeItemId = (() => {
+            if (pathMatches.length === 0) return null;
+            if (pathMatches.length === 1) return pathMatches[0].id;
+            // Multiple items share path — disambiguate by ?plan=
+            for (const item of pathMatches) {
+              const qs = item.href(companyId).split('?')[1] || '';
+              const itemPlan = new URLSearchParams(qs).get('plan');
+              if (itemPlan === currentPlan) return item.id;
+            }
+            // No plan match — prefer the one with no plan query (e.g. overview)
+            for (const item of pathMatches) {
+              const qs = item.href(companyId).split('?')[1] || '';
+              if (!new URLSearchParams(qs).get('plan')) return item.id;
+            }
+            return pathMatches[0].id;
+          })();
+
+          return project.nav.map((item) => {
+            const ItemIcon = item.icon;
+            if (item.adminOnly && !isAdmin) return null;
+            if (item.companyRequired && companyId === 'all') return null;
+            const href = item.href(companyId);
+            const isActive = activeItemId === item.id;
+            return (
             <Link
               key={item.id}
               href={href}
+              title={!isOpen ? item.label : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${
-                isActive ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10'
+                isActive ? 'bg-white/25 text-white font-semibold shadow-sm' : 'text-white/80 hover:bg-white/10'
               }`}
             >
               <ItemIcon size={18} />
               {isOpen && <span className="text-sm">{item.label}</span>}
             </Link>
-          );
-        })}
+            );
+          });
+        })()}
       </nav>
 
       {/* Footer actions */}
