@@ -454,7 +454,7 @@ export default function RAFormPage() {
       <div className="flex min-h-screen">
         <main className="flex-1 p-8 text-center" style={{ background: 'var(--bg-primary)' }}>
           <p style={{ color: 'var(--muted)', marginTop: 80 }}>ไม่พบ Task นี้</p>
-          <Link href={`/company/${companyId}/risk`} className="text-sm mt-4 inline-flex items-center gap-1" style={{ color: '#5856d6' }}>
+          <Link href={`/projects/risk/${companyId}`} className="text-sm mt-4 inline-flex items-center gap-1" style={{ color: '#5856d6' }}>
             <ArrowLeft size={14} /> กลับทะเบียนความเสี่ยง
           </Link>
         </main>
@@ -470,7 +470,7 @@ export default function RAFormPage() {
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           {/* Back + Header */}
-          <Link href={`/company/${companyId}/risk`} className="inline-flex items-center gap-1 text-sm mb-4" style={{ color: '#5856d6', textDecoration: 'none' }}>
+          <Link href={`/projects/risk/${companyId}`} className="inline-flex items-center gap-1 text-sm mb-4" style={{ color: '#5856d6', textDecoration: 'none' }}>
             <ArrowLeft size={14} /> กลับทะเบียนความเสี่ยง
           </Link>
 

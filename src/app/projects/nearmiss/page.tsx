@@ -338,7 +338,7 @@ export default function AdminNearMissPage() {
                   const hasWarning = cs.high > 0 || cs.open > cs.total * 0.6;
                   return (
                     <div key={cs.id} className="glass-card"
-                      onClick={() => router.push(`/company/${cs.id}/nearmiss`)}
+                      onClick={() => router.push(`/projects/nearmiss/${cs.id}`)}
                       style={{
                         padding: 18, borderRadius: 20, cursor: 'pointer', transition: 'transform 0.15s cubic-bezier(0.4,0,0.2,1), box-shadow 0.15s',
                         border: hasUrgency ? '2px solid #C23B22' : hasWarning ? '2px solid #F28E2B' : '1px solid var(--border)',

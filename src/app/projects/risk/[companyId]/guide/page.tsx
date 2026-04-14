@@ -109,7 +109,7 @@ export default function RiskGuidePage() {
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           {/* Back */}
-          <Link href={`/company/${companyId}/risk`} className="inline-flex items-center gap-1 text-sm mb-4" style={{ color: '#5856d6', textDecoration: 'none' }}>
+          <Link href={`/projects/risk/${companyId}`} className="inline-flex items-center gap-1 text-sm mb-4" style={{ color: '#5856d6', textDecoration: 'none' }}>
             <ArrowLeft size={14} /> กลับทะเบียนความเสี่ยง
           </Link>
 
@@ -592,7 +592,7 @@ export default function RiskGuidePage() {
               {/* Quick Start Button */}
               <div style={{ textAlign: 'center', marginBottom: 40 }}>
                 <Link
-                  href={`/company/${companyId}/risk`}
+                  href={`/projects/risk/${companyId}`}
                   className="inline-flex items-center gap-2 rounded-xl text-white font-semibold"
                   style={{ padding: '14px 28px', background: 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)', textDecoration: 'none', fontSize: 14 }}
                 >

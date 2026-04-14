@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
@@ -66,6 +67,7 @@ const COMPANY_COLORS = [PALETTE.primary, PALETTE.secondary, STATUS.positive, PAL
 
 export default function HQIncidentsPage() {
   const auth = useAuth();
+  const router = useRouter();
   const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
@@ -737,7 +739,7 @@ export default function HQIncidentsPage() {
                               background: rowBg,
                               cursor: 'pointer',
                             }}
-                            onClick={() => window.open(`/company/${companyId}/incidents`, '_blank')}
+                            onClick={() => router.push(`/projects/incidents/${companyId}`)}
                             onMouseEnter={e => { if (!rowBg) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
                             onMouseLeave={e => { if (!rowBg) e.currentTarget.style.background = ''; else e.currentTarget.style.background = rowBg; }}
                           >

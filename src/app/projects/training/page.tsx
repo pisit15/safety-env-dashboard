@@ -1054,7 +1054,7 @@ export default function HQTrainingOverview() {
                             <tr key={s.companyId} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
                               <td style={{ ...td, textAlign: 'left', fontWeight: 600, position: 'sticky', left: 0, background: i % 2 === 0 ? 'var(--card-solid)' : 'var(--bg-secondary)', zIndex: 1 }}>
                                 {canAccessCompany(s.companyId) ? (
-                                  <Link href={`/company/${s.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                                  <Link href={`/projects/training/${s.companyId}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
                                     {s.companyName}
                                   </Link>
                                 ) : (
@@ -1182,7 +1182,7 @@ export default function HQTrainingOverview() {
                                   <td style={td}>{idx + 1}</td>
                                   <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>
                                     {canAccessCompany(item.companyId) ? (
-                                      <Link href={`/company/${item.companyId}/training`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                                      <Link href={`/projects/training/${item.companyId}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
                                         {item.company}
                                       </Link>
                                     ) : (
@@ -1810,7 +1810,7 @@ export default function HQTrainingOverview() {
                 {/* Link to company training page */}
                 {canAccessCompany(detailCourse.companyId) && (
                   <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-                    <Link href={`/company/${detailCourse.companyId}/training`}
+                    <Link href={`/projects/training/${detailCourse.companyId}`}
                       style={{ fontSize: 13, color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>
                       ไปหน้าอบรมของ {detailCourse.company} →
                     </Link>

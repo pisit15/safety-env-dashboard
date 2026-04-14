@@ -533,7 +533,7 @@ export default function ProjectDetailPage() {
     setDeleting(true);
     const res = await fetch(`/api/projects/${pid}`, { method: 'DELETE' });
     if (res.ok) {
-      router.push(`/company/${id}/projects`);
+      router.push(`/projects/special/${id}`);
     } else {
       alert('เกิดข้อผิดพลาดในการลบ');
       setDeleting(false);
@@ -600,7 +600,7 @@ export default function ProjectDetailPage() {
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p style={{ color: 'var(--text-secondary)' }}>ไม่พบโครงการนี้</p>
-            <button onClick={() => router.push(`/company/${id}/projects`)} className="mt-4 text-indigo-500 underline text-sm">
+            <button onClick={() => router.push(`/projects/special/${id}`)} className="mt-4 text-indigo-500 underline text-sm">
               กลับหน้ารายการโครงการ
             </button>
           </div>
@@ -622,7 +622,7 @@ export default function ProjectDetailPage() {
 
           {/* Back button row */}
           <div className="flex items-center justify-between mb-5">
-            <button onClick={() => router.push(`/company/${id}/projects`)}
+            <button onClick={() => router.push(`/projects/special/${id}`)}
               className="flex items-center gap-2 text-[13px] transition-opacity hover:opacity-70"
               style={{ color: 'var(--text-secondary)' }}>
               <ArrowLeft size={16} /> กลับหน้ารายการโครงการ

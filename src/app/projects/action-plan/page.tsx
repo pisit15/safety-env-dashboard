@@ -1430,7 +1430,7 @@ export default function HQOverview() {
                                 background: q.score <= 1 ? 'rgba(255,59,48,0.04)' : idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.03)',
                               }}>
                                 <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                  <Link href={`/company/${comp.companyId}/action-plan`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
+                                  <Link href={`/projects/action-plan/${comp.companyId}`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
                                     {companyName}
                                   </Link>
                                   {q.highCancelledRate && <span className="ml-1 px-1 py-0.5 rounded text-[7px] font-bold" style={{ background: '#ff9f0a', color: '#fff' }}>ยกเลิกสูง</span>}
@@ -1510,7 +1510,7 @@ export default function HQOverview() {
                           }}>
                             <td className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <Link href={`/company/${comp.companyId}/action-plan`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
+                                <Link href={`/projects/action-plan/${comp.companyId}`} className="hover:opacity-70 transition-opacity" style={{ color: 'var(--text-primary)' }}>
                                   {companyName}
                                 </Link>
                                 {hasConsecutiveLow && (
@@ -2001,7 +2001,7 @@ export default function HQOverview() {
                       <td className="text-right">
                         {c.total > 0 ? (
                           <Link
-                            href={`/company/${c.companyId}`}
+                            href={`/projects/action-plan/${c.companyId}`}
                             className="text-[12px] font-medium transition-colors"
                             style={{ color: 'var(--accent)' }}
                           >

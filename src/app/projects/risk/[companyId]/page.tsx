@@ -334,7 +334,7 @@ export default function RiskRegisterPage() {
             </div>
             <div className="flex items-center gap-2">
               <Link
-                href={`/company/${companyId}/risk/guide`}
+                href={`/projects/risk/${companyId}/guide`}
                 className="flex items-center gap-2 rounded-lg font-semibold text-sm"
                 style={{ padding: '10px 16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', textDecoration: 'none', whiteSpace: 'nowrap' }}
               >
@@ -596,7 +596,7 @@ export default function RiskRegisterPage() {
                   {filtered.map((task) => (
                     <tr key={task.id} style={{ borderBottom: '1px solid var(--border)' }}
                       className="hover:bg-[var(--bg-secondary)] transition-colors cursor-pointer"
-                      onClick={() => router.push(`/company/${companyId}/risk/${task.id}`)}
+                      onClick={() => router.push(`/projects/risk/${companyId}/${task.id}`)}
                     >
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: '#5856d6', fontSize: 12 }}>{task.ra_no}</td>
                       <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>{task.department || '—'}</td>
@@ -631,7 +631,7 @@ export default function RiskRegisterPage() {
                       <td style={{ padding: '10px 12px' }}>
                         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           <button
-                            onClick={() => router.push(`/company/${companyId}/risk/${task.id}`)}
+                            onClick={() => router.push(`/projects/risk/${companyId}/${task.id}`)}
                             className="p-1.5 rounded-lg hover:bg-[var(--bg-secondary)]"
                             title="ประเมินความเสี่ยง"
                           >

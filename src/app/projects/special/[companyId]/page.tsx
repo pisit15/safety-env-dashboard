@@ -692,7 +692,7 @@ export default function ProjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filtered.map(p => (
                 <ProjectCard key={p.id} project={p}
-                  onClick={() => router.push(`/company/${id}/projects/${p.id}`)} />
+                  onClick={() => router.push(`/projects/special/${id}/${p.id}`)} />
               ))}
             </div>
           ) : (
@@ -714,7 +714,7 @@ export default function ProjectsPage() {
                     const isOv = endD < today && !['completed','cancelled'].includes(p.status);
                     const barC = p.completion_pct >= 75 ? '#22c55e' : p.completion_pct >= 25 ? '#f59e0b' : '#ef4444';
                     return (
-                      <tr key={p.id} onClick={() => router.push(`/company/${id}/projects/${p.id}`)}
+                      <tr key={p.id} onClick={() => router.push(`/projects/special/${id}/${p.id}`)}
                         className="cursor-pointer transition-colors hover:bg-opacity-50"
                         style={{
                           borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
