@@ -33,7 +33,7 @@ const nextConfig = {
       { source: '/action-plan', destination: '/projects/action-plan', permanent: false },
       { source: '/company/:id/action-plan', destination: '/projects/action-plan/:id', permanent: false },
       // Admin legacy
-      { source: '/admin', destination: '/projects', permanent: false },
+      { source: '/admin', destination: '/projects/settings', permanent: false },
     ];
   },
 };

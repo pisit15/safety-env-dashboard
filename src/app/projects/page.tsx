@@ -315,6 +315,28 @@ export default function ProjectsLandingPage() {
                 />
               </>
             )}
+            <div style={{ height: 32, width: 1, background: p.cardBorder }} />
+            <a
+              href="/projects/settings"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                background: isDark ? 'rgba(255,255,255,0.08)' : '#f5f5f7',
+                color: p.text,
+                borderRadius: 10,
+                textDecoration: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                border: `1px solid ${p.cardBorder}`,
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.15)' : '#e8e8ed')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#f5f5f7')}
+            >
+              ⚙️ ตั้งค่า
+            </a>
           </div>
         </section>
       )}
