@@ -124,8 +124,8 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#ec4899',
     ready: true,
     nav: [
-      { id: 'tasks', label: 'ประเมินความเสี่ยง', icon: FileWarning, href: (cid) => `/company/${cid}/risk`, companyRequired: true },
-      { id: 'guide', label: 'คู่มือ', icon: FileWarning, href: (cid) => `/company/${cid}/risk/guide`, companyRequired: true },
+      { id: 'tasks', label: 'ประเมินความเสี่ยง', icon: FileWarning, href: (cid) => `/projects/risk/${cid}`, companyRequired: true },
+      { id: 'guide', label: 'คู่มือ', icon: FileWarning, href: (cid) => `/projects/risk/${cid}/guide`, companyRequired: true },
     ],
   },
   {
