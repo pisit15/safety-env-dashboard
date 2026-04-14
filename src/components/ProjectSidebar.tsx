@@ -13,6 +13,7 @@ import {
   ChevronDown,
   LogOut,
   Menu,
+  Settings,
   X,
 } from 'lucide-react';
 
@@ -196,8 +197,19 @@ export default function ProjectSidebar({ project }: Props) {
 
       {/* Footer actions */}
       <div className="border-t border-white/10 p-3 space-y-1">
+        {isAdmin && (
+          <Link
+            href="/projects/settings"
+            title={!isOpen ? 'ตั้งค่า Admin' : undefined}
+            className="flex items-center gap-3 px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg text-sm"
+          >
+            <Settings size={16} />
+            {isOpen && <span>ตั้งค่า Admin</span>}
+          </Link>
+        )}
         <Link
           href="/projects"
+          title={!isOpen ? 'เลือกโครงการอื่น' : undefined}
           className="flex items-center gap-3 px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg text-sm"
         >
           <ArrowLeft size={16} />
@@ -205,6 +217,7 @@ export default function ProjectSidebar({ project }: Props) {
         </Link>
         <button
           onClick={handleLogout}
+          title={!isOpen ? 'ออกจากระบบ' : undefined}
           className="w-full flex items-center gap-3 px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg text-sm"
         >
           <LogOut size={16} />
