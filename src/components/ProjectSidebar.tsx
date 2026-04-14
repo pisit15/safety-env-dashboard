@@ -78,8 +78,15 @@ export default function ProjectSidebar({ project }: Props) {
 
   return (
     <aside
-      className={`${isOpen ? 'w-64' : 'w-20'} text-white transition-all duration-300 min-h-screen flex flex-col`}
-      style={{ background: `linear-gradient(180deg, ${project.accentColor}, #0f172a)` }}
+      className={`${isOpen ? 'w-64' : 'w-20'} text-white transition-all duration-300 flex flex-col flex-shrink-0`}
+      style={{
+        background: `linear-gradient(180deg, ${project.accentColor}, #0f172a)`,
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        maxHeight: '100vh',
+        alignSelf: 'flex-start',
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/10">

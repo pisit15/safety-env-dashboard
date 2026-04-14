@@ -5,8 +5,76 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
+import { useTheme } from '@/components/ThemeProvider';
+import ThemeToggle from '@/components/ThemeToggle';
 import { PROJECTS, type ProjectId } from '@/lib/projects';
 import { LogIn, X, User, Lock, ArrowRight, Loader2, Key, Building2, Lock as LockIcon, Eye, EyeOff, Sparkles } from 'lucide-react';
+
+// Theme-aware palette
+const P = {
+  light: {
+    bg: '#fbfbfd',
+    navBg: 'rgba(251,251,253,0.85)',
+    navBorder: 'rgba(0,0,0,0.06)',
+    divider: 'rgba(0,0,0,0.15)',
+    text: '#1d1d1f',
+    muted: '#6e6e73',
+    mutedLight: '#86868b',
+    cardBg: '#fff',
+    cardBorder: 'rgba(0,0,0,0.06)',
+    cardBorderHover: 'rgba(0,0,0,0.12)',
+    cardShadow: '0 1px 2px rgba(0,0,0,0.04)',
+    cardShadowHover: '0 12px 32px rgba(0,0,0,0.08)',
+    modalBg: '#fff',
+    modalShadow: '0 40px 100px -20px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08)',
+    modalBackdrop: 'rgba(0,0,0,0.45)',
+    closeBtnBg: 'rgba(0,0,0,0.04)',
+    closeBtnBgHover: 'rgba(0,0,0,0.08)',
+    segBg: '#f5f5f7',
+    segActiveBg: '#fff',
+    segActiveText: '#1d1d1f',
+    segInactiveText: '#6e6e73',
+    segShadow: '0 2px 6px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+    inputBg: '#fafafa',
+    inputBorder: 'rgba(0,0,0,0.1)',
+    errorBg: 'linear-gradient(180deg, #fff5f5 0%, #fff9f9 100%)',
+    errorBorder: '#ffd5d5',
+    errorText: '#d70015',
+    footerBorder: 'rgba(0,0,0,0.06)',
+    logoOpacity: 0.9,
+  },
+  dark: {
+    bg: '#000',
+    navBg: 'rgba(20,20,22,0.85)',
+    navBorder: 'rgba(255,255,255,0.08)',
+    divider: 'rgba(255,255,255,0.15)',
+    text: '#f5f5f7',
+    muted: '#a1a1a6',
+    mutedLight: '#86868b',
+    cardBg: '#1c1c1e',
+    cardBorder: 'rgba(255,255,255,0.08)',
+    cardBorderHover: 'rgba(255,255,255,0.15)',
+    cardShadow: '0 1px 2px rgba(0,0,0,0.4)',
+    cardShadowHover: '0 12px 40px rgba(0,0,0,0.6)',
+    modalBg: '#1c1c1e',
+    modalShadow: '0 40px 100px -20px rgba(0,0,0,0.7), 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)',
+    modalBackdrop: 'rgba(0,0,0,0.7)',
+    closeBtnBg: 'rgba(255,255,255,0.08)',
+    closeBtnBgHover: 'rgba(255,255,255,0.15)',
+    segBg: 'rgba(255,255,255,0.08)',
+    segActiveBg: '#3a3a3c',
+    segActiveText: '#f5f5f7',
+    segInactiveText: '#a1a1a6',
+    segShadow: '0 2px 6px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)',
+    inputBg: '#2c2c2e',
+    inputBorder: 'rgba(255,255,255,0.1)',
+    errorBg: 'linear-gradient(180deg, rgba(255,69,58,0.15) 0%, rgba(255,69,58,0.08) 100%)',
+    errorBorder: 'rgba(255,69,58,0.4)',
+    errorText: '#ff453a',
+    footerBorder: 'rgba(255,255,255,0.08)',
+    logoOpacity: 0.95,
+  },
+};
 
 // Apple-inspired design system:
 // - SF Pro system font stack
@@ -22,6 +90,9 @@ export default function ProjectsLandingPage() {
   const router = useRouter();
   const auth = useAuth();
   const { companies } = useCompanies();
+  const { resolvedTheme } = useTheme();
+  const p = resolvedTheme === 'dark' ? P.dark : P.light;
+  const isDark = resolvedTheme === 'dark';
 
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
 
@@ -88,49 +159,52 @@ export default function ProjectsLandingPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fbfbfd', fontFamily: APPLE_FONT, color: '#1d1d1f' }}>
+    <div style={{ minHeight: '100vh', background: p.bg, fontFamily: APPLE_FONT, color: p.text, transition: 'background 200ms ease, color 200ms ease' }}>
       {/* Top bar — Apple-style sticky nav */}
       <header
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          background: 'rgba(251,251,253,0.85)',
+          background: p.navBg,
           backdropFilter: 'saturate(180%) blur(20px)',
           WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          borderBottom: `1px solid ${p.navBorder}`,
         }}
       >
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src="/ea-logo.svg" alt="EA" style={{ height: 28, width: 'auto' }} />
-            <div style={{ height: 20, width: 1, background: 'rgba(0,0,0,0.15)' }} />
-            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>
+            <img src="/ea-logo.svg" alt="EA" style={{ height: 28, width: 'auto', filter: isDark ? 'brightness(0) invert(1)' : 'none' }} />
+            <div style={{ height: 20, width: 1, background: p.divider }} />
+            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em', color: p.text }}>
               Safety & Environment
             </span>
           </div>
-          {isAuthed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span style={{ fontSize: 13, color: '#6e6e73' }}>
-                {auth.isAdmin ? `Admin · ${auth.adminName}` : 'ผู้ใช้บริษัท'}
-              </span>
-              <button
-                onClick={() => {
-                  if (auth.isAdmin) auth.adminLogout();
-                  Object.keys(auth.companyAuth).forEach((cid) => auth.companyLogout(cid));
-                  router.refresh();
-                }}
-                style={{
-                  fontSize: 13, color: '#0071e3', background: 'none', border: 'none',
-                  cursor: 'pointer', padding: '6px 10px', borderRadius: 8,
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,113,227,0.08)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-              >
-                ออกจากระบบ
-              </button>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ThemeToggle size="sm" />
+            {isAuthed && (
+              <>
+                <span style={{ fontSize: 13, color: p.muted }}>
+                  {auth.isAdmin ? `Admin · ${auth.adminName}` : 'ผู้ใช้บริษัท'}
+                </span>
+                <button
+                  onClick={() => {
+                    if (auth.isAdmin) auth.adminLogout();
+                    Object.keys(auth.companyAuth).forEach((cid) => auth.companyLogout(cid));
+                    router.refresh();
+                  }}
+                  style={{
+                    fontSize: 13, color: '#0a84ff', background: 'none', border: 'none',
+                    cursor: 'pointer', padding: '6px 10px', borderRadius: 8,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(10,132,255,0.12)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                >
+                  ออกจากระบบ
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -142,13 +216,13 @@ export default function ProjectsLandingPage() {
             lineHeight: 1.05,
             letterSpacing: '-0.03em',
             fontWeight: 700,
-            color: '#1d1d1f',
+            color: p.text,
             marginBottom: 16,
           }}
         >
           Safety & Environment.
           <br />
-          <span style={{ background: 'linear-gradient(90deg, #0071e3, #34c759)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+          <span style={{ background: isDark ? 'linear-gradient(90deg, #0a84ff, #30d158)' : 'linear-gradient(90deg, #0071e3, #34c759)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
             ครบวงจร ในที่เดียว
           </span>
         </h1>
@@ -156,7 +230,7 @@ export default function ProjectsLandingPage() {
           style={{
             fontSize: 'clamp(17px, 2vw, 21px)',
             lineHeight: 1.5,
-            color: '#6e6e73',
+            color: p.muted,
             maxWidth: 640,
             margin: '0 auto',
             fontWeight: 400,
@@ -185,26 +259,26 @@ export default function ProjectsLandingPage() {
                 style={{
                   position: 'relative',
                   textAlign: 'left',
-                  background: '#fff',
-                  border: '1px solid rgba(0,0,0,0.06)',
+                  background: p.cardBg,
+                  border: `1px solid ${p.cardBorder}`,
                   borderRadius: 18,
                   padding: '28px 24px 26px',
                   cursor: project.ready ? 'pointer' : 'not-allowed',
                   opacity: project.ready ? 1 : 0.5,
-                  transition: 'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  transition: 'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease',
+                  boxShadow: p.cardShadow,
                   fontFamily: APPLE_FONT,
                 }}
                 onMouseEnter={(e) => {
                   if (!project.ready) return;
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)';
+                  e.currentTarget.style.boxShadow = p.cardShadowHover;
+                  e.currentTarget.style.borderColor = p.cardBorderHover;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
-                  e.currentTarget.style.borderColor = 'rgba(0,0,0,0.06)';
+                  e.currentTarget.style.boxShadow = p.cardShadow;
+                  e.currentTarget.style.borderColor = p.cardBorder;
                 }}
               >
                 {/* Icon tile */}
@@ -213,7 +287,7 @@ export default function ProjectsLandingPage() {
                     width: 48,
                     height: 48,
                     borderRadius: 12,
-                    background: `${project.accentColor}12`,
+                    background: isDark ? `${project.accentColor}25` : `${project.accentColor}12`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -229,7 +303,7 @@ export default function ProjectsLandingPage() {
                     fontSize: 19,
                     fontWeight: 600,
                     letterSpacing: '-0.01em',
-                    color: '#1d1d1f',
+                    color: p.text,
                     margin: 0,
                     marginBottom: 6,
                     display: 'flex',
@@ -245,7 +319,7 @@ export default function ProjectsLandingPage() {
                   style={{
                     fontSize: 14,
                     lineHeight: 1.45,
-                    color: '#6e6e73',
+                    color: p.muted,
                     margin: 0,
                     paddingRight: 24,
                   }}
@@ -279,7 +353,7 @@ export default function ProjectsLandingPage() {
                     <span
                       style={{
                         fontSize: 11,
-                        color: '#6e6e73',
+                        color: p.muted,
                         display: 'flex',
                         alignItems: 'center',
                         gap: 4,
@@ -298,17 +372,17 @@ export default function ProjectsLandingPage() {
       {/* Footer */}
       <footer
         style={{
-          borderTop: '1px solid rgba(0,0,0,0.06)',
+          borderTop: `1px solid ${p.footerBorder}`,
           padding: '24px 22px',
           textAlign: 'center',
           fontSize: 12,
-          color: '#86868b',
+          color: p.mutedLight,
         }}
       >
-        <Link href="/" style={{ color: '#515154', textDecoration: 'none' }}>
+        <Link href="/" style={{ color: p.muted, textDecoration: 'none' }}>
           เลือกจากบริษัท (Legacy)
         </Link>
-        <span style={{ margin: '0 8px', color: '#d2d2d7' }}>·</span>
+        <span style={{ margin: '0 8px', color: p.divider }}>·</span>
         <span>EA Safety & Environment © 2026</span>
       </footer>
 
@@ -323,7 +397,7 @@ export default function ProjectsLandingPage() {
             position: 'fixed',
             inset: 0,
             zIndex: 50,
-            background: 'rgba(0,0,0,0.45)',
+            background: p.modalBackdrop,
             backdropFilter: 'blur(12px) saturate(180%)',
             WebkitBackdropFilter: 'blur(12px) saturate(180%)',
             display: 'flex',
@@ -358,10 +432,10 @@ export default function ProjectsLandingPage() {
               position: 'relative',
               width: '100%',
               maxWidth: 440,
-              background: '#fff',
+              background: p.modalBg,
               borderRadius: 24,
               overflow: 'hidden',
-              boxShadow: '0 40px 100px -20px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08)',
+              boxShadow: p.modalShadow,
               animation: 'scaleIn 320ms cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
@@ -403,16 +477,16 @@ export default function ProjectsLandingPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'rgba(0,0,0,0.04)',
+                background: p.closeBtnBg,
                 border: 'none',
                 borderRadius: 15,
-                color: '#6e6e73',
+                color: p.muted,
                 cursor: 'pointer',
                 zIndex: 2,
                 transition: 'background 150ms',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = p.closeBtnBgHover)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = p.closeBtnBg)}
             >
               <X size={16} />
             </button>
@@ -427,8 +501,10 @@ export default function ProjectsLandingPage() {
                       width: 64,
                       height: 64,
                       borderRadius: 18,
-                      background: `linear-gradient(135deg, ${accent}22, ${accent}08)`,
-                      border: `1px solid ${accent}22`,
+                      background: isDark
+                        ? `linear-gradient(135deg, ${accent}40, ${accent}18)`
+                        : `linear-gradient(135deg, ${accent}22, ${accent}08)`,
+                      border: `1px solid ${isDark ? accent + '40' : accent + '22'}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -440,8 +516,8 @@ export default function ProjectsLandingPage() {
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <img src="/ea-logo.svg" alt="EA" style={{ height: 18, opacity: 0.9 }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: '#86868b', textTransform: 'uppercase' }}>
+                  <img src="/ea-logo.svg" alt="EA" style={{ height: 18, opacity: p.logoOpacity, filter: isDark ? 'brightness(0) invert(1)' : 'none' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: p.mutedLight, textTransform: 'uppercase' }}>
                     EA Safety & Environment
                   </span>
                 </div>
@@ -450,14 +526,14 @@ export default function ProjectsLandingPage() {
                     fontSize: 24,
                     fontWeight: 700,
                     letterSpacing: '-0.02em',
-                    color: '#1d1d1f',
+                    color: p.text,
                     margin: 0,
                     textAlign: 'center',
                   }}
                 >
                   {activeProject?.name}
                 </h2>
-                <p style={{ fontSize: 13, color: '#86868b', marginTop: 6, marginBottom: 0, textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: p.mutedLight, marginTop: 6, marginBottom: 0, textAlign: 'center' }}>
                   เข้าสู่ระบบเพื่อใช้งาน
                 </p>
               </div>
@@ -468,7 +544,7 @@ export default function ProjectsLandingPage() {
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                   gap: 3,
-                  background: '#f5f5f7',
+                  background: p.segBg,
                   padding: 3,
                   borderRadius: 11,
                   marginBottom: 20,
@@ -484,12 +560,12 @@ export default function ProjectsLandingPage() {
                       padding: '9px 12px',
                       fontSize: 13,
                       fontWeight: loginMode === mode ? 600 : 500,
-                      background: loginMode === mode ? '#fff' : 'transparent',
-                      color: loginMode === mode ? '#1d1d1f' : '#6e6e73',
+                      background: loginMode === mode ? p.segActiveBg : 'transparent',
+                      color: loginMode === mode ? p.segActiveText : p.segInactiveText,
                       border: 'none',
                       borderRadius: 8,
                       cursor: 'pointer',
-                      boxShadow: loginMode === mode ? '0 2px 6px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' : 'none',
+                      boxShadow: loginMode === mode ? p.segShadow : 'none',
                       transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
                       display: 'flex',
                       alignItems: 'center',
@@ -509,7 +585,7 @@ export default function ProjectsLandingPage() {
                   <PremiumInput
                     label="บริษัท"
                     icon={Building2}
-                    isFocused={focusedField === 'company'}
+                    isFocused={focusedField === 'company'} isDark={isDark}
                   >
                     <select
                       value={loginCompanyId}
@@ -517,7 +593,7 @@ export default function ProjectsLandingPage() {
                       onFocus={() => setFocusedField('company')}
                       onBlur={() => setFocusedField(null)}
                       required
-                      style={premiumInputStyle()}
+                      style={premiumInputStyle(isDark)}
                     >
                       <option value="">-- เลือกบริษัทของคุณ --</option>
                       {companies.map((c) => (
@@ -532,7 +608,7 @@ export default function ProjectsLandingPage() {
                 <PremiumInput
                   label={loginMode === 'admin' ? 'Admin Username' : 'Username'}
                   icon={User}
-                  isFocused={focusedField === 'username'}
+                  isFocused={focusedField === 'username'} isDark={isDark}
                 >
                   <input
                     type="text"
@@ -542,14 +618,14 @@ export default function ProjectsLandingPage() {
                     onBlur={() => setFocusedField(null)}
                     required
                     autoFocus
-                    style={premiumInputStyle()}
+                    style={premiumInputStyle(isDark)}
                   />
                 </PremiumInput>
 
                 <PremiumInput
                   label="Password"
                   icon={Lock}
-                  isFocused={focusedField === 'password'}
+                  isFocused={focusedField === 'password'} isDark={isDark}
                   rightSlot={
                     <button
                       type="button"
@@ -579,7 +655,7 @@ export default function ProjectsLandingPage() {
                     onFocus={() => setFocusedField('password')}
                     onBlur={() => setFocusedField(null)}
                     required
-                    style={{ ...premiumInputStyle(), paddingRight: 40 }}
+                    style={{ ...premiumInputStyle(isDark), paddingRight: 40 }}
                   />
                 </PremiumInput>
 
@@ -587,9 +663,9 @@ export default function ProjectsLandingPage() {
                   <div
                     style={{
                       fontSize: 13,
-                      color: '#d70015',
-                      background: 'linear-gradient(180deg, #fff5f5 0%, #fff9f9 100%)',
-                      border: '1px solid #ffd5d5',
+                      color: p.errorText,
+                      background: p.errorBg,
+                      border: `1px solid ${p.errorBorder}`,
                       borderRadius: 11,
                       padding: '10px 14px',
                       display: 'flex',
@@ -598,7 +674,7 @@ export default function ProjectsLandingPage() {
                       animation: 'scaleIn 200ms ease',
                     }}
                   >
-                    <X size={14} style={{ color: '#d70015' }} />
+                    <X size={14} style={{ color: p.errorText }} />
                     {loginError}
                   </div>
                 )}
@@ -650,7 +726,7 @@ export default function ProjectsLandingPage() {
                   )}
                 </button>
 
-                <p style={{ fontSize: 11, color: '#86868b', textAlign: 'center', marginTop: 4, marginBottom: 0 }}>
+                <p style={{ fontSize: 11, color: p.mutedLight, textAlign: 'center', marginTop: 4, marginBottom: 0 }}>
                   การเข้าใช้งานถือว่ายอมรับเงื่อนไขการใช้งานของ EA
                 </p>
               </form>
@@ -663,16 +739,16 @@ export default function ProjectsLandingPage() {
   );
 }
 
-function premiumInputStyle(): React.CSSProperties {
+function premiumInputStyle(isDark = false): React.CSSProperties {
   return {
     width: '100%',
     padding: '12px 14px 12px 40px',
     fontSize: 14,
     fontFamily: APPLE_FONT,
-    border: '1px solid rgba(0,0,0,0.1)',
+    border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`,
     borderRadius: 12,
-    background: '#fafafa',
-    color: '#1d1d1f',
+    background: isDark ? '#2c2c2e' : '#fafafa',
+    color: isDark ? '#f5f5f7' : '#1d1d1f',
     outline: 'none',
     appearance: 'none',
     WebkitAppearance: 'none',
@@ -685,20 +761,25 @@ function PremiumInput({
   icon: Icon,
   isFocused,
   rightSlot,
+  isDark = false,
   children,
 }: {
   label: string;
   icon: React.ElementType;
   isFocused?: boolean;
   rightSlot?: React.ReactNode;
+  isDark?: boolean;
   children: React.ReactNode;
 }) {
+  const focusedColor = isDark ? '#f5f5f7' : '#1d1d1f';
+  const unfocusedColor = isDark ? '#a1a1a6' : '#6e6e73';
+  const iconUnfocused = isDark ? '#86868b' : '#86868b';
   return (
     <label style={{ display: 'block' }}>
       <span
         style={{
           fontSize: 11,
-          color: isFocused ? '#1d1d1f' : '#6e6e73',
+          color: isFocused ? focusedColor : unfocusedColor,
           display: 'block',
           marginBottom: 6,
           fontWeight: 600,
@@ -717,7 +798,7 @@ function PremiumInput({
             left: 14,
             top: '50%',
             transform: 'translateY(-50%)',
-            color: isFocused ? '#1d1d1f' : '#86868b',
+            color: isFocused ? focusedColor : iconUnfocused,
             transition: 'color 150ms ease',
             pointerEvents: 'none',
             zIndex: 1,
