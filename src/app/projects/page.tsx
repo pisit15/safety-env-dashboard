@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { PROJECTS, type ProjectId } from '@/lib/projects';
-import { LogIn, X, User, Lock, ArrowRight, Loader2, Key, Building2, Lock as LockIcon } from 'lucide-react';
+import { LogIn, X, User, Lock, ArrowRight, Loader2, Key, Building2, Lock as LockIcon, Eye, EyeOff, Sparkles } from 'lucide-react';
 
 // Apple-inspired design system:
 // - SF Pro system font stack
@@ -46,6 +46,8 @@ export default function ProjectsLandingPage() {
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleProjectClick = (projectId: ProjectId) => {
     if (isAuthed) router.push(resolveProjectUrl(projectId));
@@ -300,215 +302,420 @@ export default function ProjectsLandingPage() {
         <span>EA Safety & Environment © 2026</span>
       </footer>
 
-      {/* Apple-style Login Modal */}
-      {loginFor && (
+      {/* Premium Login Modal — Apple-inspired with project identity */}
+      {loginFor && (() => {
+        const activeProject = PROJECTS.find((p) => p.id === loginFor);
+        const accent = activeProject?.accentColor || '#0071e3';
+        const ProjectIcon = activeProject?.icon;
+        return (
         <div
           onClick={() => setLoginFor(null)}
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 50,
-            background: 'rgba(0,0,0,0.4)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(12px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(180%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: 16,
             fontFamily: APPLE_FONT,
+            animation: 'fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes scaleIn {
+              from { opacity: 0; transform: scale(0.94) translateY(8px); }
+              to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+            }
+            .premium-modal input:focus, .premium-modal select:focus {
+              outline: none;
+              border-color: ${accent}cc !important;
+              box-shadow: 0 0 0 4px ${accent}18 !important;
+            }
+          `}</style>
+
           <div
             onClick={(e) => e.stopPropagation()}
+            className="premium-modal"
             style={{
+              position: 'relative',
               width: '100%',
-              maxWidth: 420,
+              maxWidth: 440,
               background: '#fff',
-              borderRadius: 20,
-              padding: '28px 28px 24px',
-              boxShadow: '0 30px 80px rgba(0,0,0,0.25)',
+              borderRadius: 24,
+              overflow: 'hidden',
+              boxShadow: '0 40px 100px -20px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.08)',
+              animation: 'scaleIn 320ms cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src="/ea-logo.svg" alt="EA" style={{ height: 24 }} />
-                <h2 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>
-                  เข้าสู่ระบบ
-                </h2>
-              </div>
-              <button
-                onClick={() => setLoginFor(null)}
-                style={{ background: 'none', border: 'none', color: '#86868b', cursor: 'pointer', padding: 6 }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p style={{ fontSize: 14, color: '#6e6e73', marginTop: 4, marginBottom: 20 }}>
-              เพื่อใช้งาน{' '}
-              <strong style={{ color: '#1d1d1f', fontWeight: 600 }}>
-                {PROJECTS.find((p) => p.id === loginFor)?.name}
-              </strong>
-            </p>
-
-            {/* Segmented control */}
+            {/* Decorative gradient top bar */}
             <div
               style={{
-                display: 'flex',
-                gap: 2,
-                background: '#f2f2f7',
-                padding: 3,
-                borderRadius: 10,
-                marginBottom: 18,
+                height: 4,
+                background: `linear-gradient(90deg, ${accent}, ${accent}88, ${accent})`,
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 3s ease-in-out infinite',
               }}
+            />
+
+            {/* Decorative accent blur */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: -60,
+                right: -60,
+                width: 220,
+                height: 220,
+                borderRadius: '50%',
+                background: `radial-gradient(circle, ${accent}22 0%, transparent 70%)`,
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* Close button */}
+            <button
+              onClick={() => setLoginFor(null)}
+              aria-label="Close"
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                width: 30,
+                height: 30,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0,0,0,0.04)',
+                border: 'none',
+                borderRadius: 15,
+                color: '#6e6e73',
+                cursor: 'pointer',
+                zIndex: 2,
+                transition: 'background 150ms',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.08)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.04)')}
             >
-              {(['admin', 'company'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => { setLoginMode(mode); setLoginError(''); }}
+              <X size={16} />
+            </button>
+
+            {/* Content */}
+            <div style={{ padding: '40px 36px 32px', position: 'relative' }}>
+              {/* Project identity */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+                {ProjectIcon && (
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 18,
+                      background: `linear-gradient(135deg, ${accent}22, ${accent}08)`,
+                      border: `1px solid ${accent}22`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 16,
+                      position: 'relative',
+                    }}
+                  >
+                    <ProjectIcon size={28} color={accent} strokeWidth={2.2} />
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <img src="/ea-logo.svg" alt="EA" style={{ height: 18, opacity: 0.9 }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: '#86868b', textTransform: 'uppercase' }}>
+                    EA Safety & Environment
+                  </span>
+                </div>
+                <h2
                   style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    fontSize: 13,
-                    fontWeight: loginMode === mode ? 600 : 500,
-                    background: loginMode === mode ? '#fff' : 'transparent',
-                    color: loginMode === mode ? '#1d1d1f' : '#6e6e73',
+                    fontSize: 24,
+                    fontWeight: 700,
+                    letterSpacing: '-0.02em',
+                    color: '#1d1d1f',
+                    margin: 0,
+                    textAlign: 'center',
+                  }}
+                >
+                  {activeProject?.name}
+                </h2>
+                <p style={{ fontSize: 13, color: '#86868b', marginTop: 6, marginBottom: 0, textAlign: 'center' }}>
+                  เข้าสู่ระบบเพื่อใช้งาน
+                </p>
+              </div>
+
+              {/* Segmented control */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 3,
+                  background: '#f5f5f7',
+                  padding: 3,
+                  borderRadius: 11,
+                  marginBottom: 20,
+                  position: 'relative',
+                }}
+              >
+                {(['admin', 'company'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => { setLoginMode(mode); setLoginError(''); }}
+                    style={{
+                      padding: '9px 12px',
+                      fontSize: 13,
+                      fontWeight: loginMode === mode ? 600 : 500,
+                      background: loginMode === mode ? '#fff' : 'transparent',
+                      color: loginMode === mode ? '#1d1d1f' : '#6e6e73',
+                      border: 'none',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      boxShadow: loginMode === mode ? '0 2px 6px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' : 'none',
+                      transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      fontFamily: APPLE_FONT,
+                    }}
+                  >
+                    {mode === 'admin' ? <Key size={13} /> : <Building2 size={13} />}
+                    {mode === 'admin' ? 'Admin' : 'ผู้ใช้บริษัท'}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {loginMode === 'company' && (
+                  <PremiumInput
+                    label="บริษัท"
+                    icon={Building2}
+                    isFocused={focusedField === 'company'}
+                  >
+                    <select
+                      value={loginCompanyId}
+                      onChange={(e) => setLoginCompanyId(e.target.value)}
+                      onFocus={() => setFocusedField('company')}
+                      onBlur={() => setFocusedField(null)}
+                      required
+                      style={premiumInputStyle()}
+                    >
+                      <option value="">-- เลือกบริษัทของคุณ --</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} — {c.fullName || c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </PremiumInput>
+                )}
+
+                <PremiumInput
+                  label={loginMode === 'admin' ? 'Admin Username' : 'Username'}
+                  icon={User}
+                  isFocused={focusedField === 'username'}
+                >
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onFocus={() => setFocusedField('username')}
+                    onBlur={() => setFocusedField(null)}
+                    required
+                    autoFocus
+                    style={premiumInputStyle()}
+                  />
+                </PremiumInput>
+
+                <PremiumInput
+                  label="Password"
+                  icon={Lock}
+                  isFocused={focusedField === 'password'}
+                  rightSlot={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: '#86868b',
+                        cursor: 'pointer',
+                        padding: 6,
+                        display: 'flex',
+                      }}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  }
+                >
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                    required
+                    style={{ ...premiumInputStyle(), paddingRight: 40 }}
+                  />
+                </PremiumInput>
+
+                {loginError && (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: '#d70015',
+                      background: 'linear-gradient(180deg, #fff5f5 0%, #fff9f9 100%)',
+                      border: '1px solid #ffd5d5',
+                      borderRadius: 11,
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      animation: 'scaleIn 200ms ease',
+                    }}
+                  >
+                    <X size={14} style={{ color: '#d70015' }} />
+                    {loginError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loginLoading}
+                  style={{
+                    marginTop: 8,
+                    background: loginLoading ? '#a9a9ac' : `linear-gradient(180deg, ${accent} 0%, ${accent}dd 100%)`,
+                    color: '#fff',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    letterSpacing: '-0.01em',
+                    padding: '14px 16px',
                     border: 'none',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    boxShadow: loginMode === mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                    transition: 'all 150ms ease',
+                    borderRadius: 14,
+                    cursor: loginLoading ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 6,
+                    gap: 8,
+                    transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+                    boxShadow: loginLoading ? 'none' : `0 8px 24px -8px ${accent}88, 0 2px 4px rgba(0,0,0,0.06)`,
+                    fontFamily: APPLE_FONT,
+                    transform: loginLoading ? 'scale(0.98)' : 'scale(1)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (loginLoading) return;
+                    e.currentTarget.style.transform = 'translateY(-1px) scale(1.01)';
+                    e.currentTarget.style.boxShadow = `0 14px 32px -10px ${accent}99, 0 2px 4px rgba(0,0,0,0.08)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (loginLoading) return;
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = `0 8px 24px -8px ${accent}88, 0 2px 4px rgba(0,0,0,0.06)`;
                   }}
                 >
-                  {mode === 'admin' ? <Key size={13} /> : <Building2 size={13} />}
-                  {mode === 'admin' ? 'Admin' : 'ผู้ใช้บริษัท'}
+                  {loginLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      กำลังเข้าสู่ระบบ...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={15} />
+                      เข้าสู่ระบบ
+                    </>
+                  )}
                 </button>
-              ))}
+
+                <p style={{ fontSize: 11, color: '#86868b', textAlign: 'center', marginTop: 4, marginBottom: 0 }}>
+                  การเข้าใช้งานถือว่ายอมรับเงื่อนไขการใช้งานของ EA
+                </p>
+              </form>
             </div>
-
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {loginMode === 'company' && (
-                <LabeledInput label="บริษัท" icon={Building2}>
-                  <select
-                    value={loginCompanyId}
-                    onChange={(e) => setLoginCompanyId(e.target.value)}
-                    required
-                    style={inputStyle()}
-                  >
-                    <option value="">-- เลือกบริษัทของคุณ --</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} — {c.fullName || c.name}
-                      </option>
-                    ))}
-                  </select>
-                </LabeledInput>
-              )}
-              <LabeledInput label={loginMode === 'admin' ? 'Admin Username' : 'Username'} icon={User}>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  autoFocus
-                  style={inputStyle()}
-                />
-              </LabeledInput>
-              <LabeledInput label="Password" icon={Lock}>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={inputStyle()}
-                />
-              </LabeledInput>
-
-              {loginError && (
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: '#d70015',
-                    background: '#fff5f5',
-                    border: '1px solid #ffe5e5',
-                    borderRadius: 10,
-                    padding: '8px 12px',
-                  }}
-                >
-                  {loginError}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loginLoading}
-                style={{
-                  marginTop: 4,
-                  background: loginLoading ? '#a9a9ac' : '#0071e3',
-                  color: '#fff',
-                  fontSize: 15,
-                  fontWeight: 500,
-                  padding: '12px 16px',
-                  border: 'none',
-                  borderRadius: 12,
-                  cursor: loginLoading ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  transition: 'background 150ms ease',
-                }}
-                onMouseEnter={(e) => { if (!loginLoading) e.currentTarget.style.background = '#0077ed'; }}
-                onMouseLeave={(e) => { if (!loginLoading) e.currentTarget.style.background = '#0071e3'; }}
-              >
-                {loginLoading ? <Loader2 size={15} className="animate-spin" /> : <LogIn size={15} />}
-                เข้าสู่ระบบ
-              </button>
-            </form>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
 
-function inputStyle(): React.CSSProperties {
+function premiumInputStyle(): React.CSSProperties {
   return {
     width: '100%',
-    padding: '10px 12px 10px 36px',
+    padding: '12px 14px 12px 40px',
     fontSize: 14,
     fontFamily: APPLE_FONT,
-    border: '1px solid rgba(0,0,0,0.12)',
-    borderRadius: 10,
-    background: '#fff',
+    border: '1px solid rgba(0,0,0,0.1)',
+    borderRadius: 12,
+    background: '#fafafa',
     color: '#1d1d1f',
     outline: 'none',
     appearance: 'none',
     WebkitAppearance: 'none',
+    transition: 'border-color 150ms ease, box-shadow 150ms ease, background 150ms ease',
   };
 }
 
-function LabeledInput({
+function PremiumInput({
   label,
   icon: Icon,
+  isFocused,
+  rightSlot,
   children,
 }: {
   label: string;
   icon: React.ElementType;
+  isFocused?: boolean;
+  rightSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <label style={{ display: 'block' }}>
-      <span style={{ fontSize: 12, color: '#6e6e73', display: 'block', marginBottom: 6, fontWeight: 500 }}>
+      <span
+        style={{
+          fontSize: 11,
+          color: isFocused ? '#1d1d1f' : '#6e6e73',
+          display: 'block',
+          marginBottom: 6,
+          fontWeight: 600,
+          letterSpacing: '0.02em',
+          textTransform: 'uppercase',
+          transition: 'color 150ms ease',
+        }}
+      >
         {label}
       </span>
       <span style={{ position: 'relative', display: 'block' }}>
-        <Icon size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#86868b' }} />
+        <Icon
+          size={15}
+          style={{
+            position: 'absolute',
+            left: 14,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: isFocused ? '#1d1d1f' : '#86868b',
+            transition: 'color 150ms ease',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
         {children}
+        {rightSlot}
       </span>
     </label>
   );
