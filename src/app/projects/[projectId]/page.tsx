@@ -1,6 +1,5 @@
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
@@ -9,11 +8,11 @@ import { getProject, type ProjectId } from '@/lib/projects';
 import { ArrowRight, Building2, Info } from 'lucide-react';
 
 interface Props {
-  params: Promise<{ projectId: string }>;
+  params: { projectId: string };
 }
 
 export default function ProjectHubPage({ params }: Props) {
-  const { projectId } = use(params);
+  const { projectId } = params;
   const project = getProject(projectId as ProjectId);
   const searchParams = useSearchParams();
   const auth = useAuth();

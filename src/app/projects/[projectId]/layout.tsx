@@ -1,6 +1,5 @@
 'use client';
 
-import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import ProjectSidebar from '@/components/ProjectSidebar';
@@ -9,11 +8,11 @@ import { getProject, type ProjectId } from '@/lib/projects';
 
 interface Props {
   children: React.ReactNode;
-  params: Promise<{ projectId: string }>;
+  params: { projectId: string };
 }
 
 export default function ProjectLayout({ children, params }: Props) {
-  const { projectId } = use(params);
+  const { projectId } = params;
   const project = getProject(projectId as ProjectId);
   const router = useRouter();
   const auth = useAuth();
