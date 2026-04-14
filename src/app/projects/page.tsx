@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
@@ -379,11 +378,9 @@ export default function ProjectsLandingPage() {
           color: p.mutedLight,
         }}
       >
-        <Link href="/" style={{ color: p.muted, textDecoration: 'none' }}>
-          เลือกจากบริษัท (Legacy)
-        </Link>
-        <span style={{ margin: '0 8px', color: p.divider }}>·</span>
         <span>EA Safety & Environment © 2026</span>
+        <span style={{ margin: '0 8px', color: p.divider }}>·</span>
+        <span>eashe.org</span>
       </footer>
 
       {/* Premium Login Modal — Apple-inspired with project identity */}

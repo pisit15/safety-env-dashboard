@@ -28,6 +28,9 @@ const nextConfig = {
       // Action Plan
       { source: '/action-plan', destination: '/projects/action-plan', permanent: false },
       { source: '/company/:id/action-plan', destination: '/projects/action-plan/:id', permanent: false },
+      // Admin legacy
+      { source: '/admin', destination: '/projects', permanent: false },
+      { source: '/admin/she-workforce', destination: '/projects/employees/she-workforce', permanent: false },
     ];
   },
 };
