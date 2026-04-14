@@ -54,9 +54,9 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#f97316',
     ready: true,
     nav: [
-      { id: 'overview', label: 'ภาพรวมทั้งหมด', icon: ClipboardList, href: () => '/action-plan' },
-      { id: 'safety', label: 'แผน Safety', icon: ClipboardList, href: (cid) => cid === 'all' ? '/action-plan?plan=safety' : `/company/${cid}/action-plan?plan=safety` },
-      { id: 'environment', label: 'แผน Environment', icon: ClipboardList, href: (cid) => cid === 'all' ? '/action-plan?plan=environment' : `/company/${cid}/action-plan?plan=environment` },
+      { id: 'overview', label: 'ภาพรวมทั้งหมด', icon: ClipboardList, href: () => '/projects/action-plan' },
+      { id: 'safety', label: 'แผน Safety', icon: ClipboardList, href: (cid) => cid === 'all' ? '/projects/action-plan?plan=safety' : `/projects/action-plan/${cid}?plan=safety` },
+      { id: 'environment', label: 'แผน Environment', icon: ClipboardList, href: (cid) => cid === 'all' ? '/projects/action-plan?plan=environment' : `/projects/action-plan/${cid}?plan=environment` },
     ],
   },
   {
