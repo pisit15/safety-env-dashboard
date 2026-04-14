@@ -136,11 +136,12 @@ export const TYPE_COLORS: Record<string, string> = {
   'สิ่งแวดล้อม': '#84cc16',
 };
 
-// Dynamic year options: 2021..currentYear+1 (generated at runtime, not hardcoded)
+// Dynamic year options: 2021..currentYear (generated at runtime, not hardcoded)
+// Future years are excluded — they aren't here yet, so no data to show.
 export function getYearOptions(): number[] {
   const currentYear = new Date().getFullYear();
   const startYear = 2021;
-  const endYear = currentYear + 1;
+  const endYear = currentYear; // only up to current year
   const years: number[] = [];
   for (let y = startYear; y <= endYear; y++) years.push(y);
   return years;

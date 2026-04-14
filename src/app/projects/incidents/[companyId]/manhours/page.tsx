@@ -34,11 +34,11 @@ interface ManHourRow {
   contractor_manhours: number;
 }
 
-/* ── Dynamic year list: 2021..currentYear+1 ── */
+/* ── Dynamic year list: 2021..currentYear (exclude future years) ── */
 function getYearOptions(): number[] {
   const currentYear = new Date().getFullYear();
   const years: number[] = [];
-  for (let y = 2021; y <= currentYear + 1; y++) years.push(y);
+  for (let y = 2021; y <= currentYear; y++) years.push(y);
   return years;
 }
 const YEAR_OPTIONS = getYearOptions();

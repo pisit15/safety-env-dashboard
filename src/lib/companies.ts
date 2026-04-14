@@ -1,10 +1,10 @@
 import { CompanyConfig } from './types';
 
 // Available years for the dashboard
-export const AVAILABLE_YEARS = [2026, 2027];
+// When a new year starts, add it here AND to ACTIVE_YEARS once data is ready.
+export const AVAILABLE_YEARS = [2026];
 export const DEFAULT_YEAR = 2026;
 // Years that are currently active (have data and can be selected)
-// When 2027 data is ready, add 2027 here to enable it
 export const ACTIVE_YEARS = [2026];
 
 // Company configurations — edit this to add/remove companies
