@@ -195,7 +195,7 @@ export default function ProjectsLandingPage() {
             <img src="/ea-logo.svg" alt="EA" style={{ height: 28, width: 'auto', filter: isDark ? 'brightness(0) invert(1)' : 'none' }} />
             <div style={{ height: 20, width: 1, background: p.divider }} />
             <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em', color: p.text }}>
-              Safety & Environment
+              EA SHE Dashboard
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -238,10 +238,10 @@ export default function ProjectsLandingPage() {
             marginBottom: 16,
           }}
         >
-          Safety & Environment.
+          EA SHE Dashboard
           <br />
           <span style={{ background: isDark ? 'linear-gradient(90deg, #0a84ff, #30d158)' : 'linear-gradient(90deg, #0071e3, #34c759)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-            ครบวงจร ในที่เดียว
+            ความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม
           </span>
         </h1>
         <p
@@ -254,7 +254,7 @@ export default function ProjectsLandingPage() {
             fontWeight: 400,
           }}
         >
-          เลือกโครงการเพื่อเริ่มต้น — บริหารจัดการความปลอดภัยและสิ่งแวดล้อม ครบวงจร 13 บริษัทในเครือ EA
+          เลือกโครงการเพื่อเริ่มต้น
         </p>
       </section>
 
