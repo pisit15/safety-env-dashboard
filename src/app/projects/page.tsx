@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
@@ -48,6 +48,16 @@ export default function ProjectsLandingPage() {
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Close modal with Escape key (but NOT by clicking outside — prevents accidental dismissal)
+  useEffect(() => {
+    if (!loginFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLoginFor(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [loginFor]);
 
   const handleProjectClick = (projectId: ProjectId) => {
     if (isAuthed) router.push(resolveProjectUrl(projectId));
@@ -309,7 +319,6 @@ export default function ProjectsLandingPage() {
         const ProjectIcon = activeProject?.icon;
         return (
         <div
-          onClick={() => setLoginFor(null)}
           style={{
             position: 'fixed',
             inset: 0,
