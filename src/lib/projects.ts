@@ -69,7 +69,7 @@ export const PROJECTS: ProjectConfig[] = [
     accentColor: '#8b5cf6',
     ready: true,
     nav: [
-      { id: 'all-projects', label: 'โครงการทั้งหมด', icon: FolderKanban, href: (cid) => cid === 'all' ? '/admin/projects' : `/company/${cid}/projects`, companyRequired: false },
+      { id: 'all-projects', label: 'โครงการทั้งหมด', icon: FolderKanban, href: (cid) => `/projects/special/${cid}`, companyRequired: true },
     ],
   },
   {
