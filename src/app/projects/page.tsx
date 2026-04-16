@@ -8,6 +8,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import { PROJECTS, type ProjectId } from '@/lib/projects';
 import { LogIn, X, User, Lock, ArrowRight, Loader2, Key, Building2, Lock as LockIcon, Eye, EyeOff, Sparkles } from 'lucide-react';
+import NotificationBell from '@/components/NotificationBell';
 
 // Theme-aware palette
 const P = {
@@ -199,6 +200,26 @@ export default function ProjectsLandingPage() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isAuthed && (
+              <button
+                data-tour="search-btn"
+                onClick={() => {
+                  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 10px', borderRadius: 8,
+                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                  border: `1px solid ${p.cardBorder}`,
+                  color: p.muted, fontSize: 12, cursor: 'pointer',
+                  fontFamily: APPLE_FONT,
+                }}
+              >
+                <span>ค้นหา</span>
+                <kbd style={{ fontSize: 10, padding: '1px 4px', borderRadius: 3, background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>⌘K</kbd>
+              </button>
+            )}
+            <NotificationBell />
             <ThemeToggle size="sm" />
             {isAuthed && (
               <>
@@ -318,6 +339,7 @@ export default function ProjectsLandingPage() {
             <div style={{ height: 32, width: 1, background: p.cardBorder }} />
             <a
               href="/projects/admin"
+              data-tour="admin-kpi"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -365,6 +387,7 @@ export default function ProjectsLandingPage() {
       {/* Project grid */}
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 22px 96px' }}>
         <div
+          data-tour="project-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',

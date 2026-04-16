@@ -8,6 +8,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import ActivityFeed from '@/components/ActivityFeed';
+import NotificationBell from '@/components/NotificationBell';
 import { PROJECTS } from '@/lib/projects';
 import {
   ArrowLeft,
@@ -259,6 +260,7 @@ export default function AdminDashboardPage() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <NotificationBell />
             <ThemeToggle size="sm" />
             <span style={{ fontSize: 13, color: p.muted }}>Admin · {auth.adminName}</span>
             <button
