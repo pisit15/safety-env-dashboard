@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import Sidebar from '@/components/Sidebar';
 import { KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -75,7 +74,7 @@ export default function ChangePasswordPage() {
   if (!isCompanyUser && !auth.isAdmin) {
     return (
       <div className="flex min-h-screen">
-        <Sidebar />
+        
         <main className="flex-1 p-8 flex items-center justify-center">
           <div className="text-center" style={{ color: 'var(--text-secondary)' }}>
             <KeyRound size={48} className="mx-auto mb-4" style={{ color: 'var(--muted)' }} />
@@ -112,7 +111,7 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      
       <main className="flex-1 p-6 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
         {/* Back link */}
         <Link href="/" className="inline-flex items-center gap-1 text-[13px] mb-6"
