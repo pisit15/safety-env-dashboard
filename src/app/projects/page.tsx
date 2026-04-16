@@ -317,6 +317,27 @@ export default function ProjectsLandingPage() {
             )}
             <div style={{ height: 32, width: 1, background: p.cardBorder }} />
             <a
+              href="/projects/admin"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                background: isDark ? 'rgba(10,132,255,0.15)' : 'rgba(0,122,255,0.08)',
+                color: '#0a84ff',
+                borderRadius: 10,
+                textDecoration: 'none',
+                fontSize: 13,
+                fontWeight: 600,
+                border: `1px solid ${isDark ? 'rgba(10,132,255,0.25)' : 'rgba(0,122,255,0.15)'}`,
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? 'rgba(10,132,255,0.25)' : 'rgba(0,122,255,0.15)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = isDark ? 'rgba(10,132,255,0.15)' : 'rgba(0,122,255,0.08)')}
+            >
+              📊 ดูภาพรวม KPI
+            </a>
+            <a
               href="/projects/settings"
               style={{
                 display: 'inline-flex',

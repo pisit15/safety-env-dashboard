@@ -11,6 +11,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import type { ProjectConfig } from '@/lib/projects';
 import {
   ArrowLeft,
+  BarChart3,
   Building2,
   ChevronDown,
   LogOut,
@@ -199,6 +200,16 @@ export default function ProjectSidebar({ project }: Props) {
 
       {/* Footer */}
       <div className="border-t border-white/10 p-3 space-y-1">
+        {isAdmin && (
+          <Link
+            href="/projects/admin"
+            title={!isOpen ? 'ภาพรวม KPI' : undefined}
+            className="flex items-center gap-3 px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg text-sm"
+          >
+            <BarChart3 size={16} />
+            {isOpen && <span>ภาพรวม KPI</span>}
+          </Link>
+        )}
         {isAdmin && (
           <Link
             href="/projects/settings"
