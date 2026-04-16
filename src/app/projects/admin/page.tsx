@@ -7,6 +7,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useTheme } from '@/components/ThemeProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import ExportPdfButton from '@/components/ExportPdfButton';
+import ActivityFeed from '@/components/ActivityFeed';
 import { PROJECTS } from '@/lib/projects';
 import {
   ArrowLeft,
@@ -492,6 +493,51 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             )}
+
+            {/* ── Activity Feed ── */}
+            <div style={{ marginBottom: 40 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <Activity size={16} style={{ color: p.blueText }} />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>กิจกรรมล่าสุด</span>
+              </div>
+              <ActivityFeed
+                limit={12}
+                palette={{
+                  text: p.text, muted: p.muted, mutedLight: p.mutedLight,
+                  cardBg: p.cardBg, cardBorder: p.cardBorder, cardShadow: p.cardShadow,
+                  divider: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                  chipBg: isDark ? 'rgba(255,255,255,0.08)' : '#f5f5f7',
+                }}
+                companyNames={Object.fromEntries(companies.map((c) => [c.id, c.name]))}
+              />
+            </div>
+
+            {/* ── Audit Trail link ── */}
+            <div style={{ marginBottom: 40 }}>
+              <button
+                onClick={() => router.push('/projects/admin/audit')}
+                style={{
+                  width: '100%', padding: '16px 20px', borderRadius: 12,
+                  background: p.cardBg, border: `1px solid ${p.cardBorder}`,
+                  boxShadow: p.cardShadow, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  transition: 'box-shadow 200ms, transform 200ms',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = p.cardHoverShadow; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = p.cardShadow; e.currentTarget.style.transform = 'none'; }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, background: isDark ? 'rgba(10,132,255,0.15)' : 'rgba(0,122,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Clock size={18} style={{ color: '#0a84ff' }} />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: p.text }}>Audit Trail</div>
+                    <div style={{ fontSize: 12, color: p.muted }}>ประวัติการเปลี่ยนแปลงทั้งหมด</div>
+                  </div>
+                </div>
+                <ExternalLink size={14} style={{ color: p.muted, opacity: 0.4 }} />
+              </button>
+            </div>
 
             {/* ── Footer ── */}
             <div style={{ textAlign: 'center', padding: '20px 0 40px', borderTop: `1px solid ${p.cardBorder}` }}>

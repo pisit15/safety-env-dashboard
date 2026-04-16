@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
+import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -284,6 +285,15 @@ export async function POST(request: NextRequest) {
       await supabase.from('injured_persons').insert(persons);
     }
 
+    // Audit log
+    await logAudit({
+      companyId: data.company_id,
+      module: 'incidents',
+      action: 'create_incident',
+      performedBy: body.created_by || 'user',
+      newValue: `${data.incident_no} — ${data.incident_type || ''} ${data.location || ''}`.trim(),
+    });
+
     return NextResponse.json({ incident: data });
   } catch (err) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -333,6 +343,15 @@ export async function PUT(request: NextRequest) {
         await supabase.from('injured_persons').insert(persons);
       }
     }
+
+    // Audit log
+    await logAudit({
+      companyId: data.company_id,
+      module: 'incidents',
+      action: 'update_incident',
+      performedBy: fields.updated_by || 'user',
+      newValue: `${data.incident_no} — updated`,
+    });
 
     return NextResponse.json({ incident: data });
   } catch (err) {

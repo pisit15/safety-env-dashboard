@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 // ── POST /api/nearmiss ── Public submission (no login required)
 export async function POST(request: NextRequest) {
@@ -104,6 +105,15 @@ export async function POST(request: NextRequest) {
 
     // Log IP
     await supabase.from('nearmiss_ip_log').insert({ ip, company_id: companyId });
+
+    // Audit log
+    await logAudit({
+      companyId,
+      module: 'nearmiss',
+      action: 'create_nearmiss',
+      performedBy: reporter_name || 'พนักงาน',
+      newValue: `${data.report_no || data.id} — ${location}`,
+    });
 
     return NextResponse.json({ success: true, id: data.id, report_no: data.report_no });
   } catch (err) {
