@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useTheme } from '@/components/ThemeProvider';
 import ThemeToggle from '@/components/ThemeToggle';
+import ExportPdfButton from '@/components/ExportPdfButton';
 import { PROJECTS } from '@/lib/projects';
 import {
   ArrowLeft,
@@ -269,11 +270,21 @@ export default function AdminDashboardPage() {
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
+            {data && (
+              <ExportPdfButton
+                targetId="admin-dashboard-content"
+                filename={`EA-SHE-Admin-Dashboard-${data.year}`}
+                title="EA SHE Admin Dashboard"
+                subtitle={`ภาพรวมทุกโครงการ ปี ${data.year} · ${companies.length} บริษัท`}
+                orientation="portrait"
+                compact
+              />
+            )}
           </div>
         </div>
       </header>
 
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 22px 80px' }}>
+      <main id="admin-dashboard-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 22px 80px' }}>
         {/* ── Hero ── */}
         <div style={{ marginBottom: 40 }}>
           <h1 style={{ fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.15, marginBottom: 8 }}>

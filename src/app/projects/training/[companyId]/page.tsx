@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
-import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight } from 'lucide-react';
+import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight, Download } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import { STATUS, PALETTE } from '@/lib/she-theme';
 
@@ -1219,6 +1219,22 @@ export default function CompanyTraining() {
               orientation="landscape"
               compact
             />
+            <button
+              onClick={() => {
+                window.open(`/api/training/export?companyId=${companyId}&year=${selectedYear}`, '_blank');
+              }}
+              title="Export Excel"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: 10, border: 'none',
+                cursor: 'pointer',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Download size={16} />
+            </button>
           </div>
           <p style={{ color: "var(--text-secondary)", margin: "4px 0 0", fontSize: 14 }}>
             Training Plan {selectedYear} • จัดการแผนอบรม อัปเดตสถานะ และบันทึกผู้เข้าอบรม

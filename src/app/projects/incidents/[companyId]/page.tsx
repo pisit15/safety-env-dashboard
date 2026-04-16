@@ -6,7 +6,7 @@ import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { useCompanies } from '@/hooks/useCompanies';
 import {
-  AlertTriangle, Plus, BarChart3, List,
+  AlertTriangle, Plus, BarChart3, List, Download,
 } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import { STATUS, PALETTE } from '@/lib/she-theme';
@@ -526,6 +526,23 @@ export default function IncidentsPage() {
                 orientation="landscape"
                 compact
               />
+              <button
+                onClick={() => {
+                  const year = selectedYears[0] || new Date().getFullYear();
+                  window.open(`/api/incidents/export?companyId=${id}&year=${year}`, '_blank');
+                }}
+                title="Export Excel"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 36, height: 36, borderRadius: 10, border: 'none',
+                  cursor: 'pointer',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-secondary)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Download size={16} />
+              </button>
             </div>
           </div>
 
