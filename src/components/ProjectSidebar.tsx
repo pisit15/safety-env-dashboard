@@ -1,6 +1,8 @@
 'use client';
 
 // Project-scoped sidebar — one sidebar per project, not mixed together
+// Mobile: slides in as a drawer overlay with backdrop
+// Desktop: persistent sticky sidebar
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -21,44 +23,62 @@ interface Props {
   project: ProjectConfig;
 }
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function ProjectSidebar({ project }: Props) {
-  const [isOpen, setIsOpen] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuth();
   const { companies } = useCompanies();
+  const isMobile = useIsMobile();
+
+  // Desktop: sidebar open/collapsed. Mobile: drawer open/closed.
+  const [isOpen, setIsOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Close drawer on navigation
+  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (isMobile && drawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isMobile, drawerOpen]);
 
   const isAdmin = auth.isAdmin;
   const urlCompany = searchParams.get('company');
   const companyAuthIds = Object.keys(auth.companyAuth);
-  const defaultCompany =
-    urlCompany ||
-    (isAdmin ? 'all' : companyAuthIds[0] || 'all');
+  const defaultCompany = urlCompany || (isAdmin ? 'all' : companyAuthIds[0] || 'all');
 
   const [companyId, setCompanyId] = useState(defaultCompany);
-  useEffect(() => {
-    setCompanyId(defaultCompany);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlCompany]);
+  useEffect(() => { setCompanyId(defaultCompany); }, [defaultCompany]);
 
-  // Available companies for dropdown
   const availableCompanies = isAdmin
     ? companies
     : companies.filter((c) => companyAuthIds.includes(c.id));
 
   const handleCompanyChange = (cid: string) => {
     setCompanyId(cid);
-    // Navigate to a company-aware URL. Try to preserve the current nav item
-    // by finding which nav item matches the current pathname; otherwise fall
-    // back to the project's first nav item.
     const currentItem =
       project.nav.find((item) => {
         const h = item.href(companyId).split('?')[0];
         return h === pathname;
       }) || project.nav.find((item) => !item.adminOnly && !(item.companyRequired && cid === 'all')) || project.nav[0];
 
-    // Preserve existing query params (e.g. ?plan=safety) except 'company'
     const params = new URLSearchParams(searchParams.toString());
     params.delete('company');
     const queryStr = params.toString();
@@ -75,20 +95,33 @@ export default function ProjectSidebar({ project }: Props) {
     router.push('/projects');
   };
 
-  const ProjectIcon = project.icon;
+  // Active nav detection
+  const currentPlan = searchParams.get('plan');
+  const pathMatches = project.nav.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.companyRequired && companyId === 'all') return false;
+    return item.href(companyId).split('?')[0] === pathname;
+  });
+  const activeItemId = (() => {
+    if (pathMatches.length === 0) return null;
+    if (pathMatches.length === 1) return pathMatches[0].id;
+    for (const item of pathMatches) {
+      const qs = item.href(companyId).split('?')[1] || '';
+      if (new URLSearchParams(qs).get('plan') === currentPlan) return item.id;
+    }
+    for (const item of pathMatches) {
+      const qs = item.href(companyId).split('?')[1] || '';
+      if (!new URLSearchParams(qs).get('plan')) return item.id;
+    }
+    return pathMatches[0].id;
+  })();
 
-  return (
-    <aside
-      className={`${isOpen ? 'w-64' : 'w-20'} text-white transition-all duration-300 flex flex-col flex-shrink-0`}
-      style={{
-        background: `linear-gradient(180deg, ${project.accentColor}, #0f172a)`,
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        maxHeight: '100vh',
-        alignSelf: 'flex-start',
-      }}
-    >
+  const ProjectIcon = project.icon;
+  const sidebarWidth = isOpen ? 256 : 80;
+
+  // ─── Sidebar content (shared between mobile drawer and desktop aside) ───
+  const sidebarContent = (
+    <>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         {isOpen && (
@@ -101,10 +134,10 @@ export default function ProjectSidebar({ project }: Props) {
           </div>
         )}
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => isMobile ? setDrawerOpen(false) : setIsOpen(!isOpen)}
           className="p-2 hover:bg-white/10 rounded-lg"
         >
-          {isOpen ? <X size={18} /> : <Menu size={18} />}
+          {(isMobile || isOpen) ? <X size={18} /> : <Menu size={18} />}
         </button>
       </div>
 
@@ -142,43 +175,13 @@ export default function ProjectSidebar({ project }: Props) {
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {(() => {
-          // Determine which nav item is currently active. Strategy:
-          // 1. Find all items whose pathname matches the current pathname
-          // 2. Among those, prefer item whose ?plan= query param matches current ?plan=
-          // 3. If no plan match, pick the one with no plan query (default/overview)
-          const currentPlan = searchParams.get('plan');
-          const pathMatches = project.nav.filter((item) => {
-            if (item.adminOnly && !isAdmin) return false;
-            if (item.companyRequired && companyId === 'all') return false;
-            const baseHref = item.href(companyId).split('?')[0];
-            return baseHref === pathname;
-          });
-
-          const activeItemId = (() => {
-            if (pathMatches.length === 0) return null;
-            if (pathMatches.length === 1) return pathMatches[0].id;
-            // Multiple items share path — disambiguate by ?plan=
-            for (const item of pathMatches) {
-              const qs = item.href(companyId).split('?')[1] || '';
-              const itemPlan = new URLSearchParams(qs).get('plan');
-              if (itemPlan === currentPlan) return item.id;
-            }
-            // No plan match — prefer the one with no plan query (e.g. overview)
-            for (const item of pathMatches) {
-              const qs = item.href(companyId).split('?')[1] || '';
-              if (!new URLSearchParams(qs).get('plan')) return item.id;
-            }
-            return pathMatches[0].id;
-          })();
-
-          return project.nav.map((item) => {
-            const ItemIcon = item.icon;
-            if (item.adminOnly && !isAdmin) return null;
-            if (item.companyRequired && companyId === 'all') return null;
-            const href = item.href(companyId);
-            const isActive = activeItemId === item.id;
-            return (
+        {project.nav.map((item) => {
+          const ItemIcon = item.icon;
+          if (item.adminOnly && !isAdmin) return null;
+          if (item.companyRequired && companyId === 'all') return null;
+          const href = item.href(companyId);
+          const isActive = activeItemId === item.id;
+          return (
             <Link
               key={item.id}
               href={href}
@@ -190,12 +193,11 @@ export default function ProjectSidebar({ project }: Props) {
               <ItemIcon size={18} />
               {isOpen && <span className="text-sm">{item.label}</span>}
             </Link>
-            );
-          });
-        })()}
+          );
+        })}
       </nav>
 
-      {/* Footer actions */}
+      {/* Footer */}
       <div className="border-t border-white/10 p-3 space-y-1">
         {isAdmin && (
           <Link
@@ -224,6 +226,89 @@ export default function ProjectSidebar({ project }: Props) {
           {isOpen && <span>ออกจากระบบ</span>}
         </button>
       </div>
+    </>
+  );
+
+  // ─── MOBILE: hamburger + drawer overlay ───
+  if (isMobile) {
+    return (
+      <>
+        {/* Floating hamburger */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            position: 'fixed',
+            top: 12,
+            left: 12,
+            zIndex: 40,
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: project.accentColor,
+            color: '#fff',
+            border: 'none',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <Menu size={22} />
+        </button>
+
+        {/* Backdrop */}
+        {drawerOpen && (
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 45,
+              background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+            }}
+          />
+        )}
+
+        {/* Drawer */}
+        <aside
+          className="text-white flex flex-col"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            zIndex: 50,
+            width: 280,
+            height: '100vh',
+            background: `linear-gradient(180deg, ${project.accentColor}, #0f172a)`,
+            transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+            transition: 'transform 250ms cubic-bezier(0.16, 1, 0.3, 1)',
+            boxShadow: drawerOpen ? '10px 0 40px rgba(0,0,0,0.3)' : 'none',
+          }}
+        >
+          {sidebarContent}
+        </aside>
+      </>
+    );
+  }
+
+  // ─── DESKTOP: sticky persistent sidebar ───
+  return (
+    <aside
+      className="text-white transition-all duration-300 flex flex-col flex-shrink-0"
+      style={{
+        width: sidebarWidth,
+        background: `linear-gradient(180deg, ${project.accentColor}, #0f172a)`,
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        maxHeight: '100vh',
+        alignSelf: 'flex-start',
+      }}
+    >
+      {sidebarContent}
     </aside>
   );
 }
