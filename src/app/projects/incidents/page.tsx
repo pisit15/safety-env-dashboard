@@ -643,6 +643,51 @@ export default function HQIncidentsPage() {
                 })}
               </div>
 
+              {/* ═══ Quick Manhours Entry (Admin) ═══ */}
+              <div className="glass-card rounded-2xl overflow-hidden mb-6" style={{ border: '1px solid var(--border)', padding: '14px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(10,132,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Clock size={14} color="#0a84ff" />
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>บันทึก Manhours</div>
+                      <div className="text-[11px]" style={{ color: 'var(--muted)' }}>คลิกบริษัทเพื่อเปิดตารางบันทึก</div>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1 }} />
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {COMPANIES.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => router.push(`/projects/incidents/${c.id}/manhours`)}
+                        className="text-[11px] font-semibold transition-all"
+                        style={{
+                          padding: '5px 11px',
+                          borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(10,132,255,0.1)';
+                          e.currentTarget.style.borderColor = '#0a84ff';
+                          e.currentTarget.style.color = '#0a84ff';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'var(--bg-secondary)';
+                          e.currentTarget.style.borderColor = 'var(--border)';
+                          e.currentTarget.style.color = 'var(--text-primary)';
+                        }}
+                      >
+                        {c.shortName || c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* ═══ Company Comparison Table — Triage-First ═══ */}
               <div className="glass-card rounded-2xl overflow-hidden mb-6">
                 <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
