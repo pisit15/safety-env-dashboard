@@ -303,6 +303,21 @@ export default function AdminDashboardPage() {
           <p style={{ fontSize: 16, color: p.muted, maxWidth: 520 }}>
             สรุป KPI ครอบคลุม {companies.length} บริษัท · {PROJECTS.length} โครงการ
           </p>
+          <a
+            href="/projects/admin/analytics"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              marginTop: 14, padding: '8px 16px', borderRadius: 10,
+              background: isDark ? 'rgba(10,132,255,0.15)' : 'rgba(0,122,255,0.08)',
+              color: '#0a84ff', fontSize: 14, fontWeight: 600, textDecoration: 'none',
+              border: `1px solid ${isDark ? 'rgba(10,132,255,0.25)' : 'rgba(0,122,255,0.15)'}`,
+              transition: 'all 150ms ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(10,132,255,0.25)' : 'rgba(0,122,255,0.15)')}
+            onMouseLeave={e => (e.currentTarget.style.background = isDark ? 'rgba(10,132,255,0.15)' : 'rgba(0,122,255,0.08)')}
+          >
+            <TrendingUp size={16} /> วิเคราะห์ข้อมูลเชิงลึก
+          </a>
         </div>
 
         {/* ── Loading / Error ── */}

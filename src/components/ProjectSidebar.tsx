@@ -17,6 +17,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  TrendingUp,
   X,
 } from 'lucide-react';
 
@@ -208,6 +209,16 @@ export default function ProjectSidebar({ project }: Props) {
           >
             <BarChart3 size={16} />
             {isOpen && <span>ภาพรวม KPI</span>}
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            href="/projects/admin/analytics"
+            title={!isOpen ? 'วิเคราะห์เชิงลึก' : undefined}
+            className="flex items-center gap-3 px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg text-sm"
+          >
+            <TrendingUp size={16} />
+            {isOpen && <span>วิเคราะห์เชิงลึก</span>}
           </Link>
         )}
         {isAdmin && (
