@@ -401,15 +401,46 @@ export default function CompanyTraining() {
 
   const handleCreateOpenSeat = async () => {
     if (!selectedPlan) return;
-    const session = selectedPlan.training_sessions?.[0];
-    if (!session) return;
     setOpenSeatLoading(true);
     try {
+      let session = selectedPlan.training_sessions?.[0];
+
+      // If no session exists yet, create one first (auto-save with scheduled status)
+      if (!session?.id) {
+        const updatedBy = auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || '');
+        const saveRes = await fetch('/api/training/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            plan_id: selectedPlan.id,
+            company_id: companyId,
+            status: 'scheduled',
+            scheduled_date_start: modalDateStart || null,
+            scheduled_date_end: modalDateEnd || null,
+            actual_cost: 0,
+            actual_participants: 0,
+            hours_per_course: selectedPlan.hours_per_course || 0,
+            total_man_hours: 0,
+            note: modalNote,
+            updated_by: updatedBy,
+            instructor_name: modalInstructor || null,
+            training_location: modalLocation || null,
+            training_method: modalMethod || null,
+            po_number: modalPoNumber || null,
+          }),
+        });
+        if (!saveRes.ok) { setOpenSeatLoading(false); return; }
+        const savedSession = await saveRes.json();
+        session = savedSession;
+        // Refresh plans so the session is attached
+        await fetchPlans();
+      }
+
       const res = await fetch('/api/training/open-seats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: session.id,
+          session_id: session!.id,
           plan_id: selectedPlan.id,
           company_id: companyId,
           total_seats: openSeatSeats,
@@ -417,8 +448,8 @@ export default function CompanyTraining() {
         }),
       });
       if (res.ok) {
-        await fetchOpenSeat(session.id);
-        await fetchExternalRegs(session.id);
+        await fetchOpenSeat(session!.id);
+        await fetchExternalRegs(session!.id);
       }
     } catch (e) { console.error(e); }
     setOpenSeatLoading(false);
