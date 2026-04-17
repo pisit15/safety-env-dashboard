@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             actual_cost, actual_participants, hours_per_course, total_man_hours,
             note, hr_submitted, updated_by, postponed_to_month, original_planned_month,
             // DSD pre-training fields
-            instructor_name, training_location, training_method,
+            instructor_name, training_location, training_method, po_number,
             dsd_submitted, dsd_submitted_date, dsd_approved, dsd_approved_date,
             // DSD post-training fields
             actual_hours, dsd_report_submitted, dsd_report_submitted_date,
@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
       ...(instructor_name !== undefined && { instructor_name }),
       ...(training_location !== undefined && { training_location }),
       ...(training_method !== undefined && { training_method }),
+      ...(po_number !== undefined && { po_number }),
       ...(dsd_submitted !== undefined && { dsd_submitted }),
       ...(dsd_submitted_date !== undefined && { dsd_submitted_date }),
       ...(dsd_approved !== undefined && { dsd_approved }),

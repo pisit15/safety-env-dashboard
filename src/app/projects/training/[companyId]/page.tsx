@@ -131,6 +131,7 @@ export default function CompanyTraining() {
   const [modalInstructor, setModalInstructor] = useState('');
   const [modalLocation, setModalLocation] = useState('');
   const [modalMethod, setModalMethod] = useState('');
+  const [modalPoNumber, setModalPoNumber] = useState('');
   const [modalDsdSubmitted, setModalDsdSubmitted] = useState(false);
   const [modalDsdApproved, setModalDsdApproved] = useState(false);
   const [modalDsdNotSubmitting, setModalDsdNotSubmitting] = useState(false);
@@ -380,6 +381,7 @@ export default function CompanyTraining() {
     setModalInstructor(session?.instructor_name || '');
     setModalLocation(session?.training_location || '');
     setModalMethod(session?.training_method || '');
+    setModalPoNumber(session?.po_number || '');
     setModalDsdSubmitted(session?.dsd_submitted || false);
     setModalDsdApproved(session?.dsd_approved || false);
     setModalDsdNotSubmitting(session?.dsd_not_submitting || false);
@@ -436,6 +438,7 @@ export default function CompanyTraining() {
           instructor_name: modalInstructor || null,
           training_location: modalLocation || null,
           training_method: modalMethod || null,
+          po_number: modalPoNumber || null,
           dsd_submitted: modalDsdNotSubmitting ? false : modalDsdSubmitted,
           dsd_approved: modalDsdNotSubmitting ? false : modalDsdApproved,
           dsd_not_submitting: modalDsdNotSubmitting,
@@ -2326,9 +2329,15 @@ export default function CompanyTraining() {
                         <DateInput value={modalDateEnd} onChange={v => setModalDateEnd(v)} inputStyle={inputStyle} />
                       </div>
                     </div>
-                    <div>
-                      <label style={labelStyle}>ชื่อวิทยากร</label>
-                      <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)} placeholder="ระบุชื่อวิทยากร" style={inputStyle} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label style={labelStyle}>ชื่อวิทยากร</label>
+                        <input value={modalInstructor} onChange={e => setModalInstructor(e.target.value)} placeholder="ระบุชื่อวิทยากร" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>หมายเลข PO</label>
+                        <input value={modalPoNumber} onChange={e => setModalPoNumber(e.target.value)} placeholder="ระบุหมายเลข PO" style={inputStyle} />
+                      </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
