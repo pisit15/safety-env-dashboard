@@ -73,6 +73,7 @@ interface TrainingSession {
   instructor_name: string | null;
   training_location: string | null;
   training_method: string | null;
+  po_number: string | null;
   dsd_submitted: boolean;
   dsd_submitted_date: string | null;
   dsd_approved: boolean;
@@ -200,6 +201,14 @@ export default function CompanyTraining() {
   const [attendeeViewTab, setAttendeeViewTab] = useState<'all' | 'selected'>('all');
   const [attendeeSortKey, setAttendeeSortKey] = useState<'name' | 'dept' | 'position'>('name');
   const [attendeeSortAsc, setAttendeeSortAsc] = useState(true);
+
+  // ═══ Open Seats (cross-company registration) ═══
+  const [openSeatData, setOpenSeatData] = useState<{ id: string; share_token: string; total_seats: number; is_active: boolean; registered_count: number; remaining_seats: number } | null>(null);
+  const [openSeatSeats, setOpenSeatSeats] = useState(20);
+  const [openSeatLoading, setOpenSeatLoading] = useState(false);
+  const [showOpenSeatPanel, setShowOpenSeatPanel] = useState(false);
+  const [externalRegs, setExternalRegs] = useState<{ id: string; company_name: string; first_name: string; last_name: string; emp_code: string; position: string; department: string; phone: string; registered_by: string; created_at: string }[]>([]);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // ═══ Cancellation Approval State ═══
   const [pendingCancelStatus, setPendingCancelStatus] = useState<'cancelled' | null>(null);
@@ -368,6 +377,76 @@ export default function CompanyTraining() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (showAddAttendee && !employeesLoaded) fetchCompanyEmployees(); }, [showAddAttendee]);
 
+  // ═══ Open Seats helpers ═══
+  const fetchOpenSeat = async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/training/open-seats?session_id=${sessionId}`);
+      const data = await res.json();
+      if (data && data.id) {
+        setOpenSeatData(data);
+        setOpenSeatSeats(data.total_seats);
+      } else {
+        setOpenSeatData(null);
+      }
+    } catch { setOpenSeatData(null); }
+  };
+
+  const fetchExternalRegs = async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/training/external-register?session_id=${sessionId}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setExternalRegs(data);
+    } catch { setExternalRegs([]); }
+  };
+
+  const handleCreateOpenSeat = async () => {
+    if (!selectedPlan) return;
+    const session = selectedPlan.training_sessions?.[0];
+    if (!session) return;
+    setOpenSeatLoading(true);
+    try {
+      const res = await fetch('/api/training/open-seats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: session.id,
+          plan_id: selectedPlan.id,
+          company_id: companyId,
+          total_seats: openSeatSeats,
+          created_by: auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || ''),
+        }),
+      });
+      if (res.ok) {
+        await fetchOpenSeat(session.id);
+        await fetchExternalRegs(session.id);
+      }
+    } catch (e) { console.error(e); }
+    setOpenSeatLoading(false);
+  };
+
+  const handleToggleOpenSeat = async (active: boolean) => {
+    if (!openSeatData) return;
+    setOpenSeatLoading(true);
+    try {
+      await fetch('/api/training/open-seats', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: openSeatData.id, is_active: active }),
+      });
+      const session = selectedPlan?.training_sessions?.[0];
+      if (session) await fetchOpenSeat(session.id);
+    } catch (e) { console.error(e); }
+    setOpenSeatLoading(false);
+  };
+
+  const copyShareLink = () => {
+    if (!openSeatData) return;
+    const url = `${window.location.origin}/training/join/${openSeatData.share_token}`;
+    navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
   const openPlanModal = (plan: TrainingPlan) => {
     setSelectedPlan(plan);
     const session = plan.training_sessions?.[0];
@@ -393,8 +472,16 @@ export default function CompanyTraining() {
     setModalDsdHeadcount(session?.dsd_approved_headcount || 0);
     setShowModal(true);
     setShowAttendeePanel(false);
-    if (session?.id) fetchAttendees(session.id);
-    else setAttendees([]);
+    setShowOpenSeatPanel(false);
+    setOpenSeatData(null);
+    setExternalRegs([]);
+    if (session?.id) {
+      fetchAttendees(session.id);
+      fetchOpenSeat(session.id);
+      fetchExternalRegs(session.id);
+    } else {
+      setAttendees([]);
+    }
     // Load employee list for attendee checklist
     fetchCompanyEmployees();
   };
@@ -2361,6 +2448,106 @@ export default function CompanyTraining() {
                       <label style={labelStyle}>หมายเหตุ</label>
                       <textarea value={modalNote} onChange={e => setModalNote(e.target.value)} rows={2} placeholder="บันทึกเพิ่มเติม" style={{ ...inputStyle, resize: 'vertical' }} />
                     </div>
+
+                    {/* ═══ Open Seats: Cross-company registration ═══ */}
+                    {selectedPlan?.in_house_external === 'In-House' && (
+                      <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: openSeatData || showOpenSeatPanel ? 10 : 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#0369a1' }}>
+                            🏢 เปิดรับบริษัทในเครือ
+                          </div>
+                          {!openSeatData && !showOpenSeatPanel && (
+                            <button onClick={() => setShowOpenSeatPanel(true)}
+                              style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #0369a1', background: '#fff', color: '#0369a1', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                              + เปิดที่นั่ง
+                            </button>
+                          )}
+                          {openSeatData && (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: openSeatData.is_active ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                                {openSeatData.is_active ? '● เปิดอยู่' : '● ปิดแล้ว'}
+                              </span>
+                              <button onClick={() => handleToggleOpenSeat(!openSeatData.is_active)} disabled={openSeatLoading}
+                                style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: '#fff', color: 'var(--accent)', fontSize: 10, cursor: 'pointer' }}>
+                                {openSeatData.is_active ? 'ปิดรับ' : 'เปิดรับ'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Create open seat form */}
+                        {showOpenSeatPanel && !openSeatData && (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ ...labelStyle, color: '#0369a1' }}>จำนวนที่นั่งว่าง</label>
+                              <input type="number" value={openSeatSeats} onChange={e => setOpenSeatSeats(Number(e.target.value))}
+                                min={1} max={200} style={{ ...inputStyle, width: '100%' }} />
+                            </div>
+                            <button onClick={handleCreateOpenSeat} disabled={openSeatLoading || !openSeatSeats}
+                              style={{ padding: '8px 16px', borderRadius: 6, border: 'none', background: '#0369a1', color: '#fff', fontSize: 12, fontWeight: 600, cursor: openSeatLoading ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}>
+                              {openSeatLoading ? '...' : '✓ สร้างลิงก์'}
+                            </button>
+                            <button onClick={() => setShowOpenSeatPanel(false)}
+                              style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', background: '#fff', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}>
+                              ยกเลิก
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Open seat info + link */}
+                        {openSeatData && (
+                          <div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                              <div style={{ flex: 1, background: '#fff', border: '1px solid #bae6fd', borderRadius: 6, padding: '6px 10px', fontSize: 11, color: '#0369a1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {typeof window !== 'undefined' ? `${window.location.origin}/training/join/${openSeatData.share_token}` : ''}
+                              </div>
+                              <button onClick={copyShareLink}
+                                style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: linkCopied ? '#16a34a' : '#0369a1', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>
+                                {linkCopied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกลิงก์'}
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#0369a1' }}>
+                              <span>ที่นั่งทั้งหมด: <strong>{openSeatData.total_seats}</strong></span>
+                              <span>ลงทะเบียนแล้ว: <strong>{openSeatData.registered_count}</strong></span>
+                              <span>เหลือ: <strong style={{ color: openSeatData.remaining_seats <= 0 ? '#dc2626' : '#16a34a' }}>{openSeatData.remaining_seats}</strong></span>
+                            </div>
+
+                            {/* External registrations list */}
+                            {externalRegs.length > 0 && (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: '#0369a1', marginBottom: 6 }}>
+                                  📋 ผู้ลงทะเบียนจากบริษัทอื่น ({externalRegs.length} คน)
+                                </div>
+                                <div style={{ maxHeight: 160, overflowY: 'auto', background: '#fff', borderRadius: 6, border: '1px solid #bae6fd' }}>
+                                  <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                                    <thead>
+                                      <tr style={{ background: '#f0f9ff' }}>
+                                        <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid #bae6fd' }}>#</th>
+                                        <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid #bae6fd' }}>บริษัท</th>
+                                        <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid #bae6fd' }}>ชื่อ-นามสกุล</th>
+                                        <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid #bae6fd' }}>ตำแหน่ง</th>
+                                        <th style={{ padding: '4px 8px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid #bae6fd' }}>แผนก</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {externalRegs.map((r, i) => (
+                                        <tr key={r.id} style={{ borderBottom: '1px solid #f0f9ff' }}>
+                                          <td style={{ padding: '4px 8px', color: '#64748b' }}>{i + 1}</td>
+                                          <td style={{ padding: '4px 8px', fontWeight: 600 }}>{r.company_name}</td>
+                                          <td style={{ padding: '4px 8px' }}>{r.first_name} {r.last_name}</td>
+                                          <td style={{ padding: '4px 8px', color: '#64748b' }}>{r.position || '—'}</td>
+                                          <td style={{ padding: '4px 8px', color: '#64748b' }}>{r.department || '—'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
