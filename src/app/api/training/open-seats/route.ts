@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get('session_id');
+  const audience = searchParams.get('audience'); // 'internal' | 'external'
   const token = searchParams.get('token');
 
   const supabase = getSupabase();
@@ -46,32 +47,47 @@ export async function GET(request: NextRequest) {
   }
 
   if (sessionId) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('training_open_seats')
       .select('*')
-      .eq('session_id', sessionId)
-      .single();
+      .eq('session_id', sessionId);
 
-    if (error && error.code !== 'PGRST116') {
+    // Filter by audience if specified, otherwise return all for this session
+    if (audience) {
+      query = query.eq('audience', audience);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (data) {
-      // Count registrations
+    // If filtering by audience, return single object; otherwise return array
+    if (audience) {
+      const item = data?.[0] || null;
+      if (item) {
+        const { count } = await supabase
+          .from('training_external_registrations')
+          .select('id', { count: 'exact', head: true })
+          .eq('open_seat_id', item.id)
+          .eq('status', 'registered');
+        return NextResponse.json({ ...item, registered_count: count || 0, remaining_seats: item.total_seats - (count || 0) });
+      }
+      return NextResponse.json(null);
+    }
+
+    // Return all open seats for this session with counts
+    const results = [];
+    for (const item of (data || [])) {
       const { count } = await supabase
         .from('training_external_registrations')
         .select('id', { count: 'exact', head: true })
-        .eq('open_seat_id', data.id)
+        .eq('open_seat_id', item.id)
         .eq('status', 'registered');
-
-      return NextResponse.json({
-        ...data,
-        registered_count: count || 0,
-        remaining_seats: data.total_seats - (count || 0),
-      });
+      results.push({ ...item, registered_count: count || 0, remaining_seats: item.total_seats - (count || 0) });
     }
-
-    return NextResponse.json(null);
+    return NextResponse.json(results);
   }
 
   return NextResponse.json({ error: 'Missing session_id or token' }, { status: 400 });
@@ -81,7 +97,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { session_id, plan_id, company_id, total_seats, created_by } = body;
+    const { session_id, plan_id, company_id, total_seats, created_by, audience } = body;
+    const aud = audience || 'external';
 
     if (!session_id || !plan_id || !company_id || !total_seats) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -89,12 +106,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // Check if already exists
+    // Check if already exists for this session + audience
     const { data: existing } = await supabase
       .from('training_open_seats')
       .select('id, share_token')
       .eq('session_id', session_id)
-      .single();
+      .eq('audience', aud)
+      .maybeSingle();
 
     if (existing) {
       // Update
@@ -112,7 +130,7 @@ export async function POST(request: NextRequest) {
     // Create new
     const { data, error } = await supabase
       .from('training_open_seats')
-      .insert({ session_id, plan_id, company_id, total_seats, created_by })
+      .insert({ session_id, plan_id, company_id, total_seats, created_by, audience: aud })
       .select()
       .single();
 
@@ -125,17 +143,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PATCH - Toggle active status
+// PATCH - Toggle active status or update seats
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, is_active } = body;
+    const { id, is_active, total_seats } = body;
 
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (is_active !== undefined) updateData.is_active = is_active;
+    if (total_seats !== undefined) updateData.total_seats = total_seats;
+
     const { data, error } = await getSupabase()
       .from('training_open_seats')
-      .update({ is_active, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

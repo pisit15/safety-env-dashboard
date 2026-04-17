@@ -21,6 +21,7 @@ type OpenSeatData = {
   share_token: string;
   total_seats: number;
   is_active: boolean;
+  audience: string;
   company_id: string;
   registered_count: number;
   remaining_seats: number;
@@ -125,17 +126,23 @@ export default function JoinTrainingPage() {
   };
 
   const handleSubmit = async () => {
-    // Validate
-    const valid = participants.every(p => p.first_name && p.last_name && p.company_name);
-    if (!valid) { setSubmitMsg('กรุณากรอก ชื่อ นามสกุล และบริษัท ให้ครบทุกคน'); return; }
+    const isInternal = data?.audience === 'internal';
+    // Validate — internal only needs name; external needs company too
+    const valid = participants.every(p => p.first_name && p.last_name && (isInternal || p.company_name));
+    if (!valid) { setSubmitMsg(isInternal ? 'กรุณากรอก ชื่อ และนามสกุล ให้ครบทุกคน' : 'กรุณากรอก ชื่อ นามสกุล และบริษัท ให้ครบทุกคน'); return; }
 
     setSubmitting(true);
     setSubmitMsg('');
     try {
+      // For internal: auto-fill company from host
+      const hostName = COMPANIES.find(c => c.id === data?.company_id)?.name || data?.company_id || '';
+      const finalParticipants = isInternal
+        ? participants.map(p => ({ ...p, company_name: hostName, company_id: data?.company_id || '' }))
+        : participants;
       const res = await fetch('/api/training/external-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, participants }),
+        body: JSON.stringify({ token, participants: finalParticipants }),
       });
       const json = await res.json();
       if (res.ok) {
@@ -174,6 +181,7 @@ export default function JoinTrainingPage() {
   const session = data.training_sessions;
   const plan = session?.training_plans;
   const hostCompany = COMPANIES.find(c => c.id === data.company_id);
+  const isInternal = data.audience === 'internal';
   const isClosed = !data.is_active || session?.status === 'completed' || session?.status === 'cancelled';
   const isFull = data.remaining_seats <= 0;
 
@@ -190,7 +198,7 @@ export default function JoinTrainingPage() {
         {/* Header */}
         <div style={{ background: PALETTE.primary, color: '#fff', borderRadius: '16px 16px 0 0', padding: '24px 28px' }}>
           <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4, letterSpacing: 1, textTransform: 'uppercase' }}>
-            EA SHE Training — ลงทะเบียนอบรมข้ามบริษัท
+            EA SHE Training — {isInternal ? 'สำรวจผู้เข้าอบรมภายในบริษัท' : 'ลงทะเบียนอบรมข้ามบริษัท'}
           </div>
           <h1 style={{ fontSize: 20, fontWeight: 700, margin: '8px 0 4px', lineHeight: 1.4 }}>
             {plan?.course_name || 'หลักสูตรอบรม'}
@@ -292,29 +300,32 @@ export default function JoinTrainingPage() {
                   )}
                 </div>
 
-                {/* Company selector */}
-                <div style={{ marginBottom: 10 }}>
-                  <label style={labelStyle}>บริษัท *</label>
-                  <select
-                    value={p.company_id}
-                    onChange={e => updateParticipant(idx, 'company_id', e.target.value)}
-                    style={inputStyle}
-                  >
-                    <option value="">-- เลือกบริษัท --</option>
-                    {COMPANIES.filter(c => c.id !== data.company_id).map(c => (
-                      <option key={c.id} value={c.id}>{c.name} — {c.fullName}</option>
-                    ))}
-                    <option value="__other">อื่นๆ (พิมพ์เอง)</option>
-                  </select>
-                  {p.company_id === '__other' && (
-                    <input
-                      value={p.company_name} placeholder="ชื่อบริษัท"
-                      onChange={e => updateParticipant(idx, 'company_name', e.target.value)}
-                      style={{ ...inputStyle, marginTop: 6 }}
-                    />
-                  )}
-                </div>
+                {/* Company selector — only for external */}
+                {!isInternal && (
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={labelStyle}>บริษัท *</label>
+                    <select
+                      value={p.company_id}
+                      onChange={e => updateParticipant(idx, 'company_id', e.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="">-- เลือกบริษัท --</option>
+                      {COMPANIES.filter(c => c.id !== data.company_id).map(c => (
+                        <option key={c.id} value={c.id}>{c.name} — {c.fullName}</option>
+                      ))}
+                      <option value="__other">อื่นๆ (พิมพ์เอง)</option>
+                    </select>
+                    {p.company_id === '__other' && (
+                      <input
+                        value={p.company_name} placeholder="ชื่อบริษัท"
+                        onChange={e => updateParticipant(idx, 'company_name', e.target.value)}
+                        style={{ ...inputStyle, marginTop: 6 }}
+                      />
+                    )}
+                  </div>
+                )}
 
+                {/* Name row */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                   <div>
                     <label style={labelStyle}>ชื่อ *</label>
@@ -326,31 +337,46 @@ export default function JoinTrainingPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-                  <div>
-                    <label style={labelStyle}>รหัสพนักงาน</label>
-                    <input value={p.emp_code} onChange={e => updateParticipant(idx, 'emp_code', e.target.value)} placeholder="รหัส" style={inputStyle} />
+                {/* Internal: แผนก + เบอร์โทร only */}
+                {isInternal ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>แผนก</label>
+                      <input value={p.department} onChange={e => updateParticipant(idx, 'department', e.target.value)} placeholder="แผนก" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>เบอร์โทร</label>
+                      <input value={p.phone} onChange={e => updateParticipant(idx, 'phone', e.target.value)} placeholder="0xx-xxx-xxxx" style={inputStyle} />
+                    </div>
                   </div>
-                  <div>
-                    <label style={labelStyle}>ตำแหน่ง</label>
-                    <input value={p.position} onChange={e => updateParticipant(idx, 'position', e.target.value)} placeholder="ตำแหน่ง" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>แผนก</label>
-                    <input value={p.department} onChange={e => updateParticipant(idx, 'department', e.target.value)} placeholder="แผนก" style={inputStyle} />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label style={labelStyle}>เบอร์โทร</label>
-                    <input value={p.phone} onChange={e => updateParticipant(idx, 'phone', e.target.value)} placeholder="0xx-xxx-xxxx" style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>ผู้ลงทะเบียน</label>
-                    <input value={p.registered_by} onChange={e => updateParticipant(idx, 'registered_by', e.target.value)} placeholder="ชื่อผู้กรอก" style={inputStyle} />
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <label style={labelStyle}>รหัสพนักงาน</label>
+                        <input value={p.emp_code} onChange={e => updateParticipant(idx, 'emp_code', e.target.value)} placeholder="รหัส" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>ตำแหน่ง</label>
+                        <input value={p.position} onChange={e => updateParticipant(idx, 'position', e.target.value)} placeholder="ตำแหน่ง" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>แผนก</label>
+                        <input value={p.department} onChange={e => updateParticipant(idx, 'department', e.target.value)} placeholder="แผนก" style={inputStyle} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div>
+                        <label style={labelStyle}>เบอร์โทร</label>
+                        <input value={p.phone} onChange={e => updateParticipant(idx, 'phone', e.target.value)} placeholder="0xx-xxx-xxxx" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>ผู้ลงทะเบียน</label>
+                        <input value={p.registered_by} onChange={e => updateParticipant(idx, 'registered_by', e.target.value)} placeholder="ชื่อผู้กรอก" style={inputStyle} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
 
