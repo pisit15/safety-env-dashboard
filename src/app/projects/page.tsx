@@ -19,7 +19,7 @@ const P = {
     divider: 'rgba(0,0,0,0.15)',
     text: '#1d1d1f',
     muted: '#6e6e73',
-    mutedLight: '#86868b',
+    mutedLight: '#7c7c82',
     cardBg: '#fff',
     cardBorder: 'rgba(0,0,0,0.06)',
     cardBorderHover: 'rgba(0,0,0,0.12)',
@@ -84,7 +84,7 @@ const P = {
 // - Rounded corners 14-20px
 // - Clean white background (light mode feel)
 
-const APPLE_FONT = `-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Inter', 'Segoe UI', sans-serif`;
+const APPLE_FONT = `-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Inter', 'Noto Sans Thai', 'Segoe UI', sans-serif`;
 
 export default function ProjectsLandingPage() {
   const router = useRouter();
@@ -95,6 +95,10 @@ export default function ProjectsLandingPage() {
   const isDark = resolvedTheme === 'dark';
 
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
+  const authedCompanyIds = Object.keys(auth.companyAuth);
+  const authedCompanyName = !auth.isAdmin && authedCompanyIds.length > 0
+    ? companies.find(c => c.id === authedCompanyIds[0])?.name || authedCompanyIds[0].toUpperCase()
+    : null;
 
   const resolveProjectUrl = (projectId: ProjectId, overrideCompanyId?: string) => {
     const project = PROJECTS.find((p) => p.id === projectId);
@@ -224,7 +228,7 @@ export default function ProjectsLandingPage() {
             {isAuthed && (
               <>
                 <span style={{ fontSize: 13, color: p.muted }}>
-                  {auth.isAdmin ? `Admin · ${auth.adminName}` : 'ผู้ใช้บริษัท'}
+                  {auth.isAdmin ? `Admin · ${auth.adminName}` : authedCompanyName ? `${authedCompanyName}` : 'ผู้ใช้บริษัท'}
                 </span>
                 <button
                   onClick={() => {
@@ -247,35 +251,34 @@ export default function ProjectsLandingPage() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section style={{ maxWidth: 980, margin: '0 auto', padding: '80px 22px 48px', textAlign: 'center' }}>
+      {/* Hero — compact to push project cards into view */}
+      <section style={{ maxWidth: 980, margin: '0 auto', padding: 'clamp(32px, 5vw, 56px) 20px clamp(20px, 3vw, 32px)', textAlign: 'center', overflow: 'hidden' }}>
         <h1
           style={{
-            fontSize: 'clamp(40px, 6vw, 64px)',
-            lineHeight: 1.05,
-            letterSpacing: '-0.03em',
+            fontSize: 'clamp(28px, 5vw, 52px)',
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
             fontWeight: 700,
             color: p.text,
-            marginBottom: 16,
+            marginBottom: 12,
+            wordBreak: 'keep-all',
+            overflowWrap: 'break-word',
           }}
         >
           EA SHE Dashboard
-          <br />
-          <span style={{ background: isDark ? 'linear-gradient(90deg, #0a84ff, #30d158)' : 'linear-gradient(90deg, #0071e3, #34c759)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-            ความปลอดภัย อาชีวอนามัย และสิ่งแวดล้อม
-          </span>
         </h1>
         <p
           style={{
-            fontSize: 'clamp(17px, 2vw, 21px)',
+            fontSize: 'clamp(15px, 2vw, 19px)',
             lineHeight: 1.5,
             color: p.muted,
-            maxWidth: 640,
+            maxWidth: 540,
             margin: '0 auto',
             fontWeight: 400,
+            letterSpacing: '0',
           }}
         >
-          เลือกโครงการเพื่อเริ่มต้น
+          {isAuthed ? 'เลือกโครงการเพื่อเริ่มต้น' : 'เข้าสู่ระบบเพื่อเริ่มใช้งานโครงการ'}
         </p>
       </section>
 
@@ -385,13 +388,13 @@ export default function ProjectsLandingPage() {
       )}
 
       {/* Project grid */}
-      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 22px 96px' }}>
+      <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px 64px' }}>
         <div
           data-tour="project-grid"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: 16,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
+            gap: 14,
           }}
         >
           {PROJECTS.map((project) => {
@@ -407,7 +410,7 @@ export default function ProjectsLandingPage() {
                   background: p.cardBg,
                   border: `1px solid ${p.cardBorder}`,
                   borderRadius: 18,
-                  padding: '28px 24px 26px',
+                  padding: '24px 20px 22px',
                   cursor: project.ready ? 'pointer' : 'not-allowed',
                   opacity: project.ready ? 1 : 0.5,
                   transition: 'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease, background 200ms ease',
@@ -445,9 +448,9 @@ export default function ProjectsLandingPage() {
                 {/* Title */}
                 <h3
                   style={{
-                    fontSize: 19,
+                    fontSize: 18,
                     fontWeight: 600,
-                    letterSpacing: '-0.01em',
+                    letterSpacing: '0',
                     color: p.text,
                     margin: 0,
                     marginBottom: 6,
@@ -463,10 +466,11 @@ export default function ProjectsLandingPage() {
                 <p
                   style={{
                     fontSize: 14,
-                    lineHeight: 1.45,
+                    lineHeight: 1.55,
                     color: p.muted,
                     margin: 0,
-                    paddingRight: 24,
+                    paddingRight: 16,
+                    letterSpacing: '0',
                   }}
                 >
                   {project.description}
@@ -475,36 +479,47 @@ export default function ProjectsLandingPage() {
                 {/* Footer row */}
                 <div
                   style={{
-                    marginTop: 22,
+                    marginTop: 20,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: project.accentColor,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    {project.ready ? 'เปิดใช้งาน' : 'เร็วๆ นี้'}
-                    {project.ready && <ArrowRight size={14} />}
-                  </span>
-                  {project.ready && !isAuthed && (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: p.muted,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <LockIcon size={11} /> Login
+                  {project.ready ? (
+                    isAuthed ? (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: project.accentColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        เปิดใช้งาน <ArrowRight size={14} />
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: project.accentColor,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 14px',
+                          borderRadius: 8,
+                          background: isDark ? `${project.accentColor}18` : `${project.accentColor}0d`,
+                          border: `1px solid ${isDark ? `${project.accentColor}30` : `${project.accentColor}20`}`,
+                        }}
+                      >
+                        <LogIn size={13} /> เข้าสู่ระบบเพื่อใช้งาน
+                      </span>
+                    )
+                  ) : (
+                    <span style={{ fontSize: 13, fontWeight: 500, color: p.muted }}>
+                      เร็วๆ นี้
                     </span>
                   )}
                 </div>
