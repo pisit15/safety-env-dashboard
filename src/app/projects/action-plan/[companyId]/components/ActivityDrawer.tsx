@@ -257,17 +257,21 @@ export default function ActivityDrawer(props: DrawerProps) {
         className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{ background: 'rgba(0,0,0,0.3)' }}
         onClick={onClose}
+        onTouchEnd={(e) => { e.preventDefault(); onClose(); }}
       />
 
       {/* Drawer */}
       <div
         ref={drawerRef}
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
         style={{
           width: 'min(520px, 90vw)',
           background: UI.bgWhite,
           boxShadow: '-8px 0 30px rgba(0,0,0,0.15)',
           animation: 'slideInRight 0.25s ease-out',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {/* ── Header ── */}
