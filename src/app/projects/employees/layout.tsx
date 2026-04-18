@@ -16,10 +16,12 @@ export default function EmployeesProjectLayout({ children }: { children: React.R
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
 
   useEffect(() => {
+    if (!auth.isHydrated) return;
     if (!isAuthed) router.push('/projects');
-  }, [isAuthed, router]);
+  }, [auth.isHydrated, isAuthed, router]);
 
   if (!project) return null;
+  if (!auth.isHydrated) return null;
   if (!isAuthed) return null;
 
   return (

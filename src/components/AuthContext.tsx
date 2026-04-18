@@ -3,6 +3,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
 interface AuthState {
+  // Hydration flag — false until sessionStorage is restored
+  isHydrated: boolean;
+
   // Admin auth
   isAdmin: boolean;
   adminName: string;
@@ -26,6 +29,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [isHydrated, setIsHydrated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminName, setAdminName] = useState('');
   const [adminRole, setAdminRole] = useState<'super_admin' | 'admin' | 'viewer' | ''>('');
@@ -74,6 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (Object.keys(auths).length > 0) {
       setCompanyAuth(auths);
     }
+
+    // Mark hydration complete — layouts can now safely check auth
+    setIsHydrated(true);
   }, []);
 
   const adminLogin = useCallback(async (username: string, password: string) => {
@@ -175,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
+      isHydrated,
       isAdmin, adminName, adminRole,
       adminLogin, adminLogout,
       companyAuth, companyLogin, companyLogout, getCompanyAuth,

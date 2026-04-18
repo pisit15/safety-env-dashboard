@@ -16,10 +16,13 @@ export default function NearMissProjectLayout({ children }: { children: React.Re
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
 
   useEffect(() => {
+    // Wait for sessionStorage restore before checking auth
+    if (!auth.isHydrated) return;
     if (!isAuthed) router.push('/projects');
-  }, [isAuthed, router]);
+  }, [auth.isHydrated, isAuthed, router]);
 
   if (!project) return null;
+  if (!auth.isHydrated) return null; // Show nothing while restoring session
   if (!isAuthed) return null;
 
   return (

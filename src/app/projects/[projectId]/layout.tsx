@@ -20,8 +20,11 @@ export default function ProjectLayout({ children, params }: Props) {
   const isAuthed = auth.isAdmin || Object.keys(auth.companyAuth).length > 0;
 
   useEffect(() => {
+    if (!auth.isHydrated) return;
     if (!isAuthed) router.push('/projects');
-  }, [isAuthed, router]);
+  }, [auth.isHydrated, isAuthed, router]);
+
+  if (!auth.isHydrated) return null;
 
   if (!project) {
     return (
