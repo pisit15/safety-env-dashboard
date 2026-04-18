@@ -2139,110 +2139,133 @@ export default function CompanyDrilldown() {
               </div>
             )}
 
-            {/* Activity Table — filters integrated inside card */}
-            <div className="glass-card rounded-xl p-4 sm:p-5 animate-fade-in-up" style={{ overflow: 'visible' }}>
-              {/* Row 1: Title + controls */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h3 className="text-[13px] pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${planConfig.accentColor}` }}>
-                    รายละเอียดกิจกรรม ({enhancedFilteredActivities.length} รายการ)
-                  </h3>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px]" style={{ color: 'var(--muted)' }}>แสดงเดือน:</span>
-                    <select
-                      value={sortMonth}
-                      onChange={e => setSortMonth(e.target.value)}
-                      className="text-xs rounded px-2 py-1 focus:outline-none"
-                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            {/* ═══════════════════════════════════════════════════════════
+                 Activity Table — Professional Redesign
+                 ═══════════════════════════════════════════════════════════ */}
+            <div className="rounded-2xl animate-fade-in-up" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
+              {/* ── Toolbar ── */}
+              <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  {/* Left: title + controls */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      รายละเอียดกิจกรรม
+                      <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: `${planConfig.accentColor}15`, color: planConfig.accentColor }}>
+                        {enhancedFilteredActivities.length} รายการ
+                      </span>
+                    </h3>
+                    <div className="h-4 w-px" style={{ background: 'var(--border)' }} />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium" style={{ color: 'var(--muted)' }}>เดือน:</span>
+                      <select
+                        value={sortMonth}
+                        onChange={e => setSortMonth(e.target.value)}
+                        className="text-[11px] font-medium rounded-lg px-2.5 py-1.5 focus:outline-none transition-colors"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      >
+                        <option value="none">ทั้งหมด</option>
+                        {MONTH_KEYS.map((k, idx) => (
+                          <option key={k} value={k}>{MONTH_LABELS[idx]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => setGroupByCategory(!groupByCategory)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                      style={{
+                        background: groupByCategory ? `${planConfig.accentColor}12` : 'var(--bg-secondary)',
+                        color: groupByCategory ? planConfig.accentColor : 'var(--text-secondary)',
+                        border: groupByCategory ? `1px solid ${planConfig.accentColor}40` : '1px solid var(--border)',
+                      }}
                     >
-                      <option value="none">ทั้งหมด</option>
-                      {MONTH_KEYS.map((k, idx) => (
-                        <option key={k} value={k}>{MONTH_LABELS[idx]}</option>
+                      {groupByCategory ? <FolderOpen size={12} /> : <Folder size={12} />} จัดกลุ่มตามหมวด
+                    </button>
+                  </div>
+                  {/* Right: legend + export */}
+                  <div className="flex items-center gap-3">
+                    <div className="hidden lg:flex items-center gap-1 px-3 py-1.5 rounded-lg" style={{ background: 'var(--bg-secondary)' }}>
+                      {[
+                        { Icon: Check, color: STATUS.ok, label: 'เสร็จ' },
+                        { Icon: CircleAlert, color: STATUS.critical, label: 'เกินกำหนด' },
+                        { Icon: Circle, color: PALETTE.muted, label: 'มีแผน' },
+                        { Icon: Clock, color: STATUS.warning, label: 'เลื่อน' },
+                        { Icon: Ban, color: PALETTE.textSecondary, label: 'ยกเลิก' },
+                      ].map((item, idx) => (
+                        <span key={idx} className="inline-flex items-center gap-1 px-1.5 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                          <item.Icon size={10} style={{ color: item.color }} /> {item.label}
+                        </span>
                       ))}
-                    </select>
+                    </div>
+                    <button
+                      onClick={handleExport}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all hover:opacity-90 flex-shrink-0"
+                      style={{ background: planConfig.accentColor, color: '#fff', boxShadow: `0 2px 8px ${planConfig.accentColor}40` }}
+                      title="ดาวน์โหลด Excel (.xlsx)"
+                    >
+                      <Download size={12} /> Export Excel
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setGroupByCategory(!groupByCategory)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors"
-                    style={{ background: groupByCategory ? `${STATUS.warning}15` : 'var(--bg-hover)', color: groupByCategory ? STATUS.warning : 'var(--text-secondary)', border: groupByCategory ? `1px solid ${STATUS.warning}40` : '1px solid var(--border)' }}
-                  >
-                    {groupByCategory ? <FolderOpen size={11} className="inline" /> : <Folder size={11} className="inline" />} จัดกลุ่มตามหมวด
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="hidden lg:flex flex-wrap gap-3 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                    <span className="inline-flex items-center gap-0.5"><Check size={10} style={{ color: STATUS.ok }} /> เสร็จแล้ว</span>
-                    <span className="inline-flex items-center gap-0.5"><CircleAlert size={10} style={{ color: STATUS.critical }} /> เกินกำหนด</span>
-                    <span className="inline-flex items-center gap-0.5"><Circle size={10} style={{ color: PALETTE.muted }} /> มีแผน</span>
-                    <span className="inline-flex items-center gap-0.5"><Clock size={10} style={{ color: STATUS.warning }} /> เลื่อน</span>
-                    <span className="inline-flex items-center gap-0.5"><Ban size={10} style={{ color: PALETTE.textSecondary }} /> ยกเลิก</span>
-                    <span className="inline-flex items-center gap-0.5"><CircleSlash size={10} style={{ color: PALETTE.muted }} /> ไม่เข้าเงื่อนไข</span>
-                  </div>
-                  <button
-                    onClick={handleExport}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all hover:opacity-80 flex-shrink-0"
-                    style={{ background: planConfig.accentBg, color: planConfig.accentColor, border: `1px solid ${planConfig.accentColor}` }}
-                    title="ดาวน์โหลด Excel (.xlsx)"
-                  >
-                    <Download size={11} /> Export Excel
-                  </button>
                 </div>
               </div>
 
               {/* Quick filters + Status tabs removed — too cluttered */}
 
               {enhancedFilteredActivities.length > 0 ? (
-                <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5">
-                  <table className="apple-table w-full text-[12px]" style={{ tableLayout: 'fixed', minWidth: 900 }}>
+                <div className="overflow-x-auto">
+                  <table className="w-full" style={{ tableLayout: 'fixed', minWidth: 1180, borderCollapse: 'separate', borderSpacing: 0 }}>
                     <colgroup>
-                      <col style={{ width: 44 }} />{/* ลำดับ */}
-                      {planType === 'total' && <col style={{ width: 44 }} />}{/* แผน S/E */}
-                      <col style={{ width: '30%' }} />{/* กิจกรรม */}
-                      <col style={{ width: 52 }} />{/* ผู้รับผิดชอบ */}
-                      {MONTH_KEYS.map(k => <col key={k} />)}{/* 12 months — share remaining space equally */}
+                      <col style={{ width: 64 }} />{/* ลำดับ + badge */}
+                      {planType === 'total' && <col style={{ width: 42 }} />}{/* แผน S/E */}
+                      <col />{/* กิจกรรม — takes remaining space */}
+                      <col style={{ width: 72 }} />{/* ผู้รับผิดชอบ */}
+                      {MONTH_KEYS.map(k => <col key={k} style={{ width: 52 }} />)}{/* 12 months @ 52px each */}
                     </colgroup>
                     <thead>
-                      <tr style={{ borderBottom: `2px solid var(--border)` }}>
-                        {/* sticky on each <th> for cross-browser support */}
-                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>ลำดับ</th>
-                        {planType === 'total' && (
-                          <th className="text-center py-2 px-0.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>แผน</th>
-                        )}
-                        <th className="text-left py-2 px-1.5 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>กิจกรรม</th>
-                        <th className="text-left py-2 px-1 font-semibold text-[10px]" style={{ position: 'sticky', top: 0, zIndex: 20, color: 'var(--text-secondary)', background: 'var(--card-solid, #fff)', boxShadow: '0 -200px 0 200px var(--card-solid, #fff)', clipPath: 'inset(-200px -1px 0 -1px)' }}>ผู้รับ</th>
-                        {MONTH_LABELS.map((m, idx) => (
-                          <th
-                            key={m}
-                            className="text-center py-2 px-0 font-semibold text-[10px]"
-                            style={{
-                              position: 'sticky', top: 0, zIndex: 20,
-                              color: idx === currentMonthIdx ? '#fff' : 'var(--text-secondary)',
-                              background: idx === currentMonthIdx ? planConfig.accentColor : 'var(--card-solid, #fff)',
-                              borderRadius: idx === currentMonthIdx ? '6px 6px 0 0' : '0',
-                              boxShadow: `0 -200px 0 200px ${idx === currentMonthIdx ? planConfig.accentColor : 'var(--card-solid, #fff)'}`,
-                              clipPath: 'inset(-200px -1px 0 -1px)'
-                            }}
-                          >
-                            {m}
-                          </th>
-                        ))}
+                      <tr>
+                        {(() => {
+                          const thBase: React.CSSProperties = {
+                            position: 'sticky', top: 0, zIndex: 20,
+                            padding: '10px 6px', fontSize: 11, fontWeight: 600, letterSpacing: '0.02em',
+                            color: 'var(--text-secondary)',
+                            background: 'var(--card-solid, #fff)',
+                            borderBottom: '2px solid var(--border)',
+                          };
+                          return (<>
+                            <th style={{ ...thBase, textAlign: 'center' }}>#</th>
+                            {planType === 'total' && <th style={{ ...thBase, textAlign: 'center' }}>แผน</th>}
+                            <th style={{ ...thBase, textAlign: 'left', paddingLeft: 12 }}>กิจกรรม</th>
+                            <th style={{ ...thBase, textAlign: 'left' }}>ผู้รับ</th>
+                            {MONTH_LABELS.map((m, idx) => (
+                              <th key={m} style={{
+                                ...thBase,
+                                textAlign: 'center',
+                                color: idx === currentMonthIdx ? '#fff' : thBase.color,
+                                background: idx === currentMonthIdx ? planConfig.accentColor : thBase.background,
+                                borderRadius: idx === currentMonthIdx ? '8px 8px 0 0' : undefined,
+                                borderBottom: idx === currentMonthIdx ? `2px solid ${planConfig.accentColor}` : thBase.borderBottom,
+                              }}>{m}</th>
+                            ))}
+                          </>);
+                        })()}
                       </tr>
                     </thead>
                     <tbody>
                       {/* Activity rows — with optional category grouping */}
                       {groupByCategory ? categoryGroups.flatMap(group => [
                         <tr key={`cat-header-${group.categoryNo}`}>
-                          <td colSpan={planType === 'total' ? 16 : 15} className="py-2 px-3 text-[12px] font-bold" style={{ background: `${STATUS.warning}10`, color: STATUS.warning, borderBottom: `2px solid ${STATUS.warning}40` }}>
-                            <span className="inline-flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white" style={{ background: STATUS.warning }}>{group.categoryNo}</span>
-                              {group.categoryGroup}
-                              <span className="text-[10px] font-normal" style={{ color: PALETTE.muted }}>({group.activities.length} กิจกรรม)</span>
+                          <td colSpan={planType === 'total' ? 16 : 15} className="py-2.5 px-4" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                            <span className="inline-flex items-center gap-2.5">
+                              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold text-white" style={{ background: planConfig.accentColor }}>{group.categoryNo}</span>
+                              <span className="text-[12px] font-semibold" style={{ color: 'var(--text-primary)' }}>{group.categoryGroup}</span>
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-tertiary)', color: 'var(--muted)' }}>{group.activities.length} กิจกรรม</span>
                             </span>
                           </td>
                         </tr>,
                         ...group.activities.map((act, i) => (
-                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
-                          <td className="py-2.5 px-1.5 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <td className="py-3 px-2 text-xs text-center" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
                             <div>{act.no}</div>
                             {(() => {
                               const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
@@ -2271,11 +2294,11 @@ export default function CompanyDrilldown() {
                             })()}
                           </td>
                           {planType === 'total' && (
-                            <td className="py-2.5 px-2 text-center">
+                            <td className="py-3 px-1 text-center" style={{ verticalAlign: 'top' }}>
                               <span
-                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[10px] font-bold"
                                 style={{
-                                  background: (act as any)._planTag === 'S' ? `${CATEGORY_COLORS.safety}20` : `${CATEGORY_COLORS.environment}20`,
+                                  background: (act as any)._planTag === 'S' ? `${CATEGORY_COLORS.safety}15` : `${CATEGORY_COLORS.environment}15`,
                                   color: (act as any)._planTag === 'S' ? CATEGORY_COLORS.safety : CATEGORY_COLORS.environment,
                                 }}
                               >
@@ -2283,7 +2306,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2 px-1.5 text-[9px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word', fontWeight: 400 }}>
+                          <td className="py-3 px-3 text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)', wordBreak: 'break-word', fontWeight: 400, verticalAlign: 'top' }}>
                             <div>{act.activity}</div>
                             <div className="flex flex-wrap items-center gap-1 mt-1">
                               {(() => {
@@ -2306,7 +2329,7 @@ export default function CompanyDrilldown() {
                               return (<div className="flex items-center gap-1.5 mt-1.5" title={`${donePMg.length}/${activePMg.length} เดือนเสร็จ (${pctG}%)`}><div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 80 }}><div className="h-full rounded-full transition-all" style={{ width: `${pctG}%`, background: barColorG }} /></div><span className="text-[9px] font-medium" style={{ color: pctG >= 100 ? STATUS.ok : 'var(--muted)' }}>{donePMg.length}/{activePMg.length}</span></div>);
                             })()}
                           </td>
-                          <td className="py-2.5 px-1.5 text-[11px] cursor-pointer truncate" style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))} title={getEffectiveResponsible(act)}>{getEffectiveResponsible(act)}</td>
+                          <td className="py-3 px-2 text-[11px] cursor-pointer" style={{ color: 'var(--text-secondary)', verticalAlign: 'top', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))} title={`${getEffectiveResponsible(act)} — คลิกเพื่อเปลี่ยน`}><span className="block truncate">{getEffectiveResponsible(act)}</span></td>
                           {MONTH_KEYS.map((k, idx) => {
                             const effectiveStatus = getEffectiveStatus(act, k);
                             const hasOverride = overrides[`${getOverridePrefix(act)}${act.no}:${k}`] !== undefined;
@@ -2328,13 +2351,15 @@ export default function CompanyDrilldown() {
                             const hasNote = !!noteOverrides[`${cellPrefix}${act.no}:${k}`];
                             const cancelKey = `${planType === 'total' ? ((act as any)._planTag === 'S' ? 'safety' : 'environment') : planType}:${planType === 'total' ? act.no.replace(/^[SE]:/, '') : act.no}:${k}`;
                             const pendingCancel = pendingCancellations[cancelKey];
-                            return (<td key={k} className="text-center py-2.5 px-0 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : pendingCancel ? `${STATUS.warning}18` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={pendingCancel ? `รอ Admin อนุมัติ: ${pendingCancel === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancel === 'cancelled' ? 'ยกเลิก' : pendingCancel === 'postponed' ? 'เลื่อน' : pendingCancel}` : cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{pendingCancel && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.warning }} title="รอ Admin อนุมัติ" />}{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
+                            return (<td key={k} className="text-center py-3 px-1 cursor-pointer transition-colors relative" style={{ background: isCurrent ? `${PALETTE.primary}0F` : pendingCancel ? `${STATUS.warning}18` : hasOverride ? `${STATUS.warning}12` : 'transparent', borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none', borderRight: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none' }} onClick={() => handleCellClick(`${cellPrefix}${act.no}`, k, act.activity)}><span title={pendingCancel ? `รอ Admin อนุมัติ: ${pendingCancel === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancel === 'cancelled' ? 'ยกเลิก' : pendingCancel === 'postponed' ? 'เลื่อน' : pendingCancel}` : cfg.title}><cfg.Icon size={14} style={{ color: cfg.color, margin: '0 auto' }} /></span>{pendingCancel && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: STATUS.warning }} title="รอ Admin อนุมัติ" />}{attCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold leading-none px-1" style={{ background: PALETTE.primary, color: '#fff' }}>{attCount}</span>}{hasNote && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 flex items-center justify-center rounded-full text-[8px] leading-none" style={{ background: STATUS.warning, color: '#fff' }}><Pencil size={7} /></span>}</td>);
                           })}
                         </tr>
                         ))
                       ]) : enhancedFilteredActivities.map((act, i) => (
-                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.2s' }} className="hover:opacity-90">
-                          <td className="py-2.5 px-1.5 text-xs" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <td className="py-3 px-2 text-xs text-center" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
                             <div>{act.no}</div>
                             {(() => {
                               const overallSt = getEffectiveOverallStatus(act as Activity & { _planTag?: string });
@@ -2363,11 +2388,11 @@ export default function CompanyDrilldown() {
                             })()}
                           </td>
                           {planType === 'total' && (
-                            <td className="py-2.5 px-2 text-center">
+                            <td className="py-3 px-1 text-center" style={{ verticalAlign: 'top' }}>
                               <span
-                                className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[10px] font-bold"
                                 style={{
-                                  background: (act as any)._planTag === 'S' ? `${CATEGORY_COLORS.safety}20` : `${CATEGORY_COLORS.environment}20`,
+                                  background: (act as any)._planTag === 'S' ? `${CATEGORY_COLORS.safety}15` : `${CATEGORY_COLORS.environment}15`,
                                   color: (act as any)._planTag === 'S' ? CATEGORY_COLORS.safety : CATEGORY_COLORS.environment,
                                 }}
                               >
@@ -2375,7 +2400,7 @@ export default function CompanyDrilldown() {
                               </span>
                             </td>
                           )}
-                          <td className="py-2 px-1.5 text-[9px] leading-snug" style={{ color: 'var(--text-primary)', wordBreak: 'break-word', fontWeight: 400 }}>
+                          <td className="py-3 px-3 text-[11px] leading-relaxed" style={{ color: 'var(--text-primary)', wordBreak: 'break-word', fontWeight: 400, verticalAlign: 'top' }}>
                             <div>{act.activity}</div>
                             {/* Badges row: overdue + postponed + budget */}
                             <div className="flex flex-wrap items-center gap-1 mt-1">
@@ -2547,17 +2572,18 @@ export default function CompanyDrilldown() {
                             })()}
                           </td>
                           <td
-                            className="py-2.5 px-2 text-xs cursor-pointer transition-colors"
+                            className="py-3 px-2 text-[11px] cursor-pointer transition-colors"
                             style={{
-                              color: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? STATUS.warning : 'var(--text-secondary)',
-                              border: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? `1px solid ${STATUS.warning}4D` : 'none',
-                              borderRadius: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '4px' : '0px',
-                              padding: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? '2px 5px' : '10px 8px'
+                              color: responsibleOverrides[`${getOverridePrefix(act)}${act.no}`] ? planConfig.accentColor : 'var(--text-secondary)',
+                              verticalAlign: 'top',
+                              maxWidth: 72,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
                             }}
                             onClick={() => handleResponsibleClick(`${getOverridePrefix(act as Activity & { _planTag?: string })}${act.no}`, act.activity, getEffectiveResponsible(act))}
-                            title="คลิกเพื่อเปลี่ยนผู้รับผิดชอบ"
+                            title={`${getEffectiveResponsible(act)} — คลิกเพื่อเปลี่ยน`}
                           >
-                            {getEffectiveResponsible(act)}
+                            <span className="block truncate">{getEffectiveResponsible(act)}</span>
                           </td>
                           {/* Budget info moved to badges under activity name */}
                           {MONTH_KEYS.map((k, idx) => {
@@ -2587,7 +2613,7 @@ export default function CompanyDrilldown() {
                             return (
                               <td
                                 key={k}
-                                className="text-center py-2.5 px-0 cursor-pointer transition-colors relative"
+                                className="text-center py-3 px-1 cursor-pointer transition-colors relative"
                                 style={{
                                   background: isCurrent ? `${PALETTE.primary}0F` : pendingCancel2 ? `${STATUS.warning}18` : hasOverride ? `${STATUS.warning}12` : 'transparent',
                                   borderLeft: isCurrent ? `1px solid ${PALETTE.primary}25` : 'none',
@@ -2626,10 +2652,12 @@ export default function CompanyDrilldown() {
                   </table>
                 </div>
               ) : (
-                <div className="text-center py-10" style={{ color: 'var(--text-secondary)' }}>
-                  <ClipboardList size={36} className="mx-auto mb-3" style={{ color: PALETTE.muted }} />
-                  <p>ไม่พบกิจกรรม{statusFilter !== 'all' ? 'ในสถานะที่เลือก' : ''}</p>
-                  <p className="text-[11px] mt-1">ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น</p>
+                <div className="text-center py-16 px-6" style={{ color: 'var(--text-secondary)' }}>
+                  <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
+                    <ClipboardList size={28} style={{ color: PALETTE.muted }} />
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>ไม่พบกิจกรรม{statusFilter !== 'all' ? 'ในสถานะที่เลือก' : ''}</p>
+                  <p className="text-xs mt-1.5" style={{ color: 'var(--muted)' }}>ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น</p>
                 </div>
               )}
             </div>
