@@ -387,23 +387,88 @@ export default function ActivityDrawer(props: DrawerProps) {
           {/* TAB: Status */}
           {activeTab === 'status' && (
             <div className="space-y-4">
-              {/* Status Grid */}
+              {/* ═══ Status Selector — Professional Redesign ═══ */}
               {canEdit && (
                 <>
+                  {/* Current status indicator */}
+                  {!pendingCancel && !pendingDone && !pendingPostpone && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1" style={{ background: UI.bgPage }}>
+                      <span className="text-[11px]" style={{ color: UI.textPlaceholder }}>สถานะปัจจุบัน:</span>
+                      {(() => {
+                        const cur = STATUS_OPTIONS.find(o => o.value === currentStatus);
+                        if (!cur) return null;
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                            style={{ background: `${cur.color}18`, color: cur.color }}>
+                            <cur.Icon size={12} /> {cur.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Transition indicator — shows when changing status */}
+                  {(pendingCancel || pendingDone || pendingPostpone) && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg mb-1" style={{ background: `${accentColor}08`, border: `1px solid ${accentColor}20` }}>
+                      {/* From */}
+                      {(() => {
+                        const cur = STATUS_OPTIONS.find(o => o.value === currentStatus);
+                        if (!cur) return null;
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+                            style={{ background: `${cur.color}12`, color: cur.color, textDecoration: 'line-through', opacity: 0.6 }}>
+                            <cur.Icon size={10} /> {cur.label}
+                          </span>
+                        );
+                      })()}
+                      <span className="text-[11px]" style={{ color: UI.textPlaceholder }}>→</span>
+                      {/* To */}
+                      {(() => {
+                        const targetValue = pendingCancel || (pendingDone ? 'done' : pendingPostpone ? 'postponed' : null);
+                        const target = STATUS_OPTIONS.find(o => o.value === targetValue);
+                        if (!target) return null;
+                        return (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold animate-pulse"
+                            style={{ background: `${target.color}20`, color: target.color, border: `1.5px solid ${target.color}50` }}>
+                            <target.Icon size={12} /> {target.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Status buttons */}
                   <div className="grid grid-cols-3 gap-2">
                     {STATUS_OPTIONS.map(opt => {
                       const isActive = currentStatus === opt.value;
+                      const isPendingTarget = pendingCancel === opt.value || (pendingDone && opt.value === 'done') || (pendingPostpone && opt.value === 'postponed');
+                      const hasPendingAction = !!pendingCancel || pendingDone || pendingPostpone;
+
                       return (
                         <button
                           key={opt.value}
                           onClick={() => handleSaveStatusWrapped(opt.value)}
-                          disabled={savingStatus}
-                          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium transition-all"
+                          disabled={savingStatus || (hasPendingAction && !isPendingTarget && opt.value !== currentStatus)}
+                          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all"
                           style={{
-                            background: isActive ? `${PALETTE.primary}0A` : UI.bgPage,
-                            border: isActive ? `2px solid ${accentColor}` : `1px solid ${UI.borderDefault}`,
-                            color: isActive ? accentColor : UI.textLabel,
-                            opacity: savingStatus ? 0.5 : 1,
+                            background: isPendingTarget
+                              ? `${opt.color}15`
+                              : isActive && !hasPendingAction
+                                ? `${accentColor}0A`
+                                : UI.bgPage,
+                            border: isPendingTarget
+                              ? `2px dashed ${opt.color}`
+                              : isActive && !hasPendingAction
+                                ? `2px solid ${accentColor}`
+                                : `1px solid ${UI.borderDefault}`,
+                            color: isPendingTarget
+                              ? opt.color
+                              : isActive && !hasPendingAction
+                                ? accentColor
+                                : UI.textLabel,
+                            opacity: savingStatus ? 0.4 : (hasPendingAction && !isPendingTarget && !isActive) ? 0.35 : 1,
+                            transform: isPendingTarget ? 'scale(1.03)' : 'scale(1)',
+                            boxShadow: isPendingTarget ? `0 0 0 3px ${opt.color}15` : 'none',
                           }}
                         >
                           <opt.Icon size={14} style={{ color: opt.color }} />
@@ -413,31 +478,35 @@ export default function ActivityDrawer(props: DrawerProps) {
                     })}
                   </div>
 
-                  {/* Completion flow */}
+                  {/* ── Completion flow (เสร็จแล้ว) ── */}
                   {pendingDone && (
-                    <div className="rounded-lg p-3" style={{ background: `${STATUS.ok}0F`, border: `1px solid ${STATUS.ok}4D` }}>
-                      <p className="text-xs font-semibold mb-2" style={{ color: STATUS.ok }}>บันทึกการดำเนินงาน</p>
-                      <div>
-                        <label className="text-[11px] block mb-1" style={{ color: UI.textLabel }}>วันที่ดำเนินการเสร็จ</label>
-                        <DateInput value={completionDate} onChange={v => setCompletionDate(v)} inputStyle={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }} />
+                    <div className="rounded-xl p-4 mt-1" style={{ background: `${STATUS.ok}08`, border: `1px solid ${STATUS.ok}30` }}>
+                      <p className="text-xs font-semibold mb-3" style={{ color: STATUS.ok }}>
+                        <Check size={13} className="inline mr-1" />บันทึกการดำเนินงาน
+                      </p>
+                      <div className="mb-3">
+                        <label className="text-[11px] block mb-1 font-medium" style={{ color: UI.textLabel }}>วันที่ดำเนินการเสร็จ</label>
+                        <DateInput value={completionDate} onChange={v => setCompletionDate(v)} inputStyle={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong, borderRadius: 10 }} />
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => { setPendingDone(false); setCompletionDate(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
+                          className="flex-1 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                         <button onClick={() => onSaveStatus('done')} disabled={!completionDate || savingStatus}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: STATUS.ok, color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1 }}>
-                          {savingStatus ? 'กำลังบันทึก...' : <><Check size={11} className="inline mr-0.5" /> ยืนยัน</>}
+                          className="flex-1 px-3 py-2 rounded-xl text-xs font-semibold"
+                          style={{ background: STATUS.ok, color: '#fff', opacity: !completionDate || savingStatus ? 0.5 : 1, boxShadow: `0 2px 8px ${STATUS.ok}40` }}>
+                          {savingStatus ? 'กำลังบันทึก...' : <><Check size={12} className="inline mr-1" />ยืนยัน</>}
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* Postpone flow */}
+                  {/* ── Postpone flow (เลื่อน) ── */}
                   {pendingPostpone && (
-                    <div className="rounded-lg p-3" style={{ background: `${PALETTE.primary}0A`, border: `1px solid ${PALETTE.primary}30` }}>
-                      <p className="text-xs font-medium mb-2" style={{ color: PALETTE.primary }}>เลือกเดือนที่จะเลื่อนไป:</p>
-                      <div className="grid grid-cols-6 gap-1.5 mb-2">
+                    <div className="rounded-xl p-4 mt-1" style={{ background: `${STATUS.warning}08`, border: `1px solid ${STATUS.warning}30` }}>
+                      <p className="text-xs font-semibold mb-3" style={{ color: STATUS.warning }}>
+                        <Clock size={13} className="inline mr-1" />เลือกเดือนที่จะเลื่อนไป
+                      </p>
+                      <div className="grid grid-cols-6 gap-1.5 mb-3">
                         {MONTH_KEYS.map((mk, idx) => {
                           const isPast = idx < new Date().getMonth();
                           const isOriginal = mk === editingCell.month;
@@ -445,12 +514,13 @@ export default function ActivityDrawer(props: DrawerProps) {
                           const isSelected = postponeMonth === mk;
                           return (
                             <button key={mk} onClick={() => !disabled && setPostponeMonth(mk)} disabled={disabled}
-                              className="px-2 py-1.5 rounded text-xs transition-colors"
+                              className="px-2 py-1.5 rounded-lg text-xs transition-all"
                               style={{
-                                background: isSelected ? PALETTE.primary : disabled ? UI.bgMuted : UI.bgHover,
+                                background: isSelected ? STATUS.warning : disabled ? UI.bgMuted : UI.bgHover,
                                 color: isSelected ? '#fff' : disabled ? UI.textDisabled : UI.textBody,
                                 cursor: disabled ? 'not-allowed' : 'pointer',
-                                border: isSelected ? `2px solid ${PALETTE.primary}` : `1px solid ${UI.borderDefault}`,
+                                border: isSelected ? `2px solid ${STATUS.warning}` : `1px solid ${UI.borderDefault}`,
+                                boxShadow: isSelected ? `0 2px 6px ${STATUS.warning}40` : 'none',
                               }}
                             >{MONTH_LABELS[idx]}</button>
                           );
@@ -458,44 +528,52 @@ export default function ActivityDrawer(props: DrawerProps) {
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => { setPendingPostpone(false); setPostponeMonth(''); }}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
+                          className="flex-1 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                         <button onClick={() => onSaveStatus('postponed')} disabled={!postponeMonth || savingStatus}
-                          className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: PALETTE.primary, color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1 }}>
+                          className="flex-1 px-3 py-2 rounded-xl text-xs font-semibold"
+                          style={{ background: STATUS.warning, color: '#fff', opacity: !postponeMonth || savingStatus ? 0.5 : 1, boxShadow: `0 2px 8px ${STATUS.warning}40` }}>
                           {savingStatus ? '...' : `เลื่อนไป ${postponeMonth ? MONTH_LABELS[MONTH_KEYS.indexOf(postponeMonth)] : '...'}`}
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* Phase 4: Approval Request Form (cancel, N/A, plan changes) */}
+                  {/* ── Approval Request Form (ยกเลิก / ไม่เข้าเงื่อนไข / เปลี่ยนแผน) ── */}
                   {pendingCancel && (() => {
-                    const labels: Record<string, { title: string; placeholder: string; color: string; bg: string; border: string }> = {
-                      cancelled: { title: 'ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: PALETTE.textSecondary, bg: `${PALETTE.textSecondary}0A`, border: `${PALETTE.textSecondary}30` },
-                      not_applicable: { title: 'ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: PALETTE.muted, bg: `${PALETTE.muted}12`, border: `${PALETTE.muted}30` },
-                      not_planned: { title: 'ขอนำออกจากแผน (→ ไม่มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: STATUS.warning, bg: `${STATUS.warning}0A`, border: `${STATUS.warning}30` },
-                      planned: { title: 'ขอเพิ่มเข้าแผน (→ มีแผน)', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: PALETTE.primary, bg: `${PALETTE.primary}0A`, border: `${PALETTE.primary}30` },
+                    const labels: Record<string, { title: string; placeholder: string; color: string; icon: typeof Ban }> = {
+                      cancelled: { title: 'ขอยกเลิกกิจกรรม', placeholder: 'ระบุเหตุผลที่ต้องการยกเลิก...', color: PALETTE.textSecondary, icon: Ban },
+                      not_applicable: { title: 'ขอระบุไม่เข้าเงื่อนไข', placeholder: 'ระบุเหตุผลที่ไม่เข้าเงื่อนไข...', color: PALETTE.muted, icon: CircleSlash },
+                      not_planned: { title: 'ขอนำออกจากแผน', placeholder: 'ระบุเหตุผลที่ต้องการนำออกจากแผนที่ได้รับอนุมัติแล้ว...', color: STATUS.warning, icon: Minus },
+                      planned: { title: 'ขอเพิ่มเข้าแผน', placeholder: 'ระบุเหตุผลที่ต้องการเพิ่มรายการนี้เข้าแผน...', color: PALETTE.primary, icon: Circle },
                     };
                     const cfg = labels[pendingCancel] || labels.cancelled;
+                    const CfgIcon = cfg.icon;
                     return (
-                      <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-                        <p className="text-[11px] font-semibold" style={{ color: cfg.color }}>
-                          {cfg.title} — ต้องได้รับอนุมัติจาก Admin
-                        </p>
+                      <div className="rounded-xl p-4 mt-1 flex flex-col gap-3" style={{ background: `${cfg.color}08`, border: `1px solid ${cfg.color}25` }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${cfg.color}18` }}>
+                            <CfgIcon size={14} style={{ color: cfg.color }} />
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-semibold" style={{ color: cfg.color }}>{cfg.title}</p>
+                            <p className="text-[10px]" style={{ color: UI.textPlaceholder }}>ต้องได้รับอนุมัติจาก Admin</p>
+                          </div>
+                        </div>
                         <textarea
                           value={cancelReason}
                           onChange={e => setCancelReason(e.target.value)}
                           placeholder={cfg.placeholder}
-                          className="w-full px-3 py-2 rounded-lg text-[12px] resize-none"
+                          className="w-full px-3 py-2.5 rounded-xl text-[12px] resize-none focus:outline-none"
                           rows={2}
-                          style={{ background: UI.bgPage, border: `1px solid ${UI.borderDefault}`, color: UI.textStrong, outline: 'none' }}
+                          autoFocus
+                          style={{ background: UI.bgWhite, border: `1px solid ${UI.borderDefault}`, color: UI.textStrong }}
                         />
                         <div className="flex gap-2">
                           <button onClick={() => { setPendingCancel(null); setCancelReason(''); }}
-                            className="flex-1 px-3 py-1.5 rounded-lg text-xs" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
+                            className="flex-1 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: UI.bgHover, color: UI.textBody }}>ยกเลิก</button>
                           <button onClick={handleSubmitCancellationRequest} disabled={!cancelReason.trim() || submittingCancel}
-                            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                            style={{ background: cfg.color, color: '#fff', opacity: !cancelReason.trim() || submittingCancel ? 0.5 : 1 }}>
+                            className="flex-1 px-3 py-2 rounded-xl text-xs font-semibold"
+                            style={{ background: cfg.color, color: '#fff', opacity: !cancelReason.trim() || submittingCancel ? 0.5 : 1, boxShadow: `0 2px 8px ${cfg.color}40` }}>
                             {submittingCancel ? 'กำลังส่ง...' : 'ส่งคำขออนุมัติ'}
                           </button>
                         </div>
@@ -505,15 +583,13 @@ export default function ActivityDrawer(props: DrawerProps) {
 
                   {/* Pending approval badge */}
                   {pendingCancellationStatus && !pendingCancel && (
-                    <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: `${STATUS.warning}14`, border: `1px solid ${STATUS.warning}33` }}>
-                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: STATUS.warning }} />
-                      <span className="text-[11px]" style={{ color: STATUS.warning }}>
+                    <div className="rounded-xl p-3 flex items-center gap-2.5" style={{ background: `${STATUS.warning}10`, border: `1px solid ${STATUS.warning}25` }}>
+                      <span className="w-2.5 h-2.5 rounded-full animate-pulse flex-shrink-0" style={{ background: STATUS.warning }} />
+                      <span className="text-[11px] font-medium" style={{ color: STATUS.warning }}>
                         คำขอ{pendingCancellationStatus === 'cancelled' ? 'ยกเลิก' : pendingCancellationStatus === 'not_applicable' ? 'ไม่เข้าเงื่อนไข' : pendingCancellationStatus === 'not_planned' ? 'นำออกจากแผน' : pendingCancellationStatus === 'planned' ? 'เพิ่มเข้าแผน' : pendingCancellationStatus}รอการอนุมัติจาก Admin
                       </span>
                     </div>
                   )}
-
-                  {/* Revert button removed — Admin manages via approval workflow */}
                 </>
               )}
 
