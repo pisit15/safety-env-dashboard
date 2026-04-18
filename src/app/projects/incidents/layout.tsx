@@ -27,7 +27,7 @@ export default function IncidentsProjectLayout({ children }: { children: React.R
   return (
     <div className="flex min-h-screen bg-gray-50">
       <ProjectSidebar project={project} />
-      <main className="flex-1 overflow-x-hidden">{children}</main>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden">{children}</main>
     </div>
   );
 }

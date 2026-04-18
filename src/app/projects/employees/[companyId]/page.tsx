@@ -610,8 +610,7 @@ export default function EmployeesPage() {
 
   /* ───── MAIN RENDER ───── */
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--bg)' }}>
-      <main className="flex-1 overflow-auto">
+    <div style={{ background: 'var(--bg)', minHeight: '100%' }}>
         {/* Sticky Header */}
         <div className="sticky top-0 z-20 px-4 lg:px-6 pt-4 pb-3" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <div className="max-w-[1600px] mx-auto">
@@ -1520,7 +1519,6 @@ export default function EmployeesPage() {
             </div>
           </div>
         )}
-      </main>
     </div>
   );
 }

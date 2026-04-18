@@ -429,8 +429,7 @@ export default function NearMissCoordinatorPage() {
 
   // ── Main ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-      <main className="flex-1 overflow-y-auto" id="pdf-content">
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100%' }} id="pdf-content">
         {/* ── Sticky Header ── */}
         <div className="sticky top-0 z-20" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 24px 14px' }}>
@@ -688,7 +687,6 @@ export default function NearMissCoordinatorPage() {
             </div>
           )}
         </div>
-      </main>
 
       {/* ── Drawer ─────────────────────────────────────────────────────────── */}
       {selected && (

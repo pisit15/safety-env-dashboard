@@ -469,8 +469,7 @@ export default function IncidentsPage() {
   const loading = viewMode === 'dashboard' ? dashLoading : listLoading;
 
   return (
-    <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
-      <main className="flex-1 overflow-y-auto" id="pdf-content">
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100%' }} id="pdf-content">
         {/* Sticky Header */}
         <div className="sticky top-0 z-20 px-8 pt-6 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
           <div className="flex items-center justify-between mb-3">
@@ -680,7 +679,6 @@ export default function IncidentsPage() {
             />
           ) : null}
         </div>
-      </main>
 
       <IncidentDrawer
         open={drawerOpen}

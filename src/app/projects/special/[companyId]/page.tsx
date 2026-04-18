@@ -544,8 +544,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
-      <main className="flex-1 overflow-y-auto">
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100%' }}>
         {/* Sticky Header + Toolbar */}
         <div className="sticky top-0 z-20 px-6 lg:px-8 pt-4 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <div className="max-w-7xl mx-auto">
@@ -765,7 +764,6 @@ export default function ProjectsPage() {
             </div>
           )}
         </div>
-      </main>
 
       {showCreate && (
         <CreateProjectModal

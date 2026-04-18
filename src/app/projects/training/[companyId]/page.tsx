@@ -1292,8 +1292,7 @@ export default function CompanyTraining() {
   }
 
   return (
-    <div style={{ height: '100%', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
-      <main style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }} id="pdf-content">
+    <div style={{ minHeight: '100%', background: 'var(--bg)' }} id="pdf-content">
         {/* Sticky Header */}
         <div className="sticky top-0 z-20" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
         <div style={{ padding: '16px 24px 0' }}>
@@ -3475,7 +3474,6 @@ export default function CompanyTraining() {
           </div>
         )}
         </div>{/* end content padding wrapper */}
-      </main>
     </div>
   );
 }

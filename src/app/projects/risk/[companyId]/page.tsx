@@ -262,8 +262,7 @@ export default function RiskRegisterPage() {
   // ── Login screen ──
   if (!isLoggedIn) {
     return (
-      <div className="flex min-h-screen">
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }}>
+      <div style={{ background: 'var(--bg-primary)', minHeight: '100%', padding: '24px 32px' }}>
           <div style={{ maxWidth: 400, margin: '80px auto' }}>
             <div className="rounded-2xl overflow-hidden" style={{ background: '#ffffff', boxShadow: '0 25px 60px rgba(0,0,0,0.15)' }}>
               <div className="px-6 pt-5 pb-4" style={{ background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.warning} 100%)` }}>
@@ -312,14 +311,12 @@ export default function RiskRegisterPage() {
               </div>
             </div>
           </div>
-        </main>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen">
-      <main className="flex-1 overflow-y-auto" style={{ background: 'var(--bg-primary)' }} id="pdf-content">
+    <div style={{ background: 'var(--bg-primary)', minHeight: '100%' }} id="pdf-content">
         {/* Sticky Header */}
         <div className="sticky top-0 z-20 px-4 lg:px-8 pt-4 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -767,7 +764,6 @@ export default function RiskRegisterPage() {
           </div>
         )}
         </div>
-      </main>
     </div>
   );
 }

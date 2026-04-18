@@ -1600,7 +1600,7 @@ export default function CompanyDrilldown() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">      <main className="flex-1 p-6 lg:p-8 overflow-y-auto" id="pdf-content">
+    <div id="pdf-content">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs mb-1">
           <Link href="/" style={{ color: 'var(--muted)' }} className="hover:opacity-70">Home</Link>
@@ -2976,7 +2976,6 @@ export default function CompanyDrilldown() {
             </div>
           </div>
         )}
-      </main>
     </div>
   );
 }
