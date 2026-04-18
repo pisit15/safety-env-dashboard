@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
-import { X, Plus, Camera, Trash2, ImageIcon, Upload, Loader2 } from 'lucide-react';
+import { X, Plus, Camera, Trash2, ImageIcon, Upload, Loader2, Save, CloudOff, CheckCircle2 } from 'lucide-react';
 import type { Incident } from '../types';
 import {
   INCIDENT_TYPES, ACTUAL_SEVERITIES, PERSON_TYPES, POTENTIAL_SEVERITIES,
@@ -59,14 +59,81 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_PHOTOS = 5;
 
+  /* ── Auto-save Draft ── */
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [draftIncidentNo, setDraftIncidentNo] = useState<string | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedJson = useRef<string>('');
+  const isInitializing = useRef(true);
+
+  const performAutoSave = useCallback(async (data: Record<string, unknown>, injured: Record<string, unknown>[]) => {
+    // Must have at least incident_type or some meaningful data to auto-save
+    const hasContent = data.incident_type || data.description || data.reporter || data.area;
+    if (!hasContent) return;
+
+    const currentJson = JSON.stringify({ data, injured });
+    if (currentJson === lastSavedJson.current) return; // No changes
+
+    setDraftStatus('saving');
+    try {
+      const existingNo = (data.incident_no as string) || draftIncidentNo;
+      const method = existingNo ? 'PUT' : 'POST';
+      const payload = {
+        ...data,
+        report_status: 'Draft',
+        injured_persons: injured.length > 0 ? injured : undefined,
+        ...(existingNo ? { incident_no: existingNo } : {}),
+      };
+
+      const res = await fetch('/api/incidents', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        setDraftStatus('error');
+      } else {
+        lastSavedJson.current = currentJson;
+        setDraftStatus('saved');
+        // Store the incident_no from first save for subsequent updates
+        const savedNo = result.incident?.incident_no || result.incident_no;
+        if (savedNo && !existingNo) {
+          setDraftIncidentNo(savedNo);
+          setFormData(prev => ({ ...prev, incident_no: savedNo }));
+        }
+      }
+    } catch {
+      setDraftStatus('error');
+    }
+  }, [draftIncidentNo]);
+
+  // Debounced auto-save: trigger 2 seconds after last change
+  useEffect(() => {
+    if (isInitializing.current) return;
+    if (saving) return; // Don't auto-save while user is manually saving
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      performAutoSave(formData, injuredPersons);
+    }, 2000);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [formData, injuredPersons, performAutoSave, saving]);
+
   // Initialize form when editing incident changes
   useEffect(() => {
+    isInitializing.current = true;
     if (editingIncident) {
       setFormData({ ...editingIncident });
+      setDraftIncidentNo(editingIncident.incident_no || null);
+      lastSavedJson.current = JSON.stringify({ data: editingIncident, injured: [] });
       // Fetch injured persons for this incident
       fetch(`/api/incidents/injured?incident_no=${encodeURIComponent(editingIncident.incident_no)}`)
         .then(r => r.json())
-        .then(data => setInjuredPersons(data.persons || []))
+        .then(data => {
+          setInjuredPersons(data.persons || []);
+          lastSavedJson.current = JSON.stringify({ data: editingIncident, injured: data.persons || [] });
+        })
         .catch(() => setInjuredPersons([]));
       // Fetch existing photos
       fetch(`/api/incidents/photos?incident_no=${encodeURIComponent(editingIncident.incident_no)}`)
@@ -74,16 +141,51 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         .then(data => setPhotos(data.photos || []))
         .catch(() => setPhotos([]));
     } else {
-      setFormData({
-        company_id: companyId,
-        incident_date: new Date().toISOString().split('T')[0],
-        incident_type: '',
-        work_related: 'ใช่',
-        report_status: 'Draft',
-      });
+      // Check for existing draft
+      fetch(`/api/incidents/drafts?companyId=${companyId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.draft) {
+            setFormData({ ...data.draft });
+            setDraftIncidentNo(data.draft.incident_no || null);
+            lastSavedJson.current = JSON.stringify({ data: data.draft, injured: [] });
+            setDraftStatus('saved');
+            // Load injured persons for draft
+            if (data.draft.incident_no) {
+              fetch(`/api/incidents/injured?incident_no=${encodeURIComponent(data.draft.incident_no)}`)
+                .then(r => r.json())
+                .then(d => {
+                  setInjuredPersons(d.persons || []);
+                  lastSavedJson.current = JSON.stringify({ data: data.draft, injured: d.persons || [] });
+                })
+                .catch(() => {});
+            }
+          } else {
+            setFormData({
+              company_id: companyId,
+              incident_date: new Date().toISOString().split('T')[0],
+              incident_type: '',
+              work_related: 'ใช่',
+              report_status: 'Draft',
+            });
+          }
+          setTimeout(() => { isInitializing.current = false; }, 500);
+        })
+        .catch(() => {
+          setFormData({
+            company_id: companyId,
+            incident_date: new Date().toISOString().split('T')[0],
+            incident_type: '',
+            work_related: 'ใช่',
+            report_status: 'Draft',
+          });
+          setTimeout(() => { isInitializing.current = false; }, 500);
+        });
       setInjuredPersons([]);
       setPhotos([]);
+      return; // Don't set isInitializing to false yet — wait for draft check
     }
+    setTimeout(() => { isInitializing.current = false; }, 500);
   }, [editingIncident, companyId]);
 
   const updateForm = (key: string, value: unknown) => {
@@ -167,16 +269,24 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     }
   };
 
-  /* Save */
+  /* Save (finalize — changes status from Draft to Under Review) */
   const handleSave = async () => {
     if (!formData.incident_type || !formData.incident_date) {
       alert('กรุณากรอกวันที่และประเภทอุบัติการณ์');
       return;
     }
+    // Cancel any pending auto-save
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaving(true);
     try {
-      const method = editingIncident ? 'PUT' : 'POST';
-      const payload = { ...formData, injured_persons: injuredPersons.length > 0 ? injuredPersons : undefined };
+      const existingNo = (formData.incident_no as string) || draftIncidentNo;
+      const method = existingNo ? 'PUT' : 'POST';
+      const payload = {
+        ...formData,
+        report_status: 'Under Review', // Finalize: no longer a draft
+        injured_persons: injuredPersons.length > 0 ? injuredPersons : undefined,
+        ...(existingNo ? { incident_no: existingNo } : {}),
+      };
       const res = await fetch('/api/incidents', {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +333,25 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               <h2 className="text-[16px] font-bold text-white">
                 {editingIncident ? `แก้ไข ${editingIncident.incident_no}` : 'บันทึกอุบัติเหตุใหม่'}
               </h2>
-              <p className="text-[12px] text-white/70 mt-0.5">{companyName}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[12px] text-white/70">{companyName}</p>
+                {/* Draft auto-save indicator */}
+                {draftStatus === 'saving' && (
+                  <span className="flex items-center gap-1 text-[10px] text-white/60">
+                    <Loader2 size={10} className="animate-spin" /> กำลังบันทึกร่าง...
+                  </span>
+                )}
+                {draftStatus === 'saved' && (
+                  <span className="flex items-center gap-1 text-[10px] text-white/80">
+                    <CheckCircle2 size={10} /> บันทึกร่างแล้ว
+                  </span>
+                )}
+                {draftStatus === 'error' && (
+                  <span className="flex items-center gap-1 text-[10px] text-yellow-200">
+                    <CloudOff size={10} /> บันทึกร่างไม่สำเร็จ
+                  </span>
+                )}
+              </div>
             </div>
             <button onClick={onClose} className="text-white/70 hover:text-white">
               <X size={20} />

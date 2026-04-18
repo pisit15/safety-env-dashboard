@@ -36,12 +36,13 @@ export async function GET(request: NextRequest) {
 
     // Run all 3 queries in parallel
     const [incidentsResult, manHoursResult, injuredResult] = await Promise.all([
-      // 1. All incidents for selected years
+      // 1. All incidents for selected years (exclude drafts)
       supabase
         .from('incidents')
         .select('*')
         .eq('company_id', companyId)
         .in('year', years)
+        .neq('report_status', 'Draft')
         .order('incident_date', { ascending: false }),
 
       // 2. Man-hours rows for selected years
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest) {
           .from('incidents')
           .select('incident_no, year, work_related, incident_type')
           .eq('company_id', companyId)
-          .in('year', years);
+          .in('year', years)
+          .neq('report_status', 'Draft');
 
         if (metaErr || !incidentMeta || incidentMeta.length === 0) {
           return { persons: [], incidentMap: {} };

@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     if (mode === 'summary') {
-      // Summary stats for a company or all companies
-      let query = supabase.from('incidents').select('*');
+      // Summary stats for a company or all companies (exclude drafts)
+      let query = supabase.from('incidents').select('*').neq('report_status', 'Draft');
       if (companyId) query = query.eq('company_id', companyId);
       if (year) query = query.eq('year', parseInt(year));
 
@@ -198,7 +198,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: list mode
+    const includeDrafts = searchParams.get('includeDrafts') === 'true';
     let query = supabase.from('incidents').select('*', { count: 'exact' });
+
+    // Exclude drafts from normal list/dashboard queries
+    if (!includeDrafts) query = query.neq('report_status', 'Draft');
 
     if (companyId) query = query.eq('company_id', companyId);
     if (year) query = query.eq('year', parseInt(year));
