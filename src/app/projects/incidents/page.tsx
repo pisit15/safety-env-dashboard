@@ -393,11 +393,17 @@ export default function HQIncidentsPage() {
     );
   };
 
+  /* ── Auth gate: company users → redirect to their company page ── */
+  const companyKeys = Object.keys(auth.companyAuth);
+  if (!auth.isAdmin && companyKeys.length > 0) {
+    router.push(`/projects/incidents/${companyKeys[0]}`);
+    return null;
+  }
   if (!auth.isAdmin) {
     return (
       <div className="flex h-screen" style={{ background: 'var(--bg-primary)' }}>
         <main className="flex-1 flex items-center justify-center">
-          <p style={{ color: 'var(--muted)' }}>Admin only</p>
+          <p style={{ color: 'var(--muted)' }}>กรุณาเข้าสู่ระบบ</p>
         </main>
       </div>
     );

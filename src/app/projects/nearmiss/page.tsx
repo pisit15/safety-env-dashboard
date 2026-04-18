@@ -203,14 +203,19 @@ export default function AdminNearMissPage() {
     } catch { alert('Export failed'); }
   };
 
-  /* ── Auth gate ── */
+  /* ── Auth gate: company users → redirect to their company page ── */
+  const companyKeys = Object.keys(auth.companyAuth);
+  if (!auth.isAdmin && companyKeys.length > 0) {
+    router.push(`/projects/nearmiss/${companyKeys[0]}`);
+    return null;
+  }
   if (!auth.isAdmin) {
     return (
       <div className="flex min-h-screen">
         <main className="flex-1 flex items-center justify-center p-8">
           <div style={{ textAlign: 'center' }}>
             <AlertTriangle size={48} color="#F28E2B" style={{ margin: '0 auto 16px' }} />
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>สิทธิ์ Admin เท่านั้น</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' }}>กรุณาเข้าสู่ระบบ</h2>
           </div>
         </main>
       </div>
