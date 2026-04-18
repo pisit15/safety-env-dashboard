@@ -1292,10 +1292,11 @@ export default function CompanyTraining() {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: 'var(--bg)' }}>
-      <main style={{ padding: '24px', overflowX: 'auto' }} id="pdf-content">
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
+    <div style={{ height: '100%', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }} id="pdf-content">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+        <div style={{ padding: '16px 24px 0' }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
               📋 แผนอบรมประจำปี — {company?.name || companyId.toUpperCase()}
@@ -1450,7 +1451,9 @@ export default function CompanyTraining() {
             </>
           )}
         </div>
+        </div>{/* end sticky header */}
 
+        <div style={{ padding: '16px 24px' }}>
         {/* ===== OVERVIEW MODE ===== */}
         {viewMode === 'overview' && (
           <>
@@ -3471,6 +3474,7 @@ export default function CompanyTraining() {
             </div>
           </div>
         )}
+        </div>{/* end content padding wrapper */}
       </main>
     </div>
   );

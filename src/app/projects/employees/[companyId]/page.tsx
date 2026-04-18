@@ -612,19 +612,18 @@ export default function EmployeesPage() {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg)' }}>
       <main className="flex-1 overflow-auto">
-        <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
-          {/* ── Header ── */}
-          <div className="mb-4">
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              👥 จัดการพนักงาน — {company?.name || companyId.toUpperCase()}
-            </h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              {employees.length} พนักงาน • {activeCount} ทำงานอยู่ • {resignedCount} ลาออก
-            </p>
-          </div>
-
-          {/* ── Tabs ── */}
-          <div className="flex gap-1 mb-4 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)', display: 'inline-flex' }}>
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 px-4 lg:px-6 pt-4 pb-3" style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+          <div className="max-w-[1600px] mx-auto">
+            <div className="mb-3">
+              <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                👥 จัดการพนักงาน — {company?.name || companyId.toUpperCase()}
+              </h1>
+              <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                {employees.length} พนักงาน • {activeCount} ทำงานอยู่ • {resignedCount} ลาออก
+              </p>
+            </div>
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)', display: 'inline-flex' }}>
             <button onClick={() => setActiveTab('employees')}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
               style={{ background: activeTab === 'employees' ? 'var(--card-solid)' : 'transparent', color: activeTab === 'employees' ? 'var(--accent)' : 'var(--text-secondary)', boxShadow: activeTab === 'employees' ? 'var(--shadow-sm)' : 'none' }}>
@@ -636,7 +635,10 @@ export default function EmployeesPage() {
               <BookOpen size={15} /> ค้นหาตามหลักสูตร
             </button>
           </div>
+          </div>
+        </div>{/* end sticky header */}
 
+        <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
           {/* ════════════ EMPLOYEES TAB ════════════ */}
           {activeTab === 'employees' && (<>
 

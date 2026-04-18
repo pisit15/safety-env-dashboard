@@ -546,10 +546,12 @@ export default function ProjectsPage() {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <main className="flex-1 overflow-y-auto">
-        <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* Sticky Header + Toolbar */}
+        <div className="sticky top-0 z-20 px-6 lg:px-8 pt-4 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+          <div className="max-w-7xl mx-auto">
 
           {/* Header */}
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center"
                 style={{ background: 'rgba(99,102,241,0.12)' }}>
@@ -572,6 +574,11 @@ export default function ProjectsPage() {
               </button>
             )}
           </div>
+
+          </div>
+        </div>
+
+        <div className="px-6 lg:px-8 pt-5 pb-6 max-w-7xl mx-auto">
 
           {/* KPI — actionable */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">

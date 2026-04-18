@@ -319,44 +319,49 @@ export default function RiskRegisterPage() {
 
   return (
     <div className="flex min-h-screen">
-      <main className="flex-1 p-4 lg:p-8 overflow-y-auto" style={{ background: 'var(--bg-primary)' }} id="pdf-content">
-        {/* Header */}
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <FileWarning size={24} style={{ color: '#dc2626' }} />
-                ทะเบียนประเมินความเสี่ยง (Risk Register)
-              </h1>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                การจัดการความเสี่ยงของงาน | RL = ความรุนแรง (S) × โอกาสเกิด (P)
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/projects/risk/${companyId}/guide`}
-                className="flex items-center gap-2 rounded-lg font-semibold text-sm"
-                style={{ padding: '10px 16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-              >
-                <BookOpen size={16} /> คู่มือ
-              </Link>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 rounded-lg text-white font-semibold text-sm"
-                style={{ padding: '10px 20px', background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.warning} 100%)`, whiteSpace: 'nowrap' }}
-              >
-                <Plus size={16} /> เพิ่มงาน
-              </button>
-              <ExportPdfButton
-                targetId="pdf-content"
-                filename={`${companyId}-RiskAssessment`}
-                title={`Risk Register — ${companyId.toUpperCase()}`}
-                subtitle="Safety & Environment Dashboard — ทะเบียนประเมินความเสี่ยง"
-                orientation="landscape"
-                compact
-              />
+      <main className="flex-1 overflow-y-auto" style={{ background: 'var(--bg-primary)' }} id="pdf-content">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-20 px-4 lg:px-8 pt-4 pb-3" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                  <FileWarning size={24} style={{ color: '#dc2626' }} />
+                  ทะเบียนประเมินความเสี่ยง (Risk Register)
+                </h1>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  การจัดการความเสี่ยงของงาน | RL = ความรุนแรง (S) × โอกาสเกิด (P)
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/projects/risk/${companyId}/guide`}
+                  className="flex items-center gap-2 rounded-lg font-semibold text-sm"
+                  style={{ padding: '10px 16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                >
+                  <BookOpen size={16} /> คู่มือ
+                </Link>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 rounded-lg text-white font-semibold text-sm"
+                  style={{ padding: '10px 20px', background: `linear-gradient(135deg, ${STATUS.critical} 0%, ${STATUS.warning} 100%)`, whiteSpace: 'nowrap' }}
+                >
+                  <Plus size={16} /> เพิ่มงาน
+                </button>
+                <ExportPdfButton
+                  targetId="pdf-content"
+                  filename={`${companyId}-RiskAssessment`}
+                  title={`Risk Register — ${companyId.toUpperCase()}`}
+                  subtitle="Safety & Environment Dashboard — ทะเบียนประเมินความเสี่ยง"
+                  orientation="landscape"
+                  compact
+                />
+              </div>
             </div>
           </div>
+        </div>
+        <div className="p-4 lg:p-8">
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
 
           {/* Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))', gap: 12, marginBottom: 24 }}>
@@ -761,6 +766,7 @@ export default function RiskRegisterPage() {
             </div>
           </div>
         )}
+        </div>
       </main>
     </div>
   );

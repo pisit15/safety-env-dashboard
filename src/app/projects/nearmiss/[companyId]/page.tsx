@@ -431,43 +431,46 @@ export default function NearMissCoordinatorPage() {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <main className="flex-1 overflow-y-auto" id="pdf-content">
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
-
-          {/* ── Header ── */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Near Miss</h1>
-                {company && (
-                  <span style={{ padding: '3px 10px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    {company.shortName}
-                  </span>
-                )}
+        {/* ── Sticky Header ── */}
+        <div className="sticky top-0 z-20" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 24px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
+                  <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Near Miss</h1>
+                  {company && (
+                    <span style={{ padding: '3px 10px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      {company.shortName}
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
+                  {company?.fullName || company?.name || companyId} · ติดตามและจัดการรายงานเหตุการณ์เกือบอุบัติเหตุ
+                </p>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                {company?.fullName || company?.name || companyId} · ติดตามและจัดการรายงานเหตุการณ์เกือบอุบัติเหตุ
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => window.open(boardUrl, '_blank')} style={btnOutline}>
-                <QrCode size={14} /> Employee Board
-              </button>
-              <button onClick={() => fetchReports(showHidden)} style={btnOutline}>
-                <RefreshCw size={14} /> รีเฟรช
-              </button>
-              <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')} style={btnPrimary}>
-                <ExternalLink size={14} /> ลิงก์รายงาน
-              </button>
-              <ExportPdfButton
-                targetId="pdf-content"
-                filename={`${company?.shortName || companyId}-NearMiss`}
-                title={`${company?.name || companyId.toUpperCase()} — Near Miss Report`}
-                subtitle="Safety & Environment Dashboard — รายงาน Near Miss"
-                orientation="landscape"
-                compact
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => window.open(boardUrl, '_blank')} style={btnOutline}>
+                  <QrCode size={14} /> Employee Board
+                </button>
+                <button onClick={() => fetchReports(showHidden)} style={btnOutline}>
+                  <RefreshCw size={14} /> รีเฟรช
+                </button>
+                <button onClick={() => window.open(`/report/nearmiss/${companyId}`, '_blank')} style={btnPrimary}>
+                  <ExternalLink size={14} /> ลิงก์รายงาน
+                </button>
+                <ExportPdfButton
+                  targetId="pdf-content"
+                  filename={`${company?.shortName || companyId}-NearMiss`}
+                  title={`${company?.name || companyId.toUpperCase()} — Near Miss Report`}
+                  subtitle="Safety & Environment Dashboard — รายงาน Near Miss"
+                  orientation="landscape"
+                  compact
+                />
+              </div>
             </div>
           </div>
+        </div>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 24px' }}>
 
           {/* ── KPI Cards — Gray+One: muted=normal, colored=needs action ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))', gap: 10, marginBottom: 20 }}>
