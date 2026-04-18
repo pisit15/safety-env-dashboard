@@ -1610,8 +1610,12 @@ export default function CompanyDrilldown() {
           <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{companyName}</span>
         </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        {/* Header — sticky so it stays visible when scrolling on iPad */}
+        <div
+          className="sticky top-0 z-20 -mx-6 lg:-mx-8 px-6 lg:px-8 pt-2 pb-3"
+          style={{ background: 'var(--bg)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border)' }}
+        >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
             <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
               {companyName} — {planConfig.headline}
@@ -1691,8 +1695,8 @@ export default function CompanyDrilldown() {
             />
           </div>
         </div>
-        {/* Time Range Selector + Export buttons */}
-        <div className="flex items-center gap-2 mb-5 flex-wrap animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
+        {/* Time Range Selector */}
+        <div className="flex items-center gap-2 flex-wrap animate-fade-in-up" style={{ animationDelay: '0.05s' }}>
           {/* Year selector */}
           <select
             value={selectedYear}
@@ -1746,6 +1750,7 @@ export default function CompanyDrilldown() {
             </span>
           )}
         </div>
+        </div>{/* end sticky header */}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
