@@ -1758,12 +1758,15 @@ export default function CompanyTraining() {
                 const barHeight = maxPlanned > 0 ? (d.planned / maxPlanned) * 130 : 0;
                 const completedHeight = d.planned > 0 ? (d.completed / d.planned) * barHeight : 0;
                 const scheduledHeight = d.planned > 0 ? (d.scheduled / d.planned) * barHeight : 0;
-                // Determine bar background: past with no completion = amber warning, not red
+                // Determine bar background (= remaining/un-done portion color)
+                // High-contrast VIZ palette (Tableau-inspired) for at-a-glance distinction
                 const barBg = isPast && d.planned > 0 && d.completed === 0 && d.scheduled === 0
-                  ? '#fef3c7'  // amber/warning instead of red
+                  ? '#BAB0AC60'  // ยังไม่มีความคืบหน้า — mid gray
                   : isPast && d.planned > 0
-                    ? '#fee2e2'
-                    : 'var(--bg-secondary)';
+                    ? '#E1575960'  // เลยกำหนด — red
+                    : !isPast && d.planned > 0
+                      ? '#F28E2B60'  // ยังไม่ถึง — orange
+                      : 'var(--bg-secondary)';
                 return (
                   <div key={i} style={{
                     flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
@@ -1781,13 +1784,13 @@ export default function CompanyTraining() {
                     )}
                     {/* Stacked bar */}
                     <div style={{ width: '80%', height: barHeight || 2, borderRadius: 4, position: 'relative', overflow: 'hidden', background: barBg }}>
-                      {/* Scheduled (blue) */}
+                      {/* Scheduled (saturated blue) */}
                       {scheduledHeight > 0 && (
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: scheduledHeight, background: `${PALETTE.primary}60`, borderRadius: '0 0 4px 4px' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: scheduledHeight, background: '#4E79A7', borderRadius: '0 0 4px 4px' }} />
                       )}
-                      {/* Completed (green) */}
+                      {/* Completed (saturated green) */}
                       {completedHeight > 0 && (
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: STATUS.positive, borderRadius: '0 0 4px 4px' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: '#59A14F', borderRadius: '0 0 4px 4px' }} />
                       )}
                     </div>
                     {/* Month label */}
@@ -1801,22 +1804,22 @@ export default function CompanyTraining() {
               </div>
             </div>
 
-            {/* Legend */}
+            {/* Legend — saturated VIZ palette for at-a-glance distinction */}
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, flexWrap: 'wrap' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS.positive, display: 'inline-block' }} /> อบรมแล้ว
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#59A14F', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> อบรมแล้ว
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: `${PALETTE.primary}60`, display: 'inline-block' }} /> กำหนดวันแล้ว
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4E79A7', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> กำหนดวันแล้ว
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS.warningBg, display: 'inline-block' }} /> ยังไม่มีความคืบหน้า
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#BAB0AC', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> ยังไม่มีความคืบหน้า
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS.criticalBg, display: 'inline-block' }} /> เลยกำหนด
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#E15759', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> เลยกำหนด
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--bg-secondary)', display: 'inline-block' }} /> ยังไม่ถึง
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: '#F28E2B', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> ยังไม่ถึง
               </span>
             </div>
 
