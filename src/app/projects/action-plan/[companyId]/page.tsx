@@ -173,8 +173,10 @@ export default function CompanyDrilldown() {
   const [pendingCancellations, setPendingCancellations] = useState<Record<string, string>>({});
 
   // Budget state
-  const [budgetOverrides, setBudgetOverrides] = useState<Record<string, { actual_cost: number; note?: string }>>({});
+  const [budgetOverrides, setBudgetOverrides] = useState<Record<string, { actual_cost: number; monthly_costs?: Record<string, number> | null; note?: string }>>({});
   const [editingActualCost, setEditingActualCost] = useState<string>('');
+  // Monthly cost breakdown being edited in the drawer: { jan: '100000', feb: '50000', ... }
+  const [editingMonthlyCosts, setEditingMonthlyCosts] = useState<Record<string, string>>({});
   const [savingBudget, setSavingBudget] = useState(false);
 
   // Check if already logged in from sessionStorage or AuthContext
@@ -240,10 +242,14 @@ export default function CompanyDrilldown() {
       setResponsibleOverrides(respMap);
 
       // 4. Budget overrides → build map
-      const budgetMap: Record<string, { actual_cost: number; note?: string }> = {};
-      (data.budgetOverrides || []).forEach((o: { plan_type: string; activity_no: string; actual_cost: number; note?: string }) => {
+      const budgetMap: Record<string, { actual_cost: number; monthly_costs?: Record<string, number> | null; note?: string }> = {};
+      (data.budgetOverrides || []).forEach((o: { plan_type: string; activity_no: string; actual_cost: number; monthly_costs?: Record<string, number> | null; note?: string }) => {
         const prefix = isTotal ? `${o.plan_type === 'safety' ? 'S' : 'E'}:` : '';
-        budgetMap[`${prefix}${o.activity_no}`] = { actual_cost: o.actual_cost || 0, note: o.note || undefined };
+        budgetMap[`${prefix}${o.activity_no}`] = {
+          actual_cost: o.actual_cost || 0,
+          monthly_costs: o.monthly_costs || null,
+          note: o.note || undefined,
+        };
       });
       setBudgetOverrides(budgetMap);
 
@@ -269,8 +275,15 @@ export default function CompanyDrilldown() {
   }, [fetchWorkspace]);
 
 
-  // Save actual cost for an activity
-  const handleSaveBudget = async (actNo: string, actualCost: number) => {
+  // Save actual cost for an activity.
+  // Accepts either a single total `actualCost` or a monthly breakdown
+  // `monthlyCosts` (Record<monthKey, amount>). When monthlyCosts is present,
+  // actual_cost is auto-computed as the sum of its values on the server.
+  const handleSaveBudget = async (
+    actNo: string,
+    actualCost: number,
+    monthlyCosts?: Record<string, number>,
+  ) => {
     if (!editingCell) return;
     setSavingBudget(true);
     try {
@@ -288,14 +301,22 @@ export default function CompanyDrilldown() {
           activityNo: cleanActNo,
           year: selectedYear,
           actualCost,
+          monthlyCosts: monthlyCosts || null,
           updatedBy: loginDisplayName || 'admin',
         }),
       });
 
-      // Update local state
+      // Update local state. If monthly breakdown provided, sum to total.
+      const cleanMonthly: Record<string, number> | null = monthlyCosts && Object.keys(monthlyCosts).length > 0
+        ? Object.fromEntries(Object.entries(monthlyCosts).filter(([, v]) => (v || 0) > 0))
+        : null;
+      const total = cleanMonthly
+        ? Object.values(cleanMonthly).reduce((s, v) => s + (v || 0), 0)
+        : actualCost;
+
       setBudgetOverrides(prev => ({
         ...prev,
-        [actNo]: { actual_cost: actualCost },
+        [actNo]: { actual_cost: total, monthly_costs: cleanMonthly },
       }));
     } catch {
       alert('บันทึกไม่สำเร็จ');
@@ -707,6 +728,20 @@ export default function CompanyDrilldown() {
     setSavingStatus(false);
   };
 
+  // Helper: load monthly cost breakdown from a budget entry into editor state
+  const loadEditingMonthlyCosts = (
+    entry: { monthly_costs?: Record<string, number> | null } | undefined,
+  ) => {
+    const mc = entry?.monthly_costs || null;
+    const next: Record<string, string> = {};
+    if (mc) {
+      for (const [k, v] of Object.entries(mc)) {
+        if (v && v > 0) next[k] = String(v);
+      }
+    }
+    setEditingMonthlyCosts(next);
+  };
+
   // Cell click handler — opens the drawer
   const handleCellClick = (actNo: string, month: string, actName: string) => {
     if (!isLoggedIn) {
@@ -717,9 +752,10 @@ export default function CompanyDrilldown() {
     setShowStatusModal(true);
     // Load existing note for this cell
     setStatusNote(noteOverrides[`${actNo}:${month}`] || '');
-    // Load actual cost for this activity
+    // Load actual cost (total) and monthly breakdown for this activity
     const budgetEntry = budgetOverrides[actNo];
     setEditingActualCost(budgetEntry ? String(budgetEntry.actual_cost) : '');
+    loadEditingMonthlyCosts(budgetEntry);
     // Fetch attachments and deadline lock in parallel
     fetchAttachments(actNo, month);
     checkDeadlineLock(actNo, month);
@@ -731,6 +767,7 @@ export default function CompanyDrilldown() {
     setStatusNote(noteOverrides[`${actNo}:${month}`] || '');
     const budgetEntry = budgetOverrides[actNo];
     setEditingActualCost(budgetEntry ? String(budgetEntry.actual_cost) : '');
+    loadEditingMonthlyCosts(budgetEntry);
     fetchAttachments(actNo, month);
     checkDeadlineLock(actNo, month);
   };
@@ -741,6 +778,7 @@ export default function CompanyDrilldown() {
     setEditingCell(null);
     setStatusNote('');
     setEditingActualCost('');
+    setEditingMonthlyCosts({});
   };
 
   // Get effective responsible (override > sheet)
@@ -2890,6 +2928,8 @@ export default function CompanyDrilldown() {
               modalBudget={modalBudget}
               modalActualCost={modalActualCost}
               editingActualCost={editingActualCost}
+              editingMonthlyCosts={editingMonthlyCosts}
+              onSetEditingMonthlyCost={(monthKey, value) => setEditingMonthlyCosts(prev => ({ ...prev, [monthKey]: value }))}
               savingBudget={savingBudget}
               modalResponsible={modalResponsible}
               attachments={attachments}

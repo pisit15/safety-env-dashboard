@@ -36,6 +36,7 @@ interface BudgetRow {
   activity_no: string;
   plan_type: string;
   actual_cost: number;
+  monthly_costs?: Record<string, number> | null;
   note?: string;
 }
 
@@ -239,7 +240,7 @@ async function fetchBudgetOverrides(
 ): Promise<BudgetRow[]> {
   let query = supabase
     .from('budget_overrides')
-    .select('activity_no,plan_type,actual_cost,note')
+    .select('activity_no,plan_type,actual_cost,monthly_costs,note')
     .eq('company_id', companyId)
     .eq('year', year);
 

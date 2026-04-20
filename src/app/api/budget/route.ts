@@ -38,14 +38,37 @@ export async function GET(request: NextRequest) {
 }
 
 // POST — upsert a budget override (actual_cost for an activity)
+// Accepts either:
+//   - actualCost: number (legacy single-value mode)
+//   - monthlyCosts: Record<string, number> where keys are 'jan'..'dec';
+//       actual_cost is auto-computed as the sum of numeric values.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyId, planType, activityNo, year, actualCost, note, updatedBy } = body;
+    const { companyId, planType, activityNo, year, actualCost, monthlyCosts, note, updatedBy } = body;
 
     if (!companyId || !planType || !activityNo || !year) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    // Normalize monthly_costs: keep only valid month keys with numeric values
+    const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    let cleanMonthly: Record<string, number> | null = null;
+    if (monthlyCosts && typeof monthlyCosts === 'object') {
+      cleanMonthly = {};
+      for (const k of MONTH_KEYS) {
+        const raw = (monthlyCosts as Record<string, unknown>)[k];
+        const num = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+        if (!isNaN(num) && num > 0) cleanMonthly[k] = num;
+      }
+      if (Object.keys(cleanMonthly).length === 0) cleanMonthly = null;
+    }
+
+    // If monthly breakdown is provided, actual_cost is the sum.
+    // Otherwise fall back to explicit actualCost value.
+    const computedActualCost = cleanMonthly
+      ? Object.values(cleanMonthly).reduce((s, v) => s + (v || 0), 0)
+      : (parseFloat(actualCost) || 0);
 
     const supabase = getSupabase();
 
@@ -57,7 +80,8 @@ export async function POST(request: NextRequest) {
           plan_type: planType,
           activity_no: activityNo,
           year: parseInt(year),
-          actual_cost: parseFloat(actualCost) || 0,
+          actual_cost: computedActualCost,
+          monthly_costs: cleanMonthly,
           note: note || null,
           updated_by: updatedBy || 'admin',
           updated_at: new Date().toISOString(),

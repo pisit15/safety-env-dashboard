@@ -62,6 +62,9 @@ export interface DrawerProps {
   modalBudget: number;
   modalActualCost: number;
   editingActualCost: string;
+  // Monthly cost breakdown (optional per-month amounts as strings from inputs)
+  editingMonthlyCosts: Record<string, string>;
+  onSetEditingMonthlyCost: (monthKey: string, value: string) => void;
   savingBudget: boolean;
 
   // Responsible
@@ -88,7 +91,7 @@ export interface DrawerProps {
   onSaveStatus: (status: MonthStatus) => void;
   onRevertStatus: () => void;
   onSaveNote: (note: string) => void;
-  onSaveBudget: (actNo: string, cost: number) => void;
+  onSaveBudget: (actNo: string, cost: number, monthlyCosts?: Record<string, number>) => void;
   onSetEditingActualCost: (v: string) => void;
   onSetStatusNote: (v: string) => void;
   onUploadFile: (file: File) => void;
@@ -108,7 +111,7 @@ export default function ActivityDrawer(props: DrawerProps) {
     isOpen, editingCell, activity, planType, companyId,
     currentStatus, hasOverride, statusNote, savingStatus, savingNote,
     deadlineLocked, hasApproval, checkingLock, isAdmin,
-    modalBudget, modalActualCost, editingActualCost, savingBudget,
+    modalBudget, modalActualCost, editingActualCost, editingMonthlyCosts, onSetEditingMonthlyCost, savingBudget,
     modalResponsible,
     attachments, loadingAttachments, uploadingFile, deletingAttId, attachmentCount,
     isLoggedIn, loginDisplayName, loginCompanyName,
@@ -183,9 +186,19 @@ export default function ActivityDrawer(props: DrawerProps) {
   const isEnvi = planType === 'environment' || planTag === 'E';
   const isSafety = planType === 'safety' || planTag === 'S';
   const canEdit = isLoggedIn && !(deadlineLocked && !hasApproval && !isAdmin);
-  const budgetPctUsed = modalBudget > 0 ? Math.round(((parseFloat(editingActualCost) || modalActualCost) / modalBudget) * 100) : 0;
+  // Sum of monthly costs currently in the editor (live preview while typing)
+  const editingMonthlyTotal = MONTH_KEYS.reduce((sum, mk) => {
+    const raw = editingMonthlyCosts[mk];
+    const num = raw ? parseFloat(raw) : 0;
+    return sum + (isNaN(num) ? 0 : num);
+  }, 0);
+  // Effective "ใช้จริง" for display: prefer monthly total, then editingActualCost, then stored modalActualCost
+  const effectiveActualCost = editingMonthlyTotal > 0
+    ? editingMonthlyTotal
+    : (parseFloat(editingActualCost) || modalActualCost);
+  const budgetPctUsed = modalBudget > 0 ? Math.round((effectiveActualCost / modalBudget) * 100) : 0;
   const isOverBudget = budgetPctUsed > 100;
-  const budgetVariance = modalBudget - (parseFloat(editingActualCost) || modalActualCost);
+  const budgetVariance = modalBudget - effectiveActualCost;
 
   const accentColor = isSafety ? CATEGORY_COLORS.safety : isEnvi ? CATEGORY_COLORS.environment : PALETTE.primary;
   const accentBg = `${accentColor}12`;
@@ -761,6 +774,7 @@ export default function ActivityDrawer(props: DrawerProps) {
           {activeTab === 'budget' && (
             <div className="space-y-4">
               <div className="rounded-xl p-4" style={{ background: UI.bgPage, border: `1px solid ${UI.borderDefault}` }}>
+                {/* Summary: plan vs actual (derived from monthly sum if present) */}
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
                     <p className="text-[11px] mb-0.5" style={{ color: UI.textPlaceholder }}>งบตามแผน</p>
@@ -770,14 +784,14 @@ export default function ActivityDrawer(props: DrawerProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] mb-0.5" style={{ color: UI.textPlaceholder }}>ใช้จริง</p>
+                    <p className="text-[11px] mb-0.5" style={{ color: UI.textPlaceholder }}>ใช้จริง (รวม)</p>
                     <p className="text-xl font-bold" style={{ color: isOverBudget ? STATUS.critical : STATUS.ok }}>
-                      {modalActualCost > 0 ? modalActualCost.toLocaleString() : '-'}
-                      {modalActualCost > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: UI.textPlaceholder }}>บาท</span>}
+                      {effectiveActualCost > 0 ? effectiveActualCost.toLocaleString() : '-'}
+                      {effectiveActualCost > 0 && <span className="text-[11px] font-normal ml-1" style={{ color: UI.textPlaceholder }}>บาท</span>}
                     </p>
                   </div>
                 </div>
-                {modalBudget > 0 && modalActualCost > 0 && (
+                {modalBudget > 0 && effectiveActualCost > 0 && (
                   <div className="mb-3">
                     <div className="flex items-center justify-between text-[11px] mb-1">
                       <span style={{ color: UI.textLabel }}>ใช้ไป {budgetPctUsed}%</span>
@@ -794,28 +808,92 @@ export default function ActivityDrawer(props: DrawerProps) {
                     </div>
                   </div>
                 )}
-                {canEdit && (
-                  <div>
-                    <label className="text-[11px] block mb-1" style={{ color: UI.textLabel }}>บันทึกค่าใช้จ่ายจริง (บาท)</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={editingActualCost}
-                        onChange={e => onSetEditingActualCost(e.target.value)}
-                        placeholder="0"
-                        className="flex-1 px-3 py-2 rounded-lg text-sm focus:outline-none"
-                        style={{ background: UI.bgWhite, border: `1px solid ${UI.borderStrong}`, color: UI.textStrong }}
-                      />
-                      <button
-                        onClick={() => onSaveBudget(editingCell.actNo, parseFloat(editingActualCost) || 0)}
-                        disabled={savingBudget}
-                        className="px-4 py-2 rounded-lg text-xs font-medium transition-opacity"
-                        style={{ background: STATUS.warning, color: '#fff', opacity: savingBudget ? 0.5 : 1 }}>
-                        {savingBudget ? '...' : 'บันทึก'}
-                      </button>
-                    </div>
+
+                {/* Monthly cost breakdown */}
+                <div className="mt-4 pt-4" style={{ borderTop: `1px dashed ${UI.borderDefault}` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[12px] font-semibold" style={{ color: UI.textStrong }}>ค่าใช้จ่ายจริง รายเดือน</label>
+                    <span className="text-[10px]" style={{ color: UI.textPlaceholder }}>
+                      ยอดใช้จริงคำนวณจากผลรวมของทุกเดือน
+                    </span>
                   </div>
-                )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {MONTH_KEYS.map((mk, idx) => {
+                      const isCurrent = idx === new Date().getMonth();
+                      const val = editingMonthlyCosts[mk] || '';
+                      return (
+                        <div key={mk} className="relative">
+                          <label className="text-[10px] block mb-0.5 font-medium" style={{ color: isCurrent ? accentColor : UI.textLabel }}>
+                            {MONTH_LABELS[idx]} {isCurrent && <span className="text-[9px]">(ปัจจุบัน)</span>}
+                          </label>
+                          <input
+                            type="number"
+                            value={val}
+                            onChange={e => onSetEditingMonthlyCost(mk, e.target.value)}
+                            placeholder="-"
+                            disabled={!canEdit}
+                            className="w-full px-2 py-1.5 rounded-lg text-[13px] focus:outline-none"
+                            style={{
+                              background: canEdit ? UI.bgWhite : UI.bgHover,
+                              border: `1px solid ${isCurrent ? accentColor : UI.borderStrong}`,
+                              color: UI.textStrong,
+                              textAlign: 'right',
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Live preview of sum */}
+                  {editingMonthlyTotal > 0 && (
+                    <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: `${accentColor}10`, border: `1px dashed ${accentColor}40` }}>
+                      <span className="text-[11px]" style={{ color: UI.textLabel }}>ผลรวมที่กรอก</span>
+                      <span className="text-[14px] font-bold" style={{ color: accentColor }}>
+                        {editingMonthlyTotal.toLocaleString()} <span className="text-[10px] font-normal">บาท</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {canEdit && (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => {
+                          // Convert string record → number record (only positive numbers)
+                          const numeric: Record<string, number> = {};
+                          for (const k of MONTH_KEYS) {
+                            const raw = editingMonthlyCosts[k];
+                            if (!raw) continue;
+                            const n = parseFloat(raw);
+                            if (!isNaN(n) && n > 0) numeric[k] = n;
+                          }
+                          const hasAnyMonth = Object.keys(numeric).length > 0;
+                          // If user didn't fill any month but had a legacy single value in editingActualCost, fall back
+                          const fallbackTotal = parseFloat(editingActualCost) || 0;
+                          onSaveBudget(
+                            editingCell.actNo,
+                            hasAnyMonth ? editingMonthlyTotal : fallbackTotal,
+                            hasAnyMonth ? numeric : undefined,
+                          );
+                        }}
+                        disabled={savingBudget}
+                        className="flex-1 px-4 py-2 rounded-lg text-xs font-medium transition-opacity"
+                        style={{ background: STATUS.warning, color: '#fff', opacity: savingBudget ? 0.5 : 1 }}>
+                        {savingBudget ? 'กำลังบันทึก...' : 'บันทึกค่าใช้จ่ายรายเดือน'}
+                      </button>
+                      {editingMonthlyTotal > 0 && (
+                        <button
+                          onClick={() => {
+                            for (const k of MONTH_KEYS) onSetEditingMonthlyCost(k, '');
+                          }}
+                          className="px-3 py-2 rounded-lg text-xs font-medium transition-opacity"
+                          style={{ background: UI.bgHover, color: UI.textLabel, border: `1px solid ${UI.borderDefault}` }}>
+                          ล้างทั้งหมด
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
