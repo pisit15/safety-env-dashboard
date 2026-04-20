@@ -817,6 +817,63 @@ export default function ActivityDrawer(props: DrawerProps) {
                       ยอดใช้จริงคำนวณจากผลรวมของทุกเดือน
                     </span>
                   </div>
+
+                  {/* Legacy data banner: actual_cost exists but monthly_costs is empty */}
+                  {canEdit && modalActualCost > 0 && editingMonthlyTotal === 0 && Object.keys(editingMonthlyCosts).length === 0 && (
+                    <div className="mb-3 rounded-lg p-3" style={{ background: `${STATUS.warning}12`, border: `1px dashed ${STATUS.warning}60` }}>
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle size={14} style={{ color: STATUS.warning, flexShrink: 0, marginTop: 2 }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold mb-0.5" style={{ color: STATUS.warning }}>
+                            มียอดเดิม {modalActualCost.toLocaleString()} บาท ที่ยังไม่ได้แยกรายเดือน
+                          </p>
+                          <p className="text-[10px] leading-snug" style={{ color: UI.textLabel }}>
+                            ข้อมูลนี้ถูกบันทึกไว้ก่อนระบบรายเดือนจะเริ่มใช้งาน เลือกวิธีใดวิธีหนึ่งด้านล่างเพื่อกระจายยอดลงในช่องรายเดือน
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            <button
+                              onClick={() => {
+                                // Put the legacy total into the cell's own month (keeps alignment with status)
+                                onSetEditingMonthlyCost(editingCell.month, String(modalActualCost));
+                              }}
+                              className="px-2 py-1 rounded text-[10px] font-medium transition-opacity hover:opacity-80"
+                              style={{ background: STATUS.warning, color: '#fff' }}>
+                              ใส่ทั้งหมดในเดือน {MONTH_LABELS[MONTH_KEYS.indexOf(editingCell.month)]}
+                            </button>
+                            <button
+                              onClick={() => {
+                                // Put into current (real) month
+                                const nowKey = MONTH_KEYS[new Date().getMonth()];
+                                onSetEditingMonthlyCost(nowKey, String(modalActualCost));
+                              }}
+                              className="px-2 py-1 rounded text-[10px] font-medium transition-opacity hover:opacity-80"
+                              style={{ background: UI.bgWhite, color: STATUS.warning, border: `1px solid ${STATUS.warning}60` }}>
+                              ใส่ในเดือนปัจจุบัน ({MONTH_LABELS[new Date().getMonth()]})
+                            </button>
+                            {activity && (() => {
+                              // Equal distribution across done months (based on actualMonths data)
+                              const doneMonths = MONTH_KEYS.filter(mk => {
+                                const am = (activity as any).actualMonths?.[mk];
+                                return !!am && typeof am === 'string' && am.trim() !== '';
+                              });
+                              if (doneMonths.length <= 1) return null;
+                              return (
+                                <button
+                                  onClick={() => {
+                                    const per = Math.round(modalActualCost / doneMonths.length);
+                                    for (const mk of doneMonths) onSetEditingMonthlyCost(mk, String(per));
+                                  }}
+                                  className="px-2 py-1 rounded text-[10px] font-medium transition-opacity hover:opacity-80"
+                                  style={{ background: UI.bgWhite, color: STATUS.ok, border: `1px solid ${STATUS.ok}60` }}>
+                                  กระจายเท่าๆ กันใน {doneMonths.length} เดือนที่เสร็จแล้ว
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-2">
                     {MONTH_KEYS.map((mk, idx) => {
                       const isCurrent = idx === new Date().getMonth();
