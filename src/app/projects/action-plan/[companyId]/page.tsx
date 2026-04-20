@@ -671,9 +671,9 @@ export default function CompanyDrilldown() {
         });
       }
 
-      setShowStatusModal(false);
-      setEditingCell(null);
-      setStatusNote('');
+      // Keep drawer open after save so user can continue editing or navigate
+      // to the next activity without losing scroll position on the left list.
+      // User can close with the X button, ESC, or by clicking the backdrop.
     } catch {
       alert('บันทึกไม่สำเร็จ');
     }
@@ -699,8 +699,8 @@ export default function CompanyDrilldown() {
         delete copy[`${editingCell.actNo}:${editingCell.month}`];
         return copy;
       });
-      setShowStatusModal(false);
-      setEditingCell(null);
+      // Keep drawer open after revert so user can continue editing without
+      // losing scroll position on the left activity list.
     } catch {
       alert('ลบไม่สำเร็จ');
     }
@@ -1053,6 +1053,18 @@ export default function CompanyDrilldown() {
       })
       .catch(() => {});
   }, [companyId]);
+
+  // Keep the currently-edited activity row visible in the viewport so that
+  // after saving (drawer stays open) the left list doesn't appear to "jump"
+  // back to the top. Triggered whenever editingCell.actNo changes.
+  useEffect(() => {
+    if (!editingCell?.actNo) return;
+    const sel = `[data-act-row="${editingCell.actNo.replace(/"/g, '\\"')}"]`;
+    const el = document.querySelector(sel) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [editingCell?.actNo]);
 
   // Phase 4: Submit cancellation request
   const handleRequestCancellation = async (requestedStatus: 'cancelled' | 'not_applicable' | 'not_planned' | 'planned', reason: string): Promise<boolean> => {
@@ -2262,7 +2274,7 @@ export default function CompanyDrilldown() {
                           </td>
                         </tr>,
                         ...group.activities.map((act, i) => (
-                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} data-act-row={`${(act as any)._planTag ? `${(act as any)._planTag}:` : ''}${act.no}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <td className="py-3 px-2 text-xs text-center" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
@@ -2356,7 +2368,7 @@ export default function CompanyDrilldown() {
                         </tr>
                         ))
                       ]) : enhancedFilteredActivities.map((act, i) => (
-                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
+                        <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} data-act-row={`${(act as any)._planTag ? `${(act as any)._planTag}:` : ''}${act.no}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <td className="py-3 px-2 text-xs text-center" style={{ color: 'var(--text-secondary)', verticalAlign: 'top' }}>
