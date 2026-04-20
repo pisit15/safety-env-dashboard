@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
 import {
@@ -167,8 +165,6 @@ function statusColor(k: PlanEnriched['statusKey']): { fg: string; bg: string } {
 
 // ───────────────────────── Page ─────────────────────────
 export default function TrainingMasterDashboard() {
-  const router = useRouter();
-  const auth = useAuth();
   const { companies: COMPANIES } = useCompanies();
 
   const [selectedYear, setSelectedYear] = useState<number>(DEFAULT_YEAR);
@@ -192,15 +188,11 @@ export default function TrainingMasterDashboard() {
   const currentMonthIdx = new Date().getMonth(); // 0-11
   const currentMonth = currentMonthIdx + 1;
 
-  // Auth gate — admin only (HR role)
-  useEffect(() => {
-    if (!auth.isHydrated) return;
-    if (!auth.isAdmin) router.push('/projects/training');
-  }, [auth.isHydrated, auth.isAdmin, router]);
+  // Public page — no auth gate (HR can view without logging in)
 
   // Data fetch — all companies in parallel
   useEffect(() => {
-    if (!auth.isAdmin || COMPANIES.length === 0) return;
+    if (COMPANIES.length === 0) return;
     let cancelled = false;
 
     const fetchAll = async () => {
@@ -243,7 +235,7 @@ export default function TrainingMasterDashboard() {
 
     fetchAll();
     return () => { cancelled = true; };
-  }, [auth.isAdmin, COMPANIES, selectedYear, currentMonth]);
+  }, [COMPANIES, selectedYear, currentMonth]);
 
   // Filtered list
   const plans = useMemo(() => {
@@ -376,18 +368,7 @@ export default function TrainingMasterDashboard() {
     window.open(`/api/training/master-export?${params.toString()}`, '_blank');
   };
 
-  // Render guards
-  if (!auth.isHydrated) return null;
-  if (!auth.isAdmin) {
-    return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.bg }}>
-        <div style={{ textAlign: 'center', color: T.textMuted }}>
-          <p>หน้านี้สำหรับ HR/Admin เท่านั้น</p>
-          <Link href="/projects/training" style={{ color: T.accent, textDecoration: 'underline' }}>กลับไปหน้าแผนอบรม</Link>
-        </div>
-      </div>
-    );
-  }
+  // Public page — no auth gate
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, color: T.textPrimary, fontFamily: 'Inter, "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>

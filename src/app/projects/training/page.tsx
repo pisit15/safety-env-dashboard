@@ -710,20 +710,18 @@ export default function HQTrainingOverview() {
               ภาพรวมแผนอบรมทุกบริษัทในกลุ่ม EA • ปี {selectedYear}
             </p>
           </div>
-          {auth.isAdmin && (
-            <a
-              href="/training/dashboard"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', background: '#0a2540', color: '#fff',
-                border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                textDecoration: 'none', boxShadow: '0 1px 2px rgba(10, 37, 64, 0.12)',
-              }}
-              title="HR Master Dashboard — ติดตาม DSD สำหรับยื่นกรมพัฒนาฝีมือแรงงาน"
-            >
-              HR Master (DSD) →
-            </a>
-          )}
+          <a
+            href="/training/dashboard"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', background: '#0a2540', color: '#fff',
+              border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              textDecoration: 'none', boxShadow: '0 1px 2px rgba(10, 37, 64, 0.12)',
+            }}
+            title="HR Master Dashboard — ติดตาม DSD สำหรับยื่นกรมพัฒนาฝีมือแรงงาน"
+          >
+            HR Master (DSD) →
+          </a>
         </div>
 
         {/* Controls */}
