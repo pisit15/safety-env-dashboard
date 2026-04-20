@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useCompanies } from '@/hooks/useCompanies';
 import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
@@ -306,19 +306,44 @@ export default function TrainingMasterDashboard() {
       });
   }, [plans]);
 
-  // Sorted table rows
+  // Sorted table rows (with tiebreakers for stable grouping)
   const tableRows = useMemo(() => {
     const rows = [...plans];
     rows.sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'company') cmp = a.companyShort.localeCompare(b.companyShort);
-      else if (sortKey === 'month') cmp = a.effectiveMonth - b.effectiveMonth;
+      else if (sortKey === 'month') cmp = (a.effectiveMonth || 0) - (b.effectiveMonth || 0);
       else if (sortKey === 'course') cmp = a.course_name.localeCompare(b.course_name);
       else if (sortKey === 'status') cmp = a.statusKey.localeCompare(b.statusKey);
-      return sortDir === 'asc' ? cmp : -cmp;
+      if (sortDir === 'desc') cmp = -cmp;
+      // Tiebreakers — keep timeline readable within the same month/company
+      if (cmp === 0) {
+        if (sortKey === 'month') {
+          // within same month: by actual/scheduled date (asc), then company, then course
+          const da = a.session?.scheduled_date_start || '';
+          const db = b.session?.scheduled_date_start || '';
+          if (da !== db) return da.localeCompare(db);
+          cmp = a.companyShort.localeCompare(b.companyShort);
+          if (cmp !== 0) return cmp;
+          return a.course_name.localeCompare(b.course_name);
+        }
+        if (sortKey === 'company') {
+          cmp = (a.effectiveMonth || 0) - (b.effectiveMonth || 0);
+          if (cmp !== 0) return cmp;
+          return a.course_name.localeCompare(b.course_name);
+        }
+      }
+      return cmp;
     });
     return rows;
   }, [plans, sortKey, sortDir]);
+
+  // Month counts for group headers
+  const monthCounts = useMemo(() => {
+    const m: Record<number, number> = {};
+    tableRows.forEach((p) => { m[p.effectiveMonth] = (m[p.effectiveMonth] || 0) + 1; });
+    return m;
+  }, [tableRows]);
 
   // Available filter values
   const availableGroups = useMemo(() => {
@@ -639,7 +664,18 @@ export default function TrainingMasterDashboard() {
                 ) : tableRows.length === 0 ? (
                   <tr><td colSpan={9} style={{ padding: 40, textAlign: 'center', color: T.textMuted }}>ไม่พบข้อมูลตามตัวกรอง</td></tr>
                 ) : (
-                  tableRows.map((p, idx) => <DSDTableRow key={p.id} plan={p} idx={idx} onOpen={() => handleOpenDetail(p)} />)
+                  tableRows.map((p, idx) => {
+                    const prev = idx > 0 ? tableRows[idx - 1] : null;
+                    const showMonthHeader = sortKey === 'month' && (!prev || prev.effectiveMonth !== p.effectiveMonth);
+                    return (
+                      <React.Fragment key={p.id}>
+                        {showMonthHeader && (
+                          <MonthHeaderRow month={p.effectiveMonth} year={selectedYear} count={monthCounts[p.effectiveMonth] || 0} isCurrent={p.effectiveMonth === currentMonth} />
+                        )}
+                        <DSDTableRow plan={p} idx={idx} year={selectedYear} onOpen={() => handleOpenDetail(p)} />
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -805,10 +841,28 @@ function SortableTh({ label, sortKey, cur, dir, onClick, width }: { label: strin
   );
 }
 
-function DSDTableRow({ plan, idx, onOpen }: { plan: PlanEnriched; idx: number; onOpen: () => void }) {
+function DSDTableRow({ plan, idx, year, onOpen }: { plan: PlanEnriched; idx: number; year: number; onOpen: () => void }) {
   const c = statusColor(plan.statusKey);
   const s = plan.session;
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' }) : '';
+  const fmtDay = (d: string | null) => d ? new Date(d).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' }) : '';
+  const hasMonth = plan.effectiveMonth >= 1 && plan.effectiveMonth <= 12;
+  const monthLabel = hasMonth ? MONTH_LABELS[plan.effectiveMonth - 1] : '—';
+  // Date display: single day vs range
+  let dateDisplay: React.ReactNode = <span style={{ color: T.textLight }}>ยังไม่กำหนด</span>;
+  if (s?.scheduled_date_start) {
+    const start = s.scheduled_date_start;
+    const end = s.scheduled_date_end;
+    if (end && end !== start) {
+      dateDisplay = (
+        <span style={{ color: T.textPrimary, fontWeight: 500 }}>
+          {fmtDay(start)} – {fmtDate(end)}
+        </span>
+      );
+    } else {
+      dateDisplay = <span style={{ color: T.textPrimary, fontWeight: 500 }}>{fmtDate(start)}</span>;
+    }
+  }
   return (
     <tr
       onClick={onOpen}
@@ -824,9 +878,12 @@ function DSDTableRow({ plan, idx, onOpen }: { plan: PlanEnriched; idx: number; o
         <div style={{ fontWeight: 500, color: T.textPrimary, lineHeight: 1.35 }}>{plan.course_name}</div>
         {plan.category && <div style={{ fontSize: 10.5, color: T.textLight, marginTop: 2 }}>{plan.category}</div>}
       </td>
-      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>{MONTH_LABELS[plan.effectiveMonth - 1]}</td>
-      <td style={{ ...tdStyle, fontSize: 11.5, color: T.textSecondary, fontVariantNumeric: 'tabular-nums' }}>
-        {s?.scheduled_date_start ? fmtDate(s.scheduled_date_start) : '—'}
+      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+        <div style={{ fontWeight: 600, color: T.ink }}>{monthLabel}</div>
+        <div style={{ fontSize: 10.5, color: T.textLight }}>{year}</div>
+      </td>
+      <td style={{ ...tdStyle, fontSize: 11.5, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+        {dateDisplay}
       </td>
       <td style={tdStyle}>
         <span style={{
@@ -842,6 +899,59 @@ function DSDTableRow({ plan, idx, onOpen }: { plan: PlanEnriched; idx: number; o
       <td style={tdStyle}><DSDCell submitted={!!s?.dsd_report_submitted} date={s?.dsd_report_submitted_date || null} eligible={plan.dsd_eligible !== false} notSubmitting={!!s?.dsd_not_submitting} /></td>
       <td style={{ ...tdStyle, textAlign: 'center', color: T.textLight }}>
         <ChevronRight size={15} />
+      </td>
+    </tr>
+  );
+}
+
+function MonthHeaderRow({ month, year, count, isCurrent }: { month: number; year: number; count: number; isCurrent: boolean }) {
+  const hasMonth = month >= 1 && month <= 12;
+  const monthName = hasMonth ? MONTH_LONG[month - 1] : 'ยังไม่ระบุเดือน';
+  return (
+    <tr style={{ background: isCurrent ? T.accentSoft : T.surfaceAlt }}>
+      <td colSpan={9} style={{
+        padding: '10px 16px',
+        borderTop: `1px solid ${T.line}`,
+        borderBottom: `1px solid ${T.line}`,
+        position: 'sticky',
+        left: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 6,
+            background: isCurrent ? T.accent : T.ink,
+            color: '#fff',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {hasMonth ? String(month).padStart(2, '0') : '—'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: T.ink, letterSpacing: '-0.01em' }}>{monthName}</span>
+            <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 500 }}>{year}</span>
+          </div>
+          <span style={{
+            marginLeft: 4,
+            padding: '2px 8px', borderRadius: 10,
+            background: isCurrent ? '#fff' : T.surface,
+            border: `1px solid ${T.line}`,
+            fontSize: 11, fontWeight: 600, color: T.textSecondary,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {count} หลักสูตร
+          </span>
+          {isCurrent && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 10,
+              background: T.accent, color: '#fff',
+              fontSize: 10.5, fontWeight: 700,
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+            }}>
+              เดือนนี้
+            </span>
+          )}
+        </div>
       </td>
     </tr>
   );
