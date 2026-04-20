@@ -11,6 +11,7 @@ import {
   FileText,
   FileWarning,
   Users,
+  BarChart3,
 } from 'lucide-react';
 
 export type ProjectId =
@@ -83,6 +84,7 @@ export const PROJECTS: ProjectConfig[] = [
     ready: true,
     nav: [
       { id: 'plan', label: 'แผนอบรม', icon: GraduationCap, href: (cid) => cid === 'all' ? '/projects/training' : `/projects/training/${cid}` },
+      { id: 'overview', label: 'ภาพรวม KPI', icon: BarChart3, href: () => '/projects/training' },
     ],
   },
   {
