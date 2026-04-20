@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import KPICard from '@/components/KPICard';
 
@@ -57,6 +57,8 @@ interface ResponsibleOverride {
 export default function CompanyDrilldown() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const companyId = params.companyId as string;
   const auth = useAuth();
   const [planType, setPlanType] = useState<'safety' | 'environment' | 'total'>(() => {
@@ -91,14 +93,30 @@ export default function CompanyDrilldown() {
   const [kpiLoading, setKpiLoading] = useState(false);
   const [showKpiDetail, setShowKpiDetail] = useState(false);
 
-  // Sync planType from URL search params (for sidebar navigation)
+  // Sync planType from URL search params (for sidebar navigation & refresh)
+  // URL is the source of truth: no ?plan= → 'total'; ?plan=safety → 'safety'; ?plan=environment → 'environment'
   useEffect(() => {
     const urlPlan = searchParams.get('plan');
     if (urlPlan === 'environment') setPlanType('environment');
     else if (urlPlan === 'safety') setPlanType('safety');
+    else setPlanType('total');
   }, [searchParams]);
 
-  // Persist planType, timeRange, and year to localStorage
+  // Helper: change tab AND update URL so refresh keeps the same tab
+  const changePlanType = useCallback((next: 'safety' | 'environment' | 'total') => {
+    setPlanType(next);
+    // Preserve other existing query params (e.g. year) while updating `plan`
+    const sp = new URLSearchParams(searchParams.toString());
+    if (next === 'total') {
+      sp.delete('plan');
+    } else {
+      sp.set('plan', next);
+    }
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  // Persist timeRange and year to localStorage (planType lives in URL now)
   useEffect(() => {
     localStorage.setItem('company_planType', planType);
   }, [planType]);
@@ -1691,7 +1709,7 @@ export default function CompanyDrilldown() {
             )}
             <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
               <button
-                onClick={() => { setPlanType('total'); setQuickFilter('none'); }}
+                onClick={() => { changePlanType('total'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'total'
                   ? { background: PALETTE.primary, color: '#ffffff' }
@@ -1700,7 +1718,7 @@ export default function CompanyDrilldown() {
                 <BarChart3 size={14} className="inline mr-1" /> Total
               </button>
               <button
-                onClick={() => { setPlanType('safety'); setQuickFilter('none'); }}
+                onClick={() => { changePlanType('safety'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'safety'
                   ? { background: CATEGORY_COLORS.safety, color: '#ffffff', boxShadow: `0 2px 10px ${CATEGORY_COLORS.safety}50` }
@@ -1709,7 +1727,7 @@ export default function CompanyDrilldown() {
                 <Shield size={14} className="inline mr-1" /> Safety
               </button>
               <button
-                onClick={() => { setPlanType('environment'); setQuickFilter('none'); }}
+                onClick={() => { changePlanType('environment'); setQuickFilter('none'); }}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'environment'
                   ? { background: CATEGORY_COLORS.environment, color: '#ffffff', boxShadow: `0 2px 10px ${CATEGORY_COLORS.environment}50` }
