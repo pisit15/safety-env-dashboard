@@ -701,13 +701,29 @@ export default function HQTrainingOverview() {
       )}
 
       <main style={{ flex: 1, padding: '24px', overflowX: 'auto' }}>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <GraduationCap size={24} /> HQ Training Overview
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', margin: '4px 0', fontSize: 14 }}>
-            ภาพรวมแผนอบรมทุกบริษัทในกลุ่ม EA • ปี {selectedYear}
-          </p>
+        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <GraduationCap size={24} /> HQ Training Overview
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', margin: '4px 0', fontSize: 14 }}>
+              ภาพรวมแผนอบรมทุกบริษัทในกลุ่ม EA • ปี {selectedYear}
+            </p>
+          </div>
+          {auth.isAdmin && (
+            <a
+              href="/training/dashboard"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', background: '#0a2540', color: '#fff',
+                border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                textDecoration: 'none', boxShadow: '0 1px 2px rgba(10, 37, 64, 0.12)',
+              }}
+              title="HR Master Dashboard — ติดตาม DSD สำหรับยื่นกรมพัฒนาฝีมือแรงงาน"
+            >
+              HR Master (DSD) →
+            </a>
+          )}
         </div>
 
         {/* Controls */}
