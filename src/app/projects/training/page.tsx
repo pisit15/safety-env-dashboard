@@ -910,12 +910,12 @@ export default function HQTrainingOverview() {
                           )}
                           <div style={{
                             width: '100%', height: barHeight || 2, borderRadius: 4, position: 'relative', overflow: 'hidden',
-                            background: isPast && d.planned > 0 ? '#fee2e2' : 'var(--bg-secondary)',
+                            background: isPast && d.planned > 0 ? '#E1575960' : d.planned > 0 ? '#F28E2B60' : 'var(--bg-secondary)',
                             border: isExpanded ? '2px solid var(--accent)' : 'none',
                             boxSizing: 'border-box',
                           }}>
                             {completedHeight > 0 && (
-                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: '#4ade80', borderRadius: '0 0 4px 4px' }} />
+                              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: completedHeight, background: '#59A14F', borderRadius: '0 0 4px 4px' }} />
                             )}
                           </div>
                           <div style={{ fontSize: 10, color: d.month === currentMonth ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: d.month === currentMonth ? 700 : 400 }}>
@@ -927,15 +927,15 @@ export default function HQTrainingOverview() {
                   </div>
 
                   {/* Legend */}
-                  <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#4ade80', display: 'inline-block' }} /> อบรมแล้ว
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#59A14F', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> อบรมแล้ว
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fee2e2', display: 'inline-block' }} /> เลยกำหนด
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#E15759', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> เลยกำหนด
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--bg-secondary)', display: 'inline-block' }} /> ยังไม่ถึง
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: '#F28E2B', display: 'inline-block', border: '1px solid rgba(0,0,0,0.08)' }} /> ยังไม่ถึง
                     </span>
                   </div>
 
