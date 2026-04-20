@@ -2218,10 +2218,10 @@ export default function CompanyTraining() {
                               {isLoggedIn && status === 'scheduled' && (
                                 <button
                                   onClick={e => { e.stopPropagation(); handleQuickStatusChange(plan, 'completed'); }}
-                                  title="เปลี่ยนเป็น อบรมแล้ว"
-                                  style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 10px', borderRadius: 6, border: `1px solid ${STATUS.positive}40`, background: STATUS.positiveBg, color: STATUS.positive, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  title="เปลี่ยนสถานะเป็น อบรมแล้ว"
+                                  style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '4px 10px', borderRadius: 6, border: `1px dashed var(--accent)`, background: 'var(--accent-glow)', color: 'var(--accent)', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                                 >
-                                  <CheckCircle size={12} /> อบรมแล้ว
+                                  <CheckCircle size={12} /> บันทึกอบรมแล้ว
                                 </button>
                               )}
                               {/* Inline quick action: assign month for planned without month */}
