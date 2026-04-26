@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
 import { COMPANY_GROUPS, COMPANY_BUS, CompanyGroup, CompanyBU } from '@/lib/types';
-import { RefreshCw, UserCog, Paperclip, Trash2, FileEdit } from 'lucide-react';
+import { RefreshCw, UserCog, Paperclip, Trash2, FileEdit, ArrowLeft } from 'lucide-react';
 
 const MONTH_LABELS: Record<string, string> = {
   jan: 'ม.ค.', feb: 'ก.พ.', mar: 'มี.ค.', apr: 'เม.ย.',
@@ -809,11 +809,18 @@ export default function AdminPage() {
     <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
       <main className="p-6 lg:p-8 overflow-y-auto" style={{ maxWidth: 1400, margin: '0 auto' }}>
         <div className="flex items-center gap-2 text-[11px] mb-1">
-          <span style={{ color: 'var(--text-secondary)' }}>Home</span><span style={{ color: 'var(--text-secondary)' }}>/</span><span style={{ color: 'var(--text-primary)' }}>Admin / ตั้งค่า</span>
+          <Link href="/projects" style={{ color: 'var(--accent)', textDecoration: 'none' }} className="hover:underline">Home</Link>
+          <span style={{ color: 'var(--text-secondary)' }}>/</span>
+          <span style={{ color: 'var(--text-primary)' }}>Admin / ตั้งค่า</span>
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Admin Panel</h1>
+          <div className="flex items-center gap-3">
+            <Link href="/projects" className="flex items-center justify-center rounded-full hover:opacity-80 transition-opacity" style={{ width: 36, height: 36, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+              <ArrowLeft size={18} />
+            </Link>
+            <h1 className="text-[26px] font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Admin Panel</h1>
+          </div>
           <div className="flex items-center gap-3">
             <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>เข้าสู่ระบบเป็น: <span style={{ color: 'var(--text-primary)', fontWeight: 'medium' }}>{currentAdminName}</span></span>
             <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{
