@@ -88,6 +88,7 @@ export default function ManageCriteriaPage() {
   const [editingCatId, setEditingCatId] = useState<number | null>(null);
   const [editingCatNameTh, setEditingCatNameTh] = useState('');
   const [editingCatName, setEditingCatName] = useState('');
+  const [editingCatSortOrder, setEditingCatSortOrder] = useState<number>(0);
   const [savingCatEdit, setSavingCatEdit] = useState(false);
 
   useEffect(() => {
@@ -302,7 +303,7 @@ export default function ManageCriteriaPage() {
       const res = await fetch('/api/site-visit/categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: catId, name_th: editingCatNameTh.trim(), name: editingCatName.trim() || editingCatNameTh.trim() }),
+        body: JSON.stringify({ id: catId, name_th: editingCatNameTh.trim(), name: editingCatName.trim() || editingCatNameTh.trim(), sort_order: editingCatSortOrder }),
       });
       if (!res.ok) throw new Error('Failed');
       setToast({ type: 'success', msg: 'แก้ไขชื่อหมวดหมู่สำเร็จ' });
@@ -476,7 +477,16 @@ export default function ManageCriteriaPage() {
                     padding: '10px 20px', background: '#fffbeb', borderRadius: isExpanded ? '12px 12px 0 0' : 12,
                     border: `2px solid ${VIZ.primary}`,
                   }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: VIZ.primary, minWidth: 28 }}>{cat.sort_order}.</span>
+                    <input
+                      value={editingCatSortOrder}
+                      onChange={e => setEditingCatSortOrder(parseInt(e.target.value) || 0)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleEditCategory(cat.id); if (e.key === 'Escape') { setEditingCatId(null); } }}
+                      style={{
+                        width: 48, padding: '6px 8px', borderRadius: 6, textAlign: 'center',
+                        border: `1px solid ${VIZ.primary}`, fontSize: 14, fontWeight: 700, outline: 'none',
+                        color: VIZ.primary,
+                      }}
+                    />
                     <div style={{ flex: 1, display: 'flex', gap: 8 }}>
                       <input
                         value={editingCatNameTh}
@@ -530,7 +540,7 @@ export default function ManageCriteriaPage() {
                     <span style={{ fontSize: 13, color: VIZ.lightText, marginLeft: 8 }}>({cat.name})</span>
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); setEditingCatId(cat.id); setEditingCatNameTh(cat.name_th); setEditingCatName(cat.name); }}
+                    onClick={(e) => { e.stopPropagation(); setEditingCatId(cat.id); setEditingCatNameTh(cat.name_th); setEditingCatName(cat.name); setEditingCatSortOrder(cat.sort_order); }}
                     title="แก้ไขชื่อหมวดหมู่"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.lightText, padding: 4, borderRadius: 4 }}
                   >
