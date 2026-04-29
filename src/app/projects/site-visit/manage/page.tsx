@@ -1,10 +1,10 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Settings, ChevronDown, ChevronUp, Edit2, Plus, Trash2, Save, X } from 'lucide-react';
+import { Settings, ChevronDown, ChevronUp, Plus, Save, X } from 'lucide-react';
 
 const VIZ = {
   primary: '#14b8a6',
@@ -56,6 +56,23 @@ export default function ManageCriteriaPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
+  // Add category form
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCatNameTh, setNewCatNameTh] = useState('');
+  const [newCatNameEn, setNewCatNameEn] = useState('');
+  const [savingCat, setSavingCat] = useState(false);
+
+  // Add item form (per category)
+  const [addingItemForCat, setAddingItemForCat] = useState<number | null>(null);
+  const [newItemQuestion, setNewItemQuestion] = useState('');
+  const [newItemMaxScore, setNewItemMaxScore] = useState(4);
+  const [savingItem, setSavingItem] = useState(false);
+
+  // Add criteria form (per item)
+  const [addingCriteriaForItem, setAddingCriteriaForItem] = useState<number | null>(null);
+  const [newCriteria, setNewCriteria] = useState<Array<{ score: number; description: string }>>([]);
+  const [savingCriteria, setSavingCriteria] = useState(false);
+
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(null), 3000);
@@ -69,11 +86,7 @@ export default function ManageCriteriaPage() {
     }
   }, [isAdmin, router]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [catRes, itemRes] = await Promise.all([
@@ -89,7 +102,11 @@ export default function ManageCriteriaPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const toggleCategory = (catId: number) => {
     setExpandedCategories(prev => {
@@ -110,7 +127,120 @@ export default function ManageCriteriaPage() {
   const getItemsByCategory = (catId: number) =>
     items.filter(i => i.category_id === catId).sort((a, b) => a.sort_order - b.sort_order);
 
+  // --- Add Category ---
+  const handleAddCategory = async () => {
+    if (!newCatNameTh.trim()) return;
+    setSavingCat(true);
+    try {
+      const res = await fetch('/api/site-visit/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCatNameEn.trim() || newCatNameTh.trim(),
+          name_th: newCatNameTh.trim(),
+          parent_type: 'site_visit',
+          sort_order: categories.length + 1,
+          is_active: true,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'เพิ่มหมวดหมู่สำเร็จ' });
+      setShowAddCategory(false);
+      setNewCatNameTh('');
+      setNewCatNameEn('');
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'เพิ่มหมวดหมู่ไม่สำเร็จ' });
+    } finally {
+      setSavingCat(false);
+    }
+  };
+
+  // --- Add Item ---
+  const handleAddItem = async (catId: number) => {
+    if (!newItemQuestion.trim()) return;
+    setSavingItem(true);
+    const catItems = getItemsByCategory(catId);
+    const nextItemNo = catItems.length > 0 ? Math.max(...catItems.map(i => i.item_no)) + 1 : 1;
+    const nextSortOrder = catItems.length > 0 ? Math.max(...catItems.map(i => i.sort_order)) + 1 : 1;
+    try {
+      const res = await fetch('/api/site-visit/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category_id: catId,
+          item_no: nextItemNo,
+          question: newItemQuestion.trim(),
+          max_score: newItemMaxScore,
+          sort_order: nextSortOrder,
+          is_active: true,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'เพิ่มรายการตรวจสำเร็จ' });
+      setAddingItemForCat(null);
+      setNewItemQuestion('');
+      setNewItemMaxScore(4);
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'เพิ่มรายการตรวจไม่สำเร็จ' });
+    } finally {
+      setSavingItem(false);
+    }
+  };
+
+  // --- Add Criteria ---
+  const openAddCriteria = (itemId: number, maxScore: number) => {
+    const existing = items.find(i => i.id === itemId)?.site_visit_criteria || [];
+    const existingScores = new Set(existing.map(c => c.score));
+    const missing: Array<{ score: number; description: string }> = [];
+    for (let s = 0; s <= maxScore; s++) {
+      if (!existingScores.has(s)) {
+        missing.push({ score: s, description: '' });
+      }
+    }
+    if (missing.length === 0) {
+      // All scores exist, still allow adding
+      missing.push({ score: maxScore, description: '' });
+    }
+    setNewCriteria(missing);
+    setAddingCriteriaForItem(itemId);
+  };
+
+  const handleSaveCriteria = async (itemId: number) => {
+    const toSave = newCriteria.filter(c => c.description.trim() !== '');
+    if (toSave.length === 0) {
+      setToast({ type: 'error', msg: 'กรุณากรอกคำอธิบายอย่างน้อย 1 ข้อ' });
+      return;
+    }
+    setSavingCriteria(true);
+    try {
+      const res = await fetch('/api/site-visit/criteria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          criteria: toSave.map(c => ({
+            item_id: itemId,
+            score: c.score,
+            description: c.description.trim(),
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'เพิ่มเกณฑ์คะแนนสำเร็จ' });
+      setAddingCriteriaForItem(null);
+      setNewCriteria([]);
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'เพิ่มเกณฑ์คะแนนไม่สำเร็จ' });
+    } finally {
+      setSavingCriteria(false);
+    }
+  };
+
   if (!isAdmin) return null;
+
+  const totalMaxScore = items.reduce((sum, i) => sum + i.max_score, 0);
 
   return (
     <div style={{ padding: '32px', maxWidth: 1000, margin: '0 auto' }}>
@@ -126,13 +256,89 @@ export default function ManageCriteriaPage() {
         </div>
       )}
 
-      <h1 style={{ fontSize: 24, fontWeight: 700, color: VIZ.text, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <Settings size={28} color={VIZ.primary} />
-        จัดการเกณฑ์ประเมิน
-      </h1>
-      <p style={{ color: VIZ.lightText, fontSize: 14, marginBottom: 24 }}>
-        ดูและจัดการหมวดหมู่ รายการตรวจ และเกณฑ์คะแนน
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: VIZ.text, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <Settings size={28} color={VIZ.primary} />
+            จัดการเกณฑ์ประเมิน
+          </h1>
+          <p style={{ color: VIZ.lightText, fontSize: 14 }}>
+            ดูและจัดการหมวดหมู่ รายการตรวจ และเกณฑ์คะแนน
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddCategory(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 18px', background: VIZ.primary, color: '#fff',
+            border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14,
+          }}
+        >
+          <Plus size={18} /> เพิ่มหมวดหมู่
+        </button>
+      </div>
+
+      {/* Add Category Form */}
+      {showAddCategory && (
+        <div style={{
+          background: '#fff', borderRadius: 12, padding: 20, marginBottom: 16,
+          border: `2px dashed ${VIZ.primary}`, boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: VIZ.text, marginBottom: 12 }}>
+            เพิ่มหมวดหมู่ใหม่
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, color: VIZ.lightText, display: 'block', marginBottom: 4 }}>ชื่อภาษาไทย *</label>
+              <input
+                value={newCatNameTh}
+                onChange={e => setNewCatNameTh(e.target.value)}
+                placeholder="เช่น การจัดการความปลอดภัย"
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 8,
+                  border: '1px solid #d1d5db', fontSize: 14, outline: 'none',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: VIZ.lightText, display: 'block', marginBottom: 4 }}>ชื่อภาษาอังกฤษ</label>
+              <input
+                value={newCatNameEn}
+                onChange={e => setNewCatNameEn(e.target.value)}
+                placeholder="e.g. Safety Management"
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 8,
+                  border: '1px solid #d1d5db', fontSize: 14, outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleAddCategory}
+              disabled={savingCat || !newCatNameTh.trim()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', background: VIZ.positive, color: '#fff',
+                border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                opacity: savingCat || !newCatNameTh.trim() ? 0.5 : 1,
+              }}
+            >
+              <Save size={16} /> {savingCat ? 'กำลังบันทึก...' : 'บันทึก'}
+            </button>
+            <button
+              onClick={() => { setShowAddCategory(false); setNewCatNameTh(''); setNewCatNameEn(''); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', background: '#f3f4f6', color: VIZ.text,
+                border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+              }}
+            >
+              <X size={16} /> ยกเลิก
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: VIZ.lightText }}>กำลังโหลด...</div>
@@ -150,7 +356,7 @@ export default function ManageCriteriaPage() {
             </div>
             <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', borderLeft: `4px solid ${VIZ.positive}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div style={{ fontSize: 12, color: VIZ.lightText }}>คะแนนรวมสูงสุด</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: VIZ.positive }}>{items.length * 4}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: VIZ.positive }}>{totalMaxScore}</div>
             </div>
           </div>
 
@@ -183,6 +389,7 @@ export default function ManageCriteriaPage() {
                     {catItems.map((item, idx) => {
                       const criteria = (item.site_visit_criteria || []).sort((a, b) => a.score - b.score);
                       const isItemExpanded = expandedItems.has(item.id);
+                      const isAddingCriteria = addingCriteriaForItem === item.id;
 
                       return (
                         <div key={item.id} style={{ borderBottom: idx < catItems.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
@@ -199,29 +406,183 @@ export default function ManageCriteriaPage() {
                             {isItemExpanded ? <ChevronUp size={16} color={VIZ.neutral} /> : <ChevronDown size={16} color={VIZ.neutral} />}
                           </div>
 
-                          {isItemExpanded && criteria.length > 0 && (
+                          {isItemExpanded && (
                             <div style={{ padding: '8px 20px 12px 56px', background: '#f8fafc' }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: VIZ.lightText, marginBottom: 6 }}>เกณฑ์คะแนน:</div>
-                              {criteria.map(c => (
-                                <div key={c.id} style={{
-                                  display: 'flex', gap: 8, padding: '4px 0', fontSize: 13,
-                                  color: c.description === '-' ? VIZ.muted : VIZ.text,
-                                }}>
-                                  <span style={{
-                                    fontWeight: 700, minWidth: 20, textAlign: 'center',
-                                    color: c.description === '-' ? VIZ.muted :
-                                      c.score === 0 ? VIZ.accent : c.score <= 2 ? VIZ.secondary : VIZ.positive,
-                                  }}>
-                                    {c.score}
-                                  </span>
-                                  <span>{c.description}</span>
+                              {criteria.length > 0 && (
+                                <>
+                                  <div style={{ fontSize: 12, fontWeight: 600, color: VIZ.lightText, marginBottom: 6 }}>เกณฑ์คะแนน:</div>
+                                  {criteria.map(c => (
+                                    <div key={c.id} style={{
+                                      display: 'flex', gap: 8, padding: '4px 0', fontSize: 13,
+                                      color: c.description === '-' ? VIZ.muted : VIZ.text,
+                                    }}>
+                                      <span style={{
+                                        fontWeight: 700, minWidth: 20, textAlign: 'center',
+                                        color: c.description === '-' ? VIZ.muted :
+                                          c.score === 0 ? VIZ.accent : c.score <= 2 ? VIZ.secondary : VIZ.positive,
+                                      }}>
+                                        {c.score}
+                                      </span>
+                                      <span>{c.description}</span>
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+
+                              {/* Add criteria button */}
+                              {!isAddingCriteria && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openAddCriteria(item.id, item.max_score); }}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 4, marginTop: 8,
+                                    padding: '6px 12px', background: 'transparent', color: VIZ.primary,
+                                    border: `1px dashed ${VIZ.primary}`, borderRadius: 6, cursor: 'pointer',
+                                    fontSize: 12, fontWeight: 600,
+                                  }}
+                                >
+                                  <Plus size={14} /> เพิ่มเกณฑ์คะแนน
+                                </button>
+                              )}
+
+                              {/* Add criteria form */}
+                              {isAddingCriteria && (
+                                <div style={{ marginTop: 10, padding: 12, background: '#fff', borderRadius: 8, border: `1px solid ${VIZ.primary}` }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: VIZ.text, marginBottom: 8 }}>
+                                    เพิ่มเกณฑ์คะแนน (คะแนน 0-{item.max_score})
+                                  </div>
+                                  {newCriteria.map((c, ci) => (
+                                    <div key={ci} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+                                      <span style={{
+                                        fontWeight: 700, minWidth: 24, textAlign: 'center', fontSize: 14,
+                                        color: c.score === 0 ? VIZ.accent : c.score <= 2 ? VIZ.secondary : VIZ.positive,
+                                      }}>
+                                        {c.score}
+                                      </span>
+                                      <input
+                                        value={c.description}
+                                        onChange={e => {
+                                          const upd = [...newCriteria];
+                                          upd[ci].description = e.target.value;
+                                          setNewCriteria(upd);
+                                        }}
+                                        placeholder={`คำอธิบายสำหรับคะแนน ${c.score}`}
+                                        style={{
+                                          flex: 1, padding: '6px 10px', borderRadius: 6,
+                                          border: '1px solid #d1d5db', fontSize: 13, outline: 'none',
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => setNewCriteria(newCriteria.filter((_, i) => i !== ci))}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.accent, padding: 4 }}
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                                    <button
+                                      onClick={() => handleSaveCriteria(item.id)}
+                                      disabled={savingCriteria}
+                                      style={{
+                                        display: 'flex', alignItems: 'center', gap: 4,
+                                        padding: '6px 14px', background: VIZ.positive, color: '#fff',
+                                        border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                                        opacity: savingCriteria ? 0.5 : 1,
+                                      }}
+                                    >
+                                      <Save size={14} /> {savingCriteria ? 'กำลังบันทึก...' : 'บันทึก'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setAddingCriteriaForItem(null); setNewCriteria([]); }}
+                                      style={{
+                                        padding: '6px 14px', background: '#f3f4f6', color: VIZ.text,
+                                        border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 12,
+                                      }}
+                                    >
+                                      ยกเลิก
+                                    </button>
+                                  </div>
                                 </div>
-                              ))}
+                              )}
                             </div>
                           )}
                         </div>
                       );
                     })}
+
+                    {/* Add item button */}
+                    {addingItemForCat !== cat.id ? (
+                      <div
+                        onClick={() => { setAddingItemForCat(cat.id); setNewItemQuestion(''); setNewItemMaxScore(4); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px',
+                          cursor: 'pointer', background: '#fafafa', color: VIZ.primary,
+                          borderTop: catItems.length > 0 ? '1px solid #f0f0f0' : 'none',
+                          fontSize: 13, fontWeight: 600,
+                        }}
+                      >
+                        <Plus size={16} /> เพิ่มรายการตรวจในหมวดนี้
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '12px 20px', background: '#fafafa',
+                        borderTop: catItems.length > 0 ? '1px solid #f0f0f0' : 'none',
+                      }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: VIZ.text, marginBottom: 8 }}>
+                          เพิ่มรายการตรวจใหม่
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                          <input
+                            value={newItemQuestion}
+                            onChange={e => setNewItemQuestion(e.target.value)}
+                            placeholder="ข้อความรายการตรวจ เช่น มีการจัดทำแผนฉุกเฉิน"
+                            style={{
+                              flex: 1, padding: '8px 12px', borderRadius: 8,
+                              border: '1px solid #d1d5db', fontSize: 13, outline: 'none',
+                            }}
+                          />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <label style={{ fontSize: 12, color: VIZ.lightText }}>คะแนนสูงสุด</label>
+                            <select
+                              value={newItemMaxScore}
+                              onChange={e => setNewItemMaxScore(parseInt(e.target.value))}
+                              style={{
+                                padding: '8px 12px', borderRadius: 8,
+                                border: '1px solid #d1d5db', fontSize: 13, outline: 'none',
+                                background: '#fff',
+                              }}
+                            >
+                              {[2, 3, 4, 5].map(v => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            onClick={() => handleAddItem(cat.id)}
+                            disabled={savingItem || !newItemQuestion.trim()}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              padding: '8px 14px', background: VIZ.positive, color: '#fff',
+                              border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                              opacity: savingItem || !newItemQuestion.trim() ? 0.5 : 1,
+                            }}
+                          >
+                            <Save size={14} /> {savingItem ? 'กำลังบันทึก...' : 'บันทึก'}
+                          </button>
+                          <button
+                            onClick={() => { setAddingItemForCat(null); setNewItemQuestion(''); }}
+                            style={{
+                              padding: '8px 14px', background: '#f3f4f6', color: VIZ.text,
+                              border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                            }}
+                          >
+                            ยกเลิก
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
