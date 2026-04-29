@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const parentType = request.nextUrl.searchParams.get('parent_type');
     const db = getSupabase();
-    const { data, error } = await db
+    let query = db
       .from('site_visit_categories')
       .select('*')
-      .eq('is_active', true)
-      .order('sort_order');
+      .eq('is_active', true);
+    if (parentType) {
+      query = query.eq('parent_type', parentType);
+    }
+    const { data, error } = await query.order('sort_order');
     if (error) throw error;
     return NextResponse.json({ data });
   } catch (error) {

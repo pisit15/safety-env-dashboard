@@ -55,6 +55,7 @@ export default function ManageCriteriaPage() {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'environment' | 'safety'>('safety');
 
   // Add category form
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -90,7 +91,7 @@ export default function ManageCriteriaPage() {
     setLoading(true);
     try {
       const [catRes, itemRes] = await Promise.all([
-        fetch('/api/site-visit/categories'),
+        fetch(`/api/site-visit/categories?parent_type=${activeTab}`),
         fetch('/api/site-visit/items'),
       ]);
       const catJson = await catRes.json();
@@ -102,7 +103,7 @@ export default function ManageCriteriaPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     loadData();
@@ -138,7 +139,7 @@ export default function ManageCriteriaPage() {
         body: JSON.stringify({
           name: newCatNameEn.trim() || newCatNameTh.trim(),
           name_th: newCatNameTh.trim(),
-          parent_type: 'site_visit',
+          parent_type: activeTab,
           sort_order: categories.length + 1,
           is_active: true,
         }),
@@ -240,7 +241,9 @@ export default function ManageCriteriaPage() {
 
   if (!isAdmin) return null;
 
-  const totalMaxScore = items.reduce((sum, i) => sum + i.max_score, 0);
+  const catIds = new Set(categories.map(c => c.id));
+  const filteredItems = items.filter(i => catIds.has(i.category_id));
+  const totalMaxScore = filteredItems.reduce((sum, i) => sum + i.max_score, 0);
 
   return (
     <div style={{ padding: '32px', maxWidth: 1000, margin: '0 auto' }}>
@@ -276,6 +279,28 @@ export default function ManageCriteriaPage() {
         >
           <Plus size={18} /> เพิ่มหมวดหมู่
         </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20 }}>
+        {([
+          { key: 'safety' as const, label: 'ความปลอดภัย (CBUM)', icon: '🛡️' },
+          { key: 'environment' as const, label: 'สิ่งแวดล้อม', icon: '🌿' },
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => { setActiveTab(tab.key); setExpandedCategories(new Set()); setExpandedItems(new Set()); }}
+            style={{
+              padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+              border: '1px solid #e5e7eb', borderBottom: activeTab === tab.key ? '3px solid ' + VIZ.primary : '1px solid #e5e7eb',
+              background: activeTab === tab.key ? '#fff' : '#f9fafb',
+              color: activeTab === tab.key ? VIZ.primary : VIZ.lightText,
+              borderRadius: tab.key === 'safety' ? '10px 0 0 0' : '0 10px 0 0',
+            }}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Add Category Form */}
@@ -352,7 +377,7 @@ export default function ManageCriteriaPage() {
             </div>
             <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', borderLeft: `4px solid ${VIZ.secondary}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div style={{ fontSize: 12, color: VIZ.lightText }}>รายการตรวจ</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: VIZ.secondary }}>{items.length}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: VIZ.secondary }}>{filteredItems.length}</div>
             </div>
             <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', borderLeft: `4px solid ${VIZ.positive}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <div style={{ fontSize: 12, color: VIZ.lightText }}>คะแนนรวมสูงสุด</div>
