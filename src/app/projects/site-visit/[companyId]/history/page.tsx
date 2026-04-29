@@ -5,7 +5,20 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
-import type { Assessment } from '@/lib/types';
+
+type Assessment = {
+  id: number;
+  company_id: string;
+  assessment_date: string;
+  assessment_type: string;
+  assessor_name: string | null;
+  auditee_name: string | null;
+  status: string;
+  total_score: number | null;
+  max_possible_score: number | null;
+  notes: string | null;
+  created_at: string;
+};
 
 const VIZ = {
   primary: '#0f766e',
