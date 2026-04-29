@@ -79,6 +79,12 @@ export default function ManageCriteriaPage() {
   const [editingQuestion, setEditingQuestion] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Edit category
+  const [editingCatId, setEditingCatId] = useState<number | null>(null);
+  const [editingCatNameTh, setEditingCatNameTh] = useState('');
+  const [editingCatName, setEditingCatName] = useState('');
+  const [savingCatEdit, setSavingCatEdit] = useState(false);
+
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(null), 3000);
@@ -266,6 +272,29 @@ export default function ManageCriteriaPage() {
     }
   };
 
+  // --- Edit Category ---
+  const handleEditCategory = async (catId: number) => {
+    if (!editingCatNameTh.trim()) return;
+    setSavingCatEdit(true);
+    try {
+      const res = await fetch('/api/site-visit/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: catId, name_th: editingCatNameTh.trim(), name: editingCatName.trim() || editingCatNameTh.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'แก้ไขชื่อหมวดหมู่สำเร็จ' });
+      setEditingCatId(null);
+      setEditingCatNameTh('');
+      setEditingCatName('');
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'แก้ไขชื่อหมวดหมู่ไม่สำเร็จ' });
+    } finally {
+      setSavingCatEdit(false);
+    }
+  };
+
   if (!isAdmin) return null;
 
   const catIds = new Set(categories.map(c => c.id));
@@ -419,6 +448,51 @@ export default function ManageCriteriaPage() {
 
             return (
               <div key={cat.id} style={{ marginBottom: 12 }}>
+                {editingCatId === cat.id ? (
+                  <div style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 20px', background: '#fffbeb', borderRadius: isExpanded ? '12px 12px 0 0' : 12,
+                    border: `2px solid ${VIZ.primary}`,
+                  }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: VIZ.primary, minWidth: 28 }}>{cat.sort_order}.</span>
+                    <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+                      <input
+                        value={editingCatNameTh}
+                        onChange={e => setEditingCatNameTh(e.target.value)}
+                        autoFocus
+                        placeholder="ชื่อภาษาไทย"
+                        onKeyDown={e => { if (e.key === 'Enter') handleEditCategory(cat.id); if (e.key === 'Escape') { setEditingCatId(null); } }}
+                        style={{
+                          flex: 2, padding: '6px 10px', borderRadius: 6,
+                          border: `1px solid ${VIZ.primary}`, fontSize: 14, outline: 'none',
+                        }}
+                      />
+                      <input
+                        value={editingCatName}
+                        onChange={e => setEditingCatName(e.target.value)}
+                        placeholder="Name (EN)"
+                        onKeyDown={e => { if (e.key === 'Enter') handleEditCategory(cat.id); if (e.key === 'Escape') { setEditingCatId(null); } }}
+                        style={{
+                          flex: 1, padding: '6px 10px', borderRadius: 6,
+                          border: '1px solid #d1d5db', fontSize: 14, outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleEditCategory(cat.id)}
+                      disabled={savingCatEdit || !editingCatNameTh.trim()}
+                      style={{ background: VIZ.positive, color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, fontSize: 12, opacity: savingCatEdit ? 0.5 : 1 }}
+                    >
+                      <Check size={14} /> {savingCatEdit ? '...' : 'บันทึก'}
+                    </button>
+                    <button
+                      onClick={() => { setEditingCatId(null); setEditingCatNameTh(''); setEditingCatName(''); }}
+                      style={{ background: '#f3f4f6', color: VIZ.text, border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
                 <button
                   onClick={() => toggleCategory(cat.id)}
                   style={{
@@ -433,8 +507,16 @@ export default function ManageCriteriaPage() {
                     <span style={{ fontWeight: 700, fontSize: 15, color: VIZ.text }}>{cat.sort_order}. {cat.name_th}</span>
                     <span style={{ fontSize: 13, color: VIZ.lightText, marginLeft: 8 }}>({cat.name})</span>
                   </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingCatId(cat.id); setEditingCatNameTh(cat.name_th); setEditingCatName(cat.name); }}
+                    title="แก้ไขชื่อหมวดหมู่"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.lightText, padding: 4, borderRadius: 4 }}
+                  >
+                    <Pencil size={14} />
+                  </button>
                   <span style={{ fontSize: 13, color: VIZ.lightText, fontWeight: 600 }}>{catItems.length} ข้อ</span>
                 </button>
+                )}
 
                 {isExpanded && (
                   <div style={{ border: '1px solid #e5e7eb', borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>

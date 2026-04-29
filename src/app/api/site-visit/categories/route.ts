@@ -21,6 +21,32 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!body.id) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    }
+    const db = getSupabase();
+    const updates: Record<string, unknown> = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.name_th !== undefined) updates.name_th = body.name_th;
+    if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
+    if (body.is_active !== undefined) updates.is_active = body.is_active;
+    updates.updated_at = new Date().toISOString();
+    const { data, error } = await db
+      .from('site_visit_categories')
+      .update(updates)
+      .eq('id', body.id)
+      .select();
+    if (error) throw error;
+    return NextResponse.json({ data: data[0] });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: 'Failed to update category', detail: msg }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
