@@ -12,9 +12,6 @@ import {
   FileWarning,
   Users,
   BarChart3,
-  ClipboardCheck,
-  Settings,
-  History,
 } from 'lucide-react';
 
 export type ProjectId =
@@ -24,8 +21,7 @@ export type ProjectId =
   | 'incidents'
   | 'nearmiss'
   | 'risk'
-  | 'employees'
-  | 'site-visit';
+  | 'employees';
 
 export interface ProjectNavItem {
   id: string;
@@ -146,22 +142,6 @@ export const PROJECTS: ProjectConfig[] = [
     ready: true,
     nav: [
       { id: 'employees', label: 'ทะเบียนพนักงาน', icon: Users, href: (cid) => cid === 'all' ? '/projects/employees' : `/projects/employees/${cid}` },
-    ],
-  },
-  {
-    id: 'site-visit',
-    name: 'ตรวจเยี่ยมสถานประกอบการ',
-    shortName: 'Site Visit',
-    description: 'ประเมิน Safety & Environment เมื่อไปเยี่ยมบริษัท',
-    icon: ClipboardCheck,
-    color: 'from-teal-500 to-emerald-600',
-    accentColor: '#14b8a6',
-    ready: true,
-    nav: [
-      { id: 'assessments', label: 'รายการประเมิน', icon: ClipboardCheck, href: (cid) => cid === 'all' ? '/projects/site-visit' : `/projects/site-visit/${cid}` },
-      { id: 'new-assessment', label: 'ประเมินใหม่', icon: ClipboardList, href: (cid) => `/projects/site-visit/${cid}/assess`, companyRequired: true },
-      { id: 'history', label: 'ประวัติการประเมิน', icon: History, href: (cid) => cid === 'all' ? '/projects/site-visit/history' : `/projects/site-visit/${cid}/history`, companyRequired: true },
-      { id: 'manage', label: 'จัดการเกณฑ์ประเมิน', icon: Settings, href: () => '/projects/site-visit/manage', adminOnly: true },
     ],
   },
 ];
