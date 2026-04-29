@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest) {
     const db = getSupabase();
     const updates: Record<string, unknown> = {};
     if (body.question !== undefined) updates.question = body.question;
+    if (body.item_no !== undefined) updates.item_no = body.item_no;
     if (body.max_score !== undefined) updates.max_score = body.max_score;
     if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
     if (body.is_active !== undefined) updates.is_active = body.is_active;
@@ -61,5 +62,24 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: 'Failed to update item', detail: msg }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const id = request.nextUrl.searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    }
+    const db = getSupabase();
+    // Delete related criteria first
+    await db.from('site_visit_criteria').delete().eq('item_id', parseInt(id));
+    // Delete the item
+    const { error } = await db.from('site_visit_items').delete().eq('id', parseInt(id));
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: 'Failed to delete item', detail: msg }, { status: 500 });
   }
 }

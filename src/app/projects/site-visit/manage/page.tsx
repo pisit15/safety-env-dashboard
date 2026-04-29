@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Settings, ChevronDown, ChevronUp, Plus, Save, X, Pencil, Check } from 'lucide-react';
+import { Settings, ChevronDown, ChevronUp, Plus, Save, X, Pencil, Check, Trash2 } from 'lucide-react';
 
 const VIZ = {
   primary: '#14b8a6',
@@ -77,7 +77,12 @@ export default function ManageCriteriaPage() {
   // Edit item
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   const [editingQuestion, setEditingQuestion] = useState('');
+  const [editingItemNo, setEditingItemNo] = useState<number>(0);
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete item
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [deletingItem, setDeletingItem] = useState(false);
 
   // Edit category
   const [editingCatId, setEditingCatId] = useState<number | null>(null);
@@ -258,17 +263,34 @@ export default function ManageCriteriaPage() {
       const res = await fetch('/api/site-visit/items', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: itemId, question: editingQuestion.trim() }),
+        body: JSON.stringify({ id: itemId, question: editingQuestion.trim(), item_no: editingItemNo }),
       });
       if (!res.ok) throw new Error('Failed');
       setToast({ type: 'success', msg: 'แก้ไขสำเร็จ' });
       setEditingItemId(null);
       setEditingQuestion('');
+      setEditingItemNo(0);
       await loadData();
     } catch {
       setToast({ type: 'error', msg: 'แก้ไขไม่สำเร็จ' });
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // --- Delete Item ---
+  const handleDeleteItem = async (itemId: number) => {
+    setDeletingItem(true);
+    try {
+      const res = await fetch(`/api/site-visit/items?id=${itemId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'ลบรายการสำเร็จ' });
+      setDeletingItemId(null);
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'ลบรายการไม่สำเร็จ' });
+    } finally {
+      setDeletingItem(false);
     }
   };
 
@@ -530,7 +552,16 @@ export default function ManageCriteriaPage() {
                         <div key={item.id} style={{ borderBottom: idx < catItems.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
                           {isEditing ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: '#fffbeb' }}>
-                              <span style={{ fontWeight: 700, fontSize: 13, color: VIZ.primary, minWidth: 28 }}>{item.item_no}.</span>
+                              <input
+                                value={editingItemNo}
+                                onChange={e => setEditingItemNo(parseInt(e.target.value) || 0)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleEditItem(item.id); if (e.key === 'Escape') { setEditingItemId(null); } }}
+                                style={{
+                                  width: 48, padding: '6px 8px', borderRadius: 6, textAlign: 'center',
+                                  border: `1px solid ${VIZ.primary}`, fontSize: 13, fontWeight: 700, outline: 'none',
+                                  color: VIZ.primary,
+                                }}
+                              />
                               <input
                                 value={editingQuestion}
                                 onChange={e => setEditingQuestion(e.target.value)}
@@ -549,10 +580,29 @@ export default function ManageCriteriaPage() {
                                 <Check size={14} /> {savingEdit ? '...' : 'บันทึก'}
                               </button>
                               <button
-                                onClick={() => { setEditingItemId(null); setEditingQuestion(''); }}
+                                onClick={() => { setEditingItemId(null); setEditingQuestion(''); setEditingItemNo(0); }}
                                 style={{ background: '#f3f4f6', color: VIZ.text, border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}
                               >
                                 <X size={14} />
+                              </button>
+                            </div>
+                          ) : deletingItemId === item.id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: '#fef2f2' }}>
+                              <span style={{ fontSize: 13, color: VIZ.accent, fontWeight: 600, flex: 1 }}>
+                                ยืนยันลบข้อ {item.item_no}? (จะลบเกณฑ์คะแนนที่เกี่ยวข้องด้วย)
+                              </span>
+                              <button
+                                onClick={() => handleDeleteItem(item.id)}
+                                disabled={deletingItem}
+                                style={{ background: VIZ.accent, color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: deletingItem ? 0.5 : 1 }}
+                              >
+                                {deletingItem ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                              </button>
+                              <button
+                                onClick={() => setDeletingItemId(null)}
+                                style={{ background: '#f3f4f6', color: VIZ.text, border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}
+                              >
+                                ยกเลิก
                               </button>
                             </div>
                           ) : (
@@ -565,11 +615,18 @@ export default function ManageCriteriaPage() {
                             <span style={{ fontWeight: 700, fontSize: 13, color: VIZ.primary, minWidth: 28 }}>{item.item_no}.</span>
                             <span onClick={() => toggleItem(item.id)} style={{ fontSize: 14, color: VIZ.text, flex: 1, cursor: 'pointer' }}>{item.question}</span>
                             <button
-                              onClick={(e) => { e.stopPropagation(); setEditingItemId(item.id); setEditingQuestion(item.question); }}
+                              onClick={(e) => { e.stopPropagation(); setEditingItemId(item.id); setEditingQuestion(item.question); setEditingItemNo(item.item_no); }}
                               title="แก้ไข"
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.lightText, padding: 4, borderRadius: 4 }}
                             >
                               <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeletingItemId(item.id); }}
+                              title="ลบ"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.neutral, padding: 4, borderRadius: 4 }}
+                            >
+                              <Trash2 size={14} />
                             </button>
                             <span style={{ fontSize: 12, color: VIZ.lightText }}>0-{item.max_score}</span>
                             <span onClick={() => toggleItem(item.id)}>{isItemExpanded ? <ChevronUp size={16} color={VIZ.neutral} /> : <ChevronDown size={16} color={VIZ.neutral} />}</span>
