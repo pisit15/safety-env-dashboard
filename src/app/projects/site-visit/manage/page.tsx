@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Settings, ChevronDown, ChevronUp, Plus, Save, X } from 'lucide-react';
+import { Settings, ChevronDown, ChevronUp, Plus, Save, X, Pencil, Check } from 'lucide-react';
 
 const VIZ = {
   primary: '#14b8a6',
@@ -73,6 +73,11 @@ export default function ManageCriteriaPage() {
   const [addingCriteriaForItem, setAddingCriteriaForItem] = useState<number | null>(null);
   const [newCriteria, setNewCriteria] = useState<Array<{ score: number; description: string }>>([]);
   const [savingCriteria, setSavingCriteria] = useState(false);
+
+  // Edit item
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     if (toast) {
@@ -236,6 +241,28 @@ export default function ManageCriteriaPage() {
       setToast({ type: 'error', msg: 'เพิ่มเกณฑ์คะแนนไม่สำเร็จ' });
     } finally {
       setSavingCriteria(false);
+    }
+  };
+
+  // --- Edit Item ---
+  const handleEditItem = async (itemId: number) => {
+    if (!editingQuestion.trim()) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch('/api/site-visit/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: itemId, question: editingQuestion.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'แก้ไขสำเร็จ' });
+      setEditingItemId(null);
+      setEditingQuestion('');
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'แก้ไขไม่สำเร็จ' });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -415,21 +442,57 @@ export default function ManageCriteriaPage() {
                       const criteria = (item.site_visit_criteria || []).sort((a, b) => a.score - b.score);
                       const isItemExpanded = expandedItems.has(item.id);
                       const isAddingCriteria = addingCriteriaForItem === item.id;
+                      const isEditing = editingItemId === item.id;
 
                       return (
                         <div key={item.id} style={{ borderBottom: idx < catItems.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                          {isEditing ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: '#fffbeb' }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: VIZ.primary, minWidth: 28 }}>{item.item_no}.</span>
+                              <input
+                                value={editingQuestion}
+                                onChange={e => setEditingQuestion(e.target.value)}
+                                autoFocus
+                                onKeyDown={e => { if (e.key === 'Enter') handleEditItem(item.id); if (e.key === 'Escape') { setEditingItemId(null); setEditingQuestion(''); } }}
+                                style={{
+                                  flex: 1, padding: '6px 10px', borderRadius: 6,
+                                  border: `1px solid ${VIZ.primary}`, fontSize: 14, outline: 'none',
+                                }}
+                              />
+                              <button
+                                onClick={() => handleEditItem(item.id)}
+                                disabled={savingEdit || !editingQuestion.trim()}
+                                style={{ background: VIZ.positive, color: '#fff', border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, fontSize: 12, opacity: savingEdit ? 0.5 : 1 }}
+                              >
+                                <Check size={14} /> {savingEdit ? '...' : 'บันทึก'}
+                              </button>
+                              <button
+                                onClick={() => { setEditingItemId(null); setEditingQuestion(''); }}
+                                style={{ background: '#f3f4f6', color: VIZ.text, border: 'none', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', fontSize: 12 }}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
                           <div
-                            onClick={() => toggleItem(item.id)}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 8,
                               padding: '12px 20px', cursor: 'pointer', background: isItemExpanded ? '#fafafa' : '#fff',
                             }}
                           >
                             <span style={{ fontWeight: 700, fontSize: 13, color: VIZ.primary, minWidth: 28 }}>{item.item_no}.</span>
-                            <span style={{ fontSize: 14, color: VIZ.text, flex: 1 }}>{item.question}</span>
+                            <span onClick={() => toggleItem(item.id)} style={{ fontSize: 14, color: VIZ.text, flex: 1, cursor: 'pointer' }}>{item.question}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingItemId(item.id); setEditingQuestion(item.question); }}
+                              title="แก้ไข"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.lightText, padding: 4, borderRadius: 4 }}
+                            >
+                              <Pencil size={14} />
+                            </button>
                             <span style={{ fontSize: 12, color: VIZ.lightText }}>0-{item.max_score}</span>
-                            {isItemExpanded ? <ChevronUp size={16} color={VIZ.neutral} /> : <ChevronDown size={16} color={VIZ.neutral} />}
+                            <span onClick={() => toggleItem(item.id)}>{isItemExpanded ? <ChevronUp size={16} color={VIZ.neutral} /> : <ChevronDown size={16} color={VIZ.neutral} />}</span>
                           </div>
+                          )}
 
                           {isItemExpanded && (
                             <div style={{ padding: '8px 20px 12px 56px', background: '#f8fafc' }}>
