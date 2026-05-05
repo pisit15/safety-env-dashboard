@@ -161,6 +161,7 @@ export const PROJECTS: ProjectConfig[] = [
       { id: 'assessments', label: 'รายการประเมิน', icon: ClipboardCheck, href: (cid) => cid === 'all' ? '/projects/site-visit' : `/projects/site-visit/${cid}` },
       { id: 'new-assessment', label: 'ประเมินใหม่', icon: ClipboardList, href: (cid) => `/projects/site-visit/${cid}/assess`, companyRequired: true },
       { id: 'history', label: 'ประวัติการประเมิน', icon: History, href: (cid) => cid === 'all' ? '/projects/site-visit/history' : `/projects/site-visit/${cid}/history`, companyRequired: true },
+      { id: 'dashboard', label: 'ภาพรวม KPI', icon: BarChart3, href: () => '/projects/site-visit/dashboard', adminOnly: true },
       { id: 'manage', label: 'จัดการเกณฑ์ประเมิน', icon: Settings, href: () => '/projects/site-visit/manage', adminOnly: true },
     ],
   },

@@ -47,6 +47,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!body.id) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    }
+    const db = getSupabase();
+    const updates: Record<string, unknown> = {};
+    if (body.score !== undefined) updates.score = body.score;
+    if (body.description !== undefined) updates.description = body.description;
+    const { data, error } = await db
+      .from('site_visit_criteria')
+      .update(updates)
+      .eq('id', body.id)
+      .select();
+    if (error) throw error;
+    return NextResponse.json({ data: data[0] });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: 'Failed to update criterion', detail: msg }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const id = request.nextUrl.searchParams.get('id');

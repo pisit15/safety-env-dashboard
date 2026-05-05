@@ -91,6 +91,12 @@ export default function ManageCriteriaPage() {
   const [editingCatSortOrder, setEditingCatSortOrder] = useState<number>(0);
   const [savingCatEdit, setSavingCatEdit] = useState(false);
 
+  // Edit criterion
+  const [editingCritId, setEditingCritId] = useState<number | null>(null);
+  const [editingCritDesc, setEditingCritDesc] = useState('');
+  const [editingCritScore, setEditingCritScore] = useState<number>(0);
+  const [savingCritEdit, setSavingCritEdit] = useState(false);
+
   useEffect(() => {
     if (toast) {
       const t = setTimeout(() => setToast(null), 3000);
@@ -318,6 +324,37 @@ export default function ManageCriteriaPage() {
     }
   };
 
+  // --- Edit Criterion ---
+  const handleEditCriterion = async (critId: number) => {
+    setSavingCritEdit(true);
+    try {
+      const res = await fetch('/api/site-visit/criteria', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: critId, description: editingCritDesc.trim(), score: editingCritScore }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'แก้ไขเกณฑ์สำเร็จ' });
+      setEditingCritId(null);
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'แก้ไขเกณฑ์ไม่สำเร็จ' });
+    } finally {
+      setSavingCritEdit(false);
+    }
+  };
+
+  const handleDeleteCriterion = async (critId: number) => {
+    try {
+      const res = await fetch(`/api/site-visit/criteria?id=${critId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed');
+      setToast({ type: 'success', msg: 'ลบเกณฑ์สำเร็จ' });
+      await loadData();
+    } catch {
+      setToast({ type: 'error', msg: 'ลบเกณฑ์ไม่สำเร็จ' });
+    }
+  };
+
   if (!isAdmin) return null;
 
   const catIds = new Set(categories.map(c => c.id));
@@ -363,7 +400,7 @@ export default function ManageCriteriaPage() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20 }}>
         {([
-          { key: 'safety' as const, label: 'ความปลอดภัย (CBUM)', icon: '🛡️' },
+          { key: 'safety' as const, label: 'ความปลอดภัย', icon: '🛡️' },
           { key: 'environment' as const, label: 'สิ่งแวดล้อม', icon: '🌿' },
         ]).map(tab => (
           <button
@@ -649,8 +686,30 @@ export default function ManageCriteriaPage() {
                                 <>
                                   <div style={{ fontSize: 12, fontWeight: 600, color: VIZ.lightText, marginBottom: 6 }}>เกณฑ์คะแนน:</div>
                                   {criteria.map(c => (
+                                    editingCritId === c.id ? (
+                                      <div key={c.id} style={{ display: 'flex', gap: 6, padding: '4px 0', alignItems: 'center' }}>
+                                        <input
+                                          value={editingCritScore}
+                                          onChange={e => setEditingCritScore(parseInt(e.target.value) || 0)}
+                                          style={{ width: 36, padding: '4px 6px', borderRadius: 4, border: `1px solid ${VIZ.primary}`, fontSize: 13, fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                                        />
+                                        <input
+                                          value={editingCritDesc}
+                                          onChange={e => setEditingCritDesc(e.target.value)}
+                                          autoFocus
+                                          onKeyDown={e => { if (e.key === 'Enter') handleEditCriterion(c.id); if (e.key === 'Escape') setEditingCritId(null); }}
+                                          style={{ flex: 1, padding: '4px 8px', borderRadius: 4, border: `1px solid ${VIZ.primary}`, fontSize: 13, outline: 'none' }}
+                                        />
+                                        <button onClick={() => handleEditCriterion(c.id)} disabled={savingCritEdit} style={{ background: VIZ.positive, color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                                          <Check size={12} />
+                                        </button>
+                                        <button onClick={() => setEditingCritId(null)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 4, padding: '4px 6px', cursor: 'pointer' }}>
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    ) : (
                                     <div key={c.id} style={{
-                                      display: 'flex', gap: 8, padding: '4px 0', fontSize: 13,
+                                      display: 'flex', gap: 8, padding: '4px 0', fontSize: 13, alignItems: 'center',
                                       color: c.description === '-' ? VIZ.muted : VIZ.text,
                                     }}>
                                       <span style={{
@@ -660,8 +719,21 @@ export default function ManageCriteriaPage() {
                                       }}>
                                         {c.score}
                                       </span>
-                                      <span>{c.description}</span>
+                                      <span style={{ flex: 1 }}>{c.description}</span>
+                                      <button
+                                        onClick={() => { setEditingCritId(c.id); setEditingCritDesc(c.description); setEditingCritScore(c.score); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.neutral, padding: 2 }}
+                                      >
+                                        <Pencil size={11} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteCriterion(c.id)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: VIZ.neutral, padding: 2 }}
+                                      >
+                                        <Trash2 size={11} />
+                                      </button>
                                     </div>
+                                    )
                                   ))}
                                 </>
                               )}
