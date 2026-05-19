@@ -206,7 +206,7 @@ export default function CompanyTraining() {
   // Feature 7: Attendee sub-panel (separated from main modal)
   const [showAttendeePanel, setShowAttendeePanel] = useState(false);
   const [attendeeViewTab, setAttendeeViewTab] = useState<'all' | 'selected'>('all');
-  const [attendeeSortKey, setAttendeeSortKey] = useState<'name' | 'dept' | 'position'>('name');
+  const [attendeeSortKey, setAttendeeSortKey] = useState<'code' | 'name' | 'dept' | 'position'>('name');
   const [attendeeSortAsc, setAttendeeSortAsc] = useState(true);
 
   // ═══ Open Seats (cross-company + internal registration) ═══
@@ -3108,7 +3108,8 @@ export default function CompanyTraining() {
                     const bIsAtt = findAttendeeFor(b) ? 1 : 0;
                     if (attendeeViewTab === 'all' && aIsAtt !== bIsAtt) return bIsAtt - aIsAtt;
                     let cmp = 0;
-                    if (attendeeSortKey === 'name') cmp = (a.first_name || '').localeCompare(b.first_name || '');
+                    if (attendeeSortKey === 'code') cmp = (a.emp_code || '').localeCompare(b.emp_code || '');
+                    else if (attendeeSortKey === 'name') cmp = (a.first_name || '').localeCompare(b.first_name || '');
                     else if (attendeeSortKey === 'dept') cmp = (a.department || '').localeCompare(b.department || '');
                     else if (attendeeSortKey === 'position') cmp = (a.position || '').localeCompare(b.position || '');
                     return attendeeSortAsc ? cmp : -cmp;
@@ -3135,7 +3136,7 @@ export default function CompanyTraining() {
                   };
 
                   // Sort header helper
-                  const SortTh = ({ label, sortKey, style: thSt }: { label: string; sortKey: 'name' | 'dept' | 'position'; style?: React.CSSProperties }) => (
+                  const SortTh = ({ label, sortKey, style: thSt }: { label: string; sortKey: 'code' | 'name' | 'dept' | 'position'; style?: React.CSSProperties }) => (
                     <th style={{ padding: '7px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...thSt }}
                       onClick={() => { if (attendeeSortKey === sortKey) setAttendeeSortAsc(!attendeeSortAsc); else { setAttendeeSortKey(sortKey); setAttendeeSortAsc(true); } }}>
                       {label} {attendeeSortKey === sortKey ? (attendeeSortAsc ? '▲' : '▼') : <span style={{ color: 'var(--border)' }}>⇅</span>}
@@ -3195,7 +3196,7 @@ export default function CompanyTraining() {
                                     title={allFilteredSelected ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด'}
                                   />
                                 </th>
-                                <th style={{ padding: '7px 8px', textAlign: 'left', fontSize: 11, fontWeight: 600 }}>รหัส</th>
+                                <SortTh label="รหัส" sortKey="code" />
                                 <SortTh label="ชื่อ-สกุล" sortKey="name" />
                                 <SortTh label="ตำแหน่ง" sortKey="position" />
                                 <SortTh label="แผนก" sortKey="dept" />
