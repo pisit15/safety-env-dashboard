@@ -151,7 +151,7 @@ export default function CompanyTraining() {
   const [newAttendee, setNewAttendee] = useState({ emp_code: '', first_name: '', last_name: '', gender: '', position: '', department: '' });
 
   // Employee suggestion state (reuse previously added attendees)
-  const [companyEmployees, setCompanyEmployees] = useState<{ emp_code: string; first_name: string; last_name: string; gender: string; position: string; department: string }[]>([]);
+  const [companyEmployees, setCompanyEmployees] = useState<{ id?: string; emp_code: string; first_name: string; last_name: string; gender: string; position: string; department: string }[]>([]);
   const [empSearch, setEmpSearch] = useState('');
   const [showEmpSuggestions, setShowEmpSuggestions] = useState(false);
   const [employeesLoaded, setEmployeesLoaded] = useState(false);
@@ -166,6 +166,13 @@ export default function CompanyTraining() {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualEmp, setManualEmp] = useState({ emp_code: '', first_name: '', last_name: '', position: '', department: '' });
   const [manualSaving, setManualSaving] = useState(false);
+
+  // Edit/Delete employee
+  const [editingEmpId, setEditingEmpId] = useState<string | null>(null);
+  const [editingEmpData, setEditingEmpData] = useState({ emp_code: '', first_name: '', last_name: '', position: '', department: '' });
+  const [savingEmpEdit, setSavingEmpEdit] = useState(false);
+  const [deletingEmpId, setDeletingEmpId] = useState<string | null>(null);
+  const [deletingEmpSaving, setDeletingEmpSaving] = useState(false);
 
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -856,6 +863,37 @@ export default function CompanyTraining() {
     } finally {
       setManualSaving(false);
     }
+  };
+
+  const handleEditEmployee = async () => {
+    if (!editingEmpId || !editingEmpData.first_name.trim()) return;
+    setSavingEmpEdit(true);
+    try {
+      const res = await fetch('/api/training/employees', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingEmpId, ...editingEmpData }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setEditingEmpId(null);
+        fetchCompanyEmployees(true);
+      }
+    } catch { /* ignore */ }
+    setSavingEmpEdit(false);
+  };
+
+  const handleDeleteEmployee = async (empId: string) => {
+    setDeletingEmpSaving(true);
+    try {
+      const res = await fetch(`/api/training/employees?id=${empId}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (result.success) {
+        setDeletingEmpId(null);
+        fetchCompanyEmployees(true);
+      }
+    } catch { /* ignore */ }
+    setDeletingEmpSaving(false);
   };
 
   // Import training plan from Excel
@@ -3140,10 +3178,11 @@ export default function CompanyTraining() {
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed' }}>
                             <colgroup>
                               <col style={{ width: 36 }} />
-                              <col style={{ width: 80 }} />
+                              <col style={{ width: 75 }} />
                               <col />
-                              <col style={{ width: '25%' }} />
                               <col style={{ width: '22%' }} />
+                              <col style={{ width: '18%' }} />
+                              <col style={{ width: 56 }} />
                             </colgroup>
                             <thead>
                               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
@@ -3160,6 +3199,7 @@ export default function CompanyTraining() {
                                 <SortTh label="ชื่อ-สกุล" sortKey="name" />
                                 <SortTh label="ตำแหน่ง" sortKey="position" />
                                 <SortTh label="แผนก" sortKey="dept" />
+                                <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: 10, fontWeight: 600 }}>จัดการ</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3168,6 +3208,76 @@ export default function CompanyTraining() {
                                 const isAttendee = !!att;
                                 const empK = `${emp.emp_code}_${emp.first_name}_${emp.last_name}`;
                                 const isToggling = togglingEmp.has(empK);
+                                const isEditing = editingEmpId === emp.id;
+                                const isDeleting = deletingEmpId === emp.id;
+
+                                if (isDeleting) {
+                                  return (
+                                    <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(239,68,68,0.08)' }}>
+                                      <td colSpan={6} style={{ padding: '8px 12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                          <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
+                                            ลบ {emp.first_name} {emp.last_name} ({emp.emp_code || 'ไม่มีรหัส'}) ?
+                                          </span>
+                                          <div style={{ display: 'flex', gap: 6 }}>
+                                            <button onClick={(e) => { e.stopPropagation(); setDeletingEmpId(null); }}
+                                              style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid var(--border)', background: '#fff', fontSize: 11, cursor: 'pointer' }}>ยกเลิก</button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.id!); }}
+                                              disabled={deletingEmpSaving}
+                                              style={{ padding: '3px 10px', borderRadius: 4, border: 'none', background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                              {deletingEmpSaving ? '...' : 'ยืนยันลบ'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+
+                                if (isEditing) {
+                                  return (
+                                    <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
+                                      <td style={{ padding: '4px 4px', textAlign: 'center' }}>
+                                        <span style={{ fontSize: 10 }}>✏️</span>
+                                      </td>
+                                      <td style={{ padding: '4px 4px' }}>
+                                        <input value={editingEmpData.emp_code} onChange={e => setEditingEmpData(p => ({ ...p, emp_code: e.target.value }))}
+                                          style={{ width: '100%', fontSize: 11, padding: '3px 4px', border: '1px solid #93c5fd', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }} />
+                                      </td>
+                                      <td style={{ padding: '4px 4px' }}>
+                                        <div style={{ display: 'flex', gap: 2 }}>
+                                          <input value={editingEmpData.first_name} onChange={e => setEditingEmpData(p => ({ ...p, first_name: e.target.value }))} placeholder="ชื่อ *"
+                                            style={{ flex: 1, fontSize: 11, padding: '3px 4px', border: '1px solid #93c5fd', borderRadius: 4, outline: 'none', minWidth: 0 }} />
+                                          <input value={editingEmpData.last_name} onChange={e => setEditingEmpData(p => ({ ...p, last_name: e.target.value }))} placeholder="สกุล"
+                                            style={{ flex: 1, fontSize: 11, padding: '3px 4px', border: '1px solid #93c5fd', borderRadius: 4, outline: 'none', minWidth: 0 }} />
+                                        </div>
+                                      </td>
+                                      <td style={{ padding: '4px 4px' }}>
+                                        <input value={editingEmpData.position} onChange={e => setEditingEmpData(p => ({ ...p, position: e.target.value }))}
+                                          style={{ width: '100%', fontSize: 11, padding: '3px 4px', border: '1px solid #93c5fd', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }} />
+                                      </td>
+                                      <td style={{ padding: '4px 4px' }}>
+                                        <input value={editingEmpData.department} onChange={e => setEditingEmpData(p => ({ ...p, department: e.target.value }))}
+                                          style={{ width: '100%', fontSize: 11, padding: '3px 4px', border: '1px solid #93c5fd', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }} />
+                                      </td>
+                                      <td style={{ padding: '4px 2px', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                                          <button onClick={(e) => { e.stopPropagation(); handleEditEmployee(); }} disabled={savingEmpEdit || !editingEmpData.first_name.trim()}
+                                            title="บันทึก"
+                                            style={{ width: 24, height: 24, borderRadius: 4, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {savingEmpEdit ? '…' : '✓'}
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); setEditingEmpId(null); }}
+                                            title="ยกเลิก"
+                                            style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid var(--border)', background: '#fff', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            ✕
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+
                                 return (
                                   <tr key={idx} style={{
                                     borderBottom: '1px solid var(--border)',
@@ -3187,6 +3297,22 @@ export default function CompanyTraining() {
                                     </td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.position || ''}>{emp.position || '-'}</td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.department || ''}>{emp.department || '-'}</td>
+                                    <td style={{ padding: '3px 2px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                      {emp.id && (
+                                        <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                                          <button onClick={() => { setEditingEmpId(emp.id!); setEditingEmpData({ emp_code: emp.emp_code, first_name: emp.first_name, last_name: emp.last_name, position: emp.position, department: emp.department }); }}
+                                            title="แก้ไข"
+                                            style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
+                                            ✎
+                                          </button>
+                                          <button onClick={() => setDeletingEmpId(emp.id!)}
+                                            title="ลบ"
+                                            style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+                                            ✕
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
                                   </tr>
                                 );
                               })}
