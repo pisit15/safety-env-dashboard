@@ -3230,7 +3230,7 @@ export default function CompanyTraining() {
                               <col />
                               <col style={{ width: '22%' }} />
                               <col style={{ width: '18%' }} />
-                              <col style={{ width: 56 }} />
+                              {attendeeViewTab === 'all' && <col style={{ width: 56 }} />}
                             </colgroup>
                             <thead>
                               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
@@ -3247,7 +3247,7 @@ export default function CompanyTraining() {
                                 <SortTh label="ชื่อ-สกุล" sortKey="name" />
                                 <SortTh label="ตำแหน่ง" sortKey="position" />
                                 <SortTh label="แผนก" sortKey="dept" />
-                                <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: 10, fontWeight: 600, borderLeft: '1px solid var(--border)' }}>จัดการ</th>
+                                {attendeeViewTab === 'all' && <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: 10, fontWeight: 600, borderLeft: '1px solid var(--border)' }}>จัดการ</th>}
                               </tr>
                             </thead>
                             <tbody>
@@ -3259,7 +3259,7 @@ export default function CompanyTraining() {
                                 const isEditing = editingEmpId === emp.id;
                                 const isDeleting = deletingEmpId === emp.id;
 
-                                if (isDeleting) {
+                                if (isDeleting && attendeeViewTab === 'all') {
                                   return (
                                     <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(239,68,68,0.08)' }}>
                                       <td colSpan={6} style={{ padding: '8px 12px' }}>
@@ -3282,7 +3282,7 @@ export default function CompanyTraining() {
                                   );
                                 }
 
-                                if (isEditing) {
+                                if (isEditing && attendeeViewTab === 'all') {
                                   return (
                                     <tr key={idx} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
                                       <td style={{ padding: '4px 4px', textAlign: 'center' }}>
@@ -3345,6 +3345,7 @@ export default function CompanyTraining() {
                                     </td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.position || ''}>{emp.position || '-'}</td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.department || ''}>{emp.department || '-'}</td>
+                                    {attendeeViewTab === 'all' && (
                                     <td style={{ padding: '3px 2px', textAlign: 'center', borderLeft: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
                                       {emp.id && (
                                         <div className="emp-action-btns" style={{ display: 'flex', gap: 2, justifyContent: 'center', opacity: 0.3, transition: 'opacity 0.15s' }}
@@ -3363,6 +3364,7 @@ export default function CompanyTraining() {
                                         </div>
                                       )}
                                     </td>
+                                    )}
                                   </tr>
                                 );
                               })}
