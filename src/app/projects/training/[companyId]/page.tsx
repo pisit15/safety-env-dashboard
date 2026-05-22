@@ -3040,14 +3040,14 @@ export default function CompanyTraining() {
                   </button>
                 </div>
                 {/* Tabs: All / Selected */}
-                <div style={{ display: 'flex', gap: 0, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <button onClick={() => setAttendeeViewTab('all')}
-                    style={{ flex: 1, padding: '6px 12px', border: 'none', fontSize: 11, fontWeight: attendeeViewTab === 'all' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'all' ? 'var(--accent)' : 'var(--bg)', color: attendeeViewTab === 'all' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
-                    ทั้งหมด ({companyEmployees.length})
+                    style={{ flex: 1, padding: '8px 12px', border: 'none', fontSize: 12, fontWeight: attendeeViewTab === 'all' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'all' ? 'var(--accent)' : 'var(--bg)', color: attendeeViewTab === 'all' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <span style={{ fontSize: 13 }}>👥</span> รายชื่อทั้งหมด <span style={{ background: attendeeViewTab === 'all' ? 'rgba(255,255,255,0.25)' : 'var(--border)', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{companyEmployees.length}</span>
                   </button>
                   <button onClick={() => setAttendeeViewTab('selected')}
-                    style={{ flex: 1, padding: '6px 12px', border: 'none', borderLeft: '1px solid var(--border)', fontSize: 11, fontWeight: attendeeViewTab === 'selected' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'selected' ? STATUS.positive : 'var(--bg)', color: attendeeViewTab === 'selected' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
-                    เลือกแล้ว ({attendees.length})
+                    style={{ flex: 1, padding: '8px 12px', border: 'none', borderLeft: '1px solid var(--border)', fontSize: 12, fontWeight: attendeeViewTab === 'selected' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'selected' ? STATUS.positive : 'var(--bg)', color: attendeeViewTab === 'selected' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                    <span style={{ fontSize: 13 }}>✅</span> ผู้เข้าอบรม <span style={{ background: attendeeViewTab === 'selected' ? 'rgba(255,255,255,0.25)' : attendees.length > 0 ? 'rgba(22,163,74,0.15)' : 'var(--border)', color: attendeeViewTab === 'selected' ? '#fff' : attendees.length > 0 ? STATUS.positive : 'var(--text-secondary)', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{attendees.length}</span>
                   </button>
                 </div>
               </div>
@@ -3200,7 +3200,7 @@ export default function CompanyTraining() {
                                 <SortTh label="ชื่อ-สกุล" sortKey="name" />
                                 <SortTh label="ตำแหน่ง" sortKey="position" />
                                 <SortTh label="แผนก" sortKey="dept" />
-                                <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: 10, fontWeight: 600 }}>จัดการ</th>
+                                <th style={{ padding: '7px 4px', textAlign: 'center', fontSize: 10, fontWeight: 600, borderLeft: '1px solid var(--border)' }}>จัดการ</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -3298,16 +3298,18 @@ export default function CompanyTraining() {
                                     </td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.position || ''}>{emp.position || '-'}</td>
                                     <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={emp.department || ''}>{emp.department || '-'}</td>
-                                    <td style={{ padding: '3px 2px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                    <td style={{ padding: '3px 2px', textAlign: 'center', borderLeft: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
                                       {emp.id && (
-                                        <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                                        <div className="emp-action-btns" style={{ display: 'flex', gap: 2, justifyContent: 'center', opacity: 0.3, transition: 'opacity 0.15s' }}
+                                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.3'; }}>
                                           <button onClick={() => { setEditingEmpId(emp.id!); setEditingEmpData({ emp_code: emp.emp_code, first_name: emp.first_name, last_name: emp.last_name, position: emp.position, department: emp.department }); }}
-                                            title="แก้ไข"
+                                            title="แก้ไขข้อมูลพนักงาน"
                                             style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}>
                                             ✎
                                           </button>
                                           <button onClick={() => setDeletingEmpId(emp.id!)}
-                                            title="ลบ"
+                                            title="ลบพนักงานออกจากระบบ"
                                             style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
                                             ✕
                                           </button>
@@ -3321,18 +3323,33 @@ export default function CompanyTraining() {
                           </table>
                         </div>
                       )}
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>
-                          แสดง {sorted.length} คน • เข้าอบรม <b style={{ color: STATUS.positive }}>{attendees.length}</b> คน
-                          {selectedPlan.planned_participants > 0 && <span> • แผน {selectedPlan.planned_participants} คน</span>}
-                        </span>
-                        {attendees.length > 0 && selectedPlan.planned_participants > 0 && (
-                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600,
-                            background: attendees.length >= selectedPlan.planned_participants ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
-                            color: attendees.length >= selectedPlan.planned_participants ? STATUS.positive : STATUS.warning,
-                          }}>
-                            {attendees.length >= selectedPlan.planned_participants ? '✓ ครบตามแผน' : `ขาดอีก ${selectedPlan.planned_participants - attendees.length} คน`}
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>
+                            {(bulkFilterDept || bulkFilterPos || empSearch.trim()) ? (
+                              <>🔍 กรองแสดง <b>{sorted.length}</b> จาก {companyEmployees.length} คน</>
+                            ) : (
+                              <>รายชื่อ {sorted.length} คน</>
+                            )}
                           </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ background: 'rgba(22,163,74,0.1)', padding: '2px 10px', borderRadius: 10, fontWeight: 600, color: STATUS.positive }}>
+                              ✅ เข้าอบรม {attendees.length} คน
+                            </span>
+                            {selectedPlan.planned_participants > 0 && (
+                              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600,
+                                background: attendees.length >= selectedPlan.planned_participants ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
+                                color: attendees.length >= selectedPlan.planned_participants ? STATUS.positive : STATUS.warning,
+                              }}>
+                                {attendees.length >= selectedPlan.planned_participants ? '✓ ครบตามแผน' : `ขาดอีก ${selectedPlan.planned_participants - attendees.length} คน`}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {(bulkFilterDept || bulkFilterPos || empSearch.trim()) && (
+                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                            💡 ตัวกรองมีผลกับการแสดงผลเท่านั้น — จำนวนผู้เข้าอบรมจริงดูที่ป้าย &quot;เข้าอบรม&quot;
+                          </div>
                         )}
                       </div>
                     </>
