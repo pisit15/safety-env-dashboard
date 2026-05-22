@@ -3323,32 +3323,11 @@ export default function CompanyTraining() {
                           </table>
                         </div>
                       )}
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>
-                            {(bulkFilterDept || bulkFilterPos || empSearch.trim()) ? (
-                              <>🔍 กรองแสดง <b>{sorted.length}</b> จาก {companyEmployees.length} คน</>
-                            ) : (
-                              <>รายชื่อ {sorted.length} คน</>
-                            )}
-                          </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ background: 'rgba(22,163,74,0.1)', padding: '2px 10px', borderRadius: 10, fontWeight: 600, color: STATUS.positive }}>
-                              ✅ เข้าอบรม {attendees.length} คน
-                            </span>
-                            {selectedPlan.planned_participants > 0 && (
-                              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 600,
-                                background: attendees.length >= selectedPlan.planned_participants ? 'rgba(22,163,74,0.1)' : 'rgba(245,158,11,0.1)',
-                                color: attendees.length >= selectedPlan.planned_participants ? STATUS.positive : STATUS.warning,
-                              }}>
-                                {attendees.length >= selectedPlan.planned_participants ? '✓ ครบตามแผน' : `ขาดอีก ${selectedPlan.planned_participants - attendees.length} คน`}
-                              </span>
-                            )}
-                          </span>
-                        </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>
                         {(bulkFilterDept || bulkFilterPos || empSearch.trim()) && (
-                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                            💡 ตัวกรองมีผลกับการแสดงผลเท่านั้น — จำนวนผู้เข้าอบรมจริงดูที่ป้าย &quot;เข้าอบรม&quot;
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', background: 'rgba(59,130,246,0.06)', borderRadius: 6, border: '1px solid rgba(59,130,246,0.15)' }}>
+                            <span style={{ fontSize: 12 }}>🔍</span>
+                            <span style={{ fontSize: 11, color: '#3b82f6' }}>กรองแสดง <b>{sorted.length}</b> จาก {attendeeViewTab === 'selected' ? attendees.length : companyEmployees.length} คน</span>
                           </div>
                         )}
                       </div>
@@ -3372,7 +3351,7 @@ export default function CompanyTraining() {
                     cursor: attendees.length > 0 ? 'pointer' : 'not-allowed',
                     boxShadow: attendees.length > 0 ? '0 2px 8px rgba(22,163,74,0.3)' : 'none',
                   }}>
-                  ✓ เสร็จสิ้น ({attendees.length} คน)
+                  ✓ เสร็จสิ้น
                 </button>
               </div>
             </div>
