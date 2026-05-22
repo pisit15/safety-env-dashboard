@@ -3098,8 +3098,41 @@ export default function CompanyTraining() {
                     return true;
                   });
                   // Apply tab filter
+                  // For "selected" tab: also include attendees NOT in company_employees
+                  const unmatchedAttendees: typeof companyEmployees = [];
+                  if (attendeeViewTab === 'selected') {
+                    const matchedKeys = new Set<string>();
+                    companyEmployees.forEach(emp => {
+                      if (findAttendeeFor(emp)) {
+                        if (emp.emp_code) matchedKeys.add(`code:${emp.emp_code}`);
+                        matchedKeys.add(`name:${emp.first_name}_${emp.last_name}`);
+                      }
+                    });
+                    attendees.forEach(a => {
+                      const byCode = a.emp_code ? matchedKeys.has(`code:${a.emp_code}`) : false;
+                      const byName = matchedKeys.has(`name:${a.first_name}_${a.last_name}`);
+                      if (!byCode && !byName) {
+                        // Apply search filter to unmatched too
+                        if (empSearch.trim()) {
+                          const q = empSearch.toLowerCase();
+                          if (!(a.first_name || '').toLowerCase().includes(q) && !(a.last_name || '').toLowerCase().includes(q) && !(a.emp_code || '').toLowerCase().includes(q)) return;
+                        }
+                        if (bulkFilterDept && (a.department || '') !== bulkFilterDept) return;
+                        if (bulkFilterPos && (a.position || '') !== bulkFilterPos) return;
+                        unmatchedAttendees.push({
+                          id: a.id,
+                          emp_code: a.emp_code || '',
+                          first_name: a.first_name || '',
+                          last_name: a.last_name || '',
+                          gender: a.gender || '',
+                          position: a.position || '',
+                          department: a.department || '',
+                        });
+                      }
+                    });
+                  }
                   const tabFiltered = attendeeViewTab === 'selected'
-                    ? filteredEmps.filter(emp => !!findAttendeeFor(emp))
+                    ? [...filteredEmps.filter(emp => !!findAttendeeFor(emp)), ...unmatchedAttendees]
                     : filteredEmps;
 
                   // Apply sorting
