@@ -3040,16 +3040,32 @@ export default function CompanyTraining() {
                   </button>
                 </div>
                 {/* Tabs: All / Selected */}
+                {(() => {
+                  // Count unmatched attendees for accurate tab badge
+                  const empKeys = new Set<string>();
+                  companyEmployees.forEach(emp => {
+                    if (emp.emp_code) empKeys.add(`code:${emp.emp_code}`);
+                    empKeys.add(`name:${emp.first_name}_${emp.last_name}`);
+                  });
+                  const unmatchedCount = attendees.filter(a => {
+                    const byCode = a.emp_code ? empKeys.has(`code:${a.emp_code}`) : false;
+                    const byName = empKeys.has(`name:${a.first_name}_${a.last_name}`);
+                    return !byCode && !byName;
+                  }).length;
+                  const totalAll = companyEmployees.length + unmatchedCount;
+                  return (
                 <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <button onClick={() => setAttendeeViewTab('all')}
                     style={{ flex: 1, padding: '8px 12px', border: 'none', fontSize: 12, fontWeight: attendeeViewTab === 'all' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'all' ? 'var(--accent)' : 'var(--bg)', color: attendeeViewTab === 'all' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                    <span style={{ fontSize: 13 }}>👥</span> รายชื่อทั้งหมด <span style={{ background: attendeeViewTab === 'all' ? 'rgba(255,255,255,0.25)' : 'var(--border)', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{companyEmployees.length}</span>
+                    <span style={{ fontSize: 13 }}>👥</span> รายชื่อทั้งหมด <span style={{ background: attendeeViewTab === 'all' ? 'rgba(255,255,255,0.25)' : 'var(--border)', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{totalAll}</span>
                   </button>
                   <button onClick={() => setAttendeeViewTab('selected')}
                     style={{ flex: 1, padding: '8px 12px', border: 'none', borderLeft: '1px solid var(--border)', fontSize: 12, fontWeight: attendeeViewTab === 'selected' ? 700 : 400, cursor: 'pointer', background: attendeeViewTab === 'selected' ? STATUS.positive : 'var(--bg)', color: attendeeViewTab === 'selected' ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                     <span style={{ fontSize: 13 }}>✅</span> ผู้เข้าอบรม <span style={{ background: attendeeViewTab === 'selected' ? 'rgba(255,255,255,0.25)' : attendees.length > 0 ? 'rgba(22,163,74,0.15)' : 'var(--border)', color: attendeeViewTab === 'selected' ? '#fff' : attendees.length > 0 ? STATUS.positive : 'var(--text-secondary)', padding: '1px 7px', borderRadius: 10, fontSize: 10, fontWeight: 700 }}>{attendees.length}</span>
                   </button>
                 </div>
+                  );
+                })()}
               </div>
 
               {/* Panel Body */}
@@ -3097,43 +3113,41 @@ export default function CompanyTraining() {
                     }
                     return true;
                   });
-                  // Apply tab filter
-                  // For "selected" tab: also include attendees NOT in company_employees
+                  // Find attendees NOT in company_employees (unmatched)
+                  const matchedKeys = new Set<string>();
+                  companyEmployees.forEach(emp => {
+                    if (findAttendeeFor(emp)) {
+                      if (emp.emp_code) matchedKeys.add(`code:${emp.emp_code}`);
+                      matchedKeys.add(`name:${emp.first_name}_${emp.last_name}`);
+                    }
+                  });
                   const unmatchedAttendees: typeof companyEmployees = [];
-                  if (attendeeViewTab === 'selected') {
-                    const matchedKeys = new Set<string>();
-                    companyEmployees.forEach(emp => {
-                      if (findAttendeeFor(emp)) {
-                        if (emp.emp_code) matchedKeys.add(`code:${emp.emp_code}`);
-                        matchedKeys.add(`name:${emp.first_name}_${emp.last_name}`);
+                  attendees.forEach(a => {
+                    const byCode = a.emp_code ? matchedKeys.has(`code:${a.emp_code}`) : false;
+                    const byName = matchedKeys.has(`name:${a.first_name}_${a.last_name}`);
+                    if (!byCode && !byName) {
+                      // Apply search/dept/pos filter
+                      if (empSearch.trim()) {
+                        const q = empSearch.toLowerCase();
+                        if (!(a.first_name || '').toLowerCase().includes(q) && !(a.last_name || '').toLowerCase().includes(q) && !(a.emp_code || '').toLowerCase().includes(q)) return;
                       }
-                    });
-                    attendees.forEach(a => {
-                      const byCode = a.emp_code ? matchedKeys.has(`code:${a.emp_code}`) : false;
-                      const byName = matchedKeys.has(`name:${a.first_name}_${a.last_name}`);
-                      if (!byCode && !byName) {
-                        // Apply search filter to unmatched too
-                        if (empSearch.trim()) {
-                          const q = empSearch.toLowerCase();
-                          if (!(a.first_name || '').toLowerCase().includes(q) && !(a.last_name || '').toLowerCase().includes(q) && !(a.emp_code || '').toLowerCase().includes(q)) return;
-                        }
-                        if (bulkFilterDept && (a.department || '') !== bulkFilterDept) return;
-                        if (bulkFilterPos && (a.position || '') !== bulkFilterPos) return;
-                        unmatchedAttendees.push({
-                          id: a.id,
-                          emp_code: a.emp_code || '',
-                          first_name: a.first_name || '',
-                          last_name: a.last_name || '',
-                          gender: a.gender || '',
-                          position: a.position || '',
-                          department: a.department || '',
-                        });
-                      }
-                    });
-                  }
+                      if (bulkFilterDept && (a.department || '') !== bulkFilterDept) return;
+                      if (bulkFilterPos && (a.position || '') !== bulkFilterPos) return;
+                      unmatchedAttendees.push({
+                        id: a.id,
+                        emp_code: a.emp_code || '',
+                        first_name: a.first_name || '',
+                        last_name: a.last_name || '',
+                        gender: a.gender || '',
+                        position: a.position || '',
+                        department: a.department || '',
+                      });
+                    }
+                  });
+                  // Apply tab filter — both tabs include unmatched attendees
                   const tabFiltered = attendeeViewTab === 'selected'
                     ? [...filteredEmps.filter(emp => !!findAttendeeFor(emp)), ...unmatchedAttendees]
-                    : filteredEmps;
+                    : [...filteredEmps, ...unmatchedAttendees];
 
                   // Apply sorting
                   const sorted = [...tabFiltered].sort((a, b) => {
