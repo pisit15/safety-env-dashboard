@@ -75,7 +75,7 @@ export default function AdminPage() {
   const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany' | 'notify'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<CancellationRequest[]>([]);
@@ -91,6 +91,23 @@ export default function AdminPage() {
   const AUDIT_PAGE_SIZE = 30;
   const [deadlineEnabled, setDeadlineEnabled] = useState(true);
   const [deadlineToggleLoading, setDeadlineToggleLoading] = useState(false);
+
+  // Notification recipients (monthly email digest)
+  interface NotifyRecipient {
+    id: string; company_id: string; responsible_name: string; email: string;
+    is_active: boolean; last_sent_at?: string | null;
+  }
+  const [notifyRecipients, setNotifyRecipients] = useState<NotifyRecipient[]>([]);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [newNotifyCompanyId, setNewNotifyCompanyId] = useState('');
+  const [newNotifyName, setNewNotifyName] = useState('');
+  const [newNotifyEmail, setNewNotifyEmail] = useState('');
+  const [notifySaving, setNotifySaving] = useState(false);
+  const [notifyTestingId, setNotifyTestingId] = useState<string | null>(null);
+  const [notifyMsg, setNotifyMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  useEffect(() => {
+    if (notifyMsg) { const t = setTimeout(() => setNotifyMsg(null), 6000); return () => clearTimeout(t); }
+  }, [notifyMsg]);
 
   // New credential form
   const [showNewCredForm, setShowNewCredForm] = useState(false);
@@ -482,7 +499,79 @@ export default function AdminPage() {
     if (activeTab === 'dsd') fetchDsdCourses();
     if (activeTab === 'companies') fetchCompanySettings();
     if (activeTab === 'multicompany') fetchMcMappings();
+    if (activeTab === 'notify') fetchNotifyRecipients();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses, fetchCompanySettings, fetchMcMappings]);
+
+  // ── Notification recipients handlers ──
+  const fetchNotifyRecipients = () => {
+    setNotifyLoading(true);
+    fetch('/api/notifications/recipients')
+      .then(r => r.json())
+      .then(d => setNotifyRecipients(d.recipients || []))
+      .catch(() => setNotifyRecipients([]))
+      .finally(() => setNotifyLoading(false));
+  };
+
+  const handleAddRecipient = async () => {
+    if (!newNotifyCompanyId || !newNotifyName.trim() || !newNotifyEmail.trim()) {
+      setNotifyMsg({ type: 'error', msg: 'กรุณากรอก บริษัท / ชื่อผู้รับผิดชอบ / อีเมล ให้ครบ' });
+      return;
+    }
+    setNotifySaving(true);
+    try {
+      const res = await fetch('/api/notifications/recipients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: newNotifyCompanyId, responsibleName: newNotifyName, email: newNotifyEmail }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'บันทึกไม่สำเร็จ');
+      setNewNotifyName(''); setNewNotifyEmail('');
+      setNotifyMsg({ type: 'success', msg: 'เพิ่มผู้รับแจ้งเตือนแล้ว' });
+      fetchNotifyRecipients();
+    } catch (err) {
+      setNotifyMsg({ type: 'error', msg: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' });
+    }
+    setNotifySaving(false);
+  };
+
+  const handleToggleRecipient = async (r: NotifyRecipient) => {
+    await fetch('/api/notifications/recipients', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: r.id, isActive: !r.is_active }),
+    });
+    fetchNotifyRecipients();
+  };
+
+  const handleDeleteRecipient = async (id: string) => {
+    await fetch(`/api/notifications/recipients?id=${id}`, { method: 'DELETE' });
+    fetchNotifyRecipients();
+  };
+
+  const handleTestSend = async (r: NotifyRecipient) => {
+    setNotifyTestingId(r.id);
+    try {
+      const res = await fetch('/api/notifications/monthly-digest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientId: r.id }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'ส่งไม่สำเร็จ');
+      const result = (d.results || [])[0];
+      if (result?.status === 'sent') {
+        setNotifyMsg({ type: 'success', msg: `ส่งทดสอบไปที่ ${r.email} แล้ว (${result.detail})` });
+      } else {
+        throw new Error(result?.detail || 'ไม่มีข้อมูลสำหรับผู้รับนี้ — ตรวจชื่อผู้รับผิดชอบให้ตรงกับในแผน');
+      }
+      fetchNotifyRecipients();
+    } catch (err) {
+      setNotifyMsg({ type: 'error', msg: err instanceof Error ? err.message : 'เกิดข้อผิดพลาด' });
+    }
+    setNotifyTestingId(null);
+  };
 
   const handleApproveReject = async (id: number, status: 'approved' | 'rejected') => {
     await fetch('/api/edit-requests', {
@@ -850,6 +939,7 @@ export default function AdminPage() {
             { key: 'admins', label: 'จัดการ Admin', minRole: 'super_admin' },
             { key: 'dsd', label: 'กรมพัฒน์ฯ', minRole: 'admin' },
             { key: 'multicompany', label: 'Multi-Company', minRole: 'super_admin' },
+            { key: 'notify', label: 'แจ้งเตือนอีเมล', minRole: 'admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
           ].filter(tab => {
             if (tab.minRole === 'viewer') return true;
@@ -875,6 +965,109 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {/* NOTIFY TAB — monthly email digest recipients */}
+        {activeTab === 'notify' && (
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>แจ้งเตือนสรุปแผนงานรายเดือน (อีเมล)</h3>
+              </div>
+            </div>
+            <p className="text-[11px] mb-4" style={{ color: 'var(--text-secondary)' }}>
+              ระบบส่งอีเมลอัตโนมัติทุกวันที่ 1 เวลา 08:00 น. ถึงผู้รับผิดชอบแต่ละคน: &quot;เดือนนี้มีแผน X รายการ, ค้าง Y รายการ&quot;
+              — ชื่อผู้รับผิดชอบต้องสะกดให้ตรง (หรือเป็นส่วนหนึ่ง) กับชื่อในคอลัมน์ผู้รับผิดชอบของแผนงาน
+            </p>
+
+            {notifyMsg && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-[12px]" style={{
+                background: notifyMsg.type === 'success' ? 'rgba(46,158,91,0.12)' : 'rgba(217,83,79,0.12)',
+                color: notifyMsg.type === 'success' ? '#2e9e5b' : '#d9534f',
+                border: `1px solid ${notifyMsg.type === 'success' ? 'rgba(46,158,91,0.3)' : 'rgba(217,83,79,0.3)'}`,
+              }}>{notifyMsg.msg}</div>
+            )}
+
+            {/* Add recipient form */}
+            <div className="flex items-end gap-2 flex-wrap mb-5 p-3 rounded-xl" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--muted)' }}>บริษัท</label>
+                <select value={newNotifyCompanyId} onChange={e => setNewNotifyCompanyId(e.target.value)}
+                  className="rounded-lg px-3 py-2 text-[12px]" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                  <option value="">— เลือกบริษัท —</option>
+                  {activeCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--muted)' }}>ชื่อผู้รับผิดชอบ (ตามแผน)</label>
+                <input value={newNotifyName} onChange={e => setNewNotifyName(e.target.value)} placeholder="เช่น วนัชพร"
+                  className="rounded-lg px-3 py-2 text-[12px]" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)', width: 160 }} />
+              </div>
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--muted)' }}>อีเมล</label>
+                <input value={newNotifyEmail} onChange={e => setNewNotifyEmail(e.target.value)} placeholder="name@company.com" type="email"
+                  className="rounded-lg px-3 py-2 text-[12px]" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-primary)', width: 220 }} />
+              </div>
+              <button onClick={handleAddRecipient} disabled={notifySaving}
+                className="px-4 py-2 rounded-lg text-[12px] font-semibold transition-all hover:opacity-90"
+                style={{ background: 'var(--accent)', color: 'var(--text-primary)', opacity: notifySaving ? 0.6 : 1 }}>
+                {notifySaving ? 'กำลังบันทึก...' : '+ เพิ่มผู้รับ'}
+              </button>
+            </div>
+
+            {/* Recipients table */}
+            {notifyLoading ? (
+              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</p>
+            ) : notifyRecipients.length === 0 ? (
+              <p className="text-[13px] py-8 text-center" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีผู้รับแจ้งเตือน — เพิ่มรายชื่อด้านบน</p>
+            ) : (
+              <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                    {['บริษัท', 'ผู้รับผิดชอบ', 'อีเมล', 'ส่งล่าสุด', 'สถานะ', ''].map(h => (
+                      <th key={h} className="text-left py-2 px-3 text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {notifyRecipients.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--border)', opacity: r.is_active ? 1 : 0.45 }}>
+                      <td className="py-2.5 px-3 text-[12px] font-semibold uppercase" style={{ color: 'var(--text-primary)' }}>{r.company_id}</td>
+                      <td className="py-2.5 px-3 text-[12px]" style={{ color: 'var(--text-primary)' }}>{r.responsible_name}</td>
+                      <td className="py-2.5 px-3 text-[12px]" style={{ color: 'var(--text-secondary)' }}>{r.email}</td>
+                      <td className="py-2.5 px-3 text-[11px]" style={{ color: 'var(--muted)' }}>
+                        {r.last_sent_at ? new Date(r.last_sent_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <button onClick={() => handleToggleRecipient(r)}
+                          className="px-2.5 py-1 rounded-full text-[10px] font-semibold"
+                          style={{
+                            background: r.is_active ? 'rgba(46,158,91,0.15)' : 'var(--bg-secondary)',
+                            color: r.is_active ? '#2e9e5b' : 'var(--muted)',
+                            border: '1px solid var(--border)',
+                          }}>
+                          {r.is_active ? 'เปิดใช้' : 'ปิดอยู่'}
+                        </button>
+                      </td>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <button onClick={() => handleTestSend(r)} disabled={notifyTestingId === r.id}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-medium mr-2 transition-all hover:opacity-80"
+                          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', opacity: notifyTestingId === r.id ? 0.5 : 1 }}>
+                          {notifyTestingId === r.id ? 'กำลังส่ง...' : 'ส่งทดสอบ'}
+                        </button>
+                        <button onClick={() => handleDeleteRecipient(r.id)}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all hover:opacity-80"
+                          style={{ background: 'rgba(217,83,79,0.1)', border: '1px solid rgba(217,83,79,0.3)', color: '#d9534f' }}>
+                          ลบ
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
 
         {/* AUDIT LOG TAB */}
         {activeTab === 'audit' && (
