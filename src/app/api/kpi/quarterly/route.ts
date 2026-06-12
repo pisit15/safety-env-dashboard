@@ -128,37 +128,38 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // ── Compute KPI for each company ────────────────────────────
-    const results: YearlyKPISummary[] = [];
+    // ── Compute KPI for each company (all companies + plan types in parallel) ──
+    const results: YearlyKPISummary[] = await Promise.all(
+      companies.map(async company => {
+        const companyPostponed = allPostponedRows.filter(o => o.company_id === company.id);
 
-    for (const company of companies) {
-      // Collect activities across plan types
-      let allActivities: Activity[] = [];
-      let relevantPostponed: PostponedRow[] = [];
-
-      const companyPostponed = allPostponedRows.filter(o => o.company_id === company.id);
-
-      for (const pt of planTypes) {
-        const { activities, overrides: ptPostponed } = await computeCompanyKPI(
-          company, pt, year,
-          { [company.id]: overridesByCompany[company.id] || {} },
-          companyPostponed,
+        // Fetch both plan types concurrently
+        const perPlan = await Promise.all(
+          planTypes.map(pt =>
+            computeCompanyKPI(
+              company, pt, year,
+              { [company.id]: overridesByCompany[company.id] || {} },
+              companyPostponed,
+            )
+          )
         );
-        // Tag activities with plan type for identification
-        allActivities = allActivities.concat(activities);
-        relevantPostponed = relevantPostponed.concat(ptPostponed);
-      }
 
-      const kpi = calculateYearlyKPI(
-        company.id,
-        planType,
-        year,
-        allActivities,
-        relevantPostponed,
-      );
+        let allActivities: Activity[] = [];
+        let relevantPostponed: PostponedRow[] = [];
+        perPlan.forEach(({ activities, overrides: ptPostponed }) => {
+          allActivities = allActivities.concat(activities);
+          relevantPostponed = relevantPostponed.concat(ptPostponed);
+        });
 
-      results.push(kpi);
-    }
+        return calculateYearlyKPI(
+          company.id,
+          planType,
+          year,
+          allActivities,
+          relevantPostponed,
+        );
+      })
+    );
 
     // ── Response ────────────────────────────────────────────────
     if (companyId && results.length === 1) {

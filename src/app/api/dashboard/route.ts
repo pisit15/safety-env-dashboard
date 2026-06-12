@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { COMPANIES, getActiveCompanies, getActiveCompaniesForYear, DEFAULT_YEAR } from '@/lib/companies';
 import { getActiveCompaniesForYearWithDb, getCompaniesWithDbOverrides } from '@/lib/company-settings';
-import { getCompanySummary, fetchActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
+import { fetchActivities, summaryFromActivities, MONTH_KEYS, MONTH_LABELS } from '@/lib/sheets';
 import { getDemoDashboard } from '@/lib/demo-data';
 import { DashboardData, CompanySummary, MonthlyProgress, Activity, MonthStatus } from '@/lib/types';
 
@@ -151,14 +151,19 @@ export async function GET(request: Request) {
       overridesByCompany[o.company_id][`${o.activity_no}:${o.month}`] = o.status;
     });
 
-    // Fetch summaries + activities for each company, then recalculate with overrides
+    // Fetch activities once per company, build summary locally, then recalculate with overrides
     const summaries: CompanySummary[] = await Promise.all(
       activeCompanies.map(async c => {
         const sheetName = planType === 'safety' ? c.safetySheet : c.enviSheet;
-        const [baseSummary, activities] = await Promise.all([
-          getCompanySummary(c, planType),
-          (c.sheetId && sheetName) ? fetchActivities(c, sheetName) : Promise.resolve([]),
-        ]);
+        let activities: Activity[] = [];
+        if (c.sheetId && sheetName) {
+          try {
+            activities = await fetchActivities(c, sheetName);
+          } catch (err) {
+            console.error(`[dashboard] fetch failed for ${c.name} (${sheetName}):`, err);
+          }
+        }
+        const baseSummary = summaryFromActivities(c, activities);
 
         // Always recalculate with effective statuses (overrides + month-level data)
         const companyOverrides = overridesByCompany[c.id] || {};

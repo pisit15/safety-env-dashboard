@@ -19,8 +19,15 @@ interface CellData {
   isMergeSlave: boolean; // true if this cell is part of a merged range but NOT the master cell
 }
 
-// ── Get Google Auth token from Service Account ──
+// ── Get Google Auth token from Service Account (cached ~50 min) ──
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
 async function getServiceAccountToken(): Promise<string> {
+  // Reuse cached token until 50 minutes (tokens live ~60 min)
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
   const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!credentials) throw new Error('No service account credentials');
 
@@ -33,6 +40,8 @@ async function getServiceAccountToken(): Promise<string> {
   const client = await auth.getClient();
   const tokenResponse = await client.getAccessToken();
   if (!tokenResponse.token) throw new Error('Failed to get access token');
+
+  cachedToken = { token: tokenResponse.token, expiresAt: Date.now() + 50 * 60 * 1000 };
   return tokenResponse.token;
 }
 
@@ -279,7 +288,7 @@ async function fetchViaCSVExport(sheetId: string, sheetName: string): Promise<Ce
 }
 
 // ── Unified fetch: try xlsx download (Drive API) → CSV export ──
-async function fetchSheetRows(sheetId: string, sheetName: string): Promise<CellData[][]> {
+async function fetchSheetRowsUncached(sheetId: string, sheetName: string): Promise<CellData[][]> {
   // Method 1: Download .xlsx via Drive API and parse with exceljs (reads cell colors!)
   if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
     try {
@@ -293,6 +302,51 @@ async function fetchSheetRows(sheetId: string, sheetName: string): Promise<CellD
   // Method 2: CSV export (fallback — no formatting, Plan detection may be incomplete)
   console.log(`[sheets] Using CSV export for ${sheetName} (no cell color data)`);
   return await fetchViaCSVExport(sheetId, sheetName);
+}
+
+// ── In-memory TTL cache + in-flight dedupe ──
+// Each warm serverless instance keeps sheet data for a few minutes so the
+// dashboard / KPI / analytics routes don't re-download the same .xlsx file
+// (17 companies × 2 plans) on every request. In-flight dedupe also collapses
+// concurrent requests for the same sheet into a single download.
+const SHEET_CACHE_TTL_MS = parseInt(process.env.SHEETS_CACHE_TTL_MS || '300000', 10); // 5 min default
+const sheetCache = new Map<string, { ts: number; data: CellData[][] }>();
+const inflightFetches = new Map<string, Promise<CellData[][]>>();
+
+async function fetchSheetRows(sheetId: string, sheetName: string): Promise<CellData[][]> {
+  const key = `${sheetId}::${sheetName}`;
+
+  const cached = sheetCache.get(key);
+  if (cached && Date.now() - cached.ts < SHEET_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const inflight = inflightFetches.get(key);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    try {
+      const data = await fetchSheetRowsUncached(sheetId, sheetName);
+      sheetCache.set(key, { ts: Date.now(), data });
+      return data;
+    } finally {
+      inflightFetches.delete(key);
+    }
+  })();
+
+  inflightFetches.set(key, promise);
+  return promise;
+}
+
+// Allow API routes (e.g. after a status update) to force fresh data
+export function invalidateSheetCache(sheetId?: string): void {
+  if (!sheetId) {
+    sheetCache.clear();
+    return;
+  }
+  Array.from(sheetCache.keys()).forEach(key => {
+    if (key.startsWith(`${sheetId}::`)) sheetCache.delete(key);
+  });
 }
 
 // ── Parse rows into Activity objects ──
@@ -622,22 +676,10 @@ function calculateMonthlyProgress(activities: Activity[]): MonthlyProgress[] {
   });
 }
 
-export async function getCompanySummary(company: CompanyConfig, planType: 'safety' | 'environment'): Promise<CompanySummary> {
-  const sheetName = planType === 'safety' ? company.safetySheet : company.enviSheet;
-
-  if (!company.sheetId || !sheetName) {
-    return {
-      companyId: company.id,
-      companyName: company.name,
-      shortName: company.shortName,
-      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0, notApplicable: 0,
-      budget: 0, pctDone: 0,
-    };
-  }
-
-  try {
-    const activities = await fetchActivities(company, sheetName);
-    const budget = activities.reduce((sum, a) => sum + a.budget, 0);
+// Build a CompanySummary from activities that were already fetched —
+// lets API routes fetch each sheet exactly once.
+export function summaryFromActivities(company: CompanyConfig, activities: Activity[]): CompanySummary {
+  const budget = activities.reduce((sum, a) => sum + a.budget, 0);
     const monthlyProgress = calculateMonthlyProgress(activities);
 
     // KPI uses month-slot counting (same as chart)
@@ -675,6 +717,24 @@ export async function getCompanySummary(company: CompanyConfig, planType: 'safet
       pctDone: totalPlanned > 0 ? Math.round(((totalDone + totalNotApplicable) / totalPlanned) * 1000) / 10 : 0,
       monthlyProgress,
     };
+}
+
+export async function getCompanySummary(company: CompanyConfig, planType: 'safety' | 'environment'): Promise<CompanySummary> {
+  const sheetName = planType === 'safety' ? company.safetySheet : company.enviSheet;
+
+  if (!company.sheetId || !sheetName) {
+    return {
+      companyId: company.id,
+      companyName: company.name,
+      shortName: company.shortName,
+      total: 0, done: 0, notStarted: 0, postponed: 0, cancelled: 0, notApplicable: 0,
+      budget: 0, pctDone: 0,
+    };
+  }
+
+  try {
+    const activities = await fetchActivities(company, sheetName);
+    return summaryFromActivities(company, activities);
   } catch (error) {
     console.error(`Error fetching data for ${company.name} (${sheetName}):`, error);
     return {

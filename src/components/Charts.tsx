@@ -50,6 +50,12 @@ export function RankingChart({ companies }: RankingChartProps) {
     const labels = sorted.map(c => c.shortName);
     const data = sorted.map(c => c.pctDone);
 
+    // Dynamic YTD target: Q1=25%, Q2=50%, Q3=75%, Q4=100% (follows current quarter)
+    const currentQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+    const targetPct = currentQuarter * 25;
+    const targetLabel = `Target Q${currentQuarter}: ${targetPct}%`;
+    const axisMax = Math.min(100, Math.max(50, targetPct + 25, Math.ceil(Math.max(0, ...data) / 10) * 10 + 10));
+
     if (chartRef.current) chartRef.current.destroy();
 
     chartRef.current = new Chart(canvasRef.current, {
@@ -58,7 +64,7 @@ export function RankingChart({ companies }: RankingChartProps) {
         labels,
         datasets: [{
           data,
-          backgroundColor: data.map((p: number) => p >= 25 ? statusColors.green : statusColors.orange),
+          backgroundColor: data.map((p: number) => p >= targetPct ? statusColors.green : statusColors.orange),
           borderRadius: 6,
           barThickness: 18,
         }],
@@ -77,7 +83,7 @@ export function RankingChart({ companies }: RankingChartProps) {
         },
         scales: {
           x: {
-            max: 50,
+            max: axisMax,
             grid: { color: colors.grid },
             ticks: { color: colors.tick, callback: (v: number) => v + '%' },
           },
@@ -91,7 +97,7 @@ export function RankingChart({ companies }: RankingChartProps) {
         id: 'targetLine',
         afterDraw(chart: any) {
           const xScale = chart.scales.x;
-          const x = xScale.getPixelForValue(25);
+          const x = xScale.getPixelForValue(targetPct);
           const ctx = chart.ctx;
           ctx.save();
           ctx.setLineDash([5, 5]);
@@ -103,7 +109,9 @@ export function RankingChart({ companies }: RankingChartProps) {
           ctx.stroke();
           ctx.fillStyle = statusColors.red;
           ctx.font = '10px Inter, sans-serif';
-          ctx.fillText('Target Q1: 25%', x + 5, chart.chartArea.top + 10);
+          // Keep label inside chart area when target is near the right edge
+          const labelX = x + 70 > chart.chartArea.right ? x - 80 : x + 5;
+          ctx.fillText(targetLabel, labelX, chart.chartArea.top + 10);
           ctx.restore();
         },
       }],
@@ -123,7 +131,7 @@ export function RankingChart({ companies }: RankingChartProps) {
             labels,
             datasets: [{
               data,
-              backgroundColor: data.map((p: number) => p >= 25 ? statusColors.green : statusColors.orange),
+              backgroundColor: data.map((p: number) => p >= targetPct ? statusColors.green : statusColors.orange),
               borderRadius: 6,
               barThickness: 18,
             }],
@@ -142,7 +150,7 @@ export function RankingChart({ companies }: RankingChartProps) {
             },
             scales: {
               x: {
-                max: 50,
+                max: axisMax,
                 grid: { color: newColors.grid },
                 ticks: { color: newColors.tick, callback: (v: number) => v + '%' },
               },
@@ -156,7 +164,7 @@ export function RankingChart({ companies }: RankingChartProps) {
             id: 'targetLine',
             afterDraw(chart: any) {
               const xScale = chart.scales.x;
-              const x = xScale.getPixelForValue(25);
+              const x = xScale.getPixelForValue(targetPct);
               const ctx = chart.ctx;
               ctx.save();
               ctx.setLineDash([5, 5]);
@@ -168,7 +176,8 @@ export function RankingChart({ companies }: RankingChartProps) {
               ctx.stroke();
               ctx.fillStyle = statusColors.red;
               ctx.font = '10px Inter, sans-serif';
-              ctx.fillText('Target Q1: 25%', x + 5, chart.chartArea.top + 10);
+              const labelX = x + 70 > chart.chartArea.right ? x - 80 : x + 5;
+              ctx.fillText(targetLabel, labelX, chart.chartArea.top + 10);
               ctx.restore();
             },
           }],

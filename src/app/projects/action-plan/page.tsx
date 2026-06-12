@@ -1045,7 +1045,8 @@ export default function HQOverview() {
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#34c759' }}></span> ≥80%</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff9500' }}></span> 40-79%</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff453a' }}></span> {'<40%'}</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}></span> ไม่มีแผน</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}></span> (n) = แผนเดือนอนาคต</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: 'transparent', border: '1px solid var(--border)' }}></span> ไม่มีแผน</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 rounded" style={{ background: '#ff453a', border: '2px solid #ffd60a' }}></span> Overdue</span>
             </div>
           </div>
@@ -1093,11 +1094,16 @@ export default function HQOverview() {
                         const hasPlanned = mp && mp.planned > 0;
                         const isPast = i < currentMonthIdx;
                         const isCurrent = i === currentMonthIdx;
+                        const isFuture = i > currentMonthIdx;
                         const isOverdue = isPast && hasPlanned && pct < 100;
 
                         let bgColor = 'transparent';
                         let textColor = 'var(--muted)';
-                        if (hasPlanned) {
+                        if (hasPlanned && isFuture) {
+                          // Future months: not yet due — neutral, never red
+                          bgColor = 'var(--bg-tertiary)';
+                          textColor = 'var(--muted)';
+                        } else if (hasPlanned) {
                           if (pct >= 80) { bgColor = '#34c759'; textColor = '#fff'; }
                           else if (pct >= 40) { bgColor = '#ff9500'; textColor = '#fff'; }
                           else { bgColor = '#ff453a'; textColor = '#fff'; }
@@ -1112,9 +1118,13 @@ export default function HQOverview() {
                               color: textColor,
                               border: isOverdue ? '2px solid #ffd60a' : isCurrent ? '2px solid rgba(255,149,0,0.4)' : '1px solid var(--border)',
                             }}
-                            title={hasPlanned ? `${mp.completed}/${mp.planned} (${pct}%)${isOverdue ? ' — OVERDUE' : ''}` : 'ไม่มีแผน'}
+                            title={
+                              !hasPlanned ? 'ไม่มีแผน'
+                              : isFuture ? `มีแผน ${mp.planned} รายการ (ยังไม่ถึงกำหนด)`
+                              : `${mp.completed}/${mp.planned} (${pct}%)${isOverdue ? ' — OVERDUE' : ''}`
+                            }
                           >
-                            {hasPlanned ? `${pct}%` : '-'}
+                            {!hasPlanned ? '-' : isFuture ? `(${mp.planned})` : `${pct}%`}
                           </div>
                         );
                       })}
