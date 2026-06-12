@@ -1251,8 +1251,26 @@ export default function CompanyDrilldown() {
     }
   }, [planType, selectedYear, currentMonthIdx]);
 
-  // Quick filter state
-  const [quickFilter, setQuickFilter] = useState<string>('none');
+  // Quick filter state — defaults to focused "this month + backlog" view.
+  // The user's last choice (focused/all) is remembered in localStorage.
+  const [quickFilter, setQuickFilter] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('company_quickFilter');
+      if (saved === 'none' || saved === 'thisMonth') return saved;
+    }
+    return 'thisMonth';
+  });
+  useEffect(() => {
+    localStorage.setItem('company_quickFilter', quickFilter === 'thisMonth' ? 'thisMonth' : 'none');
+  }, [quickFilter]);
+
+  // Incremental rendering: cap initial rows to keep first paint fast on large plans
+  const INITIAL_VISIBLE_ROWS = 60;
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ROWS);
+  // Reset row cap whenever the visible list changes shape
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_ROWS);
+  }, [quickFilter, statusFilter, planType, sortMonth, selectedYear, groupByCategory]);
 
   // Compute overdue/thisMonth/noEvidence/postponed/plan counts for quick filters
   const quickFilterCounts = useMemo(() => {
@@ -1267,15 +1285,16 @@ export default function CompanyDrilldown() {
     const curMK = MONTH_KEYS[currentMonthIdx];
     activities.forEach(act => {
       const curStatus = getEffectiveStatus(act, curMK);
-      if (curStatus !== 'not_planned' && curStatus !== 'done' && curStatus !== 'not_applicable' && curStatus !== 'cancelled') {
-        thisMonthCount++;
-      }
       // Check overdue: count UNIQUE activities that have any overdue month (not month-slots)
       const hasOverdueMonth = MONTH_KEYS.some((mk, idx) => {
         if (idx >= currentMonthIdx) return false;
         const st = getEffectiveStatus(act, mk);
         return st === 'overdue' || st === 'planned';
       });
+      // "งานเดือนนี้ + ค้าง": any activity in current month OR with overdue backlog
+      if (curStatus !== 'not_planned' || (!act.isConditional && hasOverdueMonth)) {
+        thisMonthCount++;
+      }
       if (hasOverdueMonth) overdueCount++;
       // Postponed: use effective status
       if (getEffectiveOverallStatus(act) === 'postponed' || MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) === 'postponed')) {
@@ -1314,16 +1333,20 @@ export default function CompanyDrilldown() {
 
     // Apply quick filter
     if (quickFilter === 'thisMonth') {
+      // Focused view: "งานเดือนนี้ + ค้าง" — only activities that need attention NOW:
+      //   (a) any status in the current month (plan/done/postponed this month), OR
+      //   (b) overdue backlog from past months (excluding conditional activities)
       const curMK = MONTH_KEYS[currentMonthIdx];
-      // Don't hide recurring activities — sort them to the bottom instead
-      // Only hide activities that have NO plan in ANY month
       list = list.filter(act => {
-        const st = getEffectiveStatus(act, curMK);
-        if (st !== 'not_planned') return true;
-        // Keep if activity has plans in other months (recurring)
-        return MONTH_KEYS.some(mk => getEffectiveStatus(act, mk) !== 'not_planned');
+        if (getEffectiveStatus(act, curMK) !== 'not_planned') return true;
+        if (act.isConditional) return false;
+        return MONTH_KEYS.some((mk, idx) => {
+          if (idx >= currentMonthIdx) return false;
+          const st = getEffectiveStatus(act, mk);
+          return st === 'overdue' || st === 'planned';
+        });
       });
-      // Sort: activities with plan this month first, not_planned this month at bottom
+      // Sort: activities with plan this month first, overdue-only backlog after
       list.sort((a, b) => {
         const aHasPlan = getEffectiveStatus(a, curMK) !== 'not_planned' ? 1 : 0;
         const bHasPlan = getEffectiveStatus(b, curMK) !== 'not_planned' ? 1 : 0;
@@ -1709,7 +1732,7 @@ export default function CompanyDrilldown() {
             )}
             <div style={{ background: 'var(--border)' }} className="rounded-xl p-1 flex gap-1">
               <button
-                onClick={() => { changePlanType('total'); setQuickFilter('none'); }}
+                onClick={() => changePlanType('total')}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'total'
                   ? { background: PALETTE.primary, color: '#ffffff' }
@@ -1718,7 +1741,7 @@ export default function CompanyDrilldown() {
                 <BarChart3 size={14} className="inline mr-1" /> Total
               </button>
               <button
-                onClick={() => { changePlanType('safety'); setQuickFilter('none'); }}
+                onClick={() => changePlanType('safety')}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'safety'
                   ? { background: CATEGORY_COLORS.safety, color: '#ffffff', boxShadow: `0 2px 10px ${CATEGORY_COLORS.safety}50` }
@@ -1727,7 +1750,7 @@ export default function CompanyDrilldown() {
                 <Shield size={14} className="inline mr-1" /> Safety
               </button>
               <button
-                onClick={() => { changePlanType('environment'); setQuickFilter('none'); }}
+                onClick={() => changePlanType('environment')}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={planType === 'environment'
                   ? { background: CATEGORY_COLORS.environment, color: '#ffffff', boxShadow: `0 2px 10px ${CATEGORY_COLORS.environment}50` }
@@ -2238,6 +2261,28 @@ export default function CompanyDrilldown() {
                       </select>
                     </div>
                     <button
+                      onClick={() => setQuickFilter(quickFilter === 'thisMonth' ? 'none' : 'thisMonth')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                      style={{
+                        background: quickFilter === 'thisMonth' ? planConfig.accentColor : 'var(--bg-secondary)',
+                        color: quickFilter === 'thisMonth' ? '#fff' : 'var(--text-secondary)',
+                        border: quickFilter === 'thisMonth' ? `1px solid ${planConfig.accentColor}` : '1px solid var(--border)',
+                        boxShadow: quickFilter === 'thisMonth' ? `0 2px 8px ${planConfig.accentColor}40` : 'none',
+                      }}
+                      title={quickFilter === 'thisMonth'
+                        ? 'กำลังแสดงเฉพาะงานที่มีแผนเดือนนี้ + งานค้างจากเดือนก่อน — คลิกเพื่อดูทั้งปี'
+                        : 'คลิกเพื่อโฟกัสเฉพาะงานเดือนนี้ + งานค้าง'}
+                    >
+                      <CalendarClock size={12} />
+                      งานเดือนนี้ ({MONTH_LABELS[currentMonthIdx]}) + ค้าง
+                      <span className="px-1.5 py-0 rounded-full text-[10px] font-bold" style={{
+                        background: quickFilter === 'thisMonth' ? 'rgba(255,255,255,0.25)' : `${planConfig.accentColor}15`,
+                        color: quickFilter === 'thisMonth' ? '#fff' : planConfig.accentColor,
+                      }}>
+                        {quickFilterCounts.thisMonth}
+                      </span>
+                    </button>
+                    <button
                       onClick={() => setGroupByCategory(!groupByCategory)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
                       style={{
@@ -2423,7 +2468,7 @@ export default function CompanyDrilldown() {
                           })}
                         </tr>
                         ))
-                      ]) : enhancedFilteredActivities.map((act, i) => (
+                      ]) : enhancedFilteredActivities.slice(0, visibleCount).map((act, i) => (
                         <tr key={`${(act as any)._planTag || ''}${act.no}-${i}`} data-act-row={`${(act as any)._planTag ? `${(act as any)._planTag}:` : ''}${act.no}`} style={{ borderBottom: `1px solid var(--border)`, transition: 'background 0.15s ease' }} className="group"
                           onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
@@ -2719,14 +2764,38 @@ export default function CompanyDrilldown() {
                       ))}
                     </tbody>
                   </table>
+                  {!groupByCategory && enhancedFilteredActivities.length > visibleCount && (
+                    <div className="text-center py-3" style={{ borderTop: '1px solid var(--border)' }}>
+                      <button
+                        onClick={() => setVisibleCount(c => c + INITIAL_VISIBLE_ROWS)}
+                        className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all hover:opacity-80"
+                        style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      >
+                        แสดงเพิ่ม — เหลืออีก {enhancedFilteredActivities.length - visibleCount} รายการ
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-16 px-6" style={{ color: 'var(--text-secondary)' }}>
                   <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
                     <ClipboardList size={28} style={{ color: PALETTE.muted }} />
                   </div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>ไม่พบกิจกรรม{statusFilter !== 'all' ? 'ในสถานะที่เลือก' : ''}</p>
-                  <p className="text-xs mt-1.5" style={{ color: 'var(--muted)' }}>ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {quickFilter === 'thisMonth' ? 'ไม่มีงานเดือนนี้หรืองานค้าง 🎉' : `ไม่พบกิจกรรม${statusFilter !== 'all' ? 'ในสถานะที่เลือก' : ''}`}
+                  </p>
+                  <p className="text-xs mt-1.5" style={{ color: 'var(--muted)' }}>
+                    {quickFilter === 'thisMonth' ? 'ทุกรายการของเดือนนี้เรียบร้อยแล้ว' : 'ลองเปลี่ยน Filter หรือเลือก Plan Type อื่น'}
+                  </p>
+                  {quickFilter === 'thisMonth' && (
+                    <button
+                      onClick={() => setQuickFilter('none')}
+                      className="mt-4 px-4 py-2 rounded-lg text-[12px] font-medium transition-all hover:opacity-80"
+                      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    >
+                      ดูแผนทั้งปีทั้งหมด
+                    </button>
+                  )}
                 </div>
               )}
             </div>
