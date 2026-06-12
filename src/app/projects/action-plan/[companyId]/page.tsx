@@ -86,6 +86,7 @@ export default function CompanyDrilldown() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // KPI quarterly state
@@ -223,12 +224,20 @@ export default function CompanyDrilldown() {
   // ── Consolidated workspace fetch (replaces 7-10 separate API calls with 1) ──
   const fetchWorkspace = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
+    setLoadError(false);
+    // Hard timeout: a hung serverless request must not leave the page on the
+    // skeleton forever — abort after 75s and show a retry button instead.
+    const ctrl = new AbortController();
+    const onParentAbort = () => ctrl.abort();
+    signal?.addEventListener('abort', onParentAbort);
+    const timeoutId = setTimeout(() => ctrl.abort(), 75000);
     try {
       const res = await fetch(
         `/api/action-plan/workspace?companyId=${companyId}&planType=${planType}&year=${selectedYear}`,
-        { signal }
+        { signal: ctrl.signal }
       );
       if (signal?.aborted) return;
+      if (!res.ok) throw new Error(`workspace ${res.status}`);
       const data = await res.json();
       if (signal?.aborted) return;
 
@@ -279,9 +288,15 @@ export default function CompanyDrilldown() {
       });
       setAttachmentCounts(attMap);
     } catch (err: unknown) {
-      if ((err as Error)?.name === 'AbortError') return;
+      // Parent abort (navigation/dep change) → stay silent
+      if (signal?.aborted) return;
+      // Timeout or network/server failure → show retry UI
       setActivities([]);
       setSummary(null);
+      setLoadError(true);
+    } finally {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onParentAbort);
     }
     setLoading(false);
   }, [companyId, planType, selectedYear]);
@@ -1848,6 +1863,24 @@ export default function CompanyDrilldown() {
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
               <p className="text-muted">กำลังโหลดข้อมูลจาก Google Sheets...</p>
+              <p className="text-[11px] mt-2" style={{ color: 'var(--muted)' }}>ครั้งแรกอาจใช้เวลา 20–30 วินาที</p>
+            </div>
+          </div>
+        ) : loadError ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: `${STATUS.critical}12` }}>
+                <AlertTriangle size={28} style={{ color: STATUS.critical }} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>โหลดข้อมูลไม่สำเร็จ</p>
+              <p className="text-xs mt-1.5 mb-4" style={{ color: 'var(--muted)' }}>เครือข่ายหรือเซิร์ฟเวอร์ตอบช้าเกินไป — ลองใหม่อีกครั้ง</p>
+              <button
+                onClick={() => fetchWorkspace()}
+                className="px-4 py-2 rounded-lg text-[12px] font-semibold transition-all hover:opacity-90"
+                style={{ background: planConfig.accentColor, color: '#fff' }}
+              >
+                ลองใหม่
+              </button>
             </div>
           </div>
         ) : (
