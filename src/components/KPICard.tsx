@@ -8,13 +8,19 @@ interface KPICardProps {
   deltaColor?: string;
   subtext?: string;
   progress?: number;
+  onClick?: () => void;
+  active?: boolean;
 }
 
-export default function KPICard({ label, value, color, delta, deltaColor, subtext, progress }: KPICardProps) {
+export default function KPICard({ label, value, color, delta, deltaColor, subtext, progress, onClick, active }: KPICardProps) {
   const valueColor = color || 'var(--text-primary)';
   
   return (
-    <div className="glass-card p-5 flex flex-col relative overflow-hidden group flex-1 w-full">
+    <div
+      onClick={onClick}
+      className={`glass-card p-5 flex flex-col relative overflow-hidden group flex-1 w-full ${onClick ? 'cursor-pointer transition-transform hover:-translate-y-0.5' : ''}`}
+      style={active ? { outline: '2px solid var(--accent)', outlineOffset: '-1px' } : undefined}
+    >
       {/* Subtle accent glow */}
       {color && (
         <div

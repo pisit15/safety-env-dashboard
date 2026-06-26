@@ -10,6 +10,9 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight, Download } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import { STATUS, PALETTE } from '@/lib/she-theme';
+import KPICard from '@/components/KPICard';
+import { MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
+import { MonthlyProgress } from '@/lib/types';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -1207,6 +1210,32 @@ export default function CompanyTraining() {
   const yearlyAvgPct = activeQuarters.length > 0 ? Math.round((activeQuarters.reduce((s, q) => s + q.pct, 0) / activeQuarters.length) * 10) / 10 : 0;
   const maxPlanned = Math.max(...monthlyData.map(d => d.planned), 1);
 
+  // Chart data for overview (mirrors Action Plan)
+  const trainingMonthlyProgress: MonthlyProgress[] = monthlyData.map((d, i) => ({
+    month: MONTH_KEYS[i],
+    label: d.label,
+    planned: d.planned,
+    completed: d.completed,
+    pctComplete: d.pctComplete,
+    doneCount: d.completed,
+    cancelledCount: d.cancelled,
+    denominator: d.denominator,
+  }));
+  const trainingBudgetTracking: MonthlyBudget[] = (() => {
+    const mp = new Array(12).fill(0);
+    const ma = new Array(12).fill(0);
+    activePlans.forEach(p => {
+      const m = getEffectiveMonth(p);
+      if (m >= 1 && m <= 12) {
+        mp[m - 1] += (p.budget || 0);
+        const s = p.training_sessions?.[0];
+        if (s?.actual_cost) ma[m - 1] += s.actual_cost;
+      }
+    });
+    let cp = 0, ca = 0;
+    return MONTH_LABELS.map((label, i) => { cp += mp[i]; ca += ma[i]; return { month: label, planned: Math.round(cp), actual: Math.round(ca) }; });
+  })();
+
   // 30-day warning
   const today = new Date();
   const warningPlans = plans.filter(p => {
@@ -1511,24 +1540,36 @@ export default function CompanyTraining() {
           </div>
         )}
 
-        {/* KPI Cards — clickable to filter */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 20 }}>
-          <StatCard icon="📚" label="หลักสูตรทั้งหมด" value={totalCourses}
-            subtitle={`ฐาน KPI: ${kpiDenominator}${cancelledCourses > 0 ? ` (ยกเลิก ${cancelledCourses})` : ''}`}
+        {/* KPI Cards — clickable to filter (matches Action Plan) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+          <KPICard label="หลักสูตรทั้งหมด" value={totalCourses}
+            subtext={`ฐาน KPI: ${kpiDenominator}${cancelledCourses > 0 ? ` (ยกเลิก ${cancelledCourses})` : ''}`}
             active={activeKpi === 'all'} onClick={() => setActiveKpi(activeKpi === 'all' ? null : 'all')} />
-          <StatCard icon="✅" label="อบรมแล้ว" value={completedCourses} color="var(--success)"
-            subtitle={kpiDenominator > 0 ? `KPI: ${overallPct}% (${completedCourses}/${kpiDenominator})` : undefined}
+          <KPICard label="อบรมแล้ว" value={completedCourses} color={STATUS.ok} progress={overallPct}
+            subtext={kpiDenominator > 0 ? `KPI: ${overallPct}% (${completedCourses}/${kpiDenominator})` : undefined}
             active={activeKpi === 'completed'} onClick={() => setActiveKpi(activeKpi === 'completed' ? null : 'completed')} />
-          <StatCard icon="📅" label="กำหนดวันแล้ว" value={scheduledCourses} color="var(--info)"
+          <KPICard label="กำหนดวันแล้ว" value={scheduledCourses} color={PALETTE.primary}
             active={activeKpi === 'scheduled'} onClick={() => setActiveKpi(activeKpi === 'scheduled' ? null : 'scheduled')} />
-          <StatCard icon="⏳" label="รอดำเนินการ" value={pendingCourses} color="var(--warning)"
-            subtitle={pendingCourses > 0 ? 'คลิกดูรายชื่อ' : undefined}
+          <KPICard label="รอดำเนินการ" value={pendingCourses} color={STATUS.warning}
+            subtext={pendingCourses > 0 ? 'คลิกดูรายชื่อ' : undefined}
             active={activeKpi === 'planned'} onClick={() => setActiveKpi(activeKpi === 'planned' ? null : 'planned')} />
-          <StatCard icon="💰" label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`}
-            subtitle={`ใช้ไป ${totalBudget > 0 ? Math.round((totalActual/totalBudget)*100) : 0}%`} />
-          <StatCard icon="💳" label="ค่าใช้จ่ายจริง" value={`${(totalActual / 1000).toFixed(0)}K`}
-            color={totalActual > totalBudget ? 'var(--danger)' : 'var(--success)'}
-            subtitle={totalActual > totalBudget ? '⚠ เกินงบ' : `เหลือ ${((totalBudget - totalActual) / 1000).toFixed(0)}K`} />
+          <KPICard label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`} color={PALETTE.primary}
+            subtext={`ใช้ไป ${totalBudget > 0 ? Math.round((totalActual/totalBudget)*100) : 0}%`} />
+          <KPICard label="ค่าใช้จ่ายจริง" value={`${(totalActual / 1000).toFixed(0)}K`}
+            color={totalActual > totalBudget ? STATUS.critical : STATUS.ok}
+            subtext={totalActual > totalBudget ? 'เกินงบ' : `เหลือ ${((totalBudget - totalActual) / 1000).toFixed(0)}K`} />
+        </div>
+
+        {/* Charts — monthly progress + budget tracking (matches Action Plan) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14, marginBottom: 20 }}>
+          <div className="glass-card rounded-xl p-5">
+            <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${PALETTE.primary}` }}>ความคืบหน้ารายเดือน</h3>
+            <div style={{ height: 250 }}><MonthlyProgressChart monthlyProgress={trainingMonthlyProgress} /></div>
+          </div>
+          <div className="glass-card rounded-xl p-5">
+            <h3 className="text-[13px] mb-4 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `2px solid ${STATUS.ok}` }}>งบประมาณสะสม (แผน vs ใช้จริง)</h3>
+            <div style={{ height: 250 }}><BudgetTrackingChart data={trainingBudgetTracking} totalPlanned={totalBudget} /></div>
+          </div>
         </div>
 
         {/* KPI drill-down list — shows when a KPI card is clicked */}
@@ -3667,23 +3708,3 @@ function formatDate(d: string): string {
   return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
 }
 
-function StatCard({ icon, label, value, color, onClick, active, subtitle }: { icon: string; label: string; value: string | number; color?: string; onClick?: () => void; active?: boolean; subtitle?: string }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        background: active ? 'var(--accent)' : 'var(--card-solid)',
-        borderRadius: 10, padding: '14px 16px',
-        border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.2s',
-        transform: active ? 'scale(1.02)' : 'none',
-        boxShadow: active ? '0 4px 12px rgba(0,122,255,0.2)' : 'none',
-      }}
-    >
-      <div style={{ fontSize: 11, color: active ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', marginBottom: 4 }}>{icon} {label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: active ? '#fff' : (color || 'var(--text-primary)') }}>{value}</div>
-      {subtitle && <div style={{ fontSize: 10, color: active ? 'rgba(255,255,255,0.7)' : 'var(--muted)', marginTop: 2 }}>{subtitle}</div>}
-    </div>
-  );
-}
