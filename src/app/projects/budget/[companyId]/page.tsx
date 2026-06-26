@@ -92,7 +92,7 @@ export default function CompanyBudgetPage() {
   // ── Category handlers (admin) ──
   const addCategory = async () => {
     if (!newCatName.trim()) return;
-    const res = await fetch('/api/budget-plan/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, name: newCatName.trim() }) });
+    const res = await fetch('/api/budget-plan/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, name: newCatName.trim(), isAdmin }) });
     if (res.ok) { setNewCatName(''); setToast({ type: 'success', msg: 'เพิ่มหมวดหมู่แล้ว' }); fetchCategories(); }
     else setToast({ type: 'error', msg: 'เพิ่มไม่สำเร็จ' });
   };
@@ -100,11 +100,11 @@ export default function CompanyBudgetPage() {
     if (!editingCatName.trim()) { setEditingCatId(null); return; }
     setCategories(prev => prev.map(c => c.id === id ? { ...c, name: editingCatName.trim() } : c));
     setEditingCatId(null);
-    await fetch('/api/budget-plan/categories', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, name: editingCatName.trim() }) });
+    await fetch('/api/budget-plan/categories', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, name: editingCatName.trim(), isAdmin }) });
   };
   const deleteCategory = async (id: number, name: string) => {
     if (!confirm(`ลบหมวด "${name}"? รายการงบในหมวดนี้จะถูกลบทั้งหมด`)) return;
-    const res = await fetch(`/api/budget-plan/categories?id=${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/budget-plan/categories?id=${id}&isAdmin=${isAdmin}`, { method: 'DELETE' });
     if (res.ok) { setToast({ type: 'success', msg: 'ลบหมวดแล้ว' }); fetchCategories(); fetchItems(); }
     else setToast({ type: 'error', msg: 'ลบไม่สำเร็จ' });
   };

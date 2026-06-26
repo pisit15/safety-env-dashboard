@@ -25,6 +25,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { companyId, name } = body;
+    if (body.isAdmin !== true) {
+      return NextResponse.json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้นที่สร้างหมวดหมู่ได้' }, { status: 403 });
+    }
     if (!companyId || !name || !String(name).trim()) {
       return NextResponse.json({ error: 'Missing companyId or name' }, { status: 400 });
     }
@@ -55,6 +58,9 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { id } = body;
+    if (body.isAdmin !== true) {
+      return NextResponse.json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้น' }, { status: 403 });
+    }
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     const patch: Record<string, unknown> = {};
     if (typeof body.name === 'string') patch.name = body.name.trim();
@@ -73,6 +79,9 @@ export async function PUT(request: NextRequest) {
 // DELETE ?id= — delete category (its items cascade)
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id');
+  if (request.nextUrl.searchParams.get('isAdmin') !== 'true') {
+    return NextResponse.json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้น' }, { status: 403 });
+  }
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   const { error } = await getSupabase().from('budget_categories').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
