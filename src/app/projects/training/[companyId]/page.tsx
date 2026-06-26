@@ -1615,39 +1615,6 @@ export default function CompanyTraining() {
             {activePlans.length === 0 && (
               <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 12 }}>ยังไม่มีหลักสูตรในปีนี้</div>
             )}
-
-            {gridMenu && (() => {
-              const gp = gridMenu.plan;
-              const cur = gp.training_sessions?.[0]?.status || 'planned';
-              const opts = [
-                { key: 'planned', label: 'ยังไม่กำหนดวัน' },
-                { key: 'scheduled', label: 'กำหนดวันแล้ว' },
-                { key: 'completed', label: 'อบรมแล้ว' },
-                { key: 'cancelled', label: 'ยกเลิก' },
-              ];
-              return (
-                <>
-                  <div onClick={() => setGridMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 1200 }} />
-                  <div style={{ position: 'fixed', left: gridMenu.x, top: gridMenu.y, zIndex: 1201, width: 224, background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', padding: 10 }}>
-                    <div title={gp.course_name} style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gp.course_name}</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
-                      {opts.map(o => {
-                        const c = STATUS_CONFIG[o.key] || STATUS_CONFIG.planned;
-                        const active = cur === o.key;
-                        return (
-                          <button key={o.key} disabled={quickChangingPlanId === gp.id}
-                            onClick={async () => { await handleQuickStatusChange(gp, o.key); setGridMenu(null); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, border: `1px solid ${active ? c.color : 'var(--border)'}`, background: active ? c.bg : 'var(--bg-secondary)', color: active ? c.color : 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
-                            <span style={{ color: c.color }}>{c.icon}</span> {o.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button onClick={() => { openPlanModal(gp); setGridMenu(null); }} style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>เปิดรายละเอียด →</button>
-                  </div>
-                </>
-              );
-            })()}
           </div>
         )}
 
@@ -2496,6 +2463,39 @@ export default function CompanyTraining() {
         )}
 
         {/* ═══ Detail Modal — Status-Driven Form ═══ */}
+            {gridMenu && (() => {
+              const gp = gridMenu.plan;
+              const cur = gp.training_sessions?.[0]?.status || 'planned';
+              const opts = [
+                { key: 'planned', label: 'ยังไม่กำหนดวัน' },
+                { key: 'scheduled', label: 'กำหนดวันแล้ว' },
+                { key: 'completed', label: 'อบรมแล้ว' },
+                { key: 'cancelled', label: 'ยกเลิก' },
+              ];
+              return (
+                <>
+                  <div onClick={() => setGridMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 1200 }} />
+                  <div style={{ position: 'fixed', left: gridMenu.x, top: gridMenu.y, zIndex: 1201, width: 224, background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', padding: 10 }}>
+                    <div title={gp.course_name} style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gp.course_name}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                      {opts.map(o => {
+                        const c = STATUS_CONFIG[o.key] || STATUS_CONFIG.planned;
+                        const active = cur === o.key;
+                        return (
+                          <button key={o.key} disabled={quickChangingPlanId === gp.id}
+                            onClick={async () => { await handleQuickStatusChange(gp, o.key); setGridMenu(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, border: `1px solid ${active ? c.color : 'var(--border)'}`, background: active ? c.bg : 'var(--bg-secondary)', color: active ? c.color : 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
+                            <span style={{ color: c.color }}>{c.icon}</span> {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button onClick={() => { openPlanModal(gp); setGridMenu(null); }} style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>เปิดรายละเอียด →</button>
+                  </div>
+                </>
+              );
+            })()}
+
         {showModal && selectedPlan && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{ background: 'var(--card-solid)', width: 'min(900px, 96vw)', height: '100vh', display: 'flex', flexDirection: 'column', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', borderLeft: '1px solid var(--border)', animation: 'slideInRight 0.25s ease-out' }}>
