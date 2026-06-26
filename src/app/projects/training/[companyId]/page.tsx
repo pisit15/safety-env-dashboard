@@ -120,7 +120,7 @@ export default function CompanyTraining() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [timeRange, setTimeRange] = useState<string>('year');
-  const [viewMode, setViewMode] = useState<'overview' | 'update'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'update' | 'grid'>('overview');
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const currentMonthIdx = new Date().getMonth();
 
@@ -1396,6 +1396,7 @@ export default function CompanyTraining() {
               {[
                 { key: 'overview' as const, label: '📊 ภาพรวม' },
                 { key: 'update' as const, label: '📝 อัปเดต' },
+                { key: 'grid' as const, label: '📅 ตารางปี' },
               ].map(opt => (
                 <button
                   key={opt.key}
@@ -1523,6 +1524,69 @@ export default function CompanyTraining() {
 
         <div style={{ padding: '16px 24px' }}>
         {/* ===== OVERVIEW MODE ===== */}
+        {/* ═══ YEAR GRID VIEW — see all courses across 12 months ═══ */}
+        {viewMode === 'grid' && (
+          <div className="glass-card rounded-xl p-4" style={{ marginBottom: 20 }}>
+            {/* Legend */}
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12, fontSize: 11, color: 'var(--text-secondary)' }}>
+              {Object.entries(STATUS_CONFIG).map(([k, cfg]) => (
+                <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 11, height: 11, borderRadius: 3, background: cfg.color, display: 'inline-block' }} />{cfg.label}
+                </span>
+              ))}
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: 780, fontSize: 11 }}>
+                <thead>
+                  <tr>
+                    <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--card-solid)', textAlign: 'left', padding: '8px 10px', minWidth: 230, borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 700 }}>หลักสูตร</th>
+                    {MONTH_LABELS.map((m, i) => (
+                      <th key={m} style={{ padding: '8px 4px', textAlign: 'center', minWidth: 44, borderBottom: '1px solid var(--border)', color: i === currentMonthIdx ? STATUS.warning : 'var(--text-secondary)', background: i === currentMonthIdx ? `${STATUS.warning}12` : undefined, fontWeight: i === currentMonthIdx ? 700 : 600 }}>{m}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const byCat: Record<string, TrainingPlan[]> = {};
+                    activePlans.forEach(p => { const c = p.category || 'อื่นๆ'; if (!byCat[c]) byCat[c] = []; byCat[c].push(p); });
+                    return Object.keys(byCat).sort().flatMap(cat => {
+                      const catPlans = byCat[cat].slice().sort((a, b) => (getEffectiveMonth(a) - getEffectiveMonth(b)) || a.course_name.localeCompare(b.course_name));
+                      return [
+                        <tr key={`cat-${cat}`}>
+                          <td colSpan={13} style={{ background: 'var(--bg-tertiary)', padding: '6px 10px', fontWeight: 700, color: 'var(--text-secondary)', position: 'sticky', left: 0, fontSize: 11 }}>{cat} ({catPlans.length})</td>
+                        </tr>,
+                        ...catPlans.map(p => {
+                          const em = getEffectiveMonth(p);
+                          const status = p.training_sessions?.[0]?.status || 'planned';
+                          const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
+                          return (
+                            <tr key={p.id}>
+                              <td title={p.course_name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '6px 10px', borderBottom: '1px solid var(--border)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{p.course_name}</td>
+                              {MONTH_LABELS.map((_, i) => {
+                                const isCol = (i + 1) === em;
+                                return (
+                                  <td key={i} style={{ padding: 3, textAlign: 'center', borderBottom: '1px solid var(--border)', background: i === currentMonthIdx ? `${STATUS.warning}0A` : undefined }}>
+                                    {isCol ? (
+                                      <div onClick={() => openPlanModal(p)} title={`${p.course_name} — ${cfg.label}`} style={{ cursor: 'pointer', background: cfg.bg, border: `1px solid ${cfg.color}`, color: cfg.color, borderRadius: 6, padding: '3px 0', fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{cfg.icon}</div>
+                                    ) : null}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        }),
+                      ];
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            {activePlans.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 12 }}>ยังไม่มีหลักสูตรในปีนี้</div>
+            )}
+          </div>
+        )}
+
         {viewMode === 'overview' && (
           <>
         {/* Warning alerts */}
