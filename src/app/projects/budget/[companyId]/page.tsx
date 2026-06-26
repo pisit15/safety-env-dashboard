@@ -23,7 +23,7 @@ export default function CompanyBudgetPage() {
   const companyId = String(params.companyId || '');
   const auth = useAuth();
   const { companies } = useCompanies();
-  const { active: activeYears } = useYears();
+  const { years: allYears, active: activeYears } = useYears();
   const company = companies.find(c => c.id === companyId);
   const companyName = company?.name || companyId.toUpperCase();
 
@@ -39,8 +39,10 @@ export default function CompanyBudgetPage() {
     return DEFAULT_YEAR;
   });
   useEffect(() => {
-    if (activeYears.length > 0 && !activeYears.includes(selectedYear)) setSelectedYear(Math.max(...activeYears));
-  }, [activeYears]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (allYears.length > 0 && !allYears.includes(selectedYear)) {
+      setSelectedYear(activeYears.length > 0 ? Math.max(...activeYears) : Math.max(...allYears));
+    }
+  }, [allYears, activeYears]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { localStorage.setItem('budget_year', String(selectedYear)); }, [selectedYear]);
 
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
@@ -148,7 +150,7 @@ export default function CompanyBudgetPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
           style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
-          {(activeYears.length ? activeYears : [DEFAULT_YEAR]).map(y => <option key={y} value={y}>ปี {y}</option>)}
+          {(allYears.length ? allYears : [DEFAULT_YEAR]).map(y => <option key={y} value={y}>ปี {y}{activeYears.includes(y) ? '' : ' · เตรียม'}</option>)}
         </select>
         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>งบรวมทั้งปี: <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(grandTotal)}</strong> บาท</span>
       </div>
