@@ -2367,10 +2367,10 @@ export default function CompanyTraining() {
 
         {/* ═══ Detail Modal — Status-Driven Form ═══ */}
         {showModal && selectedPlan && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 24, overflowY: 'auto' }}>
-            <div style={{ background: 'var(--card-solid)', borderRadius: 16, width: '95%', maxWidth: 900, maxHeight: '92vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', border: '1px solid var(--border)' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: 'var(--card-solid)', width: 'min(900px, 96vw)', height: '100vh', display: 'flex', flexDirection: 'column', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', borderLeft: '1px solid var(--border)', animation: 'slideInRight 0.25s ease-out' }}>
               {/* Modal Header — Gradient like IncidentForm */}
-              <div style={{ padding: '16px 24px', flexShrink: 0, borderRadius: '16px 16px 0 0', background: getStatusGradient(selectedPlan.training_sessions?.[0]?.status) }}>
+              <div style={{ padding: '16px 24px', flexShrink: 0, background: getStatusGradient(selectedPlan.training_sessions?.[0]?.status) }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -2418,7 +2418,7 @@ export default function CompanyTraining() {
               </div>
 
               {/* Modal Body — Status-Driven with Numbered Sections */}
-              <div style={{ padding: '24px', overflowY: 'auto', flex: 1, maxHeight: 'calc(100vh - 200px)' }}>
+              <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
 
                 {/* Cost Summary Card — always visible */}
                 {(() => {
