@@ -88,8 +88,8 @@ export const PROJECTS: ProjectConfig[] = [
     ready: true,
     nav: [
       { id: 'plan', label: 'แผนอบรม', icon: GraduationCap, href: (cid) => cid === 'all' ? '/projects/training' : `/projects/training/${cid}` },
-      { id: 'overview', label: 'ภาพรวมทุกบริษัท', icon: BarChart3, href: () => '/projects/training' },
-      { id: 'hr-master', label: 'HR Master (DSD)', icon: ClipboardList, href: () => '/training/dashboard' },
+      { id: 'overview', label: 'ภาพรวมทุกบริษัท', icon: BarChart3, href: () => '/projects/training', adminOnly: true },
+      { id: 'hr-master', label: 'HR Master (DSD)', icon: ClipboardList, href: () => '/training/dashboard', adminOnly: true },
     ],
   },
   {
