@@ -89,7 +89,7 @@ export default function CompanyBudgetPage() {
 
   // ── Derived sums (m: 1..12, or 0 = ไม่ระบุ) ──
   const amtOf = (it: BudgetItem, m: number) => Number((it.monthly_amounts || {})[String(m)] || 0);
-  const itemTotal = (it: BudgetItem) => Object.values(it.monthly_amounts || {}).reduce((s, v) => s + Number(v || 0), 0);
+  const itemTotal = (it: BudgetItem) => { let t = 0; for (let m = 1; m <= 12; m++) t += amtOf(it, m); return t; };
   const sumFor = (catId: number, m: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + amtOf(i, m), 0);
   const catTotal = (catId: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + itemTotal(i), 0);
   const monthTotal = (m: number) => items.reduce((s, i) => s + amtOf(i, m), 0);
@@ -120,7 +120,7 @@ export default function CompanyBudgetPage() {
   const openEdit = (it: BudgetItem) => {
     if (!isLoggedIn) return;
     const monthly: Record<string, string> = {};
-    Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { monthly[k] = String(v); });
+    Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { const m = parseInt(k, 10); if (m >= 1 && m <= 12) monthly[k] = String(v); });
     setLinkUrl(''); setLinkTitle('');
     setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly, createdBy: it.created_by });
   };
@@ -239,7 +239,6 @@ export default function CompanyBudgetPage() {
                 {MONTH_LABELS.map(m => (
                   <th key={m} style={{ padding: '8px 4px', textAlign: 'center', minWidth: 64, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>{m}</th>
                 ))}
-                <th style={{ padding: '8px 6px', textAlign: 'center', minWidth: 70, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>ไม่ระบุ</th>
                 <th style={{ padding: '8px 6px', textAlign: 'right', minWidth: 90, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-primary)', fontWeight: 700, background: 'var(--bg-tertiary)' }}>รวม</th>
               </tr>
             </thead>
@@ -272,7 +271,6 @@ export default function CompanyBudgetPage() {
                     {MONTH_LABELS.map((_, i) => (
                       <td key={i} style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(sumFor(cat.id, i + 1))}</td>
                     ))}
-                    <td style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(sumFor(cat.id, 0))}</td>
                     <td style={{ padding: '6px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontWeight: 800, color: 'var(--text-primary)', background: 'var(--bg-tertiary)' }}>{fmtFull(catTotal(cat.id))}</td>
                   </tr>
                 );
@@ -290,7 +288,6 @@ export default function CompanyBudgetPage() {
                       {MONTH_LABELS.map((_, i) => (
                         <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, i + 1))}</td>
                       ))}
-                      <td style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, 0))}</td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11 }}>{fmtFull(itemTotal(it))}</td>
                     </tr>
                   );
@@ -304,7 +301,6 @@ export default function CompanyBudgetPage() {
                 {MONTH_LABELS.map((_, i) => (
                   <td key={i} style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', borderLeft: '1px solid var(--border)', borderTop: '2px solid var(--border)', background: 'var(--bg-tertiary)' }}>{fmt(monthTotal(i + 1))}</td>
                 ))}
-                <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)', borderLeft: '1px solid var(--border)', borderTop: '2px solid var(--border)', background: 'var(--bg-tertiary)' }}>{fmt(monthTotal(0))}</td>
                 <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 800, color: PALETTE.primary, borderLeft: '1px solid var(--border)', borderTop: '2px solid var(--border)', background: 'var(--bg-tertiary)' }}>{fmtFull(grandTotal)}</td>
               </tr>
             </tfoot>
@@ -350,11 +346,6 @@ export default function CompanyBudgetPage() {
                       style={{ width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', textAlign: 'right' }} />
                   </div>
                 ))}
-                <div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>ไม่ระบุ</div>
-                  <input type="number" value={editor.monthly['0'] ?? ''} onChange={e => setEditorMonth('0', e.target.value)} placeholder="0"
-                    style={{ width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', textAlign: 'right' }} />
-                </div>
               </div>
               <div style={{ marginTop: 12, textAlign: 'right', fontSize: 13, color: 'var(--text-secondary)' }}>รวมรายการ: <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(editorTotal)}</strong> บาท</div>
 
