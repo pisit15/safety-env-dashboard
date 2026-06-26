@@ -4,16 +4,12 @@ import { getSupabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// GET ?companyId= — list categories for a company (shared across years)
-export async function GET(request: NextRequest) {
-  const companyId = request.nextUrl.searchParams.get('companyId');
-  if (!companyId) {
-    return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
-  }
+// GET — list categories (shared across ALL companies; global standard list)
+export async function GET() {
   const { data, error } = await getSupabase()
     .from('budget_categories')
     .select('*')
-    .eq('company_id', companyId)
+    .eq('company_id', '__all__')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -24,26 +20,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyId, name } = body;
+    const { name } = body;
     if (body.isAdmin !== true) {
       return NextResponse.json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้นที่สร้างหมวดหมู่ได้' }, { status: 403 });
     }
-    if (!companyId || !name || !String(name).trim()) {
-      return NextResponse.json({ error: 'Missing companyId or name' }, { status: 400 });
+    if (!name || !String(name).trim()) {
+      return NextResponse.json({ error: 'Missing name' }, { status: 400 });
     }
     const db = getSupabase();
-    // next sort_order = max + 1
+    // categories are global (company_id = '__all__'); next sort_order = max + 1
     const { data: maxRow } = await db
       .from('budget_categories')
       .select('sort_order')
-      .eq('company_id', companyId)
+      .eq('company_id', '__all__')
       .order('sort_order', { ascending: false })
       .limit(1)
       .maybeSingle();
     const sortOrder = (maxRow?.sort_order ?? -1) + 1;
     const { data, error } = await db
       .from('budget_categories')
-      .insert({ company_id: companyId, name: String(name).trim(), sort_order: sortOrder })
+      .insert({ company_id: '__all__', name: String(name).trim(), sort_order: sortOrder })
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
