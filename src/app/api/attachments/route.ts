@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { DEFAULT_YEAR } from '@/lib/companies';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// GET - Fetch attachments for an activity/month
+function parseYear(v: string | null | undefined): number {
+  const n = parseInt(String(v ?? ''), 10);
+  return Number.isFinite(n) ? n : DEFAULT_YEAR;
+}
+
+// GET - Fetch attachments for an activity/month (+ year)
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const companyId = searchParams.get('companyId');
   const planType = searchParams.get('planType');
   const activityNo = searchParams.get('activityNo');
   const month = searchParams.get('month');
+  const year = parseYear(searchParams.get('year'));
 
   if (!companyId) {
     return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
@@ -20,6 +27,7 @@ export async function GET(request: NextRequest) {
     .from('activity_attachments')
     .select('*')
     .eq('company_id', companyId)
+    .eq('year', year)
     .order('created_at', { ascending: false });
 
   if (planType) query = query.eq('plan_type', planType);
@@ -46,6 +54,7 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('application/json')) {
       const body = await request.json();
       const { companyId, planType, activityNo, month, uploadedBy, linkUrl, linkTitle } = body;
+      const year = parseYear(body.year);
 
       if (!companyId || !planType || !activityNo || !month || !linkUrl) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -58,6 +67,7 @@ export async function POST(request: NextRequest) {
           plan_type: planType,
           activity_no: activityNo,
           month,
+          year,
           file_name: linkTitle || linkUrl,
           file_url: linkUrl,
           drive_file_id: '',
@@ -91,6 +101,7 @@ export async function POST(request: NextRequest) {
     const activityNo = formData.get('activityNo') as string;
     const month = formData.get('month') as string;
     const uploadedBy = formData.get('uploadedBy') as string;
+    const year = parseYear(formData.get('year') as string | null);
 
     if (!file || !companyId || !planType || !activityNo || !month) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -126,6 +137,7 @@ export async function POST(request: NextRequest) {
         plan_type: planType,
         activity_no: activityNo,
         month,
+        year,
         file_name: file.name,
         file_url: uploadResult.publicUrl,
         drive_file_id: uploadResult.storagePath,

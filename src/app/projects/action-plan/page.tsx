@@ -6,7 +6,8 @@ import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
 import { DashboardData } from '@/lib/types';
 import { useAuth } from '@/components/AuthContext';
-import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { useYears } from '@/lib/useYears';
 import { STATUS, PALETTE } from '@/lib/she-theme';
 import { YearlyKPISummary, QuarterlyKPI, getScoreColor, getScoreLabel } from '@/lib/kpi-calculator';
 import Link from 'next/link';
@@ -46,6 +47,14 @@ export default function HQOverview() {
     }
     return DEFAULT_YEAR;
   });
+  // DB-driven year list (Admin can add new years without a code deploy)
+  const { years: availableYears, active: activeYears, default: defaultYear } = useYears();
+  // If the saved/selected year isn't active (e.g. removed), fall back to the default.
+  useEffect(() => {
+    if (activeYears.length > 0 && !activeYears.includes(selectedYear)) {
+      setSelectedYear(defaultYear);
+    }
+  }, [activeYears, defaultYear]); // eslint-disable-line react-hooks/exhaustive-deps
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   // Time range: 'year' = full year, 'ytd' = up to current month, 'jan'...'dec' = specific month
@@ -680,8 +689,8 @@ export default function HQOverview() {
           <div className="flex items-center gap-3">
             {/* Year Selector */}
             <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
-              {AVAILABLE_YEARS.map(y => {
-                const isActive = ACTIVE_YEARS.includes(y);
+              {availableYears.map(y => {
+                const isActive = activeYears.includes(y);
                 return (
                 <button
                   key={y}

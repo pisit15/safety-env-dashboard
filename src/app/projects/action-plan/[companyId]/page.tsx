@@ -16,7 +16,8 @@ import dynamic from 'next/dynamic';
 
 const RichTextEditor = dynamic(() => import('@/components/RichTextEditor'), { ssr: false });
 import ActivityDrawer from './components/ActivityDrawer';
-import { AVAILABLE_YEARS, ACTIVE_YEARS, DEFAULT_YEAR } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { useYears } from '@/lib/useYears';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const MONTH_KEYS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -83,6 +84,13 @@ export default function CompanyDrilldown() {
     }
     return DEFAULT_YEAR;
   });
+  // DB-driven year list (Admin can add new years without a code deploy)
+  const { years: availableYears, active: activeYears, default: defaultYear } = useYears();
+  useEffect(() => {
+    if (activeYears.length > 0 && !activeYears.includes(selectedYear)) {
+      setSelectedYear(defaultYear);
+    }
+  }, [activeYears, defaultYear]); // eslint-disable-line react-hooks/exhaustive-deps
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<CompanySummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -702,6 +710,7 @@ export default function CompanyDrilldown() {
         planType: actualPlanType,
         activityNo: actualActNo,
         month: editingCell.month,
+        year: selectedYear,
         status: newStatus,
         note: finalNote,
         updatedBy: loginDisplayName || loginCompanyName,
@@ -744,7 +753,7 @@ export default function CompanyDrilldown() {
         ? (editingCell.actNo.startsWith('S:') ? 'safety' : editingCell.actNo.startsWith('E:') ? 'environment' : planType)
         : planType;
       const actualActNo = planType === 'total' ? editingCell.actNo.replace(/^[SE]:/, '') : editingCell.actNo;
-      const res = await fetch(`/api/status?companyId=${companyId}&planType=${actualPlanType}&activityNo=${actualActNo}&month=${editingCell.month}`, {
+      const res = await fetch(`/api/status?companyId=${companyId}&planType=${actualPlanType}&activityNo=${actualActNo}&month=${editingCell.month}&year=${selectedYear}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('ลบสถานะไม่สำเร็จ');
@@ -854,6 +863,7 @@ export default function CompanyDrilldown() {
           planType: actualPlanType,
           activityNo: actualActNo,
           responsible: newResponsible.trim(),
+          year: selectedYear,
           updatedBy: loginDisplayName || loginCompanyName,
         }),
       });
@@ -875,7 +885,7 @@ export default function CompanyDrilldown() {
     if (!editingResponsible) return;
     setSavingStatus(true);
     try {
-      await fetch(`/api/responsible?companyId=${companyId}&planType=${planType}&activityNo=${editingResponsible.actNo}`, {
+      await fetch(`/api/responsible?companyId=${companyId}&planType=${planType}&activityNo=${editingResponsible.actNo}&year=${selectedYear}`, {
         method: 'DELETE',
       });
       setResponsibleOverrides(prev => {
@@ -905,7 +915,7 @@ export default function CompanyDrilldown() {
         ? (actNo.startsWith('S:') ? 'safety' : actNo.startsWith('E:') ? 'environment' : planType)
         : planType;
       const an = planType === 'total' ? actNo.replace(/^[SE]:/, '') : actNo;
-      const res = await fetch(`/api/attachments?companyId=${companyId}&planType=${pt}&activityNo=${an}&month=${month}`);
+      const res = await fetch(`/api/attachments?companyId=${companyId}&planType=${pt}&activityNo=${an}&month=${month}&year=${selectedYear}`);
       const data = await res.json();
       const atts = data.attachments || [];
       setAttachments(atts);
@@ -957,6 +967,7 @@ export default function CompanyDrilldown() {
           planType: actualPlanType,
           activityNo: actualActNo,
           month: editingCell.month,
+          year: selectedYear,
           note: statusNote,
           updatedBy: loginDisplayName || loginCompanyName,
         }),
@@ -992,6 +1003,7 @@ export default function CompanyDrilldown() {
       formData.append('planType', actualPT);
       formData.append('activityNo', actualAN);
       formData.append('month', editingCell.month);
+      formData.append('year', String(selectedYear));
       formData.append('uploadedBy', loginDisplayName || loginCompanyName);
 
       const res = await fetch('/api/attachments', {
@@ -1057,6 +1069,7 @@ export default function CompanyDrilldown() {
           planType: actualPT2,
           activityNo: actualAN2,
           month: editingCell.month,
+          year: selectedYear,
           uploadedBy: loginDisplayName || loginCompanyName,
           linkUrl: externalLink.trim(),
           linkTitle: externalLinkTitle.trim() || externalLink.trim(),
@@ -1810,8 +1823,8 @@ export default function CompanyDrilldown() {
             className="px-2.5 py-1.5 rounded-lg text-xs font-semibold"
             style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', color: 'var(--text-primary)', outline: 'none' }}
           >
-            {AVAILABLE_YEARS.map(y => {
-              const isActive = ACTIVE_YEARS.includes(y);
+            {availableYears.map(y => {
+              const isActive = activeYears.includes(y);
               return <option key={y} value={y} disabled={!isActive}>{y}</option>;
             })}
           </select>
@@ -3081,7 +3094,7 @@ export default function CompanyDrilldown() {
                 await fetch('/api/attachments', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ companyId, planType: actualPT2, activityNo: actualAN2, month: editingCell.month, uploadedBy: loginDisplayName || loginCompanyName, linkUrl: url, linkTitle: title }),
+                  body: JSON.stringify({ companyId, planType: actualPT2, activityNo: actualAN2, month: editingCell.month, year: selectedYear, uploadedBy: loginDisplayName || loginCompanyName, linkUrl: url, linkTitle: title }),
                 });
                 fetchAttachments(editingCell.actNo, editingCell.month);
               }}

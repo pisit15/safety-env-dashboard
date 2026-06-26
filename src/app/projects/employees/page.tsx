@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { COMPANIES, DEFAULT_YEAR } from '@/lib/companies';
+import { useYears } from '@/lib/useYears';
 import {
   Users, Search, Building2, GraduationCap, ChevronLeft, ChevronRight,
   Filter, UserCheck, BookOpen, ArrowUpDown, AlertTriangle, Check, X,
@@ -46,6 +47,7 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 export default function EmployeesHQPage() {
   const auth = useAuth();
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
+  const { active: activeYears } = useYears();
   const [viewTab, setViewTab] = useState<'company' | 'employee' | 'course'>('company');
   const [loading, setLoading] = useState(false);
 
@@ -227,7 +229,7 @@ export default function EmployeesHQPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
             style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 14 }}>
-            {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            {activeYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
           {/* Tab toggle */}

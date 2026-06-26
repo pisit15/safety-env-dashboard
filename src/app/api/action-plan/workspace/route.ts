@@ -81,13 +81,13 @@ export async function GET(request: NextRequest) {
       // 1. Google Sheets: activities + summary
       fetchSheets(company, planTypes, year),
       // 2. Status overrides
-      fetchStatusOverrides(supabase, companyId, planTypes),
+      fetchStatusOverrides(supabase, companyId, planTypes, year),
       // 3. Responsible overrides
-      fetchResponsibleOverrides(supabase, companyId, planTypes),
+      fetchResponsibleOverrides(supabase, companyId, planTypes, year),
       // 4. Budget overrides
       fetchBudgetOverrides(supabase, companyId, planType, year),
       // 5. Attachment counts (aggregated)
-      fetchAttachmentCounts(supabase, companyId, planTypes),
+      fetchAttachmentCounts(supabase, companyId, planTypes, year),
     ]);
 
     return NextResponse.json({
@@ -193,12 +193,13 @@ async function fetchSinglePlan(
 async function fetchStatusOverrides(
   supabase: ReturnType<typeof getSupabase>,
   companyId: string,
-  planTypes: readonly ('safety' | 'environment')[]
+  planTypes: readonly ('safety' | 'environment')[],
+  year: number
 ): Promise<StatusRow[]> {
   if (planTypes.length === 2) {
     const [s, e] = await Promise.all([
-      supabase.from('status_overrides').select('activity_no,month,status,note,postponed_to_month,plan_type').eq('company_id', companyId).eq('plan_type', 'safety'),
-      supabase.from('status_overrides').select('activity_no,month,status,note,postponed_to_month,plan_type').eq('company_id', companyId).eq('plan_type', 'environment'),
+      supabase.from('status_overrides').select('activity_no,month,status,note,postponed_to_month,plan_type').eq('company_id', companyId).eq('year', year).eq('plan_type', 'safety'),
+      supabase.from('status_overrides').select('activity_no,month,status,note,postponed_to_month,plan_type').eq('company_id', companyId).eq('year', year).eq('plan_type', 'environment'),
     ]);
     return [...(s.data || []), ...(e.data || [])] as StatusRow[];
   }
@@ -206,6 +207,7 @@ async function fetchStatusOverrides(
     .from('status_overrides')
     .select('activity_no,month,status,note,postponed_to_month,plan_type')
     .eq('company_id', companyId)
+    .eq('year', year)
     .eq('plan_type', planTypes[0]);
   return (data || []) as StatusRow[];
 }
@@ -214,12 +216,13 @@ async function fetchStatusOverrides(
 async function fetchResponsibleOverrides(
   supabase: ReturnType<typeof getSupabase>,
   companyId: string,
-  planTypes: readonly ('safety' | 'environment')[]
+  planTypes: readonly ('safety' | 'environment')[],
+  year: number
 ): Promise<ResponsibleRow[]> {
   if (planTypes.length === 2) {
     const [s, e] = await Promise.all([
-      supabase.from('responsible_overrides').select('activity_no,responsible,plan_type').eq('company_id', companyId).eq('plan_type', 'safety'),
-      supabase.from('responsible_overrides').select('activity_no,responsible,plan_type').eq('company_id', companyId).eq('plan_type', 'environment'),
+      supabase.from('responsible_overrides').select('activity_no,responsible,plan_type').eq('company_id', companyId).eq('year', year).eq('plan_type', 'safety'),
+      supabase.from('responsible_overrides').select('activity_no,responsible,plan_type').eq('company_id', companyId).eq('year', year).eq('plan_type', 'environment'),
     ]);
     return [...(s.data || []), ...(e.data || [])] as ResponsibleRow[];
   }
@@ -227,6 +230,7 @@ async function fetchResponsibleOverrides(
     .from('responsible_overrides')
     .select('activity_no,responsible,plan_type')
     .eq('company_id', companyId)
+    .eq('year', year)
     .eq('plan_type', planTypes[0]);
   return (data || []) as ResponsibleRow[];
 }
@@ -257,14 +261,16 @@ async function fetchBudgetOverrides(
 async function fetchAttachmentCounts(
   supabase: ReturnType<typeof getSupabase>,
   companyId: string,
-  planTypes: readonly ('safety' | 'environment')[]
+  planTypes: readonly ('safety' | 'environment')[],
+  year: number
 ): Promise<AttachmentCountRow[]> {
   // Supabase doesn't support GROUP BY directly, so we fetch minimal columns
   // and aggregate on the server side
   let query = supabase
     .from('activity_attachments')
     .select('activity_no,month,plan_type')
-    .eq('company_id', companyId);
+    .eq('company_id', companyId)
+    .eq('year', year);
 
   if (planTypes.length === 1) {
     query = query.eq('plan_type', planTypes[0]);

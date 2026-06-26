@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES } from '@/lib/companies';
+import { COMPANIES, DEFAULT_YEAR } from '@/lib/companies';
 import { COMPANY_GROUPS, COMPANY_BUS, CompanyGroup, CompanyBU } from '@/lib/types';
 import { RefreshCw, UserCog, Paperclip, Trash2, FileEdit, ArrowLeft } from 'lucide-react';
 
@@ -75,7 +75,7 @@ export default function AdminPage() {
   const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany' | 'notify'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany' | 'notify' | 'years'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<CancellationRequest[]>([]);
@@ -163,6 +163,18 @@ export default function AdminPage() {
   const [companySettings, setCompanySettings] = useState<CompanySetting[]>([]);
   const [settingSaving, setSettingSaving] = useState<string | null>(null);
   const [editingCompany, setEditingCompany] = useState<string | null>(null); // company_id being edited
+
+  // Year management state (Manage Years tab)
+  interface YearSheetRow {
+    company_id: string; company_name: string; full_name: string; group_name: string; bu: string;
+    sheet_id: string; safety_sheet: string; envi_sheet: string;
+  }
+  const [planYears, setPlanYears] = useState<{ year: number; is_active: boolean }[]>([]);
+  const [yearSheetYear, setYearSheetYear] = useState<number | null>(null);
+  const [yearSheetRows, setYearSheetRows] = useState<YearSheetRow[]>([]);
+  const [newYearInput, setNewYearInput] = useState('');
+  const [yearSaving, setYearSaving] = useState<string | null>(null);
+  const [yearMsg, setYearMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   // HR PIN state
   const [hrPin, setHrPin] = useState('');
@@ -353,6 +365,96 @@ export default function AdminPage() {
     return fallback;
   };
 
+  // Year management (Manage Years tab)
+  const fetchPlanYears = useCallback(async () => {
+    try {
+      const r = await fetch('/api/plan-years', { cache: 'no-store' });
+      const d = await r.json();
+      const years: number[] = Array.isArray(d.years) ? d.years : [];
+      const active: number[] = Array.isArray(d.active) ? d.active : [];
+      setPlanYears(years.map((y) => ({ year: y, is_active: active.includes(y) })));
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchYearSheetRows = useCallback(async (year: number) => {
+    try {
+      const r = await fetch(`/api/company-year-sheets?year=${year}`, { cache: 'no-store' });
+      const d = await r.json();
+      setYearSheetRows(d.rows || []);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleAddYear = async () => {
+    const year = parseInt(newYearInput, 10);
+    if (!Number.isFinite(year) || year < 2000 || year > 2100) {
+      setYearMsg({ type: 'error', msg: 'กรุณากรอกปี ค.ศ. ที่ถูกต้อง (เช่น 2027)' });
+      return;
+    }
+    if (planYears.some((p) => p.year === year)) {
+      setYearMsg({ type: 'error', msg: `มีปี ${year} อยู่แล้ว` });
+      return;
+    }
+    const res = await fetch('/api/plan-years', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, isActive: false }),
+    });
+    if (res.ok) {
+      setNewYearInput('');
+      setYearMsg({ type: 'success', msg: `เพิ่มปี ${year} แล้ว — ตั้งค่า Google Sheet ของแต่ละบริษัทด้านล่าง แล้วกด "เปิดใช้งาน"` });
+      await fetchPlanYears();
+      setYearSheetYear(year);
+      fetchYearSheetRows(year);
+    } else {
+      setYearMsg({ type: 'error', msg: 'เพิ่มปีไม่สำเร็จ' });
+    }
+  };
+
+  const handleToggleYearActive = async (year: number, isActive: boolean) => {
+    setPlanYears((prev) => prev.map((p) => (p.year === year ? { ...p, is_active: isActive } : p)));
+    const res = await fetch('/api/plan-years', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, isActive }),
+    });
+    if (res.ok) {
+      setYearMsg({ type: 'success', msg: `ปี ${year} ${isActive ? 'เปิดใช้งาน' : 'ปิด'}แล้ว` });
+    } else {
+      setYearMsg({ type: 'error', msg: 'อัปเดตไม่สำเร็จ' });
+      fetchPlanYears();
+    }
+  };
+
+  const handleDeleteYear = async (year: number) => {
+    if (year === DEFAULT_YEAR) {
+      setYearMsg({ type: 'error', msg: `ลบปี ${year} (ปีฐาน) ไม่ได้` });
+      return;
+    }
+    if (!confirm(`ลบการตั้งค่าปี ${year}? (ข้อมูลสถานะ/ไฟล์แนบของปีนั้นจะยังอยู่ แต่จะไม่แสดงจนกว่าจะเพิ่มปีใหม่)`)) return;
+    const res = await fetch(`/api/plan-years?year=${year}`, { method: 'DELETE' });
+    if (res.ok) {
+      setYearMsg({ type: 'success', msg: `ลบปี ${year} แล้ว` });
+      if (yearSheetYear === year) { setYearSheetYear(null); setYearSheetRows([]); }
+      fetchPlanYears();
+    } else {
+      setYearMsg({ type: 'error', msg: 'ลบไม่สำเร็จ' });
+    }
+  };
+
+  const handleSaveYearSheet = async (companyId: string, field: 'sheet_id' | 'safety_sheet' | 'envi_sheet', value: string) => {
+    if (yearSheetYear == null) return;
+    setYearSheetRows((prev) => prev.map((r) => (r.company_id === companyId ? { ...r, [field]: value } : r)));
+    setYearSaving(companyId);
+    try {
+      await fetch('/api/company-year-sheets', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: yearSheetYear, company_id: companyId, [field]: value }),
+      });
+    } catch { /* ignore */ }
+    setYearSaving(null);
+  };
+
   const fetchDsdCourses = useCallback(async () => {
     setDsdLoading(true);
     try {
@@ -500,8 +602,17 @@ export default function AdminPage() {
     if (activeTab === 'companies') fetchCompanySettings();
     if (activeTab === 'multicompany') fetchMcMappings();
     if (activeTab === 'notify') fetchNotifyRecipients();
+    if (activeTab === 'years') fetchPlanYears();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses, fetchCompanySettings, fetchMcMappings]);
+
+  // Auto-dismiss the Manage-Years toast after 3s
+  useEffect(() => {
+    if (yearMsg) {
+      const t = setTimeout(() => setYearMsg(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [yearMsg]);
 
   // ── Notification recipients handlers ──
   const fetchNotifyRecipients = () => {
@@ -941,6 +1052,7 @@ export default function AdminPage() {
             { key: 'multicompany', label: 'Multi-Company', minRole: 'super_admin' },
             { key: 'notify', label: 'แจ้งเตือนอีเมล', minRole: 'admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
+            { key: 'years', label: 'จัดการปี', minRole: 'admin' },
           ].filter(tab => {
             if (tab.minRole === 'viewer') return true;
             if (tab.minRole === 'admin') return isAdmin;
@@ -2364,6 +2476,177 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* YEARS TAB — manage plan years + per-year Google Sheets */}
+        {activeTab === 'years' && (
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+              <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>จัดการปี (Action Plan)</h3>
+            </div>
+            <p className="text-[11px] mb-4 ml-3" style={{ color: 'var(--text-muted)' }}>
+              เพิ่มปีใหม่ แล้วตั้งค่า Google Sheet ของแต่ละบริษัทแยกตามปี — ปี {DEFAULT_YEAR} (ปีฐาน) ตั้งค่าได้ที่แท็บ &quot;บริษัท&quot;
+            </p>
+
+            {yearMsg && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-[12px]" style={{
+                background: yearMsg.type === 'success' ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
+                color: yearMsg.type === 'success' ? '#30d158' : '#ff453a',
+              }}>
+                {yearMsg.msg}
+              </div>
+            )}
+
+            {/* Add a year */}
+            <div className="flex items-end gap-2 mb-4 flex-wrap">
+              <div>
+                <label className="block text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>เพิ่มปีใหม่ (ค.ศ.)</label>
+                <input
+                  type="number"
+                  value={newYearInput}
+                  onChange={e => setNewYearInput(e.target.value)}
+                  placeholder="2027"
+                  className="text-[12px] px-3 py-2 rounded-lg border w-28"
+                  style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                />
+              </div>
+              <button
+                onClick={handleAddYear}
+                className="text-[12px] px-4 py-2 rounded-lg font-medium"
+                style={{ background: 'var(--accent)', color: '#fff' }}
+              >
+                + เพิ่มปี
+              </button>
+            </div>
+
+            {/* Year list */}
+            <div className="flex flex-col gap-2 mb-6">
+              {planYears.length === 0 && (
+                <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>กำลังโหลด...</span>
+              )}
+              {planYears.sort((a, b) => b.year - a.year).map(py => (
+                <div key={py.year} className="flex items-center gap-3 px-3 py-2 rounded-lg flex-wrap"
+                  style={{ background: yearSheetYear === py.year ? 'var(--bg-secondary)' : 'var(--bg-tertiary)', border: '1px solid var(--border)' }}>
+                  <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)', minWidth: 48 }}>{py.year}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{
+                    background: py.is_active ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
+                    color: py.is_active ? '#30d158' : 'var(--text-muted)',
+                  }}>
+                    {py.is_active ? 'เปิดใช้งาน (แสดงในตัวเลือกปี)' : 'ปิด (ซ่อน)'}
+                  </span>
+                  {py.year === DEFAULT_YEAR && (
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>ปีฐาน</span>
+                  )}
+                  <div className="flex-1" />
+                  <button
+                    onClick={() => handleToggleYearActive(py.year, !py.is_active)}
+                    className="text-[11px] px-3 py-1 rounded-lg"
+                    style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                  >
+                    {py.is_active ? 'ปิด' : 'เปิดใช้งาน'}
+                  </button>
+                  {py.year !== DEFAULT_YEAR && (
+                    <button
+                      onClick={() => { setYearSheetYear(py.year); fetchYearSheetRows(py.year); }}
+                      className="text-[11px] px-3 py-1 rounded-lg"
+                      style={{ background: yearSheetYear === py.year ? 'var(--accent)' : 'var(--bg-secondary)', color: yearSheetYear === py.year ? '#fff' : 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                    >
+                      ตั้งค่า Sheet
+                    </button>
+                  )}
+                  {py.year !== DEFAULT_YEAR && (
+                    <button
+                      onClick={() => handleDeleteYear(py.year)}
+                      className="text-[11px] px-3 py-1 rounded-lg"
+                      style={{ background: 'rgba(255,69,58,0.12)', color: '#ff453a' }}
+                    >
+                      ลบ
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Per-company sheet editor for the selected year */}
+            {yearSheetYear != null && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                  <h3 className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>Google Sheet ปี {yearSheetYear}</h3>
+                  <span className="text-[10px] ml-2" style={{ color: 'var(--text-muted)' }}>กรอกแล้วบันทึกอัตโนมัติ — ใส่ Sheet ID ของบริษัทที่มีแผนปีนี้</span>
+                </div>
+                <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
+                  <table className="apple-table w-full text-[11px]" style={{ tableLayout: 'fixed' }}>
+                    <thead>
+                      <tr style={{ borderColor: 'var(--border)' }}>
+                        <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '18%' }}>บริษัท</th>
+                        <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '28%' }}>Google Sheet ID</th>
+                        <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '22%' }}>Safety Sheet</th>
+                        <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)', width: '22%' }}>Envi Sheet</th>
+                        <th className="text-center py-2 px-1 font-semibold" style={{ color: 'var(--text-secondary)', width: '10%', whiteSpace: 'nowrap' }}>สถานะ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yearSheetRows.map(row => {
+                        const hasSheet = !!row.sheet_id;
+                        return (
+                          <tr key={row.company_id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
+                            <td className="py-2 px-2">
+                              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{row.company_name}</span>
+                              {yearSaving === row.company_id && <span className="ml-2 text-[9px]" style={{ color: 'var(--accent)' }}>บันทึก...</span>}
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                value={row.sheet_id}
+                                onChange={e => setYearSheetRows(prev => prev.map(r => r.company_id === row.company_id ? { ...r, sheet_id: e.target.value } : r))}
+                                onBlur={e => handleSaveYearSheet(row.company_id, 'sheet_id', e.target.value)}
+                                placeholder="Google Sheet ID..."
+                                className="text-[10px] w-full px-2 py-1 rounded border"
+                                style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                value={row.safety_sheet}
+                                onChange={e => setYearSheetRows(prev => prev.map(r => r.company_id === row.company_id ? { ...r, safety_sheet: e.target.value } : r))}
+                                onBlur={e => handleSaveYearSheet(row.company_id, 'safety_sheet', e.target.value)}
+                                placeholder="ชื่อชีต Safety..."
+                                className="text-[10px] w-full px-2 py-1 rounded border"
+                                style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                value={row.envi_sheet}
+                                onChange={e => setYearSheetRows(prev => prev.map(r => r.company_id === row.company_id ? { ...r, envi_sheet: e.target.value } : r))}
+                                onBlur={e => handleSaveYearSheet(row.company_id, 'envi_sheet', e.target.value)}
+                                placeholder="ชื่อชีต Envi..."
+                                className="text-[10px] w-full px-2 py-1 rounded border"
+                                style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', borderColor: 'var(--border)' }}
+                              />
+                            </td>
+                            <td className="py-2 px-1 text-center">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{
+                                background: hasSheet ? 'rgba(48,209,88,0.2)' : 'var(--bg-tertiary)',
+                                color: hasSheet ? '#30d158' : 'var(--text-muted)',
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {hasSheet ? 'เชื่อมต่อ' : 'รอตั้งค่า'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

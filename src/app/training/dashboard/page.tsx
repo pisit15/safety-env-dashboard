@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useCompanies } from '@/hooks/useCompanies';
-import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { useYears } from '@/lib/useYears';
 import {
   Search, Filter, Download, Calendar, ChevronDown, ChevronRight,
   CheckCircle2, CalendarCheck, Clock, AlertCircle, X, ArrowUpRight,
@@ -168,6 +169,7 @@ export default function TrainingMasterDashboard() {
   const { companies: COMPANIES } = useCompanies();
 
   const [selectedYear, setSelectedYear] = useState<number>(DEFAULT_YEAR);
+  const { active: activeYears } = useYears();
   const [rawPlans, setRawPlans] = useState<PlanEnriched[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -423,7 +425,7 @@ export default function TrainingMasterDashboard() {
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                 style={{ border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, color: T.textPrimary, outline: 'none', cursor: 'pointer' }}
               >
-                {ACTIVE_YEARS.map(y => <option key={y} value={y}>ปี {y}</option>)}
+                {activeYears.map(y => <option key={y} value={y}>ปี {y}</option>)}
               </select>
             </div>
             <button

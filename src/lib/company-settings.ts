@@ -1,5 +1,6 @@
 import { COMPANIES, DEFAULT_YEAR, AVAILABLE_YEARS } from './companies';
 import { getServiceSupabase } from './supabase';
+import { getAllYears } from './plan-years';
 import { CompanyConfig } from './types';
 
 /**
@@ -54,6 +55,76 @@ async function fetchDbSettings(): Promise<DbSetting[]> {
   return [];
 }
 
+// ── Per-year sheet config (company_year_sheets table) ──────────
+export interface YearSheetRow {
+  company_id: string;
+  year: number;
+  sheet_id: string;
+  safety_sheet: string;
+  envi_sheet: string;
+}
+
+let cachedYearSheets: YearSheetRow[] | null = null;
+let yearSheetsCacheTime = 0;
+
+async function fetchYearSheets(): Promise<YearSheetRow[]> {
+  const now = Date.now();
+  if (cachedYearSheets && now - yearSheetsCacheTime < CACHE_TTL) {
+    return cachedYearSheets;
+  }
+  try {
+    const { data, error } = await getServiceSupabase()
+      .from('company_year_sheets')
+      .select('company_id, year, sheet_id, safety_sheet, envi_sheet');
+    if (!error && data) {
+      cachedYearSheets = data as YearSheetRow[];
+      yearSheetsCacheTime = now;
+      return cachedYearSheets;
+    }
+  } catch (e) {
+    console.warn('[company-settings] fetchYearSheets exception:', e);
+  }
+  return [];
+}
+
+/** Invalidate the in-memory caches (call after mutating settings/year sheets). */
+export function invalidateCompanySettingsCache(): void {
+  cachedSettings = null;
+  cacheTime = 0;
+  cachedYearSheets = null;
+  yearSheetsCacheTime = 0;
+}
+
+/**
+ * Resolve the sheet config for a company in a given year.
+ * Priority: DB year row (non-empty) -> static years map -> base (only for
+ * the default year) -> empty (an un-configured future year).
+ */
+function resolveYearSheet(
+  company: CompanyConfig,
+  id: string,
+  year: number,
+  yearRows: YearSheetRow[],
+): CompanyConfig {
+  // The default (base) year is driven entirely by company_settings — the
+  // existing Admin tab. Keep that behavior unchanged so 2026 never regresses.
+  if (year === DEFAULT_YEAR) return company;
+
+  // Other years: DB per-year row (non-empty) wins.
+  const row = yearRows.find((r) => r.company_id === id && r.year === year);
+  if (row && row.sheet_id) {
+    return { ...company, sheetId: row.sheet_id, safetySheet: row.safety_sheet, enviSheet: row.envi_sheet };
+  }
+  // Then the static years map (legacy hard-coded config).
+  const staticCompany = COMPANIES.find((c) => c.id === id);
+  const yc = staticCompany?.years?.[year];
+  if (yc && yc.sheetId) {
+    return { ...company, sheetId: yc.sheetId, safetySheet: yc.safetySheet, enviSheet: yc.enviSheet };
+  }
+  // Un-configured future year -> no sheet (caller shows "not configured").
+  return { ...company, sheetId: '', safetySheet: '', enviSheet: '' };
+}
+
 /** Pick the first non-empty trimmed string, or '' */
 function pick(...values: (string | undefined | null)[]): string {
   for (const v of values) {
@@ -95,40 +166,21 @@ export async function getCompanyByIdWithDb(id: string): Promise<CompanyConfig | 
   return companies.find(c => c.id === id);
 }
 
-/** Get company for a specific year, with DB overrides */
+/** Get company for a specific year, with DB overrides (DB year sheets first) */
 export async function getCompanyForYearWithDb(id: string, year: number): Promise<CompanyConfig | undefined> {
   const company = await getCompanyByIdWithDb(id);
   if (!company) return undefined;
-
-  // Check year-specific config from static (years map)
-  const staticCompany = COMPANIES.find(c => c.id === id);
-  const yearConfig = staticCompany?.years?.[year];
-  if (yearConfig) {
-    return {
-      ...company,
-      sheetId: yearConfig.sheetId || company.sheetId,
-      safetySheet: yearConfig.safetySheet || company.safetySheet,
-      enviSheet: yearConfig.enviSheet || company.enviSheet,
-    };
-  }
-
-  return company;
+  const yearRows = await fetchYearSheets();
+  return resolveYearSheet(company, id, year, yearRows);
 }
 
 /** Get active companies (those with a sheetId) for a specific year, with DB overrides */
 export async function getActiveCompaniesForYearWithDb(year: number): Promise<CompanyConfig[]> {
   const companies = await getCompaniesWithDbOverrides();
-  return companies.map(c => {
-    // Check year-specific config from static
-    const staticCompany = COMPANIES.find(sc => sc.id === c.id);
-    const yearConfig = staticCompany?.years?.[year];
-    if (yearConfig && yearConfig.sheetId) {
-      return { ...c, sheetId: yearConfig.sheetId, safetySheet: yearConfig.safetySheet, enviSheet: yearConfig.enviSheet };
-    }
-    // For default year, use merged config
-    if (year === DEFAULT_YEAR && c.sheetId) return c;
-    return null;
-  }).filter((c): c is CompanyConfig => c !== null);
+  const yearRows = await fetchYearSheets();
+  return companies
+    .map(c => resolveYearSheet(c, c.id, year, yearRows))
+    .filter(c => c.sheetId !== '');
 }
 
 /** Get active companies (with sheetId), with DB overrides */
@@ -137,14 +189,18 @@ export async function getActiveCompaniesWithDb(): Promise<CompanyConfig[]> {
   return companies.filter(c => c.sheetId !== '');
 }
 
-/** Get available years for a company, with DB overrides */
+/**
+ * Get the years a company has a configured sheet for, with DB overrides.
+ * Considers DB year rows, the static years map, and the base (default-year)
+ * config — across every year known to plan_years (falls back to AVAILABLE_YEARS).
+ */
 export async function getCompanyAvailableYearsWithDb(id: string): Promise<number[]> {
   const company = await getCompanyByIdWithDb(id);
   if (!company) return [];
-  const staticCompany = COMPANIES.find(c => c.id === id);
-  if (!staticCompany?.years) return company.sheetId ? [DEFAULT_YEAR] : [];
-  return AVAILABLE_YEARS.filter(y => {
-    const yc = staticCompany.years?.[y];
-    return (yc && yc.sheetId) || (y === DEFAULT_YEAR && company.sheetId);
-  });
+  const [yearRows, knownYears] = await Promise.all([
+    fetchYearSheets(),
+    getAllYears(),
+  ]);
+  const years = knownYears.length > 0 ? knownYears : [...AVAILABLE_YEARS];
+  return years.filter(y => resolveYearSheet(company, id, y, yearRows).sheetId !== '');
 }

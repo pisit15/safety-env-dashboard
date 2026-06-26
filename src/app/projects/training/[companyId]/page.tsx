@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
-import { COMPANIES, DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { COMPANIES, DEFAULT_YEAR } from '@/lib/companies';
+import { useYears } from '@/lib/useYears';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Upload, Calendar, Users, DollarSign, Clock, AlertTriangle, CheckCircle, XCircle, PauseCircle, FileSpreadsheet, Trash2, Plus, ChevronDown, ChevronRight, Edit2, Save, Bell, Eye, EyeOff, X, Filter, RotateCcw, ArrowRight, Download } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
@@ -108,6 +109,7 @@ export default function CompanyTraining() {
   const company = getCompanyById(companyId);
 
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
+  const { active: activeYears } = useYears();
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<TrainingPlan | null>(null);
@@ -1419,7 +1421,7 @@ export default function CompanyTraining() {
             onChange={e => setSelectedYear(Number(e.target.value))}
             style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}
           >
-            {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            {activeYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
           <div style={{ width: 1, height: 20, background: 'var(--border)' }} />

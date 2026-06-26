@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
-import { DEFAULT_YEAR, ACTIVE_YEARS } from '@/lib/companies';
+import { DEFAULT_YEAR } from '@/lib/companies';
+import { useYears } from '@/lib/useYears';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Calendar, Search, CheckCircle, XCircle, Clock, BookOpen, CheckCircle2, CalendarCheck, Users, AlertTriangle, ClipboardList, BarChart3, GraduationCap, Wallet, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -55,6 +56,7 @@ export default function HQTrainingOverview() {
   const auth = useAuth();
   const { companies: COMPANIES } = useCompanies();
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
+  const { active: activeYears } = useYears();
   const [allCompanyData, setAllCompanyData] = useState<CompanyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -728,7 +730,7 @@ export default function HQTrainingOverview() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
           <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }}>
-            {ACTIVE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            {activeYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
           <button style={{ padding: '6px 14px', borderRadius: 6, border: '2px solid var(--accent)',
