@@ -188,35 +188,55 @@ export default function CompanyBudgetPage() {
               </tr>
             </thead>
             <tbody>
-              {categories.map(cat => (
-                <tr key={cat.id}>
-                  <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '6px 10px', borderBottom: '1px solid var(--border)', color: 'var(--text-primary)' }}>
-                    {editingCatId === cat.id ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <input autoFocus value={editingCatName} onChange={e => setEditingCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveCategoryName(cat.id); }}
-                          style={{ fontSize: 12, padding: '3px 6px', borderRadius: 5, border: '1px solid var(--accent)', background: 'var(--bg)', color: 'var(--text-primary)', width: 150 }} />
-                        <button onClick={() => saveCategoryName(cat.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: STATUS.positive }}><Check size={14} /></button>
-                      </span>
-                    ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontWeight: 600 }}>{cat.name}</span>
-                        {isAdmin && (
-                          <>
-                            <button title="แก้ชื่อ" onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}><Pencil size={12} /></button>
-                            <button title="ลบหมวด" onClick={() => deleteCategory(cat.id, cat.name)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: STATUS.critical }}><Trash2 size={12} /></button>
-                          </>
-                        )}
-                      </span>
-                    )}
-                  </td>
-                  {MONTH_LABELS.map((_, i) => {
-                    const v = sumFor(cat.id, i + 1);
-                    return <td key={i} onClick={() => openCell(cat.id, i + 1)} style={cellStyle}>{fmt(v)}</td>;
-                  })}
-                  <td onClick={() => openCell(cat.id, 0)} style={cellStyle}>{fmt(sumFor(cat.id, 0))}</td>
-                  <td style={{ padding: '6px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontWeight: 700, color: 'var(--text-primary)', background: 'var(--bg-tertiary)' }}>{fmtFull(catTotal(cat.id))}</td>
-                </tr>
-              ))}
+              {categories.flatMap(cat => {
+                const catItems = items
+                  .filter(i => i.category_id === cat.id)
+                  .sort((a, b) => ((a.month ?? 13) - (b.month ?? 13)) || a.name.localeCompare(b.name));
+                const headerRow = (
+                  <tr key={`cat-${cat.id}`} style={{ background: 'var(--bg-secondary)' }}>
+                    <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-secondary)', padding: '6px 10px', borderBottom: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                      {editingCatId === cat.id ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <input autoFocus value={editingCatName} onChange={e => setEditingCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveCategoryName(cat.id); }}
+                            style={{ fontSize: 12, padding: '3px 6px', borderRadius: 5, border: '1px solid var(--accent)', background: 'var(--bg)', color: 'var(--text-primary)', width: 150 }} />
+                          <button onClick={() => saveCategoryName(cat.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: STATUS.positive }}><Check size={14} /></button>
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 700 }}>{cat.name}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>({catItems.length})</span>
+                          {isAdmin && (
+                            <>
+                              <button title="แก้ชื่อ" onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}><Pencil size={12} /></button>
+                              <button title="ลบหมวด" onClick={() => deleteCategory(cat.id, cat.name)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: STATUS.critical }}><Trash2 size={12} /></button>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    {MONTH_LABELS.map((_, i) => {
+                      const v = sumFor(cat.id, i + 1);
+                      return <td key={i} onClick={() => openCell(cat.id, i + 1)} style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(v)}</td>;
+                    })}
+                    <td onClick={() => openCell(cat.id, 0)} style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(sumFor(cat.id, 0))}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontWeight: 800, color: 'var(--text-primary)', background: 'var(--bg-tertiary)' }}>{fmtFull(catTotal(cat.id))}</td>
+                  </tr>
+                );
+                const itemRows = catItems.map(it => {
+                  const im = it.month ?? 0;
+                  return (
+                    <tr key={`it-${it.id}`} onClick={() => openCell(cat.id, im)} style={{ cursor: isLoggedIn ? 'pointer' : 'default' }}>
+                      <td title={it.name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>• {it.name}</td>
+                      {MONTH_LABELS.map((_, i) => (
+                        <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{im === i + 1 ? fmt(Number(it.amount)) : ''}</td>
+                      ))}
+                      <td style={{ ...cellStyle, color: 'var(--text-primary)' }}>{im === 0 ? fmt(Number(it.amount)) : ''}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11 }}>{fmtFull(Number(it.amount))}</td>
+                    </tr>
+                  );
+                });
+                return [headerRow, ...itemRows];
+              })}
             </tbody>
             <tfoot>
               <tr>
