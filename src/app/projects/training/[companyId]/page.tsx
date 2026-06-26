@@ -1581,7 +1581,18 @@ export default function CompanyTraining() {
                           const ring = urg === 'critical' ? STATUS.critical : urg === 'warning' ? STATUS.warning : null;
                           return (
                             <tr key={p.id}>
-                              <td title={p.course_name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '6px 10px', borderBottom: '1px solid var(--border)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{p.course_name}</td>
+                              <td title={p.course_name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '6px 10px', borderBottom: '1px solid var(--border)', maxWidth: 340, color: 'var(--text-primary)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.course_name}</span>
+                                  {!em && (
+                                    <select value="" onClick={e => e.stopPropagation()} onChange={e => { if (e.target.value) handleUpdatePlannedMonth(p.id, Number(e.target.value)); }}
+                                      style={{ flexShrink: 0, fontSize: 10, padding: '2px 4px', borderRadius: 5, border: `1px solid ${STATUS.warning}`, background: STATUS.warningBg, color: STATUS.warning, cursor: 'pointer', fontWeight: 700 }}>
+                                      <option value="">📅 กำหนดเดือน</option>
+                                      {MONTH_LABELS.map((label, mi) => <option key={mi} value={mi + 1}>{label}</option>)}
+                                    </select>
+                                  )}
+                                </div>
+                              </td>
                               {MONTH_LABELS.map((_, i) => {
                                 const isCol = (i + 1) === em;
                                 return (
