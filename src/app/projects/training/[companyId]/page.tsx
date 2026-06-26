@@ -123,6 +123,8 @@ export default function CompanyTraining() {
   const [viewMode, setViewMode] = useState<'overview' | 'update' | 'grid'>('overview');
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const currentMonthIdx = new Date().getMonth();
+  // Hide all DSD / รง.1 document UI on this page (data + HR Master page are kept). Flip to true to restore.
+  const SHOW_DSD = false as boolean;
 
   // Modal form state
   const [modalStatus, setModalStatus] = useState('planned');
@@ -1277,7 +1279,7 @@ export default function CompanyTraining() {
     if (status === 'cancelled') return { label: 'ยกเลิกแล้ว', urgency: 'muted', ctaLabel: 'ดูรายละเอียด' };
     if (status === 'completed') {
       // Check DSD post-training deadline (critical if overdue)
-      if (plan.dsd_eligible !== false && !session?.dsd_report_submitted && session?.scheduled_date_end) {
+      if (SHOW_DSD && plan.dsd_eligible !== false && !session?.dsd_report_submitted && session?.scheduled_date_end) {
         const dEnd = new Date(session.scheduled_date_end);
         const deadline60 = new Date(dEnd.getTime() + 60 * 24 * 60 * 60 * 1000);
         const jan15 = new Date(selectedYear + 1, 0, 15);
@@ -1297,7 +1299,7 @@ export default function CompanyTraining() {
     if (status === 'postponed') return { label: 'เลื่อน — รอกำหนดใหม่', urgency: 'warning', ctaLabel: 'กำหนดวัน' };
     if (status === 'scheduled') {
       // Check DSD pre-training deadline
-      if (plan.dsd_eligible !== false && session?.scheduled_date_start && !session?.dsd_submitted && !session?.dsd_not_submitting) {
+      if (SHOW_DSD && plan.dsd_eligible !== false && session?.scheduled_date_start && !session?.dsd_submitted && !session?.dsd_not_submitting) {
         const isInHouse = plan.in_house_external?.toLowerCase().includes('in');
         const daysReq = isInHouse ? 60 : 15;
         const dStart = new Date(session.scheduled_date_start);
@@ -1766,7 +1768,7 @@ export default function CompanyTraining() {
               )}
 
               {/* Pending DSD docs */}
-              {pendingDocs.length > 0 && (
+              {SHOW_DSD && pendingDocs.length > 0 && (
                 <div style={{ background: STATUS.criticalBg, borderRadius: 10, border: `1px solid ${STATUS.critical}40`, padding: '14px 16px' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: STATUS.critical, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Clock size={14} /> เอกสารค้างส่ง ({pendingDocs.length})
@@ -2023,7 +2025,8 @@ export default function CompanyTraining() {
               })()}
             </div>
 
-            {/* DSD Document Status */}
+{/* DSD Document Status */}
+            {SHOW_DSD && (
             <div style={{ background: 'var(--card-solid)', borderRadius: 10, border: '1px solid var(--border)', padding: '16px 20px' }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>📋 สถานะเอกสาร DSD</h3>
               {(() => {
@@ -2047,6 +2050,7 @@ export default function CompanyTraining() {
                 ));
               })()}
             </div>
+            )}
           </div>
         )}
           </>
@@ -2250,7 +2254,7 @@ export default function CompanyTraining() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{plan.course_name}</span>
-                                {plan.dsd_eligible !== false && (
+                                {SHOW_DSD && plan.dsd_eligible !== false && (
                                   <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700, flexShrink: 0 }}>DSD</span>
                                 )}
                                 <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3, background: isInHouse ? '#dbeafe' : '#f3e8ff', color: isInHouse ? '#1d4ed8' : '#7c3aed', fontWeight: 600, flexShrink: 0 }}>
@@ -2438,7 +2442,7 @@ export default function CompanyTraining() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {selectedPlan.dsd_eligible !== false && (
+                      {SHOW_DSD && selectedPlan.dsd_eligible !== false && (
                         <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 700 }}>DSD</span>
                       )}
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
@@ -2462,7 +2466,7 @@ export default function CompanyTraining() {
                   </button>
                 </div>
                 {/* DSD pre-training deadline warning */}
-                {selectedPlan.dsd_eligible !== false && modalDateStart && !modalDsdSubmitted && (() => {
+                {SHOW_DSD && selectedPlan.dsd_eligible !== false && modalDateStart && !modalDsdSubmitted && (() => {
                   const isInHouse = selectedPlan.in_house_external?.toLowerCase().includes('in');
                   const daysRequired = isInHouse ? 60 : 15;
                   const dStart = new Date(modalDateStart);
@@ -2853,7 +2857,7 @@ export default function CompanyTraining() {
                 {modalStatus === 'completed' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
                     {/* Post-training deadline warning */}
-                    {selectedPlan.dsd_eligible !== false && modalDateEnd && !modalDsdReportSubmitted && (() => {
+                    {SHOW_DSD && selectedPlan.dsd_eligible !== false && modalDateEnd && !modalDsdReportSubmitted && (() => {
                       const dEnd = new Date(modalDateEnd);
                       const deadline60 = new Date(dEnd.getTime() + 60 * 24 * 60 * 60 * 1000);
                       const jan15 = new Date(selectedYear + 1, 0, 15);
@@ -2942,7 +2946,7 @@ export default function CompanyTraining() {
                     </div>
 
                     {/* Section 4: DSD Documents */}
-                    {selectedPlan.dsd_eligible !== false && (
+                    {SHOW_DSD && selectedPlan.dsd_eligible !== false && (
                       <div>
                       <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
                         <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(249,115,22,0.1)', color: '#ea580c' }}>4</span>
@@ -3000,7 +3004,7 @@ export default function CompanyTraining() {
 
                     {/* Section 5: Note */}
                     <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-                      <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{selectedPlan.dsd_eligible !== false ? '5' : '4'}</span>
+                      <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{(SHOW_DSD && selectedPlan.dsd_eligible !== false) ? '5' : '4'}</span>
                       หมายเหตุ
                     </h3>
                     <div>
