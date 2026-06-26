@@ -26,12 +26,14 @@ export async function GET(request: NextRequest) {
   if (!companyId || !Number.isFinite(year)) {
     return NextResponse.json({ error: 'Missing companyId or year' }, { status: 400 });
   }
-  const { data, error } = await getSupabase()
+  const planType = sp.get('planType');
+  let q = getSupabase()
     .from('budget_items')
     .select('*')
     .eq('company_id', companyId)
-    .eq('year', year)
-    .order('created_at', { ascending: true });
+    .eq('year', year);
+  if (planType) q = q.eq('plan_type', planType);
+  const { data, error } = await q.order('created_at', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ items: data || [] });
 }
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
         year: parseInt(String(year), 10),
         category_id: categoryId,
         name: String(name).trim(),
+        plan_type: body.planType === 'environment' ? 'environment' : 'safety',
         monthly_amounts: cleanMonthly(body.monthlyAmounts),
         created_by: body.createdBy || '',
       })

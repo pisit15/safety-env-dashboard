@@ -11,6 +11,7 @@ import { STATUS, PALETTE } from '@/lib/she-theme';
 import { Wallet, Plus, Trash2, X, Pencil, Check, Paperclip, Link2, FileText, Upload, ExternalLink } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const PLAN_LABELS: Record<string, string> = { safety: 'ความปลอดภัย', environment: 'สิ่งแวดล้อม' };
 
 interface BudgetCategory { id: number; name: string; sort_order: number; }
 interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; }
@@ -31,6 +32,15 @@ export default function CompanyBudgetPage() {
   const isAdmin = auth.isAdmin;
   const isLoggedIn = auth.isAdmin || !!auth.companyAuth[companyId];
   const updatedBy = auth.isAdmin ? auth.adminName : (auth.companyAuth[companyId]?.displayName || '');
+
+  const [planType, setPlanType] = useState<'safety' | 'environment'>(() => {
+    if (typeof window !== 'undefined') {
+      const sp = localStorage.getItem('budget_plan_type');
+      if (sp === 'environment' || sp === 'safety') return sp;
+    }
+    return 'safety';
+  });
+  useEffect(() => { localStorage.setItem('budget_plan_type', planType); }, [planType]);
 
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     if (typeof window !== 'undefined') {
@@ -67,11 +77,11 @@ export default function CompanyBudgetPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchCategories = useCallback(async () => {
-    try { const r = await fetch('/api/budget-plan/categories', { cache: 'no-store' }); const d = await r.json(); setCategories(d.categories || []); } catch { /* ignore */ }
-  }, []);
+    try { const r = await fetch(`/api/budget-plan/categories?planType=${planType}`, { cache: 'no-store' }); const d = await r.json(); setCategories(d.categories || []); } catch { /* ignore */ }
+  }, [planType]);
   const fetchItems = useCallback(async () => {
-    try { const r = await fetch(`/api/budget-plan/items?companyId=${companyId}&year=${selectedYear}`, { cache: 'no-store' }); const d = await r.json(); setItems(d.items || []); } catch { /* ignore */ }
-  }, [companyId, selectedYear]);
+    try { const r = await fetch(`/api/budget-plan/items?companyId=${companyId}&year=${selectedYear}&planType=${planType}`, { cache: 'no-store' }); const d = await r.json(); setItems(d.items || []); } catch { /* ignore */ }
+  }, [companyId, selectedYear, planType]);
   const fetchAttachments = useCallback(async () => {
     try {
       const r = await fetch(`/api/budget-plan/attachments?companyId=${companyId}&year=${selectedYear}`, { cache: 'no-store' });
@@ -98,7 +108,7 @@ export default function CompanyBudgetPage() {
   // ── Category handlers (admin) ──
   const addCategory = async () => {
     if (!newCatName.trim()) return;
-    const res = await fetch('/api/budget-plan/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCatName.trim(), isAdmin }) });
+    const res = await fetch('/api/budget-plan/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCatName.trim(), isAdmin, planType }) });
     if (res.ok) { setNewCatName(''); setToast({ type: 'success', msg: 'เพิ่มหมวดหมู่แล้ว' }); fetchCategories(); }
     else setToast({ type: 'error', msg: 'เพิ่มไม่สำเร็จ' });
   };
@@ -140,7 +150,7 @@ export default function CompanyBudgetPage() {
         await fetchItems();
         setEditor(null);
       } else {
-        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, createdBy: updatedBy }) });
+        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, planType, createdBy: updatedBy }) });
         const d = await res.json();
         await fetchItems();
         // Keep drawer open in edit mode so the user can attach files/links
@@ -195,9 +205,20 @@ export default function CompanyBudgetPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <Wallet size={24} style={{ color: '#f59e0b' }} />
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>แผนงบประมาณประจำปี — {companyName}</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>แผนงบประมาณ{PLAN_LABELS[planType]} — {companyName}</h1>
       </div>
       <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px' }}>วางแผนงบประมาณรายปี แยกตามหมวดหมู่และเดือน • ปี {selectedYear}</p>
+
+      {/* Plan tabs: Safety vs Environment (each has its own categories) */}
+      <div style={{ display: 'inline-flex', gap: 4, padding: 4, background: 'var(--bg-secondary)', borderRadius: 10, marginBottom: 16 }}>
+        {(['safety', 'environment'] as const).map(pt => (
+          <button key={pt} onClick={() => setPlanType(pt)}
+            style={{ padding: '7px 18px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+              background: planType === pt ? '#f59e0b' : 'transparent', color: planType === pt ? '#fff' : 'var(--text-secondary)' }}>
+            แผนงบประมาณ{PLAN_LABELS[pt]}
+          </button>
+        ))}
+      </div>
 
       {/* Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>

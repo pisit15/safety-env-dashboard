@@ -4,12 +4,14 @@ import { getSupabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// GET — list categories (shared across ALL companies; global standard list)
-export async function GET() {
+// GET ?planType=safety|environment — list categories for a plan (shared across ALL companies)
+export async function GET(request: NextRequest) {
+  const planType = request.nextUrl.searchParams.get('planType') || 'safety';
   const { data, error } = await getSupabase()
     .from('budget_categories')
     .select('*')
     .eq('company_id', '__all__')
+    .eq('plan_type', planType)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -21,6 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name } = body;
+    const planType = body.planType === 'environment' ? 'environment' : 'safety';
     if (body.isAdmin !== true) {
       return NextResponse.json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้นที่สร้างหมวดหมู่ได้' }, { status: 403 });
     }
@@ -28,18 +31,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing name' }, { status: 400 });
     }
     const db = getSupabase();
-    // categories are global (company_id = '__all__'); next sort_order = max + 1
+    // categories are global (company_id = '__all__'); next sort_order = max + 1 within this plan
     const { data: maxRow } = await db
       .from('budget_categories')
       .select('sort_order')
       .eq('company_id', '__all__')
+      .eq('plan_type', planType)
       .order('sort_order', { ascending: false })
       .limit(1)
       .maybeSingle();
     const sortOrder = (maxRow?.sort_order ?? -1) + 1;
     const { data, error } = await db
       .from('budget_categories')
-      .insert({ company_id: '__all__', name: String(name).trim(), sort_order: sortOrder })
+      .insert({ company_id: '__all__', name: String(name).trim(), sort_order: sortOrder, plan_type: planType })
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
