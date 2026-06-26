@@ -13,7 +13,7 @@ import { Wallet, Plus, Trash2, X, Pencil, Check } from 'lucide-react';
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 interface BudgetCategory { id: number; name: string; sort_order: number; }
-interface BudgetItem { id: number; category_id: number; name: string; amount: number; month: number | null; created_by?: string; }
+interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; }
 
 const fmt = (n: number) => n ? n.toLocaleString('en-US') : '';
 const fmtFull = (n: number) => (n || 0).toLocaleString('en-US');
@@ -51,16 +51,14 @@ export default function CompanyBudgetPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); } }, [toast]);
 
-  // Category management
+  // Category management (admin)
   const [newCatName, setNewCatName] = useState('');
   const [editingCatId, setEditingCatId] = useState<number | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // Item drawer (per category)
-  const [drawer, setDrawer] = useState<{ categoryId: number; presetMonth: number | null } | null>(null);
-  const [addName, setAddName] = useState('');
-  const [addAmount, setAddAmount] = useState('');
-  const [addMonth, setAddMonth] = useState<string>('');
+  // Item editor drawer (add/edit one item with per-month budgets)
+  const [editor, setEditor] = useState<{ id: number | null; name: string; categoryId: number | ''; monthly: Record<string, string> } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -68,7 +66,7 @@ export default function CompanyBudgetPage() {
       const d = await r.json();
       setCategories(d.categories || []);
     } catch { /* ignore */ }
-  }, [companyId]);
+  }, []);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -83,11 +81,13 @@ export default function CompanyBudgetPage() {
     Promise.all([fetchCategories(), fetchItems()]).finally(() => setLoading(false));
   }, [fetchCategories, fetchItems]);
 
-  // ── Derived sums ──
-  const sumFor = (catId: number, month: number) => items.filter(i => i.category_id === catId && (i.month ?? 0) === month).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const catTotal = (catId: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const monthTotal = (month: number) => items.filter(i => (i.month ?? 0) === month).reduce((s, i) => s + Number(i.amount || 0), 0);
-  const grandTotal = items.reduce((s, i) => s + Number(i.amount || 0), 0);
+  // ── Derived sums (m: 1..12, or 0 = ไม่ระบุ) ──
+  const amtOf = (it: BudgetItem, m: number) => Number((it.monthly_amounts || {})[String(m)] || 0);
+  const itemTotal = (it: BudgetItem) => Object.values(it.monthly_amounts || {}).reduce((s, v) => s + Number(v || 0), 0);
+  const sumFor = (catId: number, m: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + amtOf(i, m), 0);
+  const catTotal = (catId: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + itemTotal(i), 0);
+  const monthTotal = (m: number) => items.reduce((s, i) => s + amtOf(i, m), 0);
+  const grandTotal = items.reduce((s, i) => s + itemTotal(i), 0);
 
   // ── Category handlers (admin) ──
   const addCategory = async () => {
@@ -109,33 +109,47 @@ export default function CompanyBudgetPage() {
     else setToast({ type: 'error', msg: 'ลบไม่สำเร็จ' });
   };
 
-  // ── Item handlers ──
-  const addItem = async () => {
-    if (!drawer || !addName.trim()) return;
-    const month = addMonth === '' ? null : parseInt(addMonth, 10);
-    const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: drawer.categoryId, name: addName.trim(), amount: Number(addAmount) || 0, month, createdBy: updatedBy }) });
-    if (res.ok) { setAddName(''); setAddAmount(''); fetchItems(); }
-    else setToast({ type: 'error', msg: 'เพิ่มรายการไม่สำเร็จ' });
-  };
-  const updateItem = async (id: number, patch: Partial<BudgetItem>) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
-    await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch, categoryId: patch.category_id }) });
-  };
-  const deleteItem = async (id: number) => {
-    setItems(prev => prev.filter(i => i.id !== id));
-    await fetch(`/api/budget-plan/items?id=${id}`, { method: 'DELETE' });
-  };
-
-  const openCell = (categoryId: number, month: number) => {
+  // ── Item editor ──
+  const openAdd = (categoryId?: number) => {
     if (!isLoggedIn) return;
-    setDrawer({ categoryId, presetMonth: month === 0 ? null : month });
-    setAddName(''); setAddAmount(''); setAddMonth(month === 0 ? '' : String(month));
+    setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {} });
+  };
+  const openEdit = (it: BudgetItem) => {
+    if (!isLoggedIn) return;
+    const monthly: Record<string, string> = {};
+    Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { monthly[k] = String(v); });
+    setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly });
+  };
+  const setEditorMonth = (key: string, val: string) => setEditor(e => e ? { ...e, monthly: { ...e.monthly, [key]: val } } : e);
+  const editorTotal = editor ? Object.values(editor.monthly).reduce((s, v) => s + (Number(v) || 0), 0) : 0;
+
+  const saveEditor = async () => {
+    if (!editor) return;
+    if (!editor.name.trim()) { setToast({ type: 'error', msg: 'กรุณากรอกชื่อรายการ' }); return; }
+    if (!editor.categoryId) { setToast({ type: 'error', msg: 'กรุณาเลือกหมวดหมู่' }); return; }
+    const monthlyAmounts: Record<string, number> = {};
+    Object.entries(editor.monthly).forEach(([k, v]) => { const n = Number(v); if (v !== '' && Number.isFinite(n) && n !== 0) monthlyAmounts[k] = n; });
+    setSaving(true);
+    try {
+      if (editor.id) {
+        await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editor.id, name: editor.name.trim(), categoryId: editor.categoryId, monthlyAmounts }) });
+      } else {
+        await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, createdBy: updatedBy }) });
+      }
+      await fetchItems();
+      setEditor(null);
+    } catch { setToast({ type: 'error', msg: 'บันทึกไม่สำเร็จ' }); }
+    setSaving(false);
+  };
+  const deleteEditorItem = async () => {
+    if (!editor?.id) return;
+    if (!confirm('ลบรายการนี้?')) return;
+    await fetch(`/api/budget-plan/items?id=${editor.id}`, { method: 'DELETE' });
+    await fetchItems();
+    setEditor(null);
   };
 
-  const drawerCat = drawer ? categories.find(c => c.id === drawer.categoryId) : null;
-  const drawerItems = drawer ? items.filter(i => i.category_id === drawer.categoryId) : [];
-
-  const cellStyle: React.CSSProperties = { padding: 3, textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontSize: 11, minWidth: 64, cursor: isLoggedIn ? 'pointer' : 'default' };
+  const cellStyle: React.CSSProperties = { padding: 3, textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontSize: 11, minWidth: 64 };
 
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1500, margin: '0 auto' }}>
@@ -153,6 +167,9 @@ export default function CompanyBudgetPage() {
           {(allYears.length ? allYears : [DEFAULT_YEAR]).map(y => <option key={y} value={y}>ปี {y}{activeYears.includes(y) ? '' : ' · เตรียม'}</option>)}
         </select>
         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>งบรวมทั้งปี: <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(grandTotal)}</strong> บาท</span>
+        {isLoggedIn && categories.length > 0 && (
+          <button onClick={() => openAdd()} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}><Plus size={15} /> เพิ่มรายการ</button>
+        )}
       </div>
 
       {toast && (
@@ -179,7 +196,7 @@ export default function CompanyBudgetPage() {
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 1100, fontSize: 11 }}>
             <thead>
               <tr>
-                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-tertiary)', textAlign: 'left', padding: '8px 10px', minWidth: 200, borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 700 }}>หมวดหมู่</th>
+                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-tertiary)', textAlign: 'left', padding: '8px 10px', minWidth: 220, borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 700 }}>หมวดหมู่ / รายการ</th>
                 {MONTH_LABELS.map(m => (
                   <th key={m} style={{ padding: '8px 4px', textAlign: 'center', minWidth: 64, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>{m}</th>
                 ))}
@@ -189,9 +206,7 @@ export default function CompanyBudgetPage() {
             </thead>
             <tbody>
               {categories.flatMap(cat => {
-                const catItems = items
-                  .filter(i => i.category_id === cat.id)
-                  .sort((a, b) => ((a.month ?? 13) - (b.month ?? 13)) || a.name.localeCompare(b.name));
+                const catItems = items.filter(i => i.category_id === cat.id).sort((a, b) => a.name.localeCompare(b.name));
                 const headerRow = (
                   <tr key={`cat-${cat.id}`} style={{ background: 'var(--bg-secondary)' }}>
                     <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-secondary)', padding: '6px 10px', borderBottom: '1px solid var(--border)', color: 'var(--text-primary)' }}>
@@ -205,6 +220,7 @@ export default function CompanyBudgetPage() {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 700 }}>{cat.name}</span>
                           <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>({catItems.length})</span>
+                          {isLoggedIn && <button title="เพิ่มรายการในหมวดนี้" onClick={() => openAdd(cat.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#f59e0b' }}><Plus size={13} /></button>}
                           {isAdmin && (
                             <>
                               <button title="แก้ชื่อ" onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}><Pencil size={12} /></button>
@@ -214,27 +230,23 @@ export default function CompanyBudgetPage() {
                         </span>
                       )}
                     </td>
-                    {MONTH_LABELS.map((_, i) => {
-                      const v = sumFor(cat.id, i + 1);
-                      return <td key={i} onClick={() => openCell(cat.id, i + 1)} style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(v)}</td>;
-                    })}
-                    <td onClick={() => openCell(cat.id, 0)} style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(sumFor(cat.id, 0))}</td>
+                    {MONTH_LABELS.map((_, i) => (
+                      <td key={i} style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(sumFor(cat.id, i + 1))}</td>
+                    ))}
+                    <td style={{ ...cellStyle, fontWeight: 700, background: 'var(--bg-secondary)' }}>{fmt(sumFor(cat.id, 0))}</td>
                     <td style={{ padding: '6px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontWeight: 800, color: 'var(--text-primary)', background: 'var(--bg-tertiary)' }}>{fmtFull(catTotal(cat.id))}</td>
                   </tr>
                 );
-                const itemRows = catItems.map(it => {
-                  const im = it.month ?? 0;
-                  return (
-                    <tr key={`it-${it.id}`} onClick={() => openCell(cat.id, im)} style={{ cursor: isLoggedIn ? 'pointer' : 'default' }}>
-                      <td title={it.name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>• {it.name}</td>
-                      {MONTH_LABELS.map((_, i) => (
-                        <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{im === i + 1 ? fmt(Number(it.amount)) : ''}</td>
-                      ))}
-                      <td style={{ ...cellStyle, color: 'var(--text-primary)' }}>{im === 0 ? fmt(Number(it.amount)) : ''}</td>
-                      <td style={{ padding: '5px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11 }}>{fmtFull(Number(it.amount))}</td>
-                    </tr>
-                  );
-                });
+                const itemRows = catItems.map(it => (
+                  <tr key={`it-${it.id}`} onClick={() => openEdit(it)} style={{ cursor: isLoggedIn ? 'pointer' : 'default' }}>
+                    <td title={it.name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>• {it.name}</td>
+                    {MONTH_LABELS.map((_, i) => (
+                      <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, i + 1))}</td>
+                    ))}
+                    <td style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, 0))}</td>
+                    <td style={{ padding: '5px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11 }}>{fmtFull(itemTotal(it))}</td>
+                  </tr>
+                ));
                 return [headerRow, ...itemRows];
               })}
             </tbody>
@@ -253,56 +265,56 @@ export default function CompanyBudgetPage() {
       )}
 
       {!loading && categories.length > 0 && (
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>คลิกที่ช่องเพื่อเพิ่ม/แก้ไขรายการงบประมาณของหมวดนั้นในเดือนที่เลือก</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>กด “เพิ่มรายการ” หรือ + ที่หมวด เพื่อสร้างรายการ แล้วใส่งบของแต่ละเดือน (1 รายการมีได้หลายเดือน) • คลิกที่รายการเพื่อแก้ไข</p>
       )}
 
-      {/* ── Item drawer (top-level so position:fixed references the viewport) ── */}
-      {drawer && drawerCat && (
+      {/* ── Item editor drawer (top-level so position:fixed references the viewport) ── */}
+      {editor && (
         <>
-          <div onClick={() => setDrawer(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1200 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(460px, 96vw)', zIndex: 1201, background: 'var(--card-solid)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.25s ease-out' }}>
+          <div onClick={() => setEditor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1200 }} />
+          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(440px, 96vw)', zIndex: 1201, background: 'var(--card-solid)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.25s ease-out' }}>
             <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>รายการงบประมาณ · ปี {selectedYear}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{drawerCat.name}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{editor.id ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</div>
               </div>
-              <button onClick={() => setDrawer(null)} style={{ border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
+              <button onClick={() => setEditor(null)} style={{ border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-              {drawerItems.length === 0 && <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-secondary)', fontSize: 12 }}>ยังไม่มีรายการในหมวดนี้</div>}
-              {drawerItems.map(it => (
-                <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: 8, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)' }}>
-                  <input value={it.name} onChange={e => setItems(prev => prev.map(x => x.id === it.id ? { ...x, name: e.target.value } : x))} onBlur={e => updateItem(it.id, { name: e.target.value })}
-                    disabled={!isLoggedIn} style={{ flex: 1, minWidth: 0, fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }} />
-                  <input type="number" value={it.amount || ''} onChange={e => setItems(prev => prev.map(x => x.id === it.id ? { ...x, amount: Number(e.target.value) } : x))} onBlur={e => updateItem(it.id, { amount: Number(e.target.value) || 0 })}
-                    disabled={!isLoggedIn} placeholder="0" style={{ width: 90, fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', textAlign: 'right' }} />
-                  <select value={it.month ?? ''} onChange={e => updateItem(it.id, { month: e.target.value === '' ? null : parseInt(e.target.value, 10) })} disabled={!isLoggedIn}
-                    style={{ width: 64, fontSize: 11, padding: '5px 4px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }}>
-                    <option value="">ไม่ระบุ</option>
-                    {MONTH_LABELS.map((m, mi) => <option key={mi} value={mi + 1}>{m}</option>)}
-                  </select>
-                  {isLoggedIn && <button title="ลบ" onClick={() => deleteItem(it.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: STATUS.critical, flexShrink: 0 }}><Trash2 size={14} /></button>}
-                </div>
-              ))}
-            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>1. ชื่อรายการ</label>
+              <input autoFocus value={editor.name} onChange={e => setEditor(ed => ed ? { ...ed, name: e.target.value } : ed)} placeholder="เช่น ค่าตรวจวัดคุณภาพอากาศ"
+                style={{ width: '100%', fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', marginBottom: 14 }} />
 
-            {isLoggedIn && (
-              <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>เพิ่มรายการใหม่</div>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                  <input value={addName} onChange={e => setAddName(e.target.value)} placeholder="ชื่อรายการ" style={{ flex: 1, minWidth: 0, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }} />
-                  <input type="number" value={addAmount} onChange={e => setAddAmount(e.target.value)} placeholder="จำนวนเงิน" style={{ width: 100, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', textAlign: 'right' }} />
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <select value={addMonth} onChange={e => setAddMonth(e.target.value)} style={{ width: 120, fontSize: 12, padding: '7px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }}>
-                    <option value="">ไม่ระบุเดือน</option>
-                    {MONTH_LABELS.map((m, mi) => <option key={mi} value={mi + 1}>{m}</option>)}
-                  </select>
-                  <button onClick={addItem} disabled={!addName.trim()} style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: 'none', background: addName.trim() ? '#f59e0b' : 'var(--border)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: addName.trim() ? 'pointer' : 'not-allowed', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><Plus size={14} /> เพิ่มรายการ</button>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>2. หมวดหมู่</label>
+              <select value={editor.categoryId} onChange={e => setEditor(ed => ed ? { ...ed, categoryId: e.target.value === '' ? '' : Number(e.target.value) } : ed)}
+                style={{ width: '100%', fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', marginBottom: 14 }}>
+                <option value="">— เลือกหมวดหมู่ —</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>3. งบประมาณรายเดือน (ใส่เฉพาะเดือนที่ใช้ • แต่ละเดือนไม่เท่ากันได้)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {MONTH_LABELS.map((m, i) => (
+                  <div key={i}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>{m}</div>
+                    <input type="number" value={editor.monthly[String(i + 1)] ?? ''} onChange={e => setEditorMonth(String(i + 1), e.target.value)} placeholder="0"
+                      style={{ width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', textAlign: 'right' }} />
+                  </div>
+                ))}
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>ไม่ระบุ</div>
+                  <input type="number" value={editor.monthly['0'] ?? ''} onChange={e => setEditorMonth('0', e.target.value)} placeholder="0"
+                    style={{ width: '100%', fontSize: 12, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', textAlign: 'right' }} />
                 </div>
               </div>
-            )}
+              <div style={{ marginTop: 12, textAlign: 'right', fontSize: 13, color: 'var(--text-secondary)' }}>รวมรายการ: <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(editorTotal)}</strong> บาท</div>
+            </div>
+
+            <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: 8 }}>
+              {editor.id && <button onClick={deleteEditorItem} style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${STATUS.critical}`, background: 'transparent', color: STATUS.critical, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Trash2 size={14} /> ลบ</button>}
+              <button onClick={saveEditor} disabled={saving} style={{ flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+            </div>
           </div>
         </>
       )}

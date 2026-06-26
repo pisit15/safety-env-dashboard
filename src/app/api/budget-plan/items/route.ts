@@ -4,6 +4,20 @@ import { getSupabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Sanitize a { monthKey: amount } map -> { "0".."12": number }, dropping empty/zero
+function cleanMonthly(input: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (input && typeof input === 'object') {
+    for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+      const m = parseInt(k, 10);
+      if (!Number.isFinite(m) || m < 0 || m > 12) continue;
+      const amt = Number(v);
+      if (Number.isFinite(amt) && amt !== 0) out[String(m)] = amt;
+    }
+  }
+  return out;
+}
+
 // GET ?companyId=&year= — list items for a company + year
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -22,7 +36,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ items: data || [] });
 }
 
-// POST { companyId, year, categoryId, name, amount, month?, createdBy? }
+// POST { companyId, year, categoryId, name, monthlyAmounts, createdBy }
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -30,7 +44,6 @@ export async function POST(request: NextRequest) {
     if (!companyId || !Number.isFinite(parseInt(String(year), 10)) || !categoryId || !name || !String(name).trim()) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-    const month = body.month == null || body.month === '' ? null : parseInt(String(body.month), 10);
     const { data, error } = await getSupabase()
       .from('budget_items')
       .insert({
@@ -38,8 +51,7 @@ export async function POST(request: NextRequest) {
         year: parseInt(String(year), 10),
         category_id: categoryId,
         name: String(name).trim(),
-        amount: Number(body.amount) || 0,
-        month: month,
+        monthly_amounts: cleanMonthly(body.monthlyAmounts),
         created_by: body.createdBy || '',
       })
       .select()
@@ -51,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT { id, name?, amount?, month?, categoryId? }
+// PUT { id, name?, categoryId?, monthlyAmounts? }
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -59,9 +71,8 @@ export async function PUT(request: NextRequest) {
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (typeof body.name === 'string') patch.name = body.name.trim();
-    if (body.amount !== undefined) patch.amount = Number(body.amount) || 0;
-    if (body.month !== undefined) patch.month = body.month == null || body.month === '' ? null : parseInt(String(body.month), 10);
     if (body.categoryId !== undefined) patch.category_id = body.categoryId;
+    if (body.monthlyAmounts !== undefined) patch.monthly_amounts = cleanMonthly(body.monthlyAmounts);
     const { error } = await getSupabase().from('budget_items').update(patch).eq('id', id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
