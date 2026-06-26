@@ -120,7 +120,9 @@ export default function CompanyTraining() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [timeRange, setTimeRange] = useState<string>('year');
-  const [viewMode, setViewMode] = useState<'overview' | 'update' | 'grid'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'update' | 'grid'>('grid');
+  const [gridMenu, setGridMenu] = useState<{ plan: TrainingPlan; x: number; y: number } | null>(null);
+  const [gridUrgentOnly, setGridUrgentOnly] = useState(false);
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
   const currentMonthIdx = new Date().getMonth();
   // Hide all DSD / รง.1 document UI on this page (data + HR Master page are kept). Flip to true to restore.
@@ -1397,7 +1399,6 @@ export default function CompanyTraining() {
             <div style={{ display: 'flex', padding: 2, borderRadius: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
               {[
                 { key: 'overview' as const, label: '📊 ภาพรวม' },
-                { key: 'update' as const, label: '📝 อัปเดต' },
                 { key: 'grid' as const, label: '📅 ตารางปี' },
               ].map(opt => (
                 <button
@@ -1537,6 +1538,20 @@ export default function CompanyTraining() {
                 </span>
               ))}
             </div>
+            {(() => {
+              const urgent = activePlans.filter(p => ['critical', 'warning'].includes(getNextAction(p).urgency));
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                  {urgent.length > 0 && (
+                    <button onClick={() => setGridUrgentOnly(v => !v)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${gridUrgentOnly ? STATUS.critical : 'var(--border)'}`, background: gridUrgentOnly ? STATUS.criticalBg : 'var(--bg-secondary)', color: gridUrgentOnly ? STATUS.critical : 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      🔴 ต้องทำ ({urgent.length}){gridUrgentOnly ? ' · แสดงทั้งหมด' : ''}
+                    </button>
+                  )}
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>คลิกช่องเพื่อเปลี่ยนสถานะ หรือเปิดรายละเอียด</span>
+                </div>
+              );
+            })()}
             <div style={{ overflowX: 'auto' }}>
               <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: 780, fontSize: 11 }}>
                 <thead>
@@ -1549,8 +1564,9 @@ export default function CompanyTraining() {
                 </thead>
                 <tbody>
                   {(() => {
+                    const rowsSrc = gridUrgentOnly ? activePlans.filter(p => ['critical', 'warning'].includes(getNextAction(p).urgency)) : activePlans;
                     const byCat: Record<string, TrainingPlan[]> = {};
-                    activePlans.forEach(p => { const c = p.category || 'อื่นๆ'; if (!byCat[c]) byCat[c] = []; byCat[c].push(p); });
+                    rowsSrc.forEach(p => { const c = p.category || 'อื่นๆ'; if (!byCat[c]) byCat[c] = []; byCat[c].push(p); });
                     return Object.keys(byCat).sort().flatMap(cat => {
                       const catPlans = byCat[cat].slice().sort((a, b) => (getEffectiveMonth(a) - getEffectiveMonth(b)) || a.course_name.localeCompare(b.course_name));
                       return [
@@ -1561,6 +1577,8 @@ export default function CompanyTraining() {
                           const em = getEffectiveMonth(p);
                           const status = p.training_sessions?.[0]?.status || 'planned';
                           const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
+                          const urg = getNextAction(p).urgency;
+                          const ring = urg === 'critical' ? STATUS.critical : urg === 'warning' ? STATUS.warning : null;
                           return (
                             <tr key={p.id}>
                               <td title={p.course_name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '6px 10px', borderBottom: '1px solid var(--border)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{p.course_name}</td>
@@ -1569,7 +1587,7 @@ export default function CompanyTraining() {
                                 return (
                                   <td key={i} style={{ padding: 3, textAlign: 'center', borderBottom: '1px solid var(--border)', background: i === currentMonthIdx ? `${STATUS.warning}0A` : undefined }}>
                                     {isCol ? (
-                                      <div onClick={() => openPlanModal(p)} title={`${p.course_name} — ${cfg.label}`} style={{ cursor: 'pointer', background: cfg.bg, border: `1px solid ${cfg.color}`, color: cfg.color, borderRadius: 6, padding: '3px 0', fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>{cfg.icon}</div>
+                                      <div onClick={(e) => { e.stopPropagation(); setGridMenu({ plan: p, x: Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 240), y: Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - 300) }); }} title={`${p.course_name} — ${cfg.label} · คลิกเพื่ออัปเดต`} style={{ cursor: 'pointer', background: cfg.bg, border: `1px solid ${cfg.color}`, color: cfg.color, borderRadius: 6, padding: '3px 0', fontWeight: 700, fontSize: 12, lineHeight: 1.2, boxShadow: ring ? `0 0 0 2px ${ring}` : undefined }}>{cfg.icon}</div>
                                     ) : null}
                                   </td>
                                 );
@@ -1586,6 +1604,39 @@ export default function CompanyTraining() {
             {activePlans.length === 0 && (
               <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 12 }}>ยังไม่มีหลักสูตรในปีนี้</div>
             )}
+
+            {gridMenu && (() => {
+              const gp = gridMenu.plan;
+              const cur = gp.training_sessions?.[0]?.status || 'planned';
+              const opts = [
+                { key: 'planned', label: 'ยังไม่กำหนดวัน' },
+                { key: 'scheduled', label: 'กำหนดวันแล้ว' },
+                { key: 'completed', label: 'อบรมแล้ว' },
+                { key: 'cancelled', label: 'ยกเลิก' },
+              ];
+              return (
+                <>
+                  <div onClick={() => setGridMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 1200 }} />
+                  <div style={{ position: 'fixed', left: gridMenu.x, top: gridMenu.y, zIndex: 1201, width: 224, background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', padding: 10 }}>
+                    <div title={gp.course_name} style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gp.course_name}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                      {opts.map(o => {
+                        const c = STATUS_CONFIG[o.key] || STATUS_CONFIG.planned;
+                        const active = cur === o.key;
+                        return (
+                          <button key={o.key} disabled={quickChangingPlanId === gp.id}
+                            onClick={async () => { await handleQuickStatusChange(gp, o.key); setGridMenu(null); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, border: `1px solid ${active ? c.color : 'var(--border)'}`, background: active ? c.bg : 'var(--bg-secondary)', color: active ? c.color : 'var(--text-primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
+                            <span style={{ color: c.color }}>{c.icon}</span> {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button onClick={() => { openPlanModal(gp); setGridMenu(null); }} style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>เปิดรายละเอียด →</button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
