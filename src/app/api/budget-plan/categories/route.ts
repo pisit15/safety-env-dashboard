@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabase } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// GET ?companyId= — list categories for a company (shared across years)
+export async function GET(request: NextRequest) {
+  const companyId = request.nextUrl.searchParams.get('companyId');
+  if (!companyId) {
+    return NextResponse.json({ error: 'Missing companyId' }, { status: 400 });
+  }
+  const { data, error } = await getSupabase()
+    .from('budget_categories')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ categories: data || [] });
+}
+
+// POST { companyId, name } — create category (Admin)
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { companyId, name } = body;
+    if (!companyId || !name || !String(name).trim()) {
+      return NextResponse.json({ error: 'Missing companyId or name' }, { status: 400 });
+    }
+    const db = getSupabase();
+    // next sort_order = max + 1
+    const { data: maxRow } = await db
+      .from('budget_categories')
+      .select('sort_order')
+      .eq('company_id', companyId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const sortOrder = (maxRow?.sort_order ?? -1) + 1;
+    const { data, error } = await db
+      .from('budget_categories')
+      .insert({ company_id: companyId, name: String(name).trim(), sort_order: sortOrder })
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ category: data }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// PUT { id, name?, sort_order? } — rename / reorder
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    const patch: Record<string, unknown> = {};
+    if (typeof body.name === 'string') patch.name = body.name.trim();
+    if (typeof body.sort_order === 'number') patch.sort_order = body.sort_order;
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+    }
+    const { error } = await getSupabase().from('budget_categories').update(patch).eq('id', id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// DELETE ?id= — delete category (its items cascade)
+export async function DELETE(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  const { error } = await getSupabase().from('budget_categories').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}

@@ -15,6 +15,7 @@ import {
   BarChart3,
   History,
   Settings,
+  Wallet,
 } from 'lucide-react';
 
 export type ProjectId =
@@ -25,7 +26,8 @@ export type ProjectId =
   | 'nearmiss'
   | 'risk'
   | 'employees'
-  | 'site-visit';
+  | 'site-visit'
+  | 'budget';
 
 export interface ProjectNavItem {
   id: string;
@@ -163,6 +165,19 @@ export const PROJECTS: ProjectConfig[] = [
       { id: 'history', label: 'ประวัติการประเมิน', icon: History, href: (cid) => cid === 'all' ? '/projects/site-visit/history' : `/projects/site-visit/${cid}/history`, companyRequired: true },
       { id: 'dashboard', label: 'ภาพรวม KPI', icon: BarChart3, href: () => '/projects/site-visit/dashboard', adminOnly: true },
       { id: 'manage', label: 'จัดการเกณฑ์ประเมิน', icon: Settings, href: () => '/projects/site-visit/manage', adminOnly: true },
+    ],
+  },
+  {
+    id: 'budget',
+    name: 'งบประมาณประจำปี',
+    shortName: 'Budget Plan',
+    description: 'วางแผนงบประมาณรายปี แยกตามหมวดหมู่และเดือน',
+    icon: Wallet,
+    color: 'from-amber-500 to-yellow-600',
+    accentColor: '#f59e0b',
+    ready: true,
+    nav: [
+      { id: 'plan', label: 'แผนงบประมาณ', icon: Wallet, href: (cid) => cid === 'all' ? '/projects/budget' : `/projects/budget/${cid}` },
     ],
   },
 ];
