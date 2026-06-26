@@ -2945,17 +2945,17 @@ export default function CompanyTraining() {
                       </div>
                     </div>
 
-                    {/* Section 4: DSD Documents */}
-                    {SHOW_DSD && selectedPlan.dsd_eligible !== false && (
+                    {/* Section 4: Training documents (photos / sign-in sheet) */}
+                    {(
                       <div>
                       <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
                         <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(249,115,22,0.1)', color: '#ea580c' }}>4</span>
-                        เอกสาร DSD (รง.1)
+                        เอกสารประกอบการอบรม
                       </h3>
                       <div style={{ background: 'var(--bg)', borderRadius: 8, padding: 12, border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>📋 รายการเอกสาร</div>
-                          {auth.isAdmin && (
+                          {SHOW_DSD && auth.isAdmin && (
                             <button onClick={() => { setShowDsdToggleModal(true); setDsdToggleCourseName(selectedPlan.course_name); setDsdToggleValue(!selectedPlan.dsd_eligible); }}
                               style={{ padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                               <Eye size={10} /> {selectedPlan?.dsd_eligible ? 'เปิด' : 'ปิด'}
@@ -3004,7 +3004,7 @@ export default function CompanyTraining() {
 
                     {/* Section 5: Note */}
                     <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-primary)' }}>
-                      <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>{(SHOW_DSD && selectedPlan.dsd_eligible !== false) ? '5' : '4'}</span>
+                      <span style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>5</span>
                       หมายเหตุ
                     </h3>
                     <div>
