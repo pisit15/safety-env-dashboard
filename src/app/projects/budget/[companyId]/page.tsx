@@ -1,19 +1,20 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useYears } from '@/lib/useYears';
 import { DEFAULT_YEAR } from '@/lib/companies';
 import { STATUS, PALETTE } from '@/lib/she-theme';
-import { Wallet, Plus, Trash2, X, Pencil, Check } from 'lucide-react';
+import { Wallet, Plus, Trash2, X, Pencil, Check, Paperclip, Link2, FileText, Upload, ExternalLink } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 interface BudgetCategory { id: number; name: string; sort_order: number; }
 interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; }
+interface Attachment { id: number; item_id: number; kind: string; title: string; file_url: string; file_type: string; uploaded_by?: string; }
 
 const fmt = (n: number) => n ? n.toLocaleString('en-US') : '';
 const fmtFull = (n: number) => (n || 0).toLocaleString('en-US');
@@ -47,6 +48,7 @@ export default function CompanyBudgetPage() {
 
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
+  const [attByItem, setAttByItem] = useState<Record<number, Attachment[]>>({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 2500); return () => clearTimeout(t); } }, [toast]);
@@ -56,30 +58,34 @@ export default function CompanyBudgetPage() {
   const [editingCatId, setEditingCatId] = useState<number | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
 
-  // Item editor drawer (add/edit one item with per-month budgets)
-  const [editor, setEditor] = useState<{ id: number | null; name: string; categoryId: number | ''; monthly: Record<string, string> } | null>(null);
+  // Item editor drawer
+  const [editor, setEditor] = useState<{ id: number | null; name: string; categoryId: number | ''; monthly: Record<string, string>; createdBy?: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkTitle, setLinkTitle] = useState('');
+  const [uploadingAtt, setUploadingAtt] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchCategories = useCallback(async () => {
-    try {
-      const r = await fetch('/api/budget-plan/categories', { cache: 'no-store' });
-      const d = await r.json();
-      setCategories(d.categories || []);
-    } catch { /* ignore */ }
+    try { const r = await fetch('/api/budget-plan/categories', { cache: 'no-store' }); const d = await r.json(); setCategories(d.categories || []); } catch { /* ignore */ }
   }, []);
-
   const fetchItems = useCallback(async () => {
+    try { const r = await fetch(`/api/budget-plan/items?companyId=${companyId}&year=${selectedYear}`, { cache: 'no-store' }); const d = await r.json(); setItems(d.items || []); } catch { /* ignore */ }
+  }, [companyId, selectedYear]);
+  const fetchAttachments = useCallback(async () => {
     try {
-      const r = await fetch(`/api/budget-plan/items?companyId=${companyId}&year=${selectedYear}`, { cache: 'no-store' });
+      const r = await fetch(`/api/budget-plan/attachments?companyId=${companyId}&year=${selectedYear}`, { cache: 'no-store' });
       const d = await r.json();
-      setItems(d.items || []);
+      const map: Record<number, Attachment[]> = {};
+      (d.attachments || []).forEach((a: Attachment) => { (map[a.item_id] = map[a.item_id] || []).push(a); });
+      setAttByItem(map);
     } catch { /* ignore */ }
   }, [companyId, selectedYear]);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchCategories(), fetchItems()]).finally(() => setLoading(false));
-  }, [fetchCategories, fetchItems]);
+    Promise.all([fetchCategories(), fetchItems(), fetchAttachments()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchItems, fetchAttachments]);
 
   // ── Derived sums (m: 1..12, or 0 = ไม่ระบุ) ──
   const amtOf = (it: BudgetItem, m: number) => Number((it.monthly_amounts || {})[String(m)] || 0);
@@ -110,15 +116,13 @@ export default function CompanyBudgetPage() {
   };
 
   // ── Item editor ──
-  const openAdd = (categoryId?: number) => {
-    if (!isLoggedIn) return;
-    setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {} });
-  };
+  const openAdd = (categoryId?: number) => { if (!isLoggedIn) return; setLinkUrl(''); setLinkTitle(''); setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {} }); };
   const openEdit = (it: BudgetItem) => {
     if (!isLoggedIn) return;
     const monthly: Record<string, string> = {};
     Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { monthly[k] = String(v); });
-    setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly });
+    setLinkUrl(''); setLinkTitle('');
+    setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly, createdBy: it.created_by });
   };
   const setEditorMonth = (key: string, val: string) => setEditor(e => e ? { ...e, monthly: { ...e.monthly, [key]: val } } : e);
   const editorTotal = editor ? Object.values(editor.monthly).reduce((s, v) => s + (Number(v) || 0), 0) : 0;
@@ -133,22 +137,57 @@ export default function CompanyBudgetPage() {
     try {
       if (editor.id) {
         await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editor.id, name: editor.name.trim(), categoryId: editor.categoryId, monthlyAmounts }) });
+        await fetchItems();
+        setEditor(null);
       } else {
-        await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, createdBy: updatedBy }) });
+        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, createdBy: updatedBy }) });
+        const d = await res.json();
+        await fetchItems();
+        // Keep drawer open in edit mode so the user can attach files/links
+        if (d?.item?.id) { setEditor(ed => ed ? { ...ed, id: d.item.id, createdBy: d.item.created_by } : ed); setToast({ type: 'success', msg: 'บันทึกแล้ว — แนบไฟล์/ลิงก์ได้เลย' }); }
+        else setEditor(null);
       }
-      await fetchItems();
-      setEditor(null);
     } catch { setToast({ type: 'error', msg: 'บันทึกไม่สำเร็จ' }); }
     setSaving(false);
   };
   const deleteEditorItem = async () => {
     if (!editor?.id) return;
-    if (!confirm('ลบรายการนี้?')) return;
+    if (!confirm('ลบรายการนี้? (เอกสารแนบจะถูกลบด้วย)')) return;
     await fetch(`/api/budget-plan/items?id=${editor.id}`, { method: 'DELETE' });
-    await fetchItems();
+    await Promise.all([fetchItems(), fetchAttachments()]);
     setEditor(null);
   };
 
+  // ── Attachments ──
+  const addLink = async () => {
+    if (!editor?.id || !linkUrl.trim()) return;
+    setUploadingAtt(true);
+    try {
+      const res = await fetch('/api/budget-plan/attachments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: editor.id, linkUrl: linkUrl.trim(), linkTitle: linkTitle.trim(), uploadedBy: updatedBy }) });
+      if (res.ok) { setLinkUrl(''); setLinkTitle(''); await fetchAttachments(); }
+      else { const d = await res.json(); setToast({ type: 'error', msg: d.error || 'เพิ่มลิงก์ไม่สำเร็จ' }); }
+    } catch { setToast({ type: 'error', msg: 'เพิ่มลิงก์ไม่สำเร็จ' }); }
+    setUploadingAtt(false);
+  };
+  const uploadFile = async (file: File) => {
+    if (!editor?.id) return;
+    setUploadingAtt(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file); fd.append('itemId', String(editor.id)); fd.append('companyId', companyId); fd.append('uploadedBy', updatedBy);
+      const res = await fetch('/api/budget-plan/attachments', { method: 'POST', body: fd });
+      if (res.ok) await fetchAttachments();
+      else { const d = await res.json(); setToast({ type: 'error', msg: d.error || 'อัปโหลดไม่สำเร็จ' }); }
+    } catch { setToast({ type: 'error', msg: 'อัปโหลดไม่สำเร็จ' }); }
+    setUploadingAtt(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+  const deleteAttachment = async (id: number) => {
+    await fetch(`/api/budget-plan/attachments?id=${id}`, { method: 'DELETE' });
+    await fetchAttachments();
+  };
+
+  const editorAtts = editor?.id ? (attByItem[editor.id] || []) : [];
   const cellStyle: React.CSSProperties = { padding: 3, textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontSize: 11, minWidth: 64 };
 
   return (
@@ -196,7 +235,7 @@ export default function CompanyBudgetPage() {
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 1100, fontSize: 11 }}>
             <thead>
               <tr>
-                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-tertiary)', textAlign: 'left', padding: '8px 10px', minWidth: 220, borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 700 }}>หมวดหมู่ / รายการ</th>
+                <th style={{ position: 'sticky', left: 0, zIndex: 2, background: 'var(--bg-tertiary)', textAlign: 'left', padding: '8px 10px', minWidth: 240, borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 700 }}>หมวดหมู่ / รายการ</th>
                 {MONTH_LABELS.map(m => (
                   <th key={m} style={{ padding: '8px 4px', textAlign: 'center', minWidth: 64, borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>{m}</th>
                 ))}
@@ -237,16 +276,25 @@ export default function CompanyBudgetPage() {
                     <td style={{ padding: '6px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', fontWeight: 800, color: 'var(--text-primary)', background: 'var(--bg-tertiary)' }}>{fmtFull(catTotal(cat.id))}</td>
                   </tr>
                 );
-                const itemRows = catItems.map(it => (
-                  <tr key={`it-${it.id}`} onClick={() => openEdit(it)} style={{ cursor: isLoggedIn ? 'pointer' : 'default' }}>
-                    <td title={it.name} style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>• {it.name}</td>
-                    {MONTH_LABELS.map((_, i) => (
-                      <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, i + 1))}</td>
-                    ))}
-                    <td style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, 0))}</td>
-                    <td style={{ padding: '5px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11 }}>{fmtFull(itemTotal(it))}</td>
-                  </tr>
-                ));
+                const itemRows = catItems.map(it => {
+                  const nAtt = (attByItem[it.id] || []).length;
+                  return (
+                    <tr key={`it-${it.id}`} onClick={() => openEdit(it)} style={{ cursor: isLoggedIn ? 'pointer' : 'default' }}>
+                      <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 250, overflow: 'hidden' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={it.name}>• {it.name}</span>
+                          {nAtt > 0 && <span title={`${nAtt} เอกสารแนบ`} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, color: PALETTE.primary, fontSize: 10, flexShrink: 0 }}><Paperclip size={10} />{nAtt}</span>}
+                          {it.created_by && <span style={{ color: 'var(--text-muted)', fontSize: 10, flexShrink: 0 }}>· {it.created_by}</span>}
+                        </span>
+                      </td>
+                      {MONTH_LABELS.map((_, i) => (
+                        <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, i + 1))}</td>
+                      ))}
+                      <td style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, 0))}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11 }}>{fmtFull(itemTotal(it))}</td>
+                    </tr>
+                  );
+                });
                 return [headerRow, ...itemRows];
               })}
             </tbody>
@@ -265,17 +313,17 @@ export default function CompanyBudgetPage() {
       )}
 
       {!loading && categories.length > 0 && (
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>กด “เพิ่มรายการ” หรือ + ที่หมวด เพื่อสร้างรายการ แล้วใส่งบของแต่ละเดือน (1 รายการมีได้หลายเดือน) • คลิกที่รายการเพื่อแก้ไข</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>กด “เพิ่มรายการ” หรือ + ที่หมวด เพื่อสร้างรายการ ใส่งบของแต่ละเดือน แนบไฟล์/ลิงก์เอกสารได้ • คลิกที่รายการเพื่อแก้ไข</p>
       )}
 
       {/* ── Item editor drawer (top-level so position:fixed references the viewport) ── */}
       {editor && (
         <>
           <div onClick={() => setEditor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1200 }} />
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(440px, 96vw)', zIndex: 1201, background: 'var(--card-solid)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.25s ease-out' }}>
+          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(460px, 96vw)', zIndex: 1201, background: 'var(--card-solid)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.25s ease-out' }}>
             <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>รายการงบประมาณ · ปี {selectedYear}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>รายการงบประมาณ · ปี {selectedYear}{editor.createdBy ? ` · ผู้สร้าง: ${editor.createdBy}` : ''}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{editor.id ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</div>
               </div>
               <button onClick={() => setEditor(null)} style={{ border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
@@ -309,11 +357,47 @@ export default function CompanyBudgetPage() {
                 </div>
               </div>
               <div style={{ marginTop: 12, textAlign: 'right', fontSize: 13, color: 'var(--text-secondary)' }}>รวมรายการ: <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(editorTotal)}</strong> บาท</div>
+
+              {/* 4. Attachments */}
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>4. เอกสารแนบ / ลิงก์ (Google Drive, OneDrive, ไฟล์)</label>
+                {!editor.id ? (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--bg-secondary)', borderRadius: 8 }}>กด “บันทึก” ด้านล่างก่อน จึงจะแนบไฟล์หรือลิงก์ได้</div>
+                ) : (
+                  <>
+                    {editorAtts.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                        {editorAtts.map(a => (
+                          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
+                            {a.kind === 'link' ? <Link2 size={14} style={{ color: PALETTE.primary, flexShrink: 0 }} /> : <FileText size={14} style={{ color: PALETTE.primary, flexShrink: 0 }} />}
+                            <a href={a.file_url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontSize: 12, color: 'var(--text-primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.title}>{a.title}</a>
+                            <a href={a.file_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', flexShrink: 0 }}><ExternalLink size={13} /></a>
+                            <button onClick={() => deleteAttachment(a.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: STATUS.critical, flexShrink: 0 }}><Trash2 size={13} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* paste link */}
+                    <input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="วางลิงก์ Google Drive / OneDrive..."
+                      style={{ width: '100%', fontSize: 12, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', marginBottom: 6 }} />
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                      <input value={linkTitle} onChange={e => setLinkTitle(e.target.value)} placeholder="ชื่อลิงก์ (ไม่บังคับ)"
+                        style={{ flex: 1, fontSize: 12, padding: '7px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)' }} />
+                      <button onClick={addLink} disabled={uploadingAtt || !linkUrl.trim()} style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: linkUrl.trim() ? PALETTE.primary : 'var(--border)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: linkUrl.trim() ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Link2 size={13} /> เพิ่มลิงก์</button>
+                    </div>
+                    {/* upload file */}
+                    <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); }} />
+                    <button onClick={() => fileInputRef.current?.click()} disabled={uploadingAtt} style={{ width: '100%', padding: '9px', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--bg)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <Upload size={14} /> {uploadingAtt ? 'กำลังอัปโหลด...' : 'อัปโหลดไฟล์ (สูงสุด 20 MB)'}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div style={{ padding: 16, borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: 8 }}>
               {editor.id && <button onClick={deleteEditorItem} style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${STATUS.critical}`, background: 'transparent', color: STATUS.critical, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Trash2 size={14} /> ลบ</button>}
-              <button onClick={saveEditor} disabled={saving} style={{ flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+              <button onClick={saveEditor} disabled={saving} style={{ flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'กำลังบันทึก...' : (editor.id ? 'บันทึกการแก้ไข' : 'บันทึก')}</button>
             </div>
           </div>
         </>
