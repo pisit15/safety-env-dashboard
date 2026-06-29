@@ -115,7 +115,7 @@ export default function ProjectsLandingPage() {
   };
 
   const [loginFor, setLoginFor] = useState<ProjectId | null>(null);
-  const [loginMode, setLoginMode] = useState<'admin' | 'company'>('admin');
+  const [loginMode, setLoginMode] = useState<'admin' | 'company'>('company');
   const [loginCompanyId, setLoginCompanyId] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
