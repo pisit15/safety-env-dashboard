@@ -279,7 +279,6 @@ export default function CompanyBudgetPage() {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 700 }}>{cat.name}</span>
                           <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>({catItems.length})</span>
-                          {isLoggedIn && <button title="เพิ่มรายการในหมวดนี้" onClick={() => openAdd(cat.id)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#f59e0b' }}><Plus size={13} /></button>}
                           {isAdmin && (
                             <>
                               <button title="แก้ชื่อ" onClick={() => { setEditingCatId(cat.id); setEditingCatName(cat.name); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}><Pencil size={12} /></button>
@@ -330,7 +329,7 @@ export default function CompanyBudgetPage() {
       )}
 
       {!loading && categories.length > 0 && (
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>กด “เพิ่มรายการ” หรือ + ที่หมวด เพื่อสร้างรายการ ใส่งบของแต่ละเดือน แนบไฟล์/ลิงก์เอกสารได้ • คลิกที่รายการเพื่อแก้ไข</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 10 }}>กด “เพิ่มรายการ” มุมขวาบน เพื่อสร้างรายการ เลือกหมวดหมู่ ใส่งบของแต่ละเดือน แนบไฟล์/ลิงก์เอกสารได้ • คลิกที่รายการเพื่อแก้ไข</p>
       )}
 
       {/* ── Item editor drawer (top-level so position:fixed references the viewport) ── */}
