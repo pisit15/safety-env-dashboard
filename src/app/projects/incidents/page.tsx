@@ -86,36 +86,35 @@ export default function HQIncidentsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch incidents and manhours for all selected years
+      // Fetch incidents and manhours for all selected years — ONE bulk request
+      // per year per endpoint (the APIs return all companies when companyId is
+      // omitted). Previously this looped per company: 17 companies × years × 2
+      // endpoints = 34-102 requests per page view.
       const [incResults, mhResults] = await Promise.all([
         Promise.all(selectedYears.map(y =>
-          Promise.all(COMPANIES.map(c =>
-            fetch(`/api/incidents?companyId=${c.id}&year=${y}&limit=1000`).then(r => r.json())
-          ))
+          fetch(`/api/incidents?year=${y}&limit=5000`).then(r => r.json())
         )),
         Promise.all(selectedYears.map(y =>
-          Promise.all(COMPANIES.map(c =>
-            fetch(`/api/manhours?companyId=${c.id}&year=${y}`).then(r => r.json()).then(d => ({
-              companyId: c.id, year: y,
-              employee: (d.manHours || []).reduce((a: number, r: Record<string, unknown>) => a + (Number(r.employee_manhours) || 0), 0),
-              contractor: (d.manHours || []).reduce((a: number, r: Record<string, unknown>) => a + (Number(r.contractor_manhours) || 0), 0),
-            }))
-          ))
+          fetch(`/api/manhours?year=${y}`).then(r => r.json())
         )),
       ]);
 
       // Merge incidents
       const allInc: Incident[] = [];
-      incResults.forEach(yearResults => yearResults.forEach(r => { if (r.incidents) allInc.push(...r.incidents); }));
+      incResults.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
       setAllIncidents(allInc);
 
-      // Merge manhours by company
+      // Merge manhours by company (group client-side)
       const mhMap: Record<string, { employee: number; contractor: number; total: number }> = {};
-      mhResults.forEach(yearResults => yearResults.forEach(r => {
-        if (!mhMap[r.companyId]) mhMap[r.companyId] = { employee: 0, contractor: 0, total: 0 };
-        mhMap[r.companyId].employee += r.employee;
-        mhMap[r.companyId].contractor += r.contractor;
-        mhMap[r.companyId].total += r.employee + r.contractor;
+      mhResults.forEach(r => (r.manHours || []).forEach((row: Record<string, unknown>) => {
+        const cid = String(row.company_id || '');
+        if (!cid) return;
+        if (!mhMap[cid]) mhMap[cid] = { employee: 0, contractor: 0, total: 0 };
+        const emp = Number(row.employee_manhours) || 0;
+        const con = Number(row.contractor_manhours) || 0;
+        mhMap[cid].employee += emp;
+        mhMap[cid].contractor += con;
+        mhMap[cid].total += emp + con;
       }));
       setManHoursByCompany(mhMap);
     } catch { /* empty */ }
