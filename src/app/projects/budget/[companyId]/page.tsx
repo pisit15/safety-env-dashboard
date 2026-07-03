@@ -26,7 +26,7 @@ export default function CompanyBudgetPage() {
   const companyId = String(params.companyId || '');
   const auth = useAuth();
   const { companies } = useCompanies();
-  const { years: allYears, active: activeYears } = useYears();
+  const { years: allYears, active: activeYears, loading: yearsLoading } = useYears();
   const company = companies.find(c => c.id === companyId);
   const companyName = company?.name || companyId.toUpperCase();
 
@@ -49,18 +49,22 @@ export default function CompanyBudgetPage() {
   const BUDGET_DEFAULT_YEAR = DEFAULT_YEAR + 1;
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('budget_year_v2');
+      const saved = localStorage.getItem('budget_year_v3');
       if (saved) return parseInt(saved, 10);
     }
     return BUDGET_DEFAULT_YEAR;
   });
+  // Validate the selection only AFTER the year list has loaded from the API —
+  // the static fallback may not contain next year yet, which would wrongly
+  // reset the default before /api/plan-years responds.
   useEffect(() => {
+    if (yearsLoading) return;
     if (allYears.length > 0 && !allYears.includes(selectedYear)) {
       setSelectedYear(allYears.includes(BUDGET_DEFAULT_YEAR) ? BUDGET_DEFAULT_YEAR
         : activeYears.length > 0 ? Math.max(...activeYears) : Math.max(...allYears));
     }
-  }, [allYears, activeYears]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { localStorage.setItem('budget_year_v2', String(selectedYear)); }, [selectedYear]);
+  }, [yearsLoading, allYears, activeYears]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { localStorage.setItem('budget_year_v3', String(selectedYear)); }, [selectedYear]);
 
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
