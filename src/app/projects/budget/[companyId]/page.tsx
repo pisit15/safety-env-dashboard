@@ -14,7 +14,8 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 const PLAN_LABELS: Record<string, string> = { safety: 'ความปลอดภัย', environment: 'สิ่งแวดล้อม' };
 
 interface BudgetCategory { id: number; name: string; sort_order: number; }
-interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; }
+interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; sub_unit?: string | null; }
+interface SubUnit { id: number; code: string; name: string; sort_order: number; }
 interface Attachment { id: number; item_id: number; kind: string; title: string; file_url: string; file_type: string; uploaded_by?: string; }
 
 const fmt = (n: number) => n ? n.toLocaleString('en-US') : '';
@@ -58,6 +59,10 @@ export default function CompanyBudgetPage() {
 
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
+  // Sub-units (subsidiaries): separate budgets that roll up to the parent company
+  const [subUnits, setSubUnits] = useState<SubUnit[]>([]);
+  // 'ALL' = ภาพรวม (rollup), 'MAIN' = parent-company items (sub_unit null), else sub-unit code
+  const [activeSubTab, setActiveSubTab] = useState<string>('ALL');
   const [attByItem, setAttByItem] = useState<Record<number, Attachment[]>>({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -69,7 +74,7 @@ export default function CompanyBudgetPage() {
   const [editingCatName, setEditingCatName] = useState('');
 
   // Item editor drawer
-  const [editor, setEditor] = useState<{ id: number | null; name: string; categoryId: number | ''; monthly: Record<string, string>; createdBy?: string } | null>(null);
+  const [editor, setEditor] = useState<{ id: number | null; name: string; categoryId: number | ''; monthly: Record<string, string>; createdBy?: string; subUnit?: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
@@ -91,19 +96,36 @@ export default function CompanyBudgetPage() {
       setAttByItem(map);
     } catch { /* ignore */ }
   }, [companyId, selectedYear]);
+  const fetchSubUnits = useCallback(async () => {
+    try { const r = await fetch(`/api/budget-plan/sub-units?companyId=${companyId}`, { cache: 'no-store' }); const d = await r.json(); setSubUnits(d.subUnits || []); } catch { /* ignore */ }
+  }, [companyId]);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchCategories(), fetchItems(), fetchAttachments()]).finally(() => setLoading(false));
-  }, [fetchCategories, fetchItems, fetchAttachments]);
+    Promise.all([fetchCategories(), fetchItems(), fetchAttachments(), fetchSubUnits()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchItems, fetchAttachments, fetchSubUnits]);
+
+  const hasSubUnits = subUnits.length > 0;
+  const isRollup = hasSubUnits && activeSubTab === 'ALL';
+  const subUnitName = (code: string | null | undefined) => subUnits.find(s => s.code === code)?.name || code || '';
+
+  // Items visible in the current tab
+  const scopedItems = !hasSubUnits ? items
+    : activeSubTab === 'ALL' ? items
+    : activeSubTab === 'MAIN' ? items.filter(i => !i.sub_unit)
+    : items.filter(i => i.sub_unit === activeSubTab);
 
   // ── Derived sums (m: 1..12, or 0 = ไม่ระบุ) ──
   const amtOf = (it: BudgetItem, m: number) => Number((it.monthly_amounts || {})[String(m)] || 0);
   const itemTotal = (it: BudgetItem) => { let t = 0; for (let m = 1; m <= 12; m++) t += amtOf(it, m); return t; };
-  const sumFor = (catId: number, m: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + amtOf(i, m), 0);
-  const catTotal = (catId: number) => items.filter(i => i.category_id === catId).reduce((s, i) => s + itemTotal(i), 0);
-  const monthTotal = (m: number) => items.reduce((s, i) => s + amtOf(i, m), 0);
-  const grandTotal = items.reduce((s, i) => s + itemTotal(i), 0);
+  const sumFor = (catId: number, m: number) => scopedItems.filter(i => i.category_id === catId).reduce((s, i) => s + amtOf(i, m), 0);
+  const catTotal = (catId: number) => scopedItems.filter(i => i.category_id === catId).reduce((s, i) => s + itemTotal(i), 0);
+  const monthTotal = (m: number) => scopedItems.reduce((s, i) => s + amtOf(i, m), 0);
+  const grandTotal = scopedItems.reduce((s, i) => s + itemTotal(i), 0);
+  // Rollup summary: total per sub-unit (incl. parent bucket)
+  const subUnitTotal = (code: string | null) => items
+    .filter(i => (code === null ? !i.sub_unit : i.sub_unit === code))
+    .reduce((s, i) => s + itemTotal(i), 0);
 
   // ── Category handlers (admin) ──
   const addCategory = async () => {
@@ -126,13 +148,19 @@ export default function CompanyBudgetPage() {
   };
 
   // ── Item editor ──
-  const openAdd = (categoryId?: number) => { if (!isLoggedIn) return; setLinkUrl(''); setLinkTitle(''); setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {} }); };
+  const openAdd = (categoryId?: number) => {
+    if (!isLoggedIn) return;
+    setLinkUrl(''); setLinkTitle('');
+    // New items belong to the sub-unit tab currently open ('MAIN'/no sub-units → parent company)
+    const subUnit = hasSubUnits && activeSubTab !== 'ALL' && activeSubTab !== 'MAIN' ? activeSubTab : null;
+    setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {}, subUnit });
+  };
   const openEdit = (it: BudgetItem) => {
     if (!isLoggedIn) return;
     const monthly: Record<string, string> = {};
     Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { const m = parseInt(k, 10); if (m >= 1 && m <= 12) monthly[k] = String(v); });
     setLinkUrl(''); setLinkTitle('');
-    setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly, createdBy: it.created_by });
+    setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly, createdBy: it.created_by, subUnit: it.sub_unit || null });
   };
   const setEditorMonth = (key: string, val: string) => setEditor(e => e ? { ...e, monthly: { ...e.monthly, [key]: val } } : e);
   const editorTotal = editor ? Object.values(editor.monthly).reduce((s, v) => s + (Number(v) || 0), 0) : 0;
@@ -150,7 +178,7 @@ export default function CompanyBudgetPage() {
         await fetchItems();
         setEditor(null);
       } else {
-        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, planType, createdBy: updatedBy }) });
+        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, planType, createdBy: updatedBy, subUnit: editor.subUnit || null }) });
         const d = await res.json();
         await fetchItems();
         // Keep drawer open in edit mode so the user can attach files/links
@@ -220,15 +248,49 @@ export default function CompanyBudgetPage() {
         ))}
       </div>
 
+      {/* Sub-unit tabs (subsidiaries) — shown only for companies that have them */}
+      {hasSubUnits && (
+        <div style={{ display: 'flex', gap: 4, padding: 4, background: 'var(--bg-secondary)', borderRadius: 10, marginBottom: 12, flexWrap: 'wrap', width: 'fit-content' }}>
+          {[{ code: 'ALL', label: `ภาพรวม ${companyName}` }, { code: 'MAIN', label: `${companyName} (ส่วนกลาง)` }, ...subUnits.map(s => ({ code: s.code, label: s.code }))].map(t => (
+            <button key={t.code} onClick={() => setActiveSubTab(t.code)}
+              title={t.code !== 'ALL' && t.code !== 'MAIN' ? subUnitName(t.code) : undefined}
+              style={{ padding: '6px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                background: activeSubTab === t.code ? PALETTE.primary : 'transparent', color: activeSubTab === t.code ? '#fff' : 'var(--text-secondary)' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Rollup summary cards (overview tab only) */}
+      {isRollup && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10, marginBottom: 14 }}>
+          {[{ code: null as string | null, label: `${companyName} (ส่วนกลาง)` }, ...subUnits.map(s => ({ code: s.code as string | null, label: `${s.code} — ${s.name}` }))].map(c => (
+            <div key={c.code ?? '_main'} style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.label}>{c.label}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: PALETTE.primary }}>{fmtFull(subUnitTotal(c.code))} <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' }}>บาท</span></div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
           style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
           {(allYears.length ? allYears : [DEFAULT_YEAR]).map(y => <option key={y} value={y}>ปี {y}{activeYears.includes(y) ? '' : ' · เตรียม'}</option>)}
         </select>
-        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>งบรวมทั้งปี: <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(grandTotal)}</strong> บาท</span>
-        {isLoggedIn && categories.length > 0 && (
-          <button onClick={() => openAdd()} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}><Plus size={15} /> เพิ่มรายการ</button>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          งบรวมทั้งปี{hasSubUnits ? (isRollup ? ` (รวมทุกบริษัทย่อย)` : ` (${activeSubTab === 'MAIN' ? 'ส่วนกลาง' : activeSubTab})`) : ''}:{' '}
+          <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(grandTotal)}</strong> บาท
+        </span>
+        {isLoggedIn && categories.length > 0 && !isRollup && (
+          <button onClick={() => openAdd()} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={15} /> เพิ่มรายการ{hasSubUnits && activeSubTab !== 'MAIN' ? ` (${activeSubTab})` : ''}
+          </button>
+        )}
+        {isRollup && isLoggedIn && (
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>เลือกแท็บบริษัทย่อยเพื่อเพิ่ม/แก้ไขรายการ</span>
         )}
       </div>
 
@@ -301,6 +363,12 @@ export default function CompanyBudgetPage() {
                       <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 250, overflow: 'hidden' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={it.name}>• {it.name}</span>
+                          {isRollup && (
+                            <span title={it.sub_unit ? subUnitName(it.sub_unit) : `${companyName} (ส่วนกลาง)`}
+                              style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: `${PALETTE.primary}18`, color: PALETTE.primary }}>
+                              {it.sub_unit || 'ส่วนกลาง'}
+                            </span>
+                          )}
                           {nAtt > 0 && <span title={`${nAtt} เอกสารแนบ`} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, color: PALETTE.primary, fontSize: 10, flexShrink: 0 }}><Paperclip size={10} />{nAtt}</span>}
                           {it.created_by && <span style={{ color: 'var(--text-muted)', fontSize: 10, flexShrink: 0 }}>· {it.created_by}</span>}
                         </span>
@@ -339,7 +407,11 @@ export default function CompanyBudgetPage() {
           <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(460px, 96vw)', zIndex: 1201, background: 'var(--card-solid)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 40px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.25s ease-out' }}>
             <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>รายการงบประมาณ · ปี {selectedYear}{editor.createdBy ? ` · ผู้สร้าง: ${editor.createdBy}` : ''}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>
+                  รายการงบประมาณ · ปี {selectedYear}
+                  {hasSubUnits ? ` · ${editor.subUnit ? `${editor.subUnit} — ${subUnitName(editor.subUnit)}` : `${companyName} (ส่วนกลาง)`}` : ''}
+                  {editor.createdBy ? ` · ผู้สร้าง: ${editor.createdBy}` : ''}
+                </div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{editor.id ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</div>
               </div>
               <button onClick={() => setEditor(null)} style={{ border: 'none', background: 'rgba(255,255,255,0.2)', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>

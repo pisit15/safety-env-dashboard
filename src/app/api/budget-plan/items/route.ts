@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         plan_type: body.planType === 'environment' ? 'environment' : 'safety',
         monthly_amounts: cleanMonthly(body.monthlyAmounts),
         created_by: body.createdBy || '',
+        sub_unit: typeof body.subUnit === 'string' && body.subUnit.trim() ? body.subUnit.trim() : null,
       })
       .select()
       .single();
