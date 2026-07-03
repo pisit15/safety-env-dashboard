@@ -141,23 +141,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
     }
 
-    // Update the request status
-    const { error: updateError } = await getServiceSupabase()
-      .from('cancellation_requests')
-      .update({
-        status: newStatus,
-        reviewed_by: reviewedBy || 'admin',
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-
-    // If approved → apply the status override
+    // If approving → apply the status override FIRST. If it cannot be written,
+    // fail loudly and leave the request pending (previously this error was
+    // swallowed, so requests looked approved but the plan never changed).
+    let prevStatus = '';
     if (newStatus === 'approved') {
-      // Capture the previous override status (if any) for the audit trail
       const { data: prevOverride } = await getServiceSupabase()
         .from('status_overrides')
         .select('status')
@@ -166,6 +154,7 @@ export async function PUT(request: NextRequest) {
         .eq('activity_no', req.activity_no)
         .eq('month', req.month)
         .maybeSingle();
+      prevStatus = prevOverride?.status || '';
 
       const { error: overrideError } = await getServiceSupabase()
         .from('status_overrides')
@@ -184,9 +173,28 @@ export async function PUT(request: NextRequest) {
 
       if (overrideError) {
         console.error('Failed to apply status override:', overrideError);
-        // Don't fail the request — the approval is saved
+        return NextResponse.json(
+          { error: `อนุมัติไม่สำเร็จ — บันทึกสถานะใหม่ไม่ได้: ${overrideError.message}` },
+          { status: 500 }
+        );
       }
+    }
 
+    // Update the request status
+    const { error: updateError } = await getServiceSupabase()
+      .from('cancellation_requests')
+      .update({
+        status: newStatus,
+        reviewed_by: reviewedBy || 'admin',
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    if (newStatus === 'approved') {
       // Audit log for the actual status change
       await getServiceSupabase().from('audit_log').insert({
         company_id: req.company_id,
@@ -194,7 +202,7 @@ export async function PUT(request: NextRequest) {
         action: 'status_change',
         activity_no: req.activity_no,
         month: req.month,
-        old_value: prevOverride?.status || '(ตามแผน)',
+        old_value: prevStatus || '(ตามแผน)',
         new_value: req.requested_status,
         note: `อนุมัติคำขอของ ${req.requested_by || '-'}: ${req.reason}`,
         performed_by: reviewedBy || 'admin',
