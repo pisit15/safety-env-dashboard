@@ -14,7 +14,7 @@ const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ
 const PLAN_LABELS: Record<string, string> = { safety: 'ความปลอดภัย', environment: 'สิ่งแวดล้อม' };
 
 interface BudgetCategory { id: number; name: string; sort_order: number; }
-interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; sub_unit?: string | null; }
+interface BudgetItem { id: number; category_id: number; name: string; monthly_amounts: Record<string, number>; created_by?: string; sub_unit?: string | null; description?: string | null; }
 interface SubUnit { id: number; code: string; name: string; sort_order: number; }
 interface Attachment { id: number; item_id: number; kind: string; title: string; file_url: string; file_type: string; uploaded_by?: string; }
 
@@ -86,7 +86,7 @@ export default function CompanyBudgetPage() {
   const [editingCatName, setEditingCatName] = useState('');
 
   // Item editor drawer
-  const [editor, setEditor] = useState<{ id: number | null; name: string; categoryId: number | ''; monthly: Record<string, string>; createdBy?: string; subUnit?: string | null } | null>(null);
+  const [editor, setEditor] = useState<{ id: number | null; name: string; description: string; categoryId: number | ''; monthly: Record<string, string>; createdBy?: string; subUnit?: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
@@ -195,14 +195,14 @@ export default function CompanyBudgetPage() {
     setLinkUrl(''); setLinkTitle('');
     // New items belong to the sub-unit tab currently open ('MAIN'/no sub-units → parent company)
     const subUnit = hasSubUnits && activeSubTab !== 'ALL' && activeSubTab !== 'MAIN' ? activeSubTab : null;
-    setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {}, subUnit });
+    setEditor({ id: null, name: '', description: '', categoryId: categoryId ?? '', monthly: {}, subUnit });
   };
   const openEdit = (it: BudgetItem) => {
     if (!canEdit) return;
     const monthly: Record<string, string> = {};
     Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { const m = parseInt(k, 10); if (m >= 1 && m <= 12) monthly[k] = String(v); });
     setLinkUrl(''); setLinkTitle('');
-    setEditor({ id: it.id, name: it.name, categoryId: it.category_id, monthly, createdBy: it.created_by, subUnit: it.sub_unit || null });
+    setEditor({ id: it.id, name: it.name, description: it.description || '', categoryId: it.category_id, monthly, createdBy: it.created_by, subUnit: it.sub_unit || null });
   };
   const setEditorMonth = (key: string, val: string) => setEditor(e => e ? { ...e, monthly: { ...e.monthly, [key]: val } } : e);
   const editorTotal = editor ? Object.values(editor.monthly).reduce((s, v) => s + (Number(v) || 0), 0) : 0;
@@ -216,11 +216,11 @@ export default function CompanyBudgetPage() {
     setSaving(true);
     try {
       if (editor.id) {
-        await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editor.id, name: editor.name.trim(), categoryId: editor.categoryId, monthlyAmounts, isAdmin }) });
+        await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editor.id, name: editor.name.trim(), description: editor.description, categoryId: editor.categoryId, monthlyAmounts, isAdmin }) });
         await fetchItems();
         setEditor(null);
       } else {
-        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, planType, createdBy: updatedBy, subUnit: editor.subUnit || null, isAdmin }) });
+        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), description: editor.description, monthlyAmounts, planType, createdBy: updatedBy, subUnit: editor.subUnit || null, isAdmin }) });
         const d = await res.json();
         await fetchItems();
         // Keep drawer open in edit mode so the user can attach files/links
@@ -439,6 +439,11 @@ export default function CompanyBudgetPage() {
                           {nAtt > 0 && <span title={`${nAtt} เอกสารแนบ`} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, color: PALETTE.primary, fontSize: 10, flexShrink: 0 }}><Paperclip size={10} />{nAtt}</span>}
                           {it.created_by && <span style={{ color: 'var(--text-muted)', fontSize: 10, flexShrink: 0 }}>· {it.created_by}</span>}
                         </span>
+                        {it.description && (
+                          <span title={it.description} style={{ display: 'block', color: 'var(--text-muted)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+                            {it.description}
+                          </span>
+                        )}
                       </td>
                       {MONTH_LABELS.map((_, i) => (
                         <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, i + 1))}</td>
@@ -489,14 +494,20 @@ export default function CompanyBudgetPage() {
               <input autoFocus value={editor.name} onChange={e => setEditor(ed => ed ? { ...ed, name: e.target.value } : ed)} placeholder="เช่น ค่าตรวจวัดคุณภาพอากาศ"
                 style={{ width: '100%', fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', marginBottom: 14 }} />
 
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>2. หมวดหมู่</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>2. รายละเอียด <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(ไม่บังคับ — จำนวน หน่วย ราคา/หน่วย คำอธิบาย ฯลฯ)</span></label>
+              <textarea value={editor.description} onChange={e => setEditor(ed => ed ? { ...ed, description: e.target.value } : ed)}
+                placeholder={'เช่น ตรวจวัด 2 ครั้ง/ปี × 15,000 บาท\nหรือ หมวกนิรภัย 50 ใบ × 250 บาท'}
+                rows={3}
+                style={{ width: '100%', fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', marginBottom: 14, resize: 'vertical', fontFamily: 'inherit' }} />
+
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>3. หมวดหมู่</label>
               <select value={editor.categoryId} onChange={e => setEditor(ed => ed ? { ...ed, categoryId: e.target.value === '' ? '' : Number(e.target.value) } : ed)}
                 style={{ width: '100%', fontSize: 13, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text-primary)', marginBottom: 14 }}>
                 <option value="">— เลือกหมวดหมู่ —</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
 
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>3. งบประมาณรายเดือน (ใส่เฉพาะเดือนที่ใช้ • แต่ละเดือนไม่เท่ากันได้)</label>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>4. งบประมาณรายเดือน (ใส่เฉพาะเดือนที่ใช้ • แต่ละเดือนไม่เท่ากันได้)</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {MONTH_LABELS.map((m, i) => (
                   <div key={i}>
@@ -510,7 +521,7 @@ export default function CompanyBudgetPage() {
 
               {/* 4. Attachments */}
               <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>4. เอกสารแนบ / ลิงก์ (Google Drive, OneDrive, ไฟล์)</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>5. เอกสารแนบ / ลิงก์ (Google Drive, OneDrive, ไฟล์)</label>
                 {!editor.id ? (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--bg-secondary)', borderRadius: 8 }}>กด “บันทึก” ด้านล่างก่อน จึงจะแนบไฟล์หรือลิงก์ได้</div>
                 ) : (

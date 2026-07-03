@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         monthly_amounts: cleanMonthly(body.monthlyAmounts),
         created_by: body.createdBy || '',
         sub_unit: typeof body.subUnit === 'string' && body.subUnit.trim() ? body.subUnit.trim() : null,
+        description: typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null,
       })
       .select()
       .single();
@@ -85,6 +86,7 @@ export async function PUT(request: NextRequest) {
     if (typeof body.name === 'string') patch.name = body.name.trim();
     if (body.categoryId !== undefined) patch.category_id = body.categoryId;
     if (body.monthlyAmounts !== undefined) patch.monthly_amounts = cleanMonthly(body.monthlyAmounts);
+    if (body.description !== undefined) patch.description = typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null;
     const { error } = await getSupabase().from('budget_items').update(patch).eq('id', id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
