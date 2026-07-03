@@ -43,19 +43,24 @@ export default function CompanyBudgetPage() {
   });
   useEffect(() => { localStorage.setItem('budget_plan_type', planType); }, [planType]);
 
+  // Budget planning is done a year ahead — default to NEXT year's budget
+  // (e.g. in 2026 the team prepares the 2027 budget). The user's last choice
+  // is remembered under a versioned key so this new default applies once.
+  const BUDGET_DEFAULT_YEAR = DEFAULT_YEAR + 1;
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('budget_year');
+      const saved = localStorage.getItem('budget_year_v2');
       if (saved) return parseInt(saved, 10);
     }
-    return DEFAULT_YEAR;
+    return BUDGET_DEFAULT_YEAR;
   });
   useEffect(() => {
     if (allYears.length > 0 && !allYears.includes(selectedYear)) {
-      setSelectedYear(activeYears.length > 0 ? Math.max(...activeYears) : Math.max(...allYears));
+      setSelectedYear(allYears.includes(BUDGET_DEFAULT_YEAR) ? BUDGET_DEFAULT_YEAR
+        : activeYears.length > 0 ? Math.max(...activeYears) : Math.max(...allYears));
     }
   }, [allYears, activeYears]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { localStorage.setItem('budget_year', String(selectedYear)); }, [selectedYear]);
+  useEffect(() => { localStorage.setItem('budget_year_v2', String(selectedYear)); }, [selectedYear]);
 
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
