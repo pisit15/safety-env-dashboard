@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { getBudgetLock, getLockForItem, LOCKED_MSG } from '@/lib/budget-lock';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -46,6 +47,10 @@ export async function POST(request: NextRequest) {
     if (!companyId || !Number.isFinite(parseInt(String(year), 10)) || !categoryId || !name || !String(name).trim()) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+    // Locked budgets are read-only for non-admin users
+    if (!body.isAdmin && await getBudgetLock(companyId, parseInt(String(year), 10))) {
+      return NextResponse.json({ error: LOCKED_MSG }, { status: 423 });
+    }
     const { data, error } = await getSupabase()
       .from('budget_items')
       .insert({
@@ -73,6 +78,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id } = body;
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    if (!body.isAdmin && await getLockForItem(id)) {
+      return NextResponse.json({ error: LOCKED_MSG }, { status: 423 });
+    }
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (typeof body.name === 'string') patch.name = body.name.trim();
     if (body.categoryId !== undefined) patch.category_id = body.categoryId;
@@ -85,10 +93,13 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE ?id=
+// DELETE ?id=&isAdmin=
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+  if (request.nextUrl.searchParams.get('isAdmin') !== 'true' && await getLockForItem(id)) {
+    return NextResponse.json({ error: LOCKED_MSG }, { status: 423 });
+  }
   const { error } = await getSupabase().from('budget_items').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });

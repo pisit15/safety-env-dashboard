@@ -8,7 +8,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useYears } from '@/lib/useYears';
 import { DEFAULT_YEAR } from '@/lib/companies';
 import { STATUS, PALETTE } from '@/lib/she-theme';
-import { Wallet, Plus, Trash2, X, Pencil, Check, Paperclip, Link2, FileText, Upload, ExternalLink } from 'lucide-react';
+import { Wallet, Plus, Trash2, X, Pencil, Check, Paperclip, Link2, FileText, Upload, ExternalLink, Lock, LockOpen } from 'lucide-react';
 
 const MONTH_LABELS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const PLAN_LABELS: Record<string, string> = { safety: 'ความปลอดภัย', environment: 'สิ่งแวดล้อม' };
@@ -68,6 +68,9 @@ export default function CompanyBudgetPage() {
 
   const [categories, setCategories] = useState<BudgetCategory[]>([]);
   const [items, setItems] = useState<BudgetItem[]>([]);
+  // Admin lock: when set, the budget for this company+year is read-only for users
+  const [lock, setLock] = useState<{ locked_by: string; created_at: string; note?: string | null } | null>(null);
+  const [lockSaving, setLockSaving] = useState(false);
   // Sub-units (subsidiaries): separate budgets that roll up to the parent company
   const [subUnits, setSubUnits] = useState<SubUnit[]>([]);
   // 'ALL' = ภาพรวม (rollup), 'MAIN' = parent-company items (sub_unit null), else sub-unit code
@@ -108,11 +111,41 @@ export default function CompanyBudgetPage() {
   const fetchSubUnits = useCallback(async () => {
     try { const r = await fetch(`/api/budget-plan/sub-units?companyId=${companyId}`, { cache: 'no-store' }); const d = await r.json(); setSubUnits(d.subUnits || []); } catch { /* ignore */ }
   }, [companyId]);
+  const fetchLock = useCallback(async () => {
+    try { const r = await fetch(`/api/budget-plan/locks?companyId=${companyId}&year=${selectedYear}`, { cache: 'no-store' }); const d = await r.json(); setLock(d.lock || null); } catch { /* ignore */ }
+  }, [companyId, selectedYear]);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchCategories(), fetchItems(), fetchAttachments(), fetchSubUnits()]).finally(() => setLoading(false));
-  }, [fetchCategories, fetchItems, fetchAttachments, fetchSubUnits]);
+    Promise.all([fetchCategories(), fetchItems(), fetchAttachments(), fetchSubUnits(), fetchLock()]).finally(() => setLoading(false));
+  }, [fetchCategories, fetchItems, fetchAttachments, fetchSubUnits, fetchLock]);
+
+  const isLocked = !!lock;
+  // Users cannot edit a locked budget; admin always can
+  const canEdit = isLoggedIn && (!isLocked || isAdmin);
+
+  const toggleLock = async () => {
+    if (!isAdmin) return;
+    const confirmMsg = isLocked
+      ? `ปลดล็อกงบประมาณปี ${selectedYear} ของ ${companyName}? ผู้ใช้บริษัทจะกลับมาแก้ไขได้`
+      : `ปิดการแก้ไขงบประมาณปี ${selectedYear} ของ ${companyName}? ผู้ใช้บริษัทจะดูได้อย่างเดียว (Admin ยังแก้ได้)`;
+    if (!confirm(confirmMsg)) return;
+    setLockSaving(true);
+    try {
+      if (isLocked) {
+        await fetch(`/api/budget-plan/locks?companyId=${companyId}&year=${selectedYear}&isAdmin=true&by=${encodeURIComponent(updatedBy)}`, { method: 'DELETE' });
+        setToast({ type: 'success', msg: `ปลดล็อกงบปี ${selectedYear} แล้ว` });
+      } else {
+        await fetch('/api/budget-plan/locks', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId, year: selectedYear, isAdmin: true, lockedBy: updatedBy }),
+        });
+        setToast({ type: 'success', msg: `ปิดการแก้ไขงบปี ${selectedYear} แล้ว` });
+      }
+      await fetchLock();
+    } catch { setToast({ type: 'error', msg: 'ดำเนินการไม่สำเร็จ' }); }
+    setLockSaving(false);
+  };
 
   const hasSubUnits = subUnits.length > 0;
   const isRollup = hasSubUnits && activeSubTab === 'ALL';
@@ -158,14 +191,14 @@ export default function CompanyBudgetPage() {
 
   // ── Item editor ──
   const openAdd = (categoryId?: number) => {
-    if (!isLoggedIn) return;
+    if (!canEdit) return;
     setLinkUrl(''); setLinkTitle('');
     // New items belong to the sub-unit tab currently open ('MAIN'/no sub-units → parent company)
     const subUnit = hasSubUnits && activeSubTab !== 'ALL' && activeSubTab !== 'MAIN' ? activeSubTab : null;
     setEditor({ id: null, name: '', categoryId: categoryId ?? '', monthly: {}, subUnit });
   };
   const openEdit = (it: BudgetItem) => {
-    if (!isLoggedIn) return;
+    if (!canEdit) return;
     const monthly: Record<string, string> = {};
     Object.entries(it.monthly_amounts || {}).forEach(([k, v]) => { const m = parseInt(k, 10); if (m >= 1 && m <= 12) monthly[k] = String(v); });
     setLinkUrl(''); setLinkTitle('');
@@ -183,11 +216,11 @@ export default function CompanyBudgetPage() {
     setSaving(true);
     try {
       if (editor.id) {
-        await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editor.id, name: editor.name.trim(), categoryId: editor.categoryId, monthlyAmounts }) });
+        await fetch('/api/budget-plan/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editor.id, name: editor.name.trim(), categoryId: editor.categoryId, monthlyAmounts, isAdmin }) });
         await fetchItems();
         setEditor(null);
       } else {
-        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, planType, createdBy: updatedBy, subUnit: editor.subUnit || null }) });
+        const res = await fetch('/api/budget-plan/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, year: selectedYear, categoryId: editor.categoryId, name: editor.name.trim(), monthlyAmounts, planType, createdBy: updatedBy, subUnit: editor.subUnit || null, isAdmin }) });
         const d = await res.json();
         await fetchItems();
         // Keep drawer open in edit mode so the user can attach files/links
@@ -200,7 +233,7 @@ export default function CompanyBudgetPage() {
   const deleteEditorItem = async () => {
     if (!editor?.id) return;
     if (!confirm('ลบรายการนี้? (เอกสารแนบจะถูกลบด้วย)')) return;
-    await fetch(`/api/budget-plan/items?id=${editor.id}`, { method: 'DELETE' });
+    await fetch(`/api/budget-plan/items?id=${editor.id}&isAdmin=${isAdmin}`, { method: 'DELETE' });
     await Promise.all([fetchItems(), fetchAttachments()]);
     setEditor(null);
   };
@@ -210,7 +243,7 @@ export default function CompanyBudgetPage() {
     if (!editor?.id || !linkUrl.trim()) return;
     setUploadingAtt(true);
     try {
-      const res = await fetch('/api/budget-plan/attachments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: editor.id, linkUrl: linkUrl.trim(), linkTitle: linkTitle.trim(), uploadedBy: updatedBy }) });
+      const res = await fetch('/api/budget-plan/attachments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: editor.id, linkUrl: linkUrl.trim(), linkTitle: linkTitle.trim(), uploadedBy: updatedBy, isAdmin }) });
       if (res.ok) { setLinkUrl(''); setLinkTitle(''); await fetchAttachments(); }
       else { const d = await res.json(); setToast({ type: 'error', msg: d.error || 'เพิ่มลิงก์ไม่สำเร็จ' }); }
     } catch { setToast({ type: 'error', msg: 'เพิ่มลิงก์ไม่สำเร็จ' }); }
@@ -221,7 +254,7 @@ export default function CompanyBudgetPage() {
     setUploadingAtt(true);
     try {
       const fd = new FormData();
-      fd.append('file', file); fd.append('itemId', String(editor.id)); fd.append('companyId', companyId); fd.append('uploadedBy', updatedBy);
+      fd.append('file', file); fd.append('itemId', String(editor.id)); fd.append('companyId', companyId); fd.append('uploadedBy', updatedBy); fd.append('isAdmin', String(isAdmin));
       const res = await fetch('/api/budget-plan/attachments', { method: 'POST', body: fd });
       if (res.ok) await fetchAttachments();
       else { const d = await res.json(); setToast({ type: 'error', msg: d.error || 'อัปโหลดไม่สำเร็จ' }); }
@@ -230,7 +263,7 @@ export default function CompanyBudgetPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
   const deleteAttachment = async (id: number) => {
-    await fetch(`/api/budget-plan/attachments?id=${id}`, { method: 'DELETE' });
+    await fetch(`/api/budget-plan/attachments?id=${id}&isAdmin=${isAdmin}`, { method: 'DELETE' });
     await fetchAttachments();
   };
 
@@ -293,15 +326,40 @@ export default function CompanyBudgetPage() {
           งบรวมทั้งปี{hasSubUnits ? (isRollup ? ` (รวมทุกบริษัทย่อย)` : ` (${activeSubTab === 'MAIN' ? 'ส่วนกลาง' : activeSubTab})`) : ''}:{' '}
           <strong style={{ color: PALETTE.primary, fontSize: 15 }}>{fmtFull(grandTotal)}</strong> บาท
         </span>
-        {isLoggedIn && categories.length > 0 && !isRollup && (
+        {canEdit && categories.length > 0 && !isRollup && (
           <button onClick={() => openAdd()} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f59e0b', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             <Plus size={15} /> เพิ่มรายการ{hasSubUnits && activeSubTab !== 'MAIN' ? ` (${activeSubTab})` : ''}
           </button>
         )}
-        {isRollup && isLoggedIn && (
+        {isRollup && canEdit && (
           <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>เลือกแท็บบริษัทย่อยเพื่อเพิ่ม/แก้ไขรายการ</span>
         )}
+        {isAdmin && (
+          <button onClick={toggleLock} disabled={lockSaving}
+            title={isLocked ? 'เปิดให้ผู้ใช้บริษัทแก้ไขได้อีกครั้ง' : 'ปิดไม่ให้ผู้ใช้บริษัทแก้ไขงบปีนี้'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, cursor: lockSaving ? 'default' : 'pointer', fontSize: 12, fontWeight: 700,
+              border: isLocked ? `1px solid ${STATUS.positive}` : `1px solid ${STATUS.critical}`,
+              background: 'transparent', color: isLocked ? STATUS.positive : STATUS.critical, opacity: lockSaving ? 0.6 : 1 }}>
+            {isLocked ? <LockOpen size={14} /> : <Lock size={14} />}
+            {lockSaving ? 'กำลังบันทึก...' : isLocked ? `ปลดล็อกปี ${selectedYear}` : `ปิดการแก้ไขปี ${selectedYear}`}
+          </button>
+        )}
       </div>
+
+      {/* Lock banner */}
+      {isLocked && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 16px', borderRadius: 10,
+          background: 'rgba(217,83,79,0.08)', border: '1px solid rgba(217,83,79,0.3)' }}>
+          <Lock size={16} style={{ color: STATUS.critical, flexShrink: 0 }} />
+          <div style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>
+            <strong>งบประมาณปี {selectedYear} ปิดการแก้ไขแล้ว</strong>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {' '}โดย {lock?.locked_by || 'Admin'} เมื่อ {lock?.created_at ? new Date(lock.created_at).toLocaleDateString('th-TH', { dateStyle: 'medium' }) : '-'}
+              {isAdmin ? ' — คุณยังแก้ไขได้ในฐานะ Admin' : ' — ดูได้อย่างเดียว ติดต่อ Admin หากต้องการแก้ไข'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{ marginBottom: 12, padding: '8px 14px', borderRadius: 8, fontSize: 13, background: toast.type === 'success' ? STATUS.positiveBg : STATUS.criticalBg, color: toast.type === 'success' ? STATUS.positive : STATUS.critical }}>{toast.msg}</div>
@@ -368,7 +426,7 @@ export default function CompanyBudgetPage() {
                 const itemRows = catItems.map(it => {
                   const nAtt = (attByItem[it.id] || []).length;
                   return (
-                    <tr key={`it-${it.id}`} onClick={() => openEdit(it)} style={{ cursor: isLoggedIn ? 'pointer' : 'default' }}>
+                    <tr key={`it-${it.id}`} onClick={() => openEdit(it)} style={{ cursor: canEdit ? 'pointer' : 'default' }}>
                       <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 250, overflow: 'hidden' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={it.name}>• {it.name}</span>

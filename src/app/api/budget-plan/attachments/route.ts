@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { getLockForItem, LOCKED_MSG } from '@/lib/budget-lock';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
       if (!itemId || !linkUrl || !String(linkUrl).trim()) {
         return NextResponse.json({ error: 'Missing itemId or linkUrl' }, { status: 400 });
       }
+      if (!body.isAdmin && await getLockForItem(itemId)) {
+        return NextResponse.json({ error: LOCKED_MSG }, { status: 423 });
+      }
       let url = String(linkUrl).trim();
       if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
       const { data, error } = await db.from('budget_item_attachments').insert({
@@ -74,6 +78,9 @@ export async function POST(request: NextRequest) {
     const companyId = (form.get('companyId') as string) || 'amt';
     const uploadedBy = (form.get('uploadedBy') as string) || '';
     if (!file || !itemId) return NextResponse.json({ error: 'Missing file or itemId' }, { status: 400 });
+    if ((form.get('isAdmin') as string) !== 'true' && await getLockForItem(itemId)) {
+      return NextResponse.json({ error: LOCKED_MSG }, { status: 423 });
+    }
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: `ไฟล์ ${(file.size / 1024 / 1024).toFixed(1)} MB เกิน 20 MB กรุณาใช้ลิงก์ภายนอกแทน` }, { status: 413 });
     }
@@ -98,11 +105,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE ?id=
+// DELETE ?id=&isAdmin=
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   const db = getSupabase();
+  const { data: attRow } = await db.from('budget_item_attachments').select('item_id').eq('id', id).single();
+  if (request.nextUrl.searchParams.get('isAdmin') !== 'true' && attRow?.item_id && await getLockForItem(attRow.item_id)) {
+    return NextResponse.json({ error: LOCKED_MSG }, { status: 423 });
+  }
   const { data: att } = await db.from('budget_item_attachments').select('storage_path').eq('id', id).single();
   if (att?.storage_path) { try { await db.storage.from(BUCKET).remove([att.storage_path]); } catch { /* ignore */ } }
   const { error } = await db.from('budget_item_attachments').delete().eq('id', id);
