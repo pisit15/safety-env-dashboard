@@ -1,6 +1,8 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Shield, Leaf, BarChart3, Calendar, Key, LogOut, AlertTriangle, ChevronUp, ChevronDown, RotateCcw, Info, TrendingUp, TrendingDown, Award, CheckCircle, XCircle, Clock } from 'lucide-react';
 import KPICard from '@/components/KPICard';
 import { RankingChart, StatusPieChart, BudgetChart, MonthlyProgressChart, BudgetTrackingChart, MonthlyBudget } from '@/components/Charts';
@@ -33,13 +35,23 @@ export default function HQOverview() {
     }
     setAdminLoading(false);
   };
+  // Plan tab: always open on Total. Only an explicit ?plan= in the URL
+  // (sidebar "แผน Safety" / "แผน Environment" links) selects another plan —
+  // the last-used tab is intentionally NOT remembered across visits.
+  const searchParams = useSearchParams();
   const [planType, setPlanType] = useState<'environment' | 'safety' | 'total'>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('hq_planType');
-      if (saved === 'safety' || saved === 'environment' || saved === 'total') return saved;
+      const urlPlan = new URLSearchParams(window.location.search).get('plan');
+      if (urlPlan === 'safety' || urlPlan === 'environment') return urlPlan;
     }
     return 'total';
   });
+  // React to sidebar navigation while the page is mounted
+  useEffect(() => {
+    const p = searchParams.get('plan');
+    if (p === 'safety' || p === 'environment') setPlanType(p);
+    else setPlanType('total');
+  }, [searchParams]);
   const [selectedYear, setSelectedYear] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('dashboard_year');
@@ -89,10 +101,8 @@ export default function HQOverview() {
   const [cancelFilter, setCancelFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
   const [cancelProcessing, setCancelProcessing] = useState<number | null>(null);
 
-  // Persist planType, timeRange, and selectedYear to localStorage
-  useEffect(() => {
-    localStorage.setItem('hq_planType', planType);
-  }, [planType]);
+  // Persist timeRange and selectedYear to localStorage (planType is NOT
+  // persisted — the overview always opens on Total)
   useEffect(() => {
     localStorage.setItem('hq_timeRange', timeRange);
   }, [timeRange]);
