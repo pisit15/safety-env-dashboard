@@ -429,21 +429,17 @@ export default function CompanyBudgetPage() {
                     <tr key={`it-${it.id}`} onClick={() => openEdit(it)} style={{ cursor: canEdit ? 'pointer' : 'default' }}>
                       <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--card-solid)', padding: '5px 10px 5px 28px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, maxWidth: 250, overflow: 'hidden' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={it.name}>• {it.name}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={it.description ? `${it.name}\n\n${it.description}` : it.name}>• {it.name}</span>
                           {isRollup && (
                             <span title={it.sub_unit ? subUnitName(it.sub_unit) : `${companyName} (ส่วนกลาง)`}
                               style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: `${PALETTE.primary}18`, color: PALETTE.primary }}>
                               {it.sub_unit || 'ส่วนกลาง'}
                             </span>
                           )}
+                          {it.description && <FileText size={10} title={it.description} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
                           {nAtt > 0 && <span title={`${nAtt} เอกสารแนบ`} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, color: PALETTE.primary, fontSize: 10, flexShrink: 0 }}><Paperclip size={10} />{nAtt}</span>}
                           {it.created_by && <span style={{ color: 'var(--text-muted)', fontSize: 10, flexShrink: 0 }}>· {it.created_by}</span>}
                         </span>
-                        {it.description && (
-                          <span title={it.description} style={{ display: 'block', color: 'var(--text-muted)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
-                            {it.description}
-                          </span>
-                        )}
                       </td>
                       {MONTH_LABELS.map((_, i) => (
                         <td key={i} style={{ ...cellStyle, color: 'var(--text-primary)' }}>{fmt(amtOf(it, i + 1))}</td>
