@@ -30,7 +30,6 @@ import {
   inputStyle,
   selectStyle,
 } from './constants';
-import { getYearOptions } from './constants';
 
 /* ─── helpers (pure functions, no state) ─── */
 
@@ -84,12 +83,26 @@ export default function IncidentsPage() {
   const [dashFilter, setDashFilter] = useState<{ month?: string; type?: string }>({});
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
 
-  // Dynamic years: default to currentYear only
+  // Dynamic years: default to current year (YTD) so TRIR/LTIFR read as annual
+  // rates — matches the HQ overview default. The user's last choice is remembered.
   const currentYear = new Date().getFullYear();
   const [selectedYears, setSelectedYears] = useState<number[]>(() => {
-    const allYears = getYearOptions();
-    return allYears;
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('incidents_selectedYears');
+        if (saved) {
+          const parsed = JSON.parse(saved) as unknown;
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(y => typeof y === 'number')) {
+            return parsed as number[];
+          }
+        }
+      } catch { /* corrupted value — fall through to default */ }
+    }
+    return [new Date().getFullYear()];
   });
+  useEffect(() => {
+    localStorage.setItem('incidents_selectedYears', JSON.stringify(selectedYears));
+  }, [selectedYears]);
   const [incidentCategory, setIncidentCategory] = useState<IncidentCategory>('overview');
 
   // Cross-filter for injury/property charts
