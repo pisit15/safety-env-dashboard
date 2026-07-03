@@ -436,7 +436,11 @@ export default function CompanyBudgetPage() {
                               {it.sub_unit || 'ส่วนกลาง'}
                             </span>
                           )}
-                          {it.description && <FileText size={10} title={it.description} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
+                          {it.description && (
+                            <span title={it.description} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+                              <FileText size={10} style={{ color: 'var(--text-muted)' }} />
+                            </span>
+                          )}
                           {nAtt > 0 && <span title={`${nAtt} เอกสารแนบ`} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, color: PALETTE.primary, fontSize: 10, flexShrink: 0 }}><Paperclip size={10} />{nAtt}</span>}
                           {it.created_by && <span style={{ color: 'var(--text-muted)', fontSize: 10, flexShrink: 0 }}>· {it.created_by}</span>}
                         </span>
