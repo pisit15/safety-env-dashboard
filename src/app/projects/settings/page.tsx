@@ -81,7 +81,13 @@ interface AuditEntry {
   id: number; company_id: string; plan_type: string; action: string;
   activity_no: string; month: string; old_value: string; new_value: string;
   note: string; performed_by: string; created_at: string;
+  requested_by?: string; // joined server-side for cancellation-related entries
 }
+
+const PLAN_BADGES: Record<string, { label: string; color: string }> = {
+  safety: { label: 'S', color: '#f59e0b' },
+  environment: { label: 'E', color: '#10b981' },
+};
 
 interface EditRequest {
   id: number; company_id: string; plan_type: string; activity_no: string;
@@ -1268,7 +1274,7 @@ export default function AdminPage() {
 
                   return (
                     <>
-                      <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                           ทั้งหมด {filteredAudit.length} รายการ
                         </span>
@@ -1277,6 +1283,27 @@ export default function AdminPage() {
                             ล่าสุด: {new Date(filteredAudit[0]?.created_at).toLocaleDateString('th-TH')}
                           </span>
                         )}
+                        <button
+                          onClick={() => {
+                            const esc = (v: unknown) => { const s = v == null ? '' : String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
+                            const rows = filteredAudit.map(e => [
+                              new Date(e.created_at).toLocaleString('th-TH'), e.company_id.toUpperCase(),
+                              e.plan_type || '', ACTION_LABELS[e.action] || e.action, e.activity_no, MONTH_LABELS[e.month] || e.month,
+                              translateValue(e.old_value), translateValue(e.new_value),
+                              e.requested_by || '', e.performed_by, e.note || '',
+                            ].map(esc).join(','));
+                            const csv = '﻿' + ['เวลา,บริษัท,แผน,การดำเนินการ,กิจกรรม,เดือน,ค่าเดิม,ค่าใหม่,ผู้ขอ,ผู้ดำเนินการ,หมายเหตุ', ...rows].join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                            const link = document.createElement('a');
+                            link.href = URL.createObjectURL(blob);
+                            link.download = `audit_log_${new Date().toISOString().split('T')[0]}.csv`;
+                            link.click();
+                            URL.revokeObjectURL(link.href);
+                          }}
+                          style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' }}
+                        >
+                          ⬇ Export CSV
+                        </button>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="apple-table w-full text-[11px]">
@@ -1284,11 +1311,14 @@ export default function AdminPage() {
                             <tr style={{ borderColor: 'var(--border)' }}>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เวลา</th>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>บริษัท</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>แผน</th>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>การดำเนินการ</th>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>กิจกรรม</th>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>เดือน</th>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ค่าเดิม → ค่าใหม่</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ผู้ขอ</th>
                               <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>ผู้ดำเนินการ</th>
+                              <th className="text-left py-2 px-2" style={{ color: 'var(--text-secondary)' }}>หมายเหตุ</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1296,6 +1326,16 @@ export default function AdminPage() {
                       <tr key={entry.id} style={{ borderColor: 'var(--border)', borderBottomWidth: '1px' }} className="hover:bg-white/5">
                         <td className="py-2 px-2 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{new Date(entry.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</td>
                         <td className="py-2 px-2 font-medium" style={{ color: 'var(--text-primary)' }}>{entry.company_id.toUpperCase()}</td>
+                        <td className="py-2 px-2">
+                          {PLAN_BADGES[entry.plan_type] ? (
+                            <span title={entry.plan_type === 'safety' ? 'แผนความปลอดภัย' : 'แผนสิ่งแวดล้อม'}
+                              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: 6, fontSize: 10, fontWeight: 700, background: `${PLAN_BADGES[entry.plan_type].color}20`, color: PLAN_BADGES[entry.plan_type].color }}>
+                              {PLAN_BADGES[entry.plan_type].label}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{entry.plan_type || '-'}</span>
+                          )}
+                        </td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{ACTION_ICONS[entry.action]}{ACTION_LABELS[entry.action] || entry.action}</span></td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.activity_no}</td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[entry.month] || entry.month}</td>
@@ -1304,7 +1344,13 @@ export default function AdminPage() {
                           {entry.old_value && entry.new_value && <span style={{ color: 'var(--border)' }}> → </span>}
                           {entry.new_value && <span style={{ color: 'var(--success)' }}>{translateValue(entry.new_value)}</span>}
                         </td>
-                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.performed_by}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{entry.requested_by || '-'}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.performed_by || '-'}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-muted)', maxWidth: 220 }}>
+                          {entry.note ? (
+                            <span title={entry.note} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.note}</span>
+                          ) : '-'}
+                        </td>
                       </tr>
                             ))}
                           </tbody>

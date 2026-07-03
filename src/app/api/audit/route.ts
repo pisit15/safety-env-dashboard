@@ -60,7 +60,35 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ entries: [], total: 0 });
   }
 
-  return NextResponse.json({ entries: data || [], total: count || 0 });
+  // Enrich cancellation-related entries with the original requester
+  // (historical rows didn't record it — join from cancellation_requests)
+  const entries = (data || []) as Record<string, unknown>[];
+  const cancelActions = new Set(['cancellation_approved', 'cancellation_rejected', 'status_change']);
+  if (entries.some(e => cancelActions.has(e.action as string))) {
+    const { data: reqRows } = await supabase
+      .from('cancellation_requests')
+      .select('company_id, plan_type, activity_no, month, requested_by, created_at')
+      .order('created_at', { ascending: false });
+    const reqMap: Record<string, string> = {};
+    (reqRows || []).forEach((r: Record<string, unknown>) => {
+      const key = `${r.company_id}|${r.plan_type}|${r.activity_no}|${r.month}`;
+      if (!(key in reqMap)) reqMap[key] = (r.requested_by as string) || '';
+    });
+    entries.forEach(e => {
+      if (e.action === 'cancellation_request') {
+        e.requested_by = e.performed_by; // the requester logged it themselves
+        return;
+      }
+      if (!cancelActions.has(e.action as string)) return;
+      // Only status changes that came from an approved request have a requester
+      const noteStr = String(e.note || '');
+      if (e.action === 'status_change' && !noteStr.startsWith('Approved cancellation request') && !noteStr.startsWith('อนุมัติคำขอ')) return;
+      const key = `${e.company_id}|${e.plan_type}|${e.activity_no}|${e.month}`;
+      if (reqMap[key]) e.requested_by = reqMap[key];
+    });
+  }
+
+  return NextResponse.json({ entries, total: count || 0 });
 }
 
 // POST - Create audit log entry (called internally by other APIs)

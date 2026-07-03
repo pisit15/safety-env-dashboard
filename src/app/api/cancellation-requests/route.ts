@@ -157,6 +157,16 @@ export async function PUT(request: NextRequest) {
 
     // If approved → apply the status override
     if (newStatus === 'approved') {
+      // Capture the previous override status (if any) for the audit trail
+      const { data: prevOverride } = await getServiceSupabase()
+        .from('status_overrides')
+        .select('status')
+        .eq('company_id', req.company_id)
+        .eq('plan_type', req.plan_type)
+        .eq('activity_no', req.activity_no)
+        .eq('month', req.month)
+        .maybeSingle();
+
       const { error: overrideError } = await getServiceSupabase()
         .from('status_overrides')
         .upsert({
@@ -184,8 +194,9 @@ export async function PUT(request: NextRequest) {
         action: 'status_change',
         activity_no: req.activity_no,
         month: req.month,
+        old_value: prevOverride?.status || '(ตามแผน)',
         new_value: req.requested_status,
-        note: `Approved cancellation request: ${req.reason}`,
+        note: `อนุมัติคำขอของ ${req.requested_by || '-'}: ${req.reason}`,
         performed_by: reviewedBy || 'admin',
       });
     }
@@ -197,7 +208,9 @@ export async function PUT(request: NextRequest) {
       action: newStatus === 'approved' ? 'cancellation_approved' : 'cancellation_rejected',
       activity_no: req.activity_no,
       month: req.month,
+      old_value: 'pending',
       new_value: newStatus,
+      note: `คำขอโดย ${req.requested_by || '-'}: ${req.reason}`,
       performed_by: reviewedBy || 'admin',
     });
 
