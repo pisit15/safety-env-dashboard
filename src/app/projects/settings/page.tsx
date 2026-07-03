@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES, DEFAULT_YEAR } from '@/lib/companies';
 import { COMPANY_GROUPS, COMPANY_BUS, CompanyGroup, CompanyBU } from '@/lib/types';
-import { RefreshCw, UserCog, Paperclip, Trash2, FileEdit, ArrowLeft } from 'lucide-react';
+import { RefreshCw, UserCog, Paperclip, Trash2, FileEdit, ArrowLeft, CheckCircle2, XCircle, Link2, StickyNote, AlertTriangle, Lock, LockOpen } from 'lucide-react';
 
 const MONTH_LABELS: Record<string, string> = {
   jan: 'ม.ค.', feb: 'ก.พ.', mar: 'มี.ค.', apr: 'เม.ย.',
@@ -19,7 +19,17 @@ const ACTION_LABELS: Record<string, string> = {
   responsible_change: 'เปลี่ยนผู้รับผิดชอบ',
   file_upload: 'อัปโหลดไฟล์',
   file_delete: 'ลบไฟล์',
+  link_added: 'เพิ่มลิงก์เอกสาร',
+  note_update: 'แก้ไขหมายเหตุ',
   edit_request: 'ขอแก้ไขหลัง deadline',
+  cancellation_request: 'ส่งคำขอเปลี่ยนสถานะ',
+  cancellation_approved: 'อนุมัติคำขอ',
+  cancellation_rejected: 'ปฏิเสธคำขอ',
+  create_nearmiss: 'รายงาน Near Miss ใหม่',
+  create_incident: 'บันทึกอุบัติการณ์',
+  update_incident: 'แก้ไขอุบัติการณ์',
+  budget_lock: 'ปิดการแก้ไขงบประมาณ',
+  budget_unlock: 'ปลดล็อกงบประมาณ',
 };
 
 const ACTION_ICONS: Record<string, React.ReactNode> = {
@@ -27,7 +37,44 @@ const ACTION_ICONS: Record<string, React.ReactNode> = {
   responsible_change: <UserCog size={14} />,
   file_upload: <Paperclip size={14} />,
   file_delete: <Trash2 size={14} />,
+  link_added: <Link2 size={14} />,
+  note_update: <StickyNote size={14} />,
   edit_request: <FileEdit size={14} />,
+  cancellation_request: <FileEdit size={14} />,
+  cancellation_approved: <CheckCircle2 size={14} />,
+  cancellation_rejected: <XCircle size={14} />,
+  create_nearmiss: <AlertTriangle size={14} />,
+  create_incident: <AlertTriangle size={14} />,
+  update_incident: <RefreshCw size={14} />,
+  budget_lock: <Lock size={14} />,
+  budget_unlock: <LockOpen size={14} />,
+};
+
+// Thai labels for status/value codes shown in the ค่าเดิม → ค่าใหม่ column
+const VALUE_LABELS: Record<string, string> = {
+  done: 'เสร็จแล้ว',
+  planned: 'มีแผน',
+  not_planned: 'ไม่มีแผน',
+  overdue: 'เกินกำหนด',
+  postponed: 'เลื่อน',
+  cancelled: 'ยกเลิก',
+  not_applicable: 'ไม่เข้าเงื่อนไข (N/A)',
+  approved: 'อนุมัติ',
+  rejected: 'ปฏิเสธ',
+  pending: 'รอดำเนินการ',
+};
+
+// Translate a raw value; supports composite values like "not_applicable: เหตุผล..."
+const translateValue = (v: string): string => {
+  if (!v) return v;
+  const trimmed = v.trim();
+  if (VALUE_LABELS[trimmed]) return VALUE_LABELS[trimmed];
+  const idx = trimmed.indexOf(':');
+  if (idx > 0) {
+    const head = trimmed.slice(0, idx).trim();
+    if (VALUE_LABELS[head]) return `${VALUE_LABELS[head]}: ${trimmed.slice(idx + 1).trim()}`;
+  }
+  return v;
 };
 
 interface AuditEntry {
@@ -1253,9 +1300,9 @@ export default function AdminPage() {
                         <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.activity_no}</td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{MONTH_LABELS[entry.month] || entry.month}</td>
                         <td className="py-2 px-2">
-                          {entry.old_value && <span style={{ color: 'var(--danger)' }}>{entry.old_value}</span>}
+                          {entry.old_value && <span style={{ color: 'var(--danger)' }}>{translateValue(entry.old_value)}</span>}
                           {entry.old_value && entry.new_value && <span style={{ color: 'var(--border)' }}> → </span>}
-                          {entry.new_value && <span style={{ color: 'var(--success)' }}>{entry.new_value}</span>}
+                          {entry.new_value && <span style={{ color: 'var(--success)' }}>{translateValue(entry.new_value)}</span>}
                         </td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{entry.performed_by}</td>
                       </tr>
