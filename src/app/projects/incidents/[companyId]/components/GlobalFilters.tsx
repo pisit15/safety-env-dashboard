@@ -14,6 +14,7 @@ interface GlobalFiltersProps {
   dashFilter: { month?: string; type?: string };
   setDashFilter: React.Dispatch<React.SetStateAction<{ month?: string; type?: string }>>;
   viewMode: string;
+  setViewMode: (m: 'dashboard') => void;
   setPage: (p: number) => void;
   setInjuryFilter: (f: null) => void;
   setPropFilter: (f: null) => void;
@@ -24,7 +25,7 @@ export default function GlobalFilters({
   workRelatedOnly, setWorkRelatedOnly,
   incidentCategory, setIncidentCategory,
   dashFilter, setDashFilter,
-  viewMode, setPage,
+  viewMode, setViewMode, setPage,
   setInjuryFilter, setPropFilter,
 }: GlobalFiltersProps) {
   if (viewMode !== 'dashboard' && viewMode !== 'list') return null;
@@ -137,7 +138,14 @@ export default function GlobalFilters({
         ]).map(tab => (
           <button
             key={tab.key}
-            onClick={() => { setIncidentCategory(tab.key); setPage(1); setInjuryFilter(null); setPropFilter(null); }}
+            onClick={() => {
+              setIncidentCategory(tab.key); setPage(1); setInjuryFilter(null); setPropFilter(null);
+              // TRIR & Corrective Actions workspaces only exist in dashboard view —
+              // switch over so clicking them from list view isn't a silent no-op
+              if (viewMode === 'list' && (tab.key === 'rates' || tab.key === 'actions')) {
+                setViewMode('dashboard');
+              }
+            }}
             className="px-4 py-1.5 rounded-md text-[12px] font-medium transition-all"
             style={{
               background: incidentCategory === tab.key ? 'var(--accent)' : 'transparent',

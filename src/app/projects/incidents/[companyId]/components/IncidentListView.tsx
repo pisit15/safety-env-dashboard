@@ -4,7 +4,9 @@ import { useState, useRef, type Dispatch, type SetStateAction } from 'react';
 import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Download, Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
 import type { Incident } from '../types';
 import { getSevColor, getTypeBadge } from '../types';
-import { INCIDENT_TYPES, inputStyle, selectStyle } from '../constants';
+import { INCIDENT_TYPES, ACTUAL_SEVERITIES, inputStyle, selectStyle } from '../constants';
+
+const REPORT_STATUSES = ['Draft', 'Under Review', 'Approved', 'Final', 'Closed'];
 
 interface IncidentListViewProps {
   incidents: Incident[];
@@ -15,6 +17,14 @@ interface IncidentListViewProps {
   setSearchTerm: (v: string) => void;
   filterType: string;
   setFilterType: (v: string) => void;
+  filterSeverity: string;
+  setFilterSeverity: (v: string) => void;
+  filterStatus: string;
+  setFilterStatus: (v: string) => void;
+  filterDateFrom: string;
+  setFilterDateFrom: (v: string) => void;
+  filterDateTo: string;
+  setFilterDateTo: (v: string) => void;
   openDrawer: (inc: Incident) => void;
   openEditForm: (inc: Incident) => void;
   handleDelete: (inc: Incident) => void;
@@ -92,6 +102,8 @@ const NUM_FIELDS = new Set(['direct_cost', 'indirect_cost', 'injured_count', 'ye
 export default function IncidentListView({
   incidents, total, page, setPage,
   searchTerm, setSearchTerm, filterType, setFilterType,
+  filterSeverity, setFilterSeverity, filterStatus, setFilterStatus,
+  filterDateFrom, setFilterDateFrom, filterDateTo, setFilterDateTo,
   openDrawer, openEditForm, handleDelete,
   allIncidentsForExport, companyId, onImported, isLoggedIn,
 }: IncidentListViewProps) {
@@ -252,6 +264,56 @@ export default function IncidentListView({
         <span className="text-[12px] whitespace-nowrap" style={{ color: 'var(--muted)' }}>
           {total} รายการ
         </span>
+      </div>
+
+      {/* Secondary filters: severity / status / date range */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <select
+          value={filterSeverity}
+          onChange={e => { setFilterSeverity(e.target.value); setPage(1); }}
+          style={{ ...selectStyle, width: 190 }}
+        >
+          <option value="">ทุกความรุนแรง</option>
+          {ACTUAL_SEVERITIES.map(s => <option key={s} value={s.split(' ')[0]}>{s}</option>)}
+        </select>
+        <select
+          value={filterStatus}
+          onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
+          style={{ ...selectStyle, width: 150 }}
+        >
+          <option value="">ทุกสถานะ</option>
+          {REPORT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <span className="text-[12px]" style={{ color: 'var(--muted)' }}>วันที่:</span>
+        <input
+          type="date"
+          lang="en"
+          value={filterDateFrom}
+          onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }}
+          style={{ ...inputStyle, width: 150 }}
+          title="ตั้งแต่วันที่"
+        />
+        <span className="text-[12px]" style={{ color: 'var(--muted)' }}>ถึง</span>
+        <input
+          type="date"
+          lang="en"
+          value={filterDateTo}
+          onChange={e => { setFilterDateTo(e.target.value); setPage(1); }}
+          style={{ ...inputStyle, width: 150 }}
+          title="ถึงวันที่"
+        />
+        {(searchTerm || filterType || filterSeverity || filterStatus || filterDateFrom || filterDateTo) && (
+          <button
+            onClick={() => {
+              setSearchTerm(''); setFilterType(''); setFilterSeverity('');
+              setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); setPage(1);
+            }}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg text-[12px] font-medium transition-colors hover:opacity-80"
+            style={{ background: 'rgba(239,68,68,0.08)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.25)' }}
+          >
+            <X size={13} /> ล้างตัวกรอง
+          </button>
+        )}
       </div>
 
       {/* Table */}

@@ -75,6 +75,16 @@ export default function IncidentsPage() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [filterSeverity, setFilterSeverity] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  // Debounced search — avoid refetching on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   // Form data
   const [editingIncident, setEditingIncident] = useState<Incident | null>(null);
@@ -444,7 +454,7 @@ export default function IncidentsPage() {
       const results = await Promise.all(
         yearsToFetch.map(y => {
           const params = new URLSearchParams({ companyId: id, year: String(y), limit: '1000' });
-          if (searchTerm) params.set('search', searchTerm);
+          if (debouncedSearch) params.set('search', debouncedSearch);
           if (filterType) params.set('incidentType', filterType);
           return fetch(`/api/incidents?${params}`).then(r => r.json());
         })
@@ -454,13 +464,18 @@ export default function IncidentsPage() {
       if (workRelatedOnly) allInc = allInc.filter(i => i.work_related === 'ใช่');
       if (incidentCategory === 'injury') allInc = allInc.filter(i => isInjuryType(i.incident_type || ''));
       if (incidentCategory === 'property') allInc = allInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+      // List-view filters (client-side — rows for the selected years are already loaded)
+      if (filterSeverity) allInc = allInc.filter(i => ((i.actual_severity as string) || '').startsWith(filterSeverity));
+      if (filterStatus) allInc = allInc.filter(i => ((i.report_status as string) || 'Draft') === filterStatus);
+      if (filterDateFrom) allInc = allInc.filter(i => (i.incident_date || '').slice(0, 10) >= filterDateFrom);
+      if (filterDateTo) allInc = allInc.filter(i => (i.incident_date || '').slice(0, 10) <= filterDateTo);
       allInc.sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''));
       setTotal(allInc.length);
       const start = (page - 1) * 20;
       setIncidents(allInc.slice(start, start + 20));
     } catch { /* empty */ }
     setListLoading(false);
-  }, [id, year, selectedYears, page, searchTerm, filterType, workRelatedOnly, incidentCategory]);
+  }, [id, year, selectedYears, page, debouncedSearch, filterType, filterSeverity, filterStatus, filterDateFrom, filterDateTo, workRelatedOnly, incidentCategory]);
 
   useEffect(() => {
     if (viewMode === 'list') fetchList();
@@ -568,6 +583,7 @@ export default function IncidentsPage() {
             dashFilter={dashFilter}
             setDashFilter={setDashFilter}
             viewMode={viewMode}
+            setViewMode={setViewMode}
             setPage={setPage}
             setInjuryFilter={setInjuryFilter}
             setPropFilter={setPropFilter}
@@ -671,6 +687,14 @@ export default function IncidentsPage() {
               setSearchTerm={setSearchTerm}
               filterType={filterType}
               setFilterType={setFilterType}
+              filterSeverity={filterSeverity}
+              setFilterSeverity={setFilterSeverity}
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              filterDateFrom={filterDateFrom}
+              setFilterDateFrom={setFilterDateFrom}
+              filterDateTo={filterDateTo}
+              setFilterDateTo={setFilterDateTo}
               openDrawer={openDrawer}
               openEditForm={openEditForm}
               handleDelete={handleDelete}
