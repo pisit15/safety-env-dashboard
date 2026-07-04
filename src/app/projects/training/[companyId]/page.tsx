@@ -1205,11 +1205,12 @@ export default function CompanyTraining() {
     const cancelledItems = qMonths.reduce((s, m) => s + m.cancelled, 0);
     const denom = totalItems - cancelledItems;
     const isFuture = qi > currentQuarterIdx;
-    const pct = denom > 0 ? Math.round((completedItems / denom) * 1000) / 10 : (isFuture ? 0 : (totalItems === 0 ? 0 : 100));
-    const score = isFuture ? 0 : getKpiScore(pct);
-    return { ...q, totalItems, completedItems, cancelledItems, denominator: denom, pct, score, isFuture };
+    const noBase = denom <= 0; // ไม่มีหลักสูตรถึงกำหนด (หรือถูกยกเลิกทั้งหมด) — วัดผลไม่ได้
+    const pct = denom > 0 ? Math.round((completedItems / denom) * 1000) / 10 : 0;
+    const score = isFuture || noBase ? 0 : getKpiScore(pct);
+    return { ...q, totalItems, completedItems, cancelledItems, denominator: denom, pct, score, isFuture, noBase };
   });
-  const activeQuarters = quarterlyKpi.filter(q => !q.isFuture && q.totalItems > 0);
+  const activeQuarters = quarterlyKpi.filter(q => !q.isFuture && !q.noBase);
   const yearlyAvgScore = activeQuarters.length > 0 ? Math.round((activeQuarters.reduce((s, q) => s + q.score, 0) / activeQuarters.length) * 10) / 10 : 0;
   const yearlyAvgPct = activeQuarters.length > 0 ? Math.round((activeQuarters.reduce((s, q) => s + q.pct, 0) / activeQuarters.length) * 10) / 10 : 0;
   const maxPlanned = Math.max(...monthlyData.map(d => d.planned), 1);
@@ -1534,9 +1535,12 @@ export default function CompanyTraining() {
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12, fontSize: 11, color: 'var(--text-secondary)' }}>
               {Object.entries(STATUS_CONFIG).map(([k, cfg]) => (
                 <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 11, height: 11, borderRadius: 3, background: cfg.color, display: 'inline-block' }} />{cfg.label}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 16, borderRadius: 5, background: cfg.color, color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1 }}>{cfg.icon}</span>{cfg.label}
                 </span>
               ))}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 16, borderRadius: 5, background: STATUS.positive, color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1, boxShadow: `0 0 0 1.5px var(--card-solid), 0 0 0 3px ${STATUS.critical}` }}>●</span>ขอบแดง = ต้องทำด่วน
+              </span>
             </div>
             {(() => {
               const urgent = activePlans.filter(p => ['critical', 'warning'].includes(getNextAction(p).urgency));
@@ -1598,7 +1602,7 @@ export default function CompanyTraining() {
                                 return (
                                   <td key={i} style={{ padding: 3, textAlign: 'center', borderBottom: '1px solid var(--border)', background: i === currentMonthIdx ? `${STATUS.warning}0A` : undefined }}>
                                     {isCol ? (
-                                      <div onClick={(e) => { e.stopPropagation(); setGridMenu({ plan: p, x: Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 240), y: Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - 300) }); }} title={`${p.course_name} — ${cfg.label} · คลิกเพื่ออัปเดต`} style={{ cursor: 'pointer', background: cfg.bg, border: `1px solid ${cfg.color}`, color: cfg.color, borderRadius: 6, padding: '3px 0', fontWeight: 700, fontSize: 12, lineHeight: 1.2, boxShadow: ring ? `0 0 0 2px ${ring}` : undefined }}>{cfg.icon}</div>
+                                      <div onClick={(e) => { e.stopPropagation(); setGridMenu({ plan: p, x: Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 240), y: Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - 300) }); }} title={`${p.course_name} — ${cfg.label} · คลิกเพื่ออัปเดต`} style={{ cursor: 'pointer', background: cfg.color, border: `1px solid ${cfg.color}`, color: '#fff', borderRadius: 6, padding: '4px 0', fontWeight: 700, fontSize: 13, lineHeight: 1.2, boxShadow: ring ? `0 0 0 2px var(--card-solid), 0 0 0 4px ${ring}` : '0 1px 2px rgba(0,0,0,0.15)' }}>{cfg.icon}</div>
                                     ) : null}
                                   </td>
                                 );
@@ -1838,20 +1842,30 @@ export default function CompanyTraining() {
                 <div style={{ fontSize: 28, fontWeight: 800, color: getScoreColor(Math.round(yearlyAvgScore)) }}>
                   {yearlyAvgScore > 0 ? yearlyAvgScore.toFixed(1) : '—'}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>คะแนนเฉลี่ยปี ({yearlyAvgPct}%)</div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                  คะแนนเฉลี่ยปี ({yearlyAvgPct}%){activeQuarters.length > 0 && ` · จาก ${activeQuarters.length} ไตรมาสที่วัดผลได้`}
+                </div>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
               {quarterlyKpi.map(q => (
                 <div key={q.label} style={{
                   padding: 16, borderRadius: 12, textAlign: 'center',
-                  background: q.isFuture ? 'var(--bg-secondary)' : `${q.color}08`,
-                  border: `1px solid ${q.isFuture ? 'var(--border)' : q.color + '25'}`,
-                  opacity: q.isFuture ? 0.5 : 1,
+                  background: (q.isFuture || q.noBase) ? 'var(--bg-secondary)' : `${q.color}08`,
+                  border: `1px solid ${(q.isFuture || q.noBase) ? 'var(--border)' : q.color + '25'}`,
+                  opacity: q.isFuture ? 0.5 : q.noBase ? 0.75 : 1,
                 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: q.color, marginBottom: 6 }}>{q.label}</div>
                   {q.isFuture ? (
                     <div style={{ fontSize: 12, color: 'var(--muted)' }}>ยังไม่ถึง</div>
+                  ) : q.noBase ? (
+                    <>
+                      <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--muted)', lineHeight: 1.1 }}>—</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+                        ไม่มีหลักสูตรถึงกำหนด
+                        {q.cancelledItems > 0 && <span style={{ color: '#ff3b30' }}> (ยกเลิก {q.cancelledItems})</span>}
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div style={{ fontSize: 32, fontWeight: 800, color: getScoreColor(q.score), lineHeight: 1.1 }}>
