@@ -1590,7 +1590,8 @@ export default function CompanyTraining() {
                                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.course_name}</span>
                                   {!em && (
                                     <select value="" onClick={e => e.stopPropagation()} onChange={e => { if (e.target.value) handleUpdatePlannedMonth(p.id, Number(e.target.value)); }}
-                                      style={{ flexShrink: 0, fontSize: 10, padding: '2px 4px', borderRadius: 5, border: `1px solid ${STATUS.warning}`, background: STATUS.warningBg, color: STATUS.warning, cursor: 'pointer', fontWeight: 700 }}>
+                                      title="ยังไม่กำหนดเดือน — เลือกเดือนที่จะจัดอบรม"
+                                      style={{ flexShrink: 0, fontSize: 10, padding: '1px 4px', borderRadius: 4, border: '1px dashed var(--border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500 }}>
                                       <option value="">📅 กำหนดเดือน</option>
                                       {MONTH_LABELS.map((label, mi) => <option key={mi} value={mi + 1}>{label}</option>)}
                                     </select>
@@ -1652,11 +1653,12 @@ export default function CompanyTraining() {
           <KPICard label="รอดำเนินการ" value={pendingCourses} color={STATUS.warning}
             subtext={pendingCourses > 0 ? 'คลิกดูรายชื่อ' : undefined}
             active={activeKpi === 'planned'} onClick={() => setActiveKpi(activeKpi === 'planned' ? null : 'planned')} />
-          <KPICard label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`} color={PALETTE.primary}
-            subtext={`ใช้ไป ${totalBudget > 0 ? Math.round((totalActual/totalBudget)*100) : 0}%`} />
-          <KPICard label="ค่าใช้จ่ายจริง" value={`${(totalActual / 1000).toFixed(0)}K`}
-            color={totalActual > totalBudget ? STATUS.critical : STATUS.ok}
-            subtext={totalActual > totalBudget ? 'เกินงบ' : `เหลือ ${((totalBudget - totalActual) / 1000).toFixed(0)}K`} />
+          <KPICard label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`}
+            color={totalActual > totalBudget ? STATUS.critical : PALETTE.primary}
+            progress={totalBudget > 0 ? Math.min(Math.round((totalActual / totalBudget) * 100), 100) : 0}
+            subtext={totalActual > totalBudget
+              ? `ใช้จริง ${(totalActual / 1000).toFixed(0)}K — เกินงบ ${((totalActual - totalBudget) / 1000).toFixed(0)}K`
+              : `ใช้จริง ${(totalActual / 1000).toFixed(0)}K (${totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0}%) · เหลือ ${((totalBudget - totalActual) / 1000).toFixed(0)}K`} />
         </div>
 
         {/* Charts — monthly progress + budget tracking (matches Action Plan) */}
