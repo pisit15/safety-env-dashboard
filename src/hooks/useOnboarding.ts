@@ -6,7 +6,9 @@ const STORAGE_KEY = 'ea-she-onboarding-done';
 
 /**
  * Hook to manage onboarding tour state.
- * Tracks whether the user has completed the tour using sessionStorage.
+ * Tracks whether the user has completed the tour using localStorage
+ * (persists across sessions — previously sessionStorage caused the tour
+ * to reappear on every new visit).
  */
 export function useOnboarding() {
   const [hasCompleted, setHasCompleted] = useState(true); // default true to prevent flash
@@ -14,7 +16,7 @@ export function useOnboarding() {
 
   useEffect(() => {
     try {
-      const done = sessionStorage.getItem(STORAGE_KEY);
+      const done = localStorage.getItem(STORAGE_KEY);
       setHasCompleted(done === 'true');
     } catch {
       setHasCompleted(false);
@@ -24,14 +26,14 @@ export function useOnboarding() {
 
   const markCompleted = useCallback(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, 'true');
+      localStorage.setItem(STORAGE_KEY, 'true');
     } catch { /* ignore */ }
     setHasCompleted(true);
   }, []);
 
   const reset = useCallback(() => {
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
     } catch { /* ignore */ }
     setHasCompleted(false);
   }, []);

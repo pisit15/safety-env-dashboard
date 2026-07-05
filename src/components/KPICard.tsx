@@ -10,14 +10,16 @@ interface KPICardProps {
   progress?: number;
   onClick?: () => void;
   active?: boolean;
+  title?: string;
 }
 
-export default function KPICard({ label, value, color, delta, deltaColor, subtext, progress, onClick, active }: KPICardProps) {
+export default function KPICard({ label, value, color, delta, deltaColor, subtext, progress, onClick, active, title }: KPICardProps) {
   const valueColor = color || 'var(--text-primary)';
-  
+
   return (
     <div
       onClick={onClick}
+      title={title}
       className={`glass-card p-5 flex flex-col relative overflow-hidden group flex-1 w-full ${onClick ? 'cursor-pointer transition-transform hover:-translate-y-0.5' : ''}`}
       style={active ? { outline: '2px solid var(--accent)', outlineOffset: '-1px' } : undefined}
     >

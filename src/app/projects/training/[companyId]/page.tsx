@@ -1548,6 +1548,7 @@ export default function CompanyTraining() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
                   {urgent.length > 0 && (
                     <button onClick={() => setGridUrgentOnly(v => !v)}
+                      title="หลักสูตรเร่งด่วน: เลยกำหนดหรือใกล้ถึงกำหนดแต่ยังไม่กำหนดวัน — ต่างจาก 'รอดำเนินการ' ในภาพรวมซึ่งนับที่ยังไม่กำหนดวันทั้งปี"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${gridUrgentOnly ? STATUS.critical : 'var(--border)'}`, background: gridUrgentOnly ? STATUS.criticalBg : 'var(--bg-secondary)', color: gridUrgentOnly ? STATUS.critical : 'var(--text-secondary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                       🔴 ต้องทำ ({urgent.length}){gridUrgentOnly ? ' · แสดงทั้งหมด' : ''}
                     </button>
@@ -1652,6 +1653,7 @@ export default function CompanyTraining() {
             active={activeKpi === 'scheduled'} onClick={() => setActiveKpi(activeKpi === 'scheduled' ? null : 'scheduled')} />
           <KPICard label="รอดำเนินการ" value={pendingCourses} color={STATUS.warning}
             subtext={pendingCourses > 0 ? 'คลิกดูรายชื่อ' : undefined}
+            title="หลักสูตรที่ยังไม่กำหนดวันอบรม (ทั้งปี) — ต่างจากชิป 'ต้องทำ' ในตารางปี ซึ่งนับเฉพาะที่เร่งด่วน (เลยกำหนด/ใกล้ถึงกำหนด)"
             active={activeKpi === 'planned'} onClick={() => setActiveKpi(activeKpi === 'planned' ? null : 'planned')} />
           <KPICard label="งบประมาณ" value={`${(totalBudget / 1000).toFixed(0)}K`}
             color={totalActual > totalBudget ? STATUS.critical : PALETTE.primary}
@@ -1925,11 +1927,11 @@ export default function CompanyTraining() {
 
             {/* Bar Chart with Y-axis */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              {/* Y-axis labels */}
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', width: 40, height: 160, paddingRight: 4 }}>
-                <div style={{ fontSize: 10, color: PALETTE.textSecondary, textAlign: 'right', fontWeight: 400 }}>{maxPlanned}</div>
-                <div style={{ fontSize: 10, color: PALETTE.textSecondary, textAlign: 'right', fontWeight: 400, flex: 1 }}>{Math.round(maxPlanned / 2)}</div>
-                <div style={{ fontSize: 10, color: PALETTE.textSecondary, textAlign: 'right', fontWeight: 400 }}>0</div>
+              {/* Y-axis labels — absolutely positioned to align with the gridlines */}
+              <div style={{ position: 'relative', width: 40, height: 160, paddingRight: 4 }}>
+                <div style={{ position: 'absolute', top: -5, right: 4, fontSize: 10, color: PALETTE.textSecondary, fontWeight: 400 }}>{maxPlanned}</div>
+                <div style={{ position: 'absolute', top: '50%', right: 4, transform: 'translateY(-50%)', fontSize: 10, color: PALETTE.textSecondary, fontWeight: 400 }}>{maxPlanned % 2 === 0 ? maxPlanned / 2 : (maxPlanned / 2).toFixed(1)}</div>
+                <div style={{ position: 'absolute', bottom: -5, right: 4, fontSize: 10, color: PALETTE.textSecondary, fontWeight: 400 }}>0</div>
               </div>
 
               {/* Chart container with gridlines */}
@@ -2018,7 +2020,7 @@ export default function CompanyTraining() {
             {/* Cumulative % line */}
             <div style={{ marginTop: 12, padding: '10px 0', borderTop: '1px solid var(--border)' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>% ความสำเร็จสะสม</div>
-              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 40 }}>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 58 }}>
                 {monthlyChartData.map((d, i) => {
                   const h = (d.cumPct / 100) * 36;
                   // 0% = neutral gray, not red; only use red for below 50% with actual plans
@@ -2030,6 +2032,7 @@ export default function CompanyTraining() {
                       {d.cumPct > 0 && <div style={{ fontSize: 9, fontWeight: 600, color, marginBottom: 2 }}>{d.cumPct}%</div>}
                       {d.cumPct === 0 && d.planned > 0 && <div style={{ fontSize: 9, fontWeight: 600, color: '#9ca3af', marginBottom: 2 }}>0%</div>}
                       <div style={{ width: '80%', height: Math.max(h, 2), borderRadius: 2, background: color }} />
+                      <div style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 3 }}>{d.label}</div>
                     </div>
                   );
                 })}
