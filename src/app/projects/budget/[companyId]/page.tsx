@@ -394,7 +394,7 @@ export default function CompanyBudgetPage() {
             </thead>
             <tbody>
               {categories.flatMap(cat => {
-                const catItems = items.filter(i => i.category_id === cat.id).sort((a, b) => a.name.localeCompare(b.name));
+                const catItems = scopedItems.filter(i => i.category_id === cat.id).sort((a, b) => a.name.localeCompare(b.name));
                 const headerRow = (
                   <tr key={`cat-${cat.id}`} style={{ background: 'var(--bg-secondary)' }}>
                     <td style={{ position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-secondary)', padding: '6px 10px', borderBottom: '1px solid var(--border)', color: 'var(--text-primary)' }}>
