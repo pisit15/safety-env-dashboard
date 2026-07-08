@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { getCompanyById } from '@/lib/companies';
 import { getCompanyByIdWithDb } from '@/lib/company-settings';
+import { logLogin } from '@/lib/login-log';
 
 /**
  * Helper: Look up multi-company access for a user and return linked company login data.
@@ -89,6 +90,8 @@ export async function POST(request: NextRequest) {
           // Lookup linked companies for multi-company access
           const linkedCompanies = await getLinkedCompanies(matched.username, companyId);
 
+          await logLogin({ username: matched.username, displayName: matched.display_name, companyId, role: 'company', userAgent: request.headers.get('user-agent') });
+
           return NextResponse.json({
             success: true,
             companyId: matched.company_id,
@@ -153,6 +156,8 @@ export async function POST(request: NextRequest) {
                 ...allLinked.filter(l => l.companyId !== companyId),
               ];
 
+              await logLogin({ username: masterUser.username, displayName: rm.display_name || masterUser.display_name, companyId, role: 'company', userAgent: request.headers.get('user-agent') });
+
               return NextResponse.json({
                 success: true,
                 companyId,
@@ -185,6 +190,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'รหัสผ่านไม่ถูกต้อง' }, { status: 401 });
       }
       const token = Buffer.from(`${companyId}:${cred.username}:${Date.now()}`).toString('base64');
+      await logLogin({ username: cred.username, companyId, role: 'company', userAgent: request.headers.get('user-agent') });
       return NextResponse.json({
         success: true,
         companyId: cred.company_id,
@@ -211,6 +217,8 @@ export async function POST(request: NextRequest) {
     }
 
     const token = Buffer.from(`${companyId}:${Date.now()}`).toString('base64');
+
+    await logLogin({ username: data.company_name || companyId, companyId, role: 'company', userAgent: request.headers.get('user-agent') });
 
     return NextResponse.json({
       success: true,

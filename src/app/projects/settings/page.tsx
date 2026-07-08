@@ -128,7 +128,7 @@ export default function AdminPage() {
   const [currentAdminRole, setCurrentAdminRole] = useState<'super_admin' | 'admin' | 'viewer'>('viewer');
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany' | 'notify' | 'years'>('audit');
+  const [activeTab, setActiveTab] = useState<'companies' | 'audit' | 'deadlines' | 'requests' | 'credentials' | 'users' | 'admins' | 'dsd' | 'multicompany' | 'notify' | 'years' | 'usage'>('audit');
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [editRequests, setEditRequests] = useState<EditRequest[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<CancellationRequest[]>([]);
@@ -161,6 +161,23 @@ export default function AdminPage() {
   useEffect(() => {
     if (notifyMsg) { const t = setTimeout(() => setNotifyMsg(null), 6000); return () => clearTimeout(t); }
   }, [notifyMsg]);
+
+  // Usage / login statistics
+  interface UsageUser {
+    username: string; displayName: string; companyId: string | null;
+    role: 'admin' | 'company'; isActive: boolean; loginCount: number; lastLogin: string | null;
+  }
+  interface UsageEvent {
+    type: 'login' | 'action'; companyId: string | null; action?: string;
+    planType?: string | null; activityNo?: string | null; month?: string | null;
+    detail: string; createdAt: string;
+  }
+  const [usageUsers, setUsageUsers] = useState<UsageUser[]>([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageFilter, setUsageFilter] = useState<'all' | 'never' | 'active'>('all');
+  const [usageDetailUser, setUsageDetailUser] = useState<UsageUser | null>(null);
+  const [usageEvents, setUsageEvents] = useState<UsageEvent[]>([]);
+  const [usageDetailLoading, setUsageDetailLoading] = useState(false);
 
   // New credential form
   const [showNewCredForm, setShowNewCredForm] = useState(false);
@@ -656,6 +673,7 @@ export default function AdminPage() {
     if (activeTab === 'multicompany') fetchMcMappings();
     if (activeTab === 'notify') fetchNotifyRecipients();
     if (activeTab === 'years') fetchPlanYears();
+    if (activeTab === 'usage') fetchUsageStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdminLoggedIn, fetchAudit, fetchRequests, fetchDeadlines, fetchCredentials, fetchCompanyUsers, fetchAdminAccounts, fetchDsdCourses, fetchCompanySettings, fetchMcMappings]);
 
@@ -675,6 +693,27 @@ export default function AdminPage() {
       .then(d => setNotifyRecipients(d.recipients || []))
       .catch(() => setNotifyRecipients([]))
       .finally(() => setNotifyLoading(false));
+  };
+
+  const fetchUsageStats = () => {
+    setUsageLoading(true);
+    fetch('/api/login-stats')
+      .then(r => r.json())
+      .then(d => setUsageUsers(d.users || []))
+      .catch(() => setUsageUsers([]))
+      .finally(() => setUsageLoading(false));
+  };
+
+  const openUsageDetail = (u: UsageUser) => {
+    setUsageDetailUser(u);
+    setUsageDetailLoading(true);
+    const qs = new URLSearchParams({ username: u.username });
+    if (u.companyId) qs.set('companyId', u.companyId);
+    fetch(`/api/login-stats?${qs}`)
+      .then(r => r.json())
+      .then(d => setUsageEvents(d.events || []))
+      .catch(() => setUsageEvents([]))
+      .finally(() => setUsageDetailLoading(false));
   };
 
   const handleAddRecipient = async () => {
@@ -1104,6 +1143,7 @@ export default function AdminPage() {
             { key: 'dsd', label: 'กรมพัฒน์ฯ', minRole: 'admin' },
             { key: 'multicompany', label: 'Multi-Company', minRole: 'super_admin' },
             { key: 'notify', label: 'แจ้งเตือนอีเมล', minRole: 'admin' },
+            { key: 'usage', label: 'สถิติการใช้งาน', minRole: 'admin' },
             { key: 'companies', label: 'บริษัท', minRole: 'viewer' },
             { key: 'years', label: 'จัดการปี', minRole: 'admin' },
           ].filter(tab => {
@@ -1230,6 +1270,125 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+        )}
+
+        {/* USAGE / LOGIN STATS TAB */}
+        {activeTab === 'usage' && (
+          <div className="glass-card p-5 animate-fade-in-up">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-0.5 h-4 rounded-full" style={{ background: 'var(--accent)' }}></span>
+                <h2 className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>สถิติการเข้าใช้งาน</h2>
+              </div>
+              <div className="flex gap-2 items-center flex-wrap">
+                {([['all', 'ทั้งหมด'], ['active', 'เคยเข้าใช้'], ['never', 'ไม่เคยเข้า']] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setUsageFilter(k)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium"
+                    style={{ background: usageFilter === k ? 'var(--accent)' : 'var(--bg-secondary)', color: usageFilter === k ? 'var(--text-primary)' : 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                    {label} ({k === 'all' ? usageUsers.length : k === 'never' ? usageUsers.filter(u => !u.lastLogin).length : usageUsers.filter(u => u.lastLogin).length})
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>
+              เริ่มเก็บสถิติ login ตั้งแต่ 8 ก.ค. 2026 — ก่อนหน้านั้นไม่มีข้อมูล · &ldquo;กิจกรรม&rdquo; นับจากประวัติการแก้ไข (audit log) · คลิกแถวเพื่อดู 50 เหตุการณ์ล่าสุด
+            </p>
+            {usageLoading ? (
+              <div className="text-center py-8 text-[13px]" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="w-full" style={{ fontSize: 12, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', textAlign: 'left' }}>
+                      <th className="py-2 pr-3">ผู้ใช้</th>
+                      <th className="py-2 pr-3">บริษัท</th>
+                      <th className="py-2 pr-3">ประเภท</th>
+                      <th className="py-2 pr-3" style={{ textAlign: 'right' }}>จำนวนครั้ง</th>
+                      <th className="py-2 pr-3">เข้าล่าสุด</th>
+                      <th className="py-2">สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usageUsers
+                      .filter(u => usageFilter === 'all' ? true : usageFilter === 'never' ? !u.lastLogin : !!u.lastLogin)
+                      .map((u, i) => (
+                        <tr key={`${u.username}|${u.companyId || ''}|${i}`} onClick={() => openUsageDetail(u)}
+                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                          <td className="py-2 pr-3" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                            {u.displayName}
+                            {u.displayName !== u.username && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}> ({u.username})</span>}
+                          </td>
+                          <td className="py-2 pr-3" style={{ color: 'var(--text-secondary)' }}>{u.companyId ? u.companyId.toUpperCase() : '—'}</td>
+                          <td className="py-2 pr-3">
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 9, background: u.role === 'admin' ? '#f59e0b18' : '#4E79A718', color: u.role === 'admin' ? '#b45309' : '#4E79A7' }}>
+                              {u.role === 'admin' ? 'Admin' : 'บริษัท'}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3" style={{ textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700 }}>{u.loginCount || '—'}</td>
+                          <td className="py-2 pr-3" style={{ color: 'var(--text-secondary)' }}>
+                            {u.lastLogin ? new Date(u.lastLogin).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </td>
+                          <td className="py-2">
+                            {!u.isActive ? (
+                              <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 9, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>ปิดใช้งาน</span>
+                            ) : u.lastLogin ? (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 9, background: '#59A14F18', color: '#59A14F' }}>เคยเข้าใช้</span>
+                            ) : (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 9, background: '#E1575918', color: '#E15759' }}>ไม่เคยเข้า</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+                {usageUsers.length === 0 && (
+                  <div className="text-center py-8 text-[13px]" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีข้อมูลผู้ใช้</div>
+                )}
+              </div>
+            )}
+
+            {/* Detail drawer */}
+            {usageDetailUser && (
+              <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    เหตุการณ์ล่าสุดของ {usageDetailUser.displayName}
+                    {usageDetailUser.companyId ? ` (${usageDetailUser.companyId.toUpperCase()})` : ''}
+                  </div>
+                  <button onClick={() => { setUsageDetailUser(null); setUsageEvents([]); }}
+                    className="px-2.5 py-1 rounded-lg text-[11px]"
+                    style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕ ปิด</button>
+                </div>
+                {usageDetailLoading ? (
+                  <div className="text-center py-5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
+                ) : usageEvents.length === 0 ? (
+                  <div className="text-center py-5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีเหตุการณ์</div>
+                ) : (
+                  <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {usageEvents.map((ev, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'baseline', fontSize: 12, padding: '5px 8px', borderRadius: 6, background: 'var(--card-solid)' }}>
+                        <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: 11 }}>
+                          {new Date(ev.createdAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {ev.type === 'login' ? (
+                          <span style={{ color: '#4E79A7', fontWeight: 600 }}>🔑 เข้าสู่ระบบ{ev.companyId ? ` (${ev.companyId.toUpperCase()})` : ''}</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-primary)' }}>
+                            ✏️ {ACTION_LABELS[ev.action || ''] || ev.action}
+                            {ev.companyId ? ` · ${ev.companyId.toUpperCase()}` : ''}
+                            {ev.activityNo ? ` · กิจกรรม ${ev.activityNo}` : ''}
+                            {ev.detail ? <span style={{ color: 'var(--text-secondary)' }}> — {ev.detail.slice(0, 90)}</span> : null}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

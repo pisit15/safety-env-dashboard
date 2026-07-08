@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { logLogin } from '@/lib/login-log';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
             a.username === (username || '') && a.password === password
         );
         if (matched) {
+          await logLogin({ username: matched.username, displayName: matched.display_name, role: 'admin', userAgent: request.headers.get('user-agent') });
           return NextResponse.json({
             success: true,
             role: matched.role || 'admin',
@@ -39,6 +41,7 @@ export async function POST(request: Request) {
             (a: { password: string }) => a.password === password
           );
           if (pwMatch) {
+            await logLogin({ username: pwMatch.username, displayName: pwMatch.display_name, role: 'admin', userAgent: request.headers.get('user-agent') });
             return NextResponse.json({
               success: true,
               role: pwMatch.role || 'admin',
@@ -55,6 +58,7 @@ export async function POST(request: Request) {
 
     // Fallback: single password mode
     if (password === FALLBACK_PASSWORD) {
+      await logLogin({ username: username || 'admin', displayName: 'Super Admin', role: 'admin', userAgent: request.headers.get('user-agent') });
       return NextResponse.json({ success: true, role: 'admin', adminName: 'Super Admin' });
     }
 
