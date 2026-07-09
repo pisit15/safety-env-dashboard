@@ -3,14 +3,15 @@ import { getSupabase } from '@/lib/supabase';
 
 /**
  * POST — Self-service change password
- * Body: { companyId, username, currentPassword, newPassword }
+ * Company user: { companyId, username, currentPassword, newPassword }
+ * Admin:        { isAdminAccount: true, username, currentPassword, newPassword }
  * Validates current password before allowing change.
  */
 export async function POST(request: NextRequest) {
   try {
-    const { companyId, username, currentPassword, newPassword } = await request.json();
+    const { companyId, username, currentPassword, newPassword, isAdminAccount } = await request.json();
 
-    if (!companyId || !currentPassword || !newPassword) {
+    if ((!companyId && !isAdminAccount) || !currentPassword || !newPassword) {
       return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบ' }, { status: 400 });
     }
 
@@ -23,6 +24,36 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabase();
+
+    // ── 0. Admin account (self-service) ──
+    if (isAdminAccount) {
+      if (!username || !String(username).trim()) {
+        return NextResponse.json({ error: 'กรุณากรอก username ของ Admin' }, { status: 400 });
+      }
+      const { data: admins, error: adminErr } = await supabase
+        .from('admin_accounts')
+        .select('id, username, password, is_active')
+        .eq('username', String(username).trim());
+
+      if (adminErr) {
+        return NextResponse.json({ error: adminErr.message }, { status: 500 });
+      }
+      const admin = (admins || []).find((a: { password: string }) => a.password === currentPassword);
+      if (!admin) {
+        return NextResponse.json({ error: 'Username หรือรหัสผ่านเดิมไม่ถูกต้อง' }, { status: 401 });
+      }
+      if (!admin.is_active) {
+        return NextResponse.json({ error: 'บัญชีถูกปิดใช้งาน' }, { status: 401 });
+      }
+      const { error: updateErr } = await supabase
+        .from('admin_accounts')
+        .update({ password: newPassword, updated_at: new Date().toISOString() })
+        .eq('id', admin.id);
+      if (updateErr) {
+        return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
+    }
 
     // ── 1. Try company_users table first ──
     try {

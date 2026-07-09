@@ -15,6 +15,10 @@ export default function ChangePasswordPage() {
   const firstCompanyAuth = auth.companyAuth[firstCompanyId];
 
   const [selectedCompanyId, setSelectedCompanyId] = useState(firstCompanyId);
+  // 'company' | 'admin' — derived after hydration; user can override with the toggle
+  const [typeOverride, setTypeOverride] = useState<'company' | 'admin' | null>(null);
+  const accountType: 'company' | 'admin' = typeOverride ?? (isCompanyUser ? 'company' : 'admin');
+  const [adminUsername, setAdminUsername] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,12 +47,22 @@ export default function ChangePasswordPage() {
       return;
     }
 
+    if (accountType === 'admin' && !adminUsername.trim()) {
+      setResult({ type: 'error', message: 'กรุณากรอก Username ของ Admin' });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(accountType === 'admin' ? {
+          isAdminAccount: true,
+          username: adminUsername.trim(),
+          currentPassword,
+          newPassword,
+        } : {
           companyId: selectedCompanyId,
           username: selectedAuth?.username || '',
           currentPassword,
@@ -141,8 +155,46 @@ export default function ChangePasswordPage() {
             boxShadow: 'var(--shadow-sm)',
           }}>
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Account type toggle — shown when logged in as both admin and company user */}
+              {auth.isAdmin && isCompanyUser && (
+                <div className="flex gap-2 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)' }}>
+                  {([['company', 'ผู้ใช้บริษัท'], ['admin', 'Admin']] as const).map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => { setTypeOverride(k); setResult(null); }}
+                      className="flex-1 py-2 rounded-lg text-[13px] font-semibold"
+                      style={{ background: accountType === k ? 'var(--accent)' : 'transparent', color: accountType === k ? '#fff' : 'var(--text-secondary)' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Admin username */}
+              {accountType === 'admin' && (
+                <>
+                  <div className="rounded-xl p-3" style={{ background: 'var(--bg-secondary)' }}>
+                    <p className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      บัญชีผู้ดูแลระบบ{auth.adminName ? ` · ${auth.adminName}` : ''}
+                    </p>
+                    <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                      เปลี่ยนได้เฉพาะรหัสผ่านของบัญชีตัวเอง — ต้องรู้รหัสผ่านเดิม
+                    </p>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Admin Username</label>
+                    <input
+                      type="text"
+                      value={adminUsername}
+                      onChange={e => setAdminUsername(e.target.value)}
+                      placeholder="username ที่ใช้เข้าสู่ระบบ Admin"
+                      style={{ ...inputStyle, paddingRight: 14 }}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
               {/* Company selector (if logged in to multiple) */}
-              {loggedInCompanyIds.length > 1 && (
+              {accountType === 'company' && loggedInCompanyIds.length > 1 && (
                 <div>
                   <label style={labelStyle}>เลือกบริษัท</label>
                   <select
@@ -160,23 +212,25 @@ export default function ChangePasswordPage() {
               )}
 
               {/* User info */}
-              <div className="rounded-xl p-3" style={{ background: 'var(--bg-secondary)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, #34c759 0%, #007aff 100%)' }}>
-                    {(selectedAuth?.displayName || '?').substring(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {selectedAuth?.displayName || selectedAuth?.username || '-'}
-                    </p>
-                    <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                      {selectedAuth?.companyName || selectedCompanyId.toUpperCase()}
-                      {selectedAuth?.username ? ` · @${selectedAuth.username}` : ''}
-                    </p>
+              {accountType === 'company' && (
+                <div className="rounded-xl p-3" style={{ background: 'var(--bg-secondary)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #34c759 0%, #007aff 100%)' }}>
+                      {(selectedAuth?.displayName || '?').substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {selectedAuth?.displayName || selectedAuth?.username || '-'}
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                        {selectedAuth?.companyName || selectedCompanyId.toUpperCase()}
+                        {selectedAuth?.username ? ` · @${selectedAuth.username}` : ''}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Current password */}
               <div>

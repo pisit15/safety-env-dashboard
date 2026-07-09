@@ -232,7 +232,7 @@ export default function ProjectSidebar({ project }: Props) {
             {isOpen && <span>ตั้งค่า Admin</span>}
           </Link>
         )}
-        {Object.keys(auth.companyAuth).length > 0 && (
+        {(Object.keys(auth.companyAuth).length > 0 || auth.isAdmin) && (
           <Link
             href="/change-password"
             title={!isOpen ? 'เปลี่ยนรหัสผ่าน' : undefined}
