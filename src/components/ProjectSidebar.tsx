@@ -14,6 +14,7 @@ import {
   BarChart3,
   Building2,
   ChevronDown,
+  KeyRound,
   LogOut,
   Menu,
   Settings,
@@ -229,6 +230,16 @@ export default function ProjectSidebar({ project }: Props) {
           >
             <Settings size={16} />
             {isOpen && <span>ตั้งค่า Admin</span>}
+          </Link>
+        )}
+        {Object.keys(auth.companyAuth).length > 0 && (
+          <Link
+            href="/change-password"
+            title={!isOpen ? 'เปลี่ยนรหัสผ่าน' : undefined}
+            className="flex items-center gap-3 px-3 py-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg text-sm"
+          >
+            <KeyRound size={16} />
+            {isOpen && <span>เปลี่ยนรหัสผ่าน</span>}
           </Link>
         )}
         <Link
