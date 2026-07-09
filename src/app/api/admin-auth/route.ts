@@ -12,12 +12,20 @@ export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
 
-    // Try admin_accounts table first
+    // Try admin_accounts table first (retry once — a transient read failure
+    // used to silently downgrade super_admin to the fallback 'admin' role)
     try {
-      const { data: admins, error } = await getSupabase()
-        .from('admin_accounts')
-        .select('*')
-        .eq('is_active', true);
+      let admins: Array<{ username: string; password: string; role?: string; display_name?: string }> | null = null;
+      let error: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await getSupabase()
+          .from('admin_accounts')
+          .select('*')
+          .eq('is_active', true);
+        admins = res.data;
+        error = res.error;
+        if (!error) break;
+      }
 
       if (!error && admins && admins.length > 0) {
         // Find matching admin by username+password
@@ -56,10 +64,11 @@ export async function POST(request: Request) {
       // Table doesn't exist yet — fall through to fallback
     }
 
-    // Fallback: single password mode
+    // Fallback: single password mode — the master env password grants full access
+    // (returning 'admin' here hid the super_admin tabs whenever the table read failed)
     if (password === FALLBACK_PASSWORD) {
       await logLogin({ username: username || 'admin', displayName: 'Super Admin', role: 'admin', userAgent: request.headers.get('user-agent') });
-      return NextResponse.json({ success: true, role: 'admin', adminName: 'Super Admin' });
+      return NextResponse.json({ success: true, role: 'super_admin', adminName: 'Super Admin' });
     }
 
     return NextResponse.json({ success: false, error: 'รหัสผ่าน Admin ไม่ถูกต้อง' }, { status: 401 });
