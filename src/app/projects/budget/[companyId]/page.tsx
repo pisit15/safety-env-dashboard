@@ -233,7 +233,17 @@ export default function CompanyBudgetPage() {
   const deleteEditorItem = async () => {
     if (!editor?.id) return;
     if (!confirm('ลบรายการนี้? (เอกสารแนบจะถูกลบด้วย)')) return;
-    await fetch(`/api/budget-plan/items?id=${editor.id}&isAdmin=${isAdmin}`, { method: 'DELETE' });
+    try {
+      const res = await fetch(`/api/budget-plan/items?id=${editor.id}&isAdmin=${isAdmin}`, { method: 'DELETE' });
+      if (res.ok) {
+        setToast({ type: 'success', msg: 'ลบรายการแล้ว' });
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setToast({ type: 'error', msg: d.error || `ลบไม่สำเร็จ (${res.status})` });
+      }
+    } catch {
+      setToast({ type: 'error', msg: 'ลบไม่สำเร็จ — เชื่อมต่อไม่ได้' });
+    }
     await Promise.all([fetchItems(), fetchAttachments()]);
     setEditor(null);
   };
