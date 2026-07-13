@@ -92,6 +92,7 @@ export const PROJECTS: ProjectConfig[] = [
     ready: true,
     nav: [
       { id: 'plan', label: 'แผนอบรม', icon: GraduationCap, href: (cid) => cid === 'all' ? '/projects/training' : `/projects/training/${cid}` },
+      { id: 'guide', label: 'คู่มือการใช้งาน', icon: BookOpen, href: () => '/projects/training/guide' },
       { id: 'overview', label: 'ภาพรวมทุกบริษัท', icon: BarChart3, href: () => '/projects/training', adminOnly: true },
       { id: 'hr-master', label: 'HR Master (DSD)', icon: ClipboardList, href: () => '/training/dashboard', adminOnly: true },
     ],
