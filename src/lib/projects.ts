@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 import type { LucideIcon } from 'lucide-react';
 import {
+  BookOpen,
   ClipboardCheck,
   ClipboardList,
   FolderKanban,
@@ -64,6 +65,7 @@ export const PROJECTS: ProjectConfig[] = [
       { id: 'overview', label: 'ภาพรวมทั้งหมด', icon: ClipboardList, href: (cid) => cid === 'all' ? '/projects/action-plan' : `/projects/action-plan/${cid}` },
       { id: 'safety', label: 'แผน Safety', icon: ClipboardList, href: (cid) => cid === 'all' ? '/projects/action-plan?plan=safety' : `/projects/action-plan/${cid}?plan=safety` },
       { id: 'environment', label: 'แผน Environment', icon: ClipboardList, href: (cid) => cid === 'all' ? '/projects/action-plan?plan=environment' : `/projects/action-plan/${cid}?plan=environment` },
+      { id: 'guide', label: 'คู่มือการใช้งาน', icon: BookOpen, href: () => '/projects/action-plan/guide' },
     ],
   },
   {
