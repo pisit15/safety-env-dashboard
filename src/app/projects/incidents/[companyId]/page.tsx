@@ -604,13 +604,22 @@ export default function IncidentsPage() {
                 ลองใหม่
               </button>
             </div>
-          ) : viewMode === 'dashboard' && !dashLoading && dashIncidents.length === 0 && !dashError ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <AlertTriangle size={32} style={{ color: 'var(--muted)' }} />
-              <p className="text-[14px] font-medium" style={{ color: 'var(--text-secondary)' }}>ไม่มีข้อมูลสำหรับปีที่เลือก</p>
-            </div>
           ) : viewMode === 'dashboard' ? (
             <div>
+              {/* Zero-incident banner — 0 cases is a good result, not missing data */}
+              {!dashLoading && dashIncidents.length === 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+                  padding: '12px 18px', borderRadius: 12,
+                  background: '#59A14F14', border: '1px solid #59A14F40',
+                }}>
+                  <span style={{ fontSize: 20 }}>🎉</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#59A14F' }}>ไม่มีอุบัติเหตุในช่วงปีที่เลือก — 0 เคส</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>สถิติด้านล่างแสดงค่า 0 และคำนวณอัตรา TRIR/LTIFR จากชั่วโมงการทำงานตามปกติ</div>
+                  </div>
+                </div>
+              )}
               {incidentCategory === 'overview' && (
                 <OverviewWorkspace
                   categoryIncidents={categoryIncidents}
