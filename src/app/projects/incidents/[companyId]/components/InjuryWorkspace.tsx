@@ -64,7 +64,8 @@ export default function InjuryWorkspace({
   const [tableShowCount, setTableShowCount] = useState(15);
   const [hoveredBar, setHoveredBar] = useState<{ chart: string; key: string } | null>(null);
   const [hoveredLostDay, setHoveredLostDay] = useState<number | null>(null);
-  const [compareMode, setCompareMode] = useState<'stacked' | 'latest'>('latest');
+  // Default to เทียบทุกปี so the lower charts match the global year selection above
+  const [compareMode, setCompareMode] = useState<'stacked' | 'latest'>('stacked');
 
   const toggleChart = (chartField: string) => {
     setExpandedCharts(prev => {

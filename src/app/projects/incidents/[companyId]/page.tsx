@@ -240,6 +240,21 @@ export default function IncidentsPage() {
     return (inc.person_type || '').includes(keyword);
   }, [incidentPersonTypes]);
 
+  // Injured persons scoped by the SAME global filters as the top cards
+  // (year via incident map, work-related via incident map, person group via the person's own type)
+  const scopedInjuredPersons = useMemo(() => {
+    return injuredPersonsData.filter(p => {
+      const meta = injuredIncidentMap[p.incident_no];
+      if (meta) {
+        if (!selectedYears.includes(meta.year)) return false;
+        if (workRelatedOnly && meta.work_related !== 'ใช่') return false;
+      }
+      if (personFilter === 'employee') return (p.person_type || '').includes('พนักงาน');
+      if (personFilter === 'contractor') return (p.person_type || '').includes('ผู้รับเหมา');
+      return true;
+    });
+  }, [injuredPersonsData, injuredIncidentMap, selectedYears, workRelatedOnly, personFilter]);
+
   // Base incidents filtered by workRelatedOnly + person type
   const baseIncidents = useMemo(() => {
     let list = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
@@ -694,7 +709,7 @@ export default function IncidentsPage() {
                   liveStats={liveStats}
                   trirCombined={trirCombined}
                   ltifrCombined={ltifrCombined}
-                  injuredPersonsData={injuredPersonsData}
+                  injuredPersonsData={scopedInjuredPersons}
                   injuredIncidentMap={injuredIncidentMap}
                   selectedYears={selectedYears}
                   workRelatedOnly={workRelatedOnly}
@@ -718,7 +733,7 @@ export default function IncidentsPage() {
                   manHourRows={manHourRows}
                   selectedYears={selectedYears}
                   workRelatedOnly={workRelatedOnly}
-                  injuredPersonsData={injuredPersonsData}
+                  injuredPersonsData={scopedInjuredPersons}
                 />
               )}
               {incidentCategory === 'actions' && (
