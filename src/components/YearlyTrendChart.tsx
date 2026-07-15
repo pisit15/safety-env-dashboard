@@ -34,8 +34,8 @@ const fmtMh = (v: number) =>
 export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifrTarget = LTIFR_TARGET }: Props) {
   const points = [...data].sort((a, b) => a.year - b.year);
 
-  const W = 760, H = 296;
-  const padL = 52, padR = 92, padT = 24, padB = 56;
+  const W = 760, H = 308;
+  const padL = 52, padR = 92, padT = 24, padB = 68;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -82,23 +82,10 @@ export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifr
               <line x1={padL} x2={W - padR} y1={yRate(ltifrTarget)} y2={yRate(ltifrTarget)} stroke={C_LTIFR} strokeWidth={1} strokeDasharray="5 4" opacity={0.55} />
               <text x={W - padR + 4} y={yRate(ltifrTarget) + 3} fontSize={9} fill={C_LTIFR} opacity={0.8}>เป้า 2030 · {ltifrTarget}</text>
 
-              {/* Manhours bars — label dodges the rate labels when the bar top is close to a dot */}
-              {points.map((p, i) => {
-                const barTop = yMh(p.mh);
-                const barH = padT + plotH - barTop;
-                const trirLabY = yRate(p.trir) - 8;
-                const ltifrLabY = yRate(p.ltifr) - 8;
-                let mhLabY = barTop - 4;
-                if (Math.abs(mhLabY - trirLabY) < 13 || Math.abs(mhLabY - ltifrLabY) < 13) {
-                  mhLabY = barH >= 20 ? barTop + 14 : Math.min(trirLabY, ltifrLabY) - 13;
-                }
-                return (
-                  <g key={p.year}>
-                    <rect x={xCenter(i) - barW / 2} y={barTop} width={barW} height={Math.max(barH, 1)} rx={4} fill={C_MH} opacity={0.5} />
-                    <text x={xCenter(i)} y={mhLabY} fontSize={10} textAnchor="middle" fill="var(--text-secondary)" stroke="var(--card-solid)" strokeWidth={3} paintOrder="stroke">{fmtMh(p.mh)}</text>
-                  </g>
-                );
-              })}
+              {/* Manhours bars — the MH value is shown below the year label, never inside the plot */}
+              {points.map((p, i) => (
+                <rect key={p.year} x={xCenter(i) - barW / 2} y={yMh(p.mh)} width={barW} height={Math.max(padT + plotH - yMh(p.mh), 1)} rx={4} fill={C_MH} opacity={0.5} />
+              ))}
 
               {/* Rate lines */}
               {points.length > 1 && <path d={linePath('trir')} fill="none" stroke={C_TRIR} strokeWidth={2.5} />}
@@ -120,15 +107,16 @@ export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifr
                 );
               })}
 
-              {/* X labels (years) + case counts */}
+              {/* X labels (years) + case counts + manhours */}
               {points.map((p, i) => (
                 <g key={`x-${p.year}`}>
-                  <text x={xCenter(i)} y={H - 28} fontSize={12} fontWeight={700} textAnchor="middle" fill="var(--text-primary)">{p.year}</text>
+                  <text x={xCenter(i)} y={H - 42} fontSize={12} fontWeight={700} textAnchor="middle" fill="var(--text-primary)">{p.year}</text>
                   {p.total !== undefined && (
-                    <text x={xCenter(i)} y={H - 14} fontSize={10} textAnchor="middle" fill="var(--text-secondary)">
+                    <text x={xCenter(i)} y={H - 27} fontSize={10} textAnchor="middle" fill="var(--text-secondary)">
                       {p.total} เหตุ · TRC <tspan fill={C_TRIR} fontWeight={700}>{p.injuries ?? 0}</tspan> · LTI <tspan fill={C_LTIFR} fontWeight={700}>{p.lti ?? 0}</tspan>
                     </text>
                   )}
+                  <text x={xCenter(i)} y={H - 13} fontSize={10} textAnchor="middle" fill="var(--text-secondary)">MH <tspan fontWeight={700} fill="var(--text-primary)">{fmtMh(p.mh)}</tspan></text>
                 </g>
               ))}
 
