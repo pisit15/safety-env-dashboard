@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
+import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
 import { STATUS, PALETTE } from '@/lib/she-theme';
@@ -169,6 +170,20 @@ export default function HQIncidentsPage() {
       trir: mh > 0 ? (injuries / mh) * 1000000 : 0,
       ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
     };
+  });
+
+  // Monthly counts per year (all companies combined)
+  const hqMonthlyByYear = [...selectedYears].sort().map(y => {
+    const counts = new Array(12).fill(0);
+    baseInc.filter(i => i.year === y).forEach(i => {
+      let idx = -1;
+      const mNum = parseInt(String(i.month));
+      if (mNum >= 1 && mNum <= 12) idx = mNum - 1;
+      else if (MONTHS.includes(String(i.month))) idx = MONTHS.indexOf(String(i.month));
+      else if (i.incident_date) idx = new Date(i.incident_date).getMonth();
+      if (idx >= 0 && idx < 12) counts[idx]++;
+    });
+    return { year: y, counts };
   });
 
   // Per-company stats
@@ -679,6 +694,7 @@ export default function HQIncidentsPage() {
               {/* ═══ Yearly comparison — TRIR / LTIFR / Manhours ═══ */}
               <div className="mb-6">
                 <YearlyTrendChart data={hqYearlyTrend} />
+                <MonthlyByYearChart series={hqMonthlyByYear} title="อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (ทุกบริษัท)" />
               </div>
 
               {/* ═══ Quick Manhours Entry (Admin) ═══ */}

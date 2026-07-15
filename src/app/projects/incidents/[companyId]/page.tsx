@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
+import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { STATUS, PALETTE } from '@/lib/she-theme';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
 import type { Incident, SummaryData, InjuredPerson } from './types';
@@ -366,6 +367,28 @@ export default function IncidentsPage() {
     });
   }, [dashIncidents, workRelatedOnly, incidentCategory, selectedYears, manHoursByYear]);
 
+  // Monthly counts per year (for the month-by-month year comparison chart)
+  const monthlyByYear = useMemo(() => {
+    const filtered = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
+    const catFiltered = filtered.filter(inc => {
+      if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
+      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      return true;
+    });
+    return [...selectedYears].sort().map(y => {
+      const counts = new Array(12).fill(0);
+      catFiltered.filter(i => i.year === y).forEach(i => {
+        let idx = -1;
+        const mNum = parseInt(String(i.month));
+        if (mNum >= 1 && mNum <= 12) idx = mNum - 1;
+        else if (MONTHS.includes(String(i.month))) idx = MONTHS.indexOf(String(i.month));
+        else if (i.incident_date) idx = new Date(i.incident_date).getMonth();
+        if (idx >= 0 && idx < 12) counts[idx]++;
+      });
+      return { year: y, counts };
+    });
+  }, [dashIncidents, workRelatedOnly, incidentCategory, selectedYears]);
+
   // trendIncidents & trendManhours — kept for backward compat with OverviewWorkspace
   const trendIncidents = dashIncidents;
   const trendManhours = useMemo(() => {
@@ -649,7 +672,10 @@ export default function IncidentsPage() {
                 />
               )}
               {incidentCategory === 'overview' && (
-                <YearlyTrendChart data={yearlyTrend} />
+                <>
+                  <YearlyTrendChart data={yearlyTrend} />
+                  <MonthlyByYearChart series={monthlyByYear} />
+                </>
               )}
               {incidentCategory === 'injury' && (
                 <InjuryWorkspace
