@@ -11,6 +11,7 @@ import {
 import ExportPdfButton from '@/components/ExportPdfButton';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
+import YearlyCasesChart from '@/components/YearlyCasesChart';
 import { STATUS, PALETTE } from '@/lib/she-theme';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
 import type { Incident, SummaryData, InjuredPerson } from './types';
@@ -703,6 +704,7 @@ export default function IncidentsPage() {
               {incidentCategory === 'overview' && (
                 <>
                   <YearlyTrendChart data={yearlyTrend} />
+                  <YearlyCasesChart data={yearlyTrend} />
                   <MonthlyByYearChart series={monthlyByYear} />
                 </>
               )}

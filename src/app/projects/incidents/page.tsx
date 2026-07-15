@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthContext';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
 import HqInjuryAnalytics, { HqInjuredPerson, HqIncidentMeta } from './components/HqInjuryAnalytics';
+import YearlyCasesChart from '@/components/YearlyCasesChart';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
@@ -738,6 +739,7 @@ export default function HQIncidentsPage() {
               {/* ═══ Yearly comparison — TRIR / LTIFR / Manhours ═══ */}
               <div className="mb-6">
                 <YearlyTrendChart data={hqYearlyTrend} />
+                <YearlyCasesChart data={hqYearlyTrend} title="จำนวนเคสบาดเจ็บรายปี — TRC / LTI (ทุกบริษัท)" />
                 <MonthlyByYearChart series={hqMonthlyByYear} title="อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (ทุกบริษัท)" />
                 <HqInjuryAnalytics
                   persons={hqInjured.persons}
