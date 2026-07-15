@@ -4,6 +4,9 @@ import { CompanyConfig } from './types';
 // When a new year starts, add it here AND to ACTIVE_YEARS once data is ready.
 export const AVAILABLE_YEARS = [2026];
 export const DEFAULT_YEAR = 2026;
+
+// Business Unit grouping — Factory vs Non-Factory (everything else)
+export const FACTORY_COMPANY_IDS = ['amt', 'aab', 'mmc', 'ea-kabin', 'ebi'];
 // Years that are currently active (have data and can be selected)
 export const ACTIVE_YEARS = [2026];
 

@@ -7,6 +7,7 @@ import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
 import HqInjuryAnalytics, { HqInjuredPerson, HqIncidentMeta } from './components/HqInjuryAnalytics';
 import YearlyCasesChart from '@/components/YearlyCasesChart';
+import { FACTORY_COMPANY_IDS } from '@/lib/companies';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
@@ -75,11 +76,15 @@ export default function HQIncidentsPage() {
   const router = useRouter();
   const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
-  const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, { employee: number; contractor: number; total: number }>>({});
+  const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, Record<string, { employee: number; contractor: number }>>>({});
   const [hqInjured, setHqInjured] = useState<{ persons: HqInjuredPerson[]; map: Record<string, HqIncidentMeta> }>({ persons: [], map: {} });
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   // 'all' | 'employee' | 'contractor' — scopes counts and rates across the whole overview
   const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
+  // Business Unit scope — Factory (amt, aab, mmc, ea-kabin, ebi) vs Non-Factory
+  const [buFilter, setBuFilter] = useState<'all' | 'factory' | 'nonfactory'>('all');
+  const isFactory = (cid: string) => FACTORY_COMPANY_IDS.includes(cid);
+  const inBu = (cid: string) => buFilter === 'all' ? true : buFilter === 'factory' ? isFactory(cid) : !isFactory(cid);
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
   const [manHoursByCompany, setManHoursByCompany] = useState<Record<string, { employee: number; contractor: number; total: number }>>({});
@@ -136,16 +141,18 @@ export default function HQIncidentsPage() {
       }));
       setManHoursByCompany(mhMap);
 
-      // Manhours grouped by year (for the yearly comparison chart)
-      const mhYearMap: Record<number, { employee: number; contractor: number; total: number }> = {};
+      // Manhours grouped by year+company (for the yearly comparison chart, BU-scopable)
+      const mhYearMap: Record<number, Record<string, { employee: number; contractor: number }>> = {};
       mhResults.forEach((r, idx) => {
         const y = selectedYears[idx];
-        let emp = 0, con = 0;
+        mhYearMap[y] = {};
         (r.manHours || []).forEach((row: Record<string, unknown>) => {
-          emp += Number(row.employee_manhours) || 0;
-          con += Number(row.contractor_manhours) || 0;
+          const cid = String(row.company_id || '');
+          if (!cid) return;
+          if (!mhYearMap[y][cid]) mhYearMap[y][cid] = { employee: 0, contractor: 0 };
+          mhYearMap[y][cid].employee += Number(row.employee_manhours) || 0;
+          mhYearMap[y][cid].contractor += Number(row.contractor_manhours) || 0;
         });
-        mhYearMap[y] = { employee: emp, contractor: con, total: emp + con };
       });
       setManHoursByYearHq(mhYearMap);
     } catch { /* empty */ }
@@ -157,6 +164,7 @@ export default function HQIncidentsPage() {
   // Filtered by workRelatedOnly
   const INJURY_TYPES_P = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
   const baseInc = (workRelatedOnly ? allIncidents.filter(i => i.work_related === 'ใช่') : allIncidents)
+    .filter(i => inBu(i.company_id))
     .filter(i => personFilter === 'all' ? true
       : personFilter === 'employee' ? (i.person_type || '').includes('พนักงาน')
       : (i.person_type || '').includes('ผู้รับเหมา'));
@@ -186,7 +194,10 @@ export default function HQIncidentsPage() {
     const yInc = baseInc.filter(i => i.year === y);
     const injuries = yInc.filter(i => INJURY_TYPES_P.some(p => (i.incident_type || '').includes(p))).length;
     const lti = yInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; }).length;
-    const mh = mhOf(manHoursByYearHq[y]);
+    const mhY = manHoursByYearHq[y] || {};
+    let emp = 0, con = 0;
+    Object.entries(mhY).forEach(([cid, v]) => { if (inBu(cid)) { emp += v.employee; con += v.contractor; } });
+    const mh = personFilter === 'employee' ? emp : personFilter === 'contractor' ? con : emp + con;
     return {
       year: y,
       mh,
@@ -212,9 +223,10 @@ export default function HQIncidentsPage() {
     return { year: y, counts };
   });
 
-  // Per-company stats
+  // Per-company stats (only companies in the selected BU)
   const companyStats: Record<string, CompanyStat> = {};
   COMPANIES.forEach(c => {
+    if (!inBu(c.id)) return;
     const cInc = baseInc.filter(i => i.company_id === c.id);
     const injuries = cInc.filter(i => INJURY_TYPES_P.some(p => (i.incident_type || '').includes(p)));
     const lti = cInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; });
@@ -357,8 +369,10 @@ export default function HQIncidentsPage() {
     });
   }, [tableFiltered, sortCol, sortDir]);
 
-  // Total man-hours (scoped to the selected person group)
-  const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mhOf(mh), 0);
+  // Total man-hours (scoped to the selected person group + BU)
+  const totalManHours = Object.entries(manHoursByCompany)
+    .filter(([cid]) => inBu(cid))
+    .reduce((sum, [, mh]) => sum + mhOf(mh), 0);
   const totalTRIR = totalManHours > 0 ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
   const totalLTIFR = totalManHours > 0 ? (totalSummary.ltiCases / totalManHours) * 1000000 : null;
 
@@ -588,6 +602,26 @@ export default function HQIncidentsPage() {
                 </button>
               ))}
             </div>
+
+            {/* Business Unit scope — Factory / Non-Factory */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold mr-0.5" style={{ color: 'var(--muted)' }}>BU:</span>
+              {([['all', 'ทั้งหมด'], ['factory', 'Factory'], ['nonfactory', 'Non-Factory']] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setBuFilter(k)}
+                  title={k === 'factory' ? 'AMT, AAB, MMC, EA Kabin, EBI' : k === 'nonfactory' ? 'บริษัทอื่นทั้งหมดนอกเหนือจากกลุ่มโรงงาน' : undefined}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                  style={{
+                    background: buFilter === k ? 'var(--accent)' : 'var(--bg-secondary)',
+                    color: buFilter === k ? '#fff' : 'var(--text-secondary)',
+                    border: `1px solid ${buFilter === k ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -742,7 +776,7 @@ export default function HQIncidentsPage() {
                 <YearlyCasesChart data={hqYearlyTrend} title="จำนวนเคสบาดเจ็บรายปี — TRC / LTI (ทุกบริษัท)" />
                 <MonthlyByYearChart series={hqMonthlyByYear} title="อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (ทุกบริษัท)" />
                 <HqInjuryAnalytics
-                  persons={hqInjured.persons}
+                  persons={hqInjured.persons.filter(p => inBu(hqInjured.map[p.incident_no]?.company_id || ''))}
                   incidentMap={hqInjured.map}
                   workRelatedOnly={workRelatedOnly}
                   personFilter={personFilter}
