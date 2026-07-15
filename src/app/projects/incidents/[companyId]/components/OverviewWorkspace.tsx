@@ -4,6 +4,7 @@ import { Incident, LiveStats, ManHours, getTypeBadge, getTypeColor, getSevColor 
 import { MONTHS } from '../constants';
 import { AlertTriangle, Activity, TrendingUp, TrendingDown, Clock, DollarSign, X } from 'lucide-react';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
+import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
 
 interface OverviewWorkspaceProps {
   categoryIncidents: Incident[];
@@ -98,8 +99,8 @@ export default function OverviewWorkspace({
   // Tier 2: Key Rates (TRIR, LTIFR)
   type Tier2KPIItem = { label: string; value: string | number; target?: string; icon: typeof TrendingUp; color: string };
   const tier2Kpis: Tier2KPIItem[] = [
-    { label: 'TRIR', value: trirVal, target: 'เป้า: <3.0', icon: TrendingUp, color: '#8b5cf6' },
-    { label: 'LTIFR', value: ltifrVal, target: 'เป้า: <1.0', icon: TrendingDown, color: '#ec4899' },
+    { label: 'TRIR', value: trirVal, target: TRIR_TARGET_LABEL, icon: TrendingUp, color: '#8b5cf6' },
+    { label: 'LTIFR', value: ltifrVal, target: LTIFR_TARGET_LABEL, icon: TrendingDown, color: '#ec4899' },
   ];
 
   // Tier 3: Supporting KPIs
@@ -157,7 +158,7 @@ export default function OverviewWorkspace({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {tier2Kpis.map((kpi) => {
           const Icon = kpi.icon;
-          const isAboveTarget = typeof kpi.value === 'string' && parseFloat(kpi.value) > (kpi.label === 'TRIR' ? 3.0 : 1.0);
+          const isAboveTarget = typeof kpi.value === 'string' && parseFloat(kpi.value) > (kpi.label === 'TRIR' ? TRIR_TARGET : LTIFR_TARGET);
           const cardColor = isAboveTarget ? '#F28E2B' : '#2B8C3E';
           
           return (

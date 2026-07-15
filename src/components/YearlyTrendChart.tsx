@@ -21,6 +21,8 @@ interface Props {
   ltifrTarget?: number;  // e.g. 1.0
 }
 
+import { TRIR_TARGET, LTIFR_TARGET } from '@/lib/she-targets';
+
 const C_MH = '#BAB0AC';
 const C_TRIR = '#4E79A7';
 const C_LTIFR = '#F28E2B';
@@ -29,7 +31,7 @@ const fmtMh = (v: number) =>
   v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` :
   v >= 1000 ? `${Math.round(v / 1000)}K` : String(Math.round(v));
 
-export default function YearlyTrendChart({ data, trirTarget = 3.0, ltifrTarget = 1.0 }: Props) {
+export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifrTarget = LTIFR_TARGET }: Props) {
   const points = [...data].sort((a, b) => a.year - b.year);
 
   const W = 760, H = 296;
@@ -75,10 +77,10 @@ export default function YearlyTrendChart({ data, trirTarget = 3.0, ltifrTarget =
 
               {/* TRIR target line */}
               <line x1={padL} x2={W - padR} y1={yRate(trirTarget)} y2={yRate(trirTarget)} stroke={C_TRIR} strokeWidth={1} strokeDasharray="5 4" opacity={0.55} />
-              <text x={W - padR + 4} y={yRate(trirTarget) + 3} fontSize={9} fill={C_TRIR} opacity={0.8}>เป้า {trirTarget}</text>
+              <text x={W - padR + 4} y={yRate(trirTarget) + 3} fontSize={9} fill={C_TRIR} opacity={0.8}>อ้างอิง {trirTarget}</text>
               {/* LTIFR target line */}
               <line x1={padL} x2={W - padR} y1={yRate(ltifrTarget)} y2={yRate(ltifrTarget)} stroke={C_LTIFR} strokeWidth={1} strokeDasharray="5 4" opacity={0.55} />
-              <text x={W - padR + 4} y={yRate(ltifrTarget) + 3} fontSize={9} fill={C_LTIFR} opacity={0.8}>เป้า {ltifrTarget}</text>
+              <text x={W - padR + 4} y={yRate(ltifrTarget) + 3} fontSize={9} fill={C_LTIFR} opacity={0.8}>เป้า 2030 · {ltifrTarget}</text>
 
               {/* Manhours bars */}
               {points.map((p, i) => (

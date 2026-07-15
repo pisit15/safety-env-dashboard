@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
+import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
@@ -656,8 +657,8 @@ export default function HQIncidentsPage() {
               {/* ═══ Tier 2: Key Safety Rates — TRIR + LTIFR with targets ═══ */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
-                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: 3.0, icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}` },
-                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: 1.0, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
+                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: TRIR_TARGET, targetLabel: TRIR_TARGET_LABEL, icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}` },
+                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: LTIFR_TARGET, targetLabel: LTIFR_TARGET_LABEL, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
                 ].map((kpi, idx) => {
                   const numVal = parseFloat(String(kpi.value));
                   const aboveTarget = !isNaN(numVal) && numVal > kpi.target;
@@ -672,7 +673,7 @@ export default function HQIncidentsPage() {
                       </div>
                       <p style={{ fontSize: 28, fontWeight: 700, color: rateColor, lineHeight: 1 }}>{kpi.value}</p>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>เป้า: &lt;{kpi.target.toFixed(1)}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{kpi.targetLabel}</span>
                         {!isNaN(numVal) && (
                           <span style={{ fontSize: 11, fontWeight: 600, color: aboveTarget ? '#F28E2B' : '#2B8C3E' }}>
                             {aboveTarget ? '↑ เกินเป้า' : '↓ ในเป้าหมาย'}
