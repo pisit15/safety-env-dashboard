@@ -10,6 +10,9 @@ export interface YearlyTrendPoint {
   mh: number;     // total manhours
   trir: number;
   ltifr: number;
+  total?: number;    // incident cases (all types)
+  injuries?: number; // recordable injuries (TRC) — TRIR numerator
+  lti?: number;      // lost-time cases — LTIFR numerator
 }
 
 interface Props {
@@ -29,8 +32,8 @@ const fmtMh = (v: number) =>
 export default function YearlyTrendChart({ data, trirTarget = 3.0, ltifrTarget = 1.0 }: Props) {
   const points = [...data].sort((a, b) => a.year - b.year);
 
-  const W = 760, H = 280;
-  const padL = 52, padR = 52, padT = 24, padB = 40;
+  const W = 760, H = 296;
+  const padL = 52, padR = 52, padT = 24, padB = 56;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -99,9 +102,16 @@ export default function YearlyTrendChart({ data, trirTarget = 3.0, ltifrTarget =
                 </g>
               ))}
 
-              {/* X labels (years) */}
+              {/* X labels (years) + case counts */}
               {points.map((p, i) => (
-                <text key={`x-${p.year}`} x={xCenter(i)} y={H - 14} fontSize={12} fontWeight={700} textAnchor="middle" fill="var(--text-primary)">{p.year}</text>
+                <g key={`x-${p.year}`}>
+                  <text x={xCenter(i)} y={H - 28} fontSize={12} fontWeight={700} textAnchor="middle" fill="var(--text-primary)">{p.year}</text>
+                  {p.total !== undefined && (
+                    <text x={xCenter(i)} y={H - 14} fontSize={10} textAnchor="middle" fill="var(--text-secondary)">
+                      {p.total} เหตุ · TRC <tspan fill={C_TRIR} fontWeight={700}>{p.injuries ?? 0}</tspan> · LTI <tspan fill={C_LTIFR} fontWeight={700}>{p.lti ?? 0}</tspan>
+                    </text>
+                  )}
+                </g>
               ))}
 
               {/* Axis captions */}

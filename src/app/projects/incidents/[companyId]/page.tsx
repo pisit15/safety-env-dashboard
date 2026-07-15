@@ -388,6 +388,9 @@ export default function IncidentsPage() {
         mh,
         trir: mh > 0 ? (injuries / mh) * 1000000 : 0,
         ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
+        total: yInc.length,
+        injuries,
+        lti,
       };
     });
   }, [baseIncidents, incidentCategory, selectedYears, manHoursByYear, personFilter]);
