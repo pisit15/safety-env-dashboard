@@ -35,7 +35,7 @@ export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifr
   const points = [...data].sort((a, b) => a.year - b.year);
 
   const W = 760, H = 296;
-  const padL = 52, padR = 52, padT = 24, padB = 56;
+  const padL = 52, padR = 92, padT = 24, padB = 56;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -82,27 +82,43 @@ export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifr
               <line x1={padL} x2={W - padR} y1={yRate(ltifrTarget)} y2={yRate(ltifrTarget)} stroke={C_LTIFR} strokeWidth={1} strokeDasharray="5 4" opacity={0.55} />
               <text x={W - padR + 4} y={yRate(ltifrTarget) + 3} fontSize={9} fill={C_LTIFR} opacity={0.8}>เป้า 2030 · {ltifrTarget}</text>
 
-              {/* Manhours bars */}
-              {points.map((p, i) => (
-                <g key={p.year}>
-                  <rect x={xCenter(i) - barW / 2} y={yMh(p.mh)} width={barW} height={Math.max(padT + plotH - yMh(p.mh), 1)} rx={4} fill={C_MH} opacity={0.5} />
-                  <text x={xCenter(i)} y={yMh(p.mh) - 4} fontSize={10} textAnchor="middle" fill="var(--text-secondary)">{fmtMh(p.mh)}</text>
-                </g>
-              ))}
+              {/* Manhours bars — label dodges the rate labels when the bar top is close to a dot */}
+              {points.map((p, i) => {
+                const barTop = yMh(p.mh);
+                const barH = padT + plotH - barTop;
+                const trirLabY = yRate(p.trir) - 8;
+                const ltifrLabY = yRate(p.ltifr) - 8;
+                let mhLabY = barTop - 4;
+                if (Math.abs(mhLabY - trirLabY) < 13 || Math.abs(mhLabY - ltifrLabY) < 13) {
+                  mhLabY = barH >= 20 ? barTop + 14 : Math.min(trirLabY, ltifrLabY) - 13;
+                }
+                return (
+                  <g key={p.year}>
+                    <rect x={xCenter(i) - barW / 2} y={barTop} width={barW} height={Math.max(barH, 1)} rx={4} fill={C_MH} opacity={0.5} />
+                    <text x={xCenter(i)} y={mhLabY} fontSize={10} textAnchor="middle" fill="var(--text-secondary)" stroke="var(--card-solid)" strokeWidth={3} paintOrder="stroke">{fmtMh(p.mh)}</text>
+                  </g>
+                );
+              })}
 
               {/* Rate lines */}
               {points.length > 1 && <path d={linePath('trir')} fill="none" stroke={C_TRIR} strokeWidth={2.5} />}
               {points.length > 1 && <path d={linePath('ltifr')} fill="none" stroke={C_LTIFR} strokeWidth={2.5} />}
 
-              {/* Rate dots + labels */}
-              {points.map((p, i) => (
-                <g key={`r-${p.year}`}>
-                  <circle cx={xCenter(i)} cy={yRate(p.trir)} r={4.5} fill={C_TRIR} stroke="var(--card-solid)" strokeWidth={1.5} />
-                  <text x={xCenter(i)} y={yRate(p.trir) - 8} fontSize={11} fontWeight={700} textAnchor="middle" fill={C_TRIR}>{p.trir.toFixed(2)}</text>
-                  <circle cx={xCenter(i)} cy={yRate(p.ltifr)} r={4.5} fill={C_LTIFR} stroke="var(--card-solid)" strokeWidth={1.5} />
-                  <text x={xCenter(i)} y={yRate(p.ltifr) + 18} fontSize={11} fontWeight={700} textAnchor="middle" fill={C_LTIFR}>{p.ltifr.toFixed(2)}</text>
-                </g>
-              ))}
+              {/* Rate dots + labels — LTIFR label flips above its dot when near the chart floor */}
+              {points.map((p, i) => {
+                const trirLabY = yRate(p.trir) - 8;
+                const nearBottom = yRate(p.ltifr) > padT + plotH - 16;
+                let ltifrLabY = nearBottom ? yRate(p.ltifr) - 9 : yRate(p.ltifr) + 18;
+                if (Math.abs(ltifrLabY - trirLabY) < 13) ltifrLabY = yRate(p.ltifr) + 18;
+                return (
+                  <g key={`r-${p.year}`}>
+                    <circle cx={xCenter(i)} cy={yRate(p.trir)} r={4.5} fill={C_TRIR} stroke="var(--card-solid)" strokeWidth={1.5} />
+                    <text x={xCenter(i)} y={trirLabY} fontSize={11} fontWeight={700} textAnchor="middle" fill={C_TRIR} stroke="var(--card-solid)" strokeWidth={3} paintOrder="stroke">{p.trir.toFixed(2)}</text>
+                    <circle cx={xCenter(i)} cy={yRate(p.ltifr)} r={4.5} fill={C_LTIFR} stroke="var(--card-solid)" strokeWidth={1.5} />
+                    <text x={xCenter(i)} y={ltifrLabY} fontSize={11} fontWeight={700} textAnchor="middle" fill={C_LTIFR} stroke="var(--card-solid)" strokeWidth={3} paintOrder="stroke">{p.ltifr.toFixed(2)}</text>
+                  </g>
+                );
+              })}
 
               {/* X labels (years) + case counts */}
               {points.map((p, i) => (
