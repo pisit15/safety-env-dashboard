@@ -3,7 +3,7 @@
 // Project-scoped sidebar — one sidebar per project, not mixed together
 // Mobile: slides in as a drawer overlay with backdrop
 // Desktop: persistent sticky sidebar
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
@@ -65,7 +65,18 @@ export default function ProjectSidebar({ project }: Props) {
   const isAdmin = auth.isAdmin;
   const urlCompany = searchParams.get('company');
   const companyAuthIds = Object.keys(auth.companyAuth);
-  const defaultCompany = urlCompany || (isAdmin ? 'all' : companyAuthIds[0] || 'all');
+
+  // Company can come from the path segment (/projects/<proj>/<cid>/...) —
+  // previously only ?company= was read, so the selector showed "ทุกบริษัท"
+  // on company pages and selecting it again did nothing.
+  const pathCompany = useMemo(() => {
+    const parts = pathname.split('/').filter(Boolean); // ['projects', '<proj>', '<cid>', ...]
+    const cand = parts[2];
+    if (!cand) return null;
+    return companies.some((c) => c.id === cand) ? cand : null;
+  }, [pathname, companies]);
+
+  const defaultCompany = pathCompany || urlCompany || (isAdmin ? 'all' : companyAuthIds[0] || 'all');
 
   const [companyId, setCompanyId] = useState(defaultCompany);
   useEffect(() => { setCompanyId(defaultCompany); }, [defaultCompany]);
