@@ -3,6 +3,7 @@
 import { Incident, LiveStats, ManHours, getTypeBadge, getTypeColor, getSevColor } from '../types';
 import { MONTHS } from '../constants';
 import { AlertTriangle, Activity, TrendingUp, TrendingDown, Clock, DollarSign, X } from 'lucide-react';
+import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 
 interface OverviewWorkspaceProps {
   categoryIncidents: Incident[];
@@ -53,11 +54,6 @@ export default function OverviewWorkspace({
   yearlyTrend,
   openDrawer,
 }: OverviewWorkspaceProps) {
-  const YEAR_COLORS: Record<number, string> = {
-    2021: '#94a3b8', 2022: '#64748b', 2023: '#8b5cf6',
-    2024: '#3b82f6', 2025: '#f97316', 2026: '#ef4444',
-  };
-
   const fmtCost = (v: number) =>
     v >= 1000000 ? `${(v / 1000000).toFixed(1)}M ฿` :
     v >= 1000 ? `${(v / 1000).toFixed(0)}K ฿` :
@@ -116,52 +112,13 @@ export default function OverviewWorkspace({
   ];
 
   // SVG line chart renderer
-  const renderLineChart = (
-    data: Record<number, Record<number, number>>,
-    title: string
-  ) => {
-    const years = Object.keys(data).map(Number).sort();
-    if (years.length === 0) return null;
-    const allValues = years.flatMap((year) => Object.values(data[year])).filter((v) => v !== undefined);
-    const maxVal = Math.max(...allValues, 1);
-
-    return (
-      <div>
-        <p className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>{title}</p>
-        <svg width="100%" height="220" viewBox="0 0 500 220" style={{ borderRadius: 8 }}>
-          {/* Grid lines */}
-          <line x1="50" y1="190" x2="470" y2="190" stroke="var(--border)" strokeWidth="1" />
-          <line x1="50" y1="30" x2="50" y2="190" stroke="var(--border)" strokeWidth="1" />
-          {[0.25, 0.5, 0.75].map(pct => (
-            <line key={pct} x1="50" y1={190 - pct * 160} x2="470" y2={190 - pct * 160} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="4" />
-          ))}
-          {/* Month labels */}
-          {MONTHS.map((m, i) => (
-            <text key={m} x={50 + (i / 11) * 420} y="208" fontSize="9" fill="var(--muted)" textAnchor="middle">{m}</text>
-          ))}
-          {/* Lines */}
-          {years.map((year) => {
-            const months = data[year];
-            const points: [number, number][] = [];
-            for (let m = 0; m < 12; m++) {
-              const x = 50 + (m / 11) * 420;
-              const y = 190 - ((months[m] || 0) / maxVal) * 160;
-              points.push([x, y]);
-            }
-            const pathStr = points.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(' ');
-            return <path key={year} d={pathStr} stroke={YEAR_COLORS[year] || '#666'} strokeWidth="2" fill="none" />;
-          })}
-          {/* Legend */}
-          {years.map((year, idx) => (
-            <g key={year}>
-              <rect x={60 + idx * 70} y="5" width="10" height="10" rx="2" fill={YEAR_COLORS[year] || '#666'} />
-              <text x={75 + idx * 70} y="14" fontSize="10" fill="var(--text-secondary)">{year}</text>
-            </g>
-          ))}
-        </svg>
-      </div>
-    );
-  };
+  // Cumulative series for the YTD pace chart (per year, running total by month)
+  const cumulativeSeries = Object.entries(yearCumulative)
+    .map(([y, months]) => ({
+      year: parseInt(y),
+      counts: Array.from({ length: 12 }, (_, m) => months[m] || 0),
+    }))
+    .sort((a, b) => a.year - b.year);
 
   return (
     <div>
@@ -296,14 +253,14 @@ export default function OverviewWorkspace({
         </div>
       </div>
 
-      {/* YTD Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-        <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-          {renderLineChart(yearMonthCounts, 'Monthly Incidents (Multi-Year)')}
-        </div>
-        <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-          {renderLineChart(yearCumulative, 'Cumulative Incidents (Multi-Year)')}
-        </div>
+      {/* Cumulative YTD pace — month-by-month comparison lives in the chart below the workspace */}
+      <div className="mb-5">
+        <MonthlyByYearChart
+          series={cumulativeSeries}
+          title="อุบัติการณ์สะสมรายปี (YTD)"
+          subtitle="ยอดสะสมตั้งแต่ต้นปีถึงแต่ละเดือน — เทียบว่าปีนี้เร็ว/ช้ากว่าปีก่อน ณ จุดเดียวกัน"
+          cumulative
+        />
       </div>
 
       {/* Incident Type Breakdown */}
