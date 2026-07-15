@@ -175,6 +175,7 @@ export default function AdminPage() {
   const [usageUsers, setUsageUsers] = useState<UsageUser[]>([]);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageFilter, setUsageFilter] = useState<'all' | 'never' | 'active'>('all');
+  const [usageSort, setUsageSort] = useState<'count' | 'recent'>('count');
   const [usageDetailUser, setUsageDetailUser] = useState<UsageUser | null>(null);
   const [usageEvents, setUsageEvents] = useState<UsageEvent[]>([]);
   const [usageDetailLoading, setUsageDetailLoading] = useState(false);
@@ -1290,6 +1291,15 @@ export default function AdminPage() {
                     {label} ({k === 'all' ? usageUsers.length : k === 'never' ? usageUsers.filter(u => !u.lastLogin).length : usageUsers.filter(u => u.lastLogin).length})
                   </button>
                 ))}
+                <span style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>เรียงตาม:</span>
+                {([['count', 'จำนวนครั้ง'], ['recent', 'เข้าล่าสุด']] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setUsageSort(k)}
+                    className="px-3 py-1.5 rounded-lg text-[12px] font-medium"
+                    style={{ background: usageSort === k ? 'var(--accent)' : 'var(--bg-secondary)', color: usageSort === k ? 'var(--text-primary)' : 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
             <p className="text-[11px] mb-3" style={{ color: 'var(--text-secondary)' }}>
@@ -1311,14 +1321,30 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {usageUsers
-                      .filter(u => usageFilter === 'all' ? true : usageFilter === 'never' ? !u.lastLogin : !!u.lastLogin)
-                      .map((u, i) => (
+                    {(() => {
+                      // Top-5 medals ranked by login count (regardless of current sort)
+                      const rankMap = new Map<string, number>();
+                      [...usageUsers]
+                        .filter(u => u.loginCount > 0)
+                        .sort((a, b) => b.loginCount - a.loginCount)
+                        .slice(0, 5)
+                        .forEach((u, idx) => rankMap.set(`${u.username}|${u.companyId || ''}`, idx + 1));
+                      const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉', 4: '🏅', 5: '🏅' };
+
+                      return usageUsers
+                        .filter(u => usageFilter === 'all' ? true : usageFilter === 'never' ? !u.lastLogin : !!u.lastLogin)
+                        .sort((a, b) => usageSort === 'count'
+                          ? (b.loginCount - a.loginCount) || (b.lastLogin || '').localeCompare(a.lastLogin || '')
+                          : (b.lastLogin || '').localeCompare(a.lastLogin || ''))
+                        .map((u, i) => {
+                          const rank = rankMap.get(`${u.username}|${u.companyId || ''}`);
+                          return (
                         <tr key={`${u.username}|${u.companyId || ''}|${i}`} onClick={() => openUsageDetail(u)}
-                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', background: rank && rank <= 3 ? '#f59e0b0d' : 'transparent' }}
                           onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                          onMouseLeave={e => { e.currentTarget.style.background = rank && rank <= 3 ? '#f59e0b0d' : 'transparent'; }}>
                           <td className="py-2 pr-3" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                            {rank && <span title={`ผู้ใช้งานสูงสุดอันดับ ${rank}`} style={{ marginRight: 5 }}>{MEDALS[rank]}</span>}
                             {u.displayName}
                             {u.displayName !== u.username && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}> ({u.username})</span>}
                           </td>
@@ -1342,7 +1368,9 @@ export default function AdminPage() {
                             )}
                           </td>
                         </tr>
-                      ))}
+                          );
+                        });
+                    })()}
                   </tbody>
                 </table>
                 {usageUsers.length === 0 && (
