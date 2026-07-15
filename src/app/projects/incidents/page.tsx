@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
+import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
 import { STATUS, PALETTE } from '@/lib/she-theme';
@@ -70,6 +71,7 @@ export default function HQIncidentsPage() {
   const router = useRouter();
   const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
+  const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, number>>({});
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
@@ -117,6 +119,18 @@ export default function HQIncidentsPage() {
         mhMap[cid].total += emp + con;
       }));
       setManHoursByCompany(mhMap);
+
+      // Manhours grouped by year (for the yearly comparison chart)
+      const mhYearMap: Record<number, number> = {};
+      mhResults.forEach((r, idx) => {
+        const y = selectedYears[idx];
+        let t = 0;
+        (r.manHours || []).forEach((row: Record<string, unknown>) => {
+          t += (Number(row.employee_manhours) || 0) + (Number(row.contractor_manhours) || 0);
+        });
+        mhYearMap[y] = t;
+      });
+      setManHoursByYearHq(mhYearMap);
     } catch { /* empty */ }
     setLoading(false);
   }, [selectedYears]);
@@ -142,6 +156,20 @@ export default function HQIncidentsPage() {
       totalIndirectCost: baseInc.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0),
     };
   })();
+
+  // Yearly comparison trend (all companies combined)
+  const hqYearlyTrend = [...selectedYears].sort().map(y => {
+    const yInc = baseInc.filter(i => i.year === y);
+    const injuries = yInc.filter(i => INJURY_TYPES_P.some(p => (i.incident_type || '').includes(p))).length;
+    const lti = yInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; }).length;
+    const mh = manHoursByYearHq[y] || 0;
+    return {
+      year: y,
+      mh,
+      trir: mh > 0 ? (injuries / mh) * 1000000 : 0,
+      ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
+    };
+  });
 
   // Per-company stats
   const companyStats: Record<string, CompanyStat> = {};
@@ -646,6 +674,11 @@ export default function HQIncidentsPage() {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* ═══ Yearly comparison — TRIR / LTIFR / Manhours ═══ */}
+              <div className="mb-6">
+                <YearlyTrendChart data={hqYearlyTrend} />
               </div>
 
               {/* ═══ Quick Manhours Entry (Admin) ═══ */}

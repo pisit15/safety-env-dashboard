@@ -9,6 +9,7 @@ import {
   AlertTriangle, Plus, BarChart3, List, Download,
 } from 'lucide-react';
 import ExportPdfButton from '@/components/ExportPdfButton';
+import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { STATUS, PALETTE } from '@/lib/she-theme';
 import type { IncidentCategory, LiveStats, ManHours } from './types';
 import type { Incident, SummaryData, InjuredPerson } from './types';
@@ -358,6 +359,7 @@ export default function IncidentsPage() {
       const mh = manHoursByYear[y]?.total || 0;
       return {
         year: y,
+        mh,
         trir: mh > 0 ? (injuries / mh) * 1000000 : 0,
         ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
       };
@@ -645,6 +647,9 @@ export default function IncidentsPage() {
                   yearlyTrend={yearlyTrend}
                   openDrawer={openDrawer}
                 />
+              )}
+              {incidentCategory === 'overview' && (
+                <YearlyTrendChart data={yearlyTrend} />
               )}
               {incidentCategory === 'injury' && (
                 <InjuryWorkspace
