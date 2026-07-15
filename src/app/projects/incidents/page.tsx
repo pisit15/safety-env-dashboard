@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
+import HqInjuryAnalytics, { HqInjuredPerson, HqIncidentMeta } from './components/HqInjuryAnalytics';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
@@ -74,6 +75,7 @@ export default function HQIncidentsPage() {
   const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
   const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, { employee: number; contractor: number; total: number }>>({});
+  const [hqInjured, setHqInjured] = useState<{ persons: HqInjuredPerson[]; map: Record<string, HqIncidentMeta> }>({ persons: [], map: {} });
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   // 'all' | 'employee' | 'contractor' — scopes counts and rates across the whole overview
   const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
@@ -96,14 +98,23 @@ export default function HQIncidentsPage() {
       // per year per endpoint (the APIs return all companies when companyId is
       // omitted). Previously this looped per company: 17 companies × years × 2
       // endpoints = 34-102 requests per page view.
-      const [incResults, mhResults] = await Promise.all([
+      const [incResults, mhResults, injuredRes] = await Promise.all([
         Promise.all(selectedYears.map(y =>
           fetch(`/api/incidents?year=${y}&limit=5000`).then(r => r.json())
         )),
         Promise.all(selectedYears.map(y =>
           fetch(`/api/manhours?year=${y}`).then(r => r.json())
         )),
+        // Group-wide injured-person details for the injury analytics section
+        fetch(`/api/incidents/dashboard?companyId=all&years=${selectedYears.join(',')}`)
+          .then(r => r.json())
+          .catch(() => ({})),
       ]);
+
+      setHqInjured({
+        persons: injuredRes.injuredPersons || [],
+        map: injuredRes.injuredIncidentMap || {},
+      });
 
       // Merge incidents
       const allInc: Incident[] = [];
@@ -728,6 +739,12 @@ export default function HQIncidentsPage() {
               <div className="mb-6">
                 <YearlyTrendChart data={hqYearlyTrend} />
                 <MonthlyByYearChart series={hqMonthlyByYear} title="อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (ทุกบริษัท)" />
+                <HqInjuryAnalytics
+                  persons={hqInjured.persons}
+                  incidentMap={hqInjured.map}
+                  workRelatedOnly={workRelatedOnly}
+                  personFilter={personFilter}
+                />
               </div>
 
               {/* ═══ Quick Manhours Entry (Admin) ═══ */}

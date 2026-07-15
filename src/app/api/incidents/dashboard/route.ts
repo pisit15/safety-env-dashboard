@@ -34,34 +34,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid years' }, { status: 400 });
     }
 
+    // companyId 'all' → group-wide data (HQ overview injury analytics)
+    const allCompanies = companyId === 'all';
+
     // Run all 3 queries in parallel
     const [incidentsResult, manHoursResult, injuredResult] = await Promise.all([
       // 1. All incidents for selected years (exclude drafts)
-      supabase
-        .from('incidents')
-        .select('*')
-        .eq('company_id', companyId)
-        .in('year', years)
-        .neq('report_status', 'Draft')
-        .order('incident_date', { ascending: false }),
+      (() => {
+        let q = supabase
+          .from('incidents')
+          .select('*')
+          .in('year', years)
+          .neq('report_status', 'Draft')
+          .order('incident_date', { ascending: false });
+        if (!allCompanies) q = q.eq('company_id', companyId);
+        return q;
+      })(),
 
       // 2. Man-hours rows for selected years
-      supabase
-        .from('man_hours')
-        .select('year, month, employee_manhours, contractor_manhours, employee_count, contractor_count')
-        .eq('company_id', companyId)
-        .in('year', years)
-        .order('year', { ascending: true })
-        .order('month', { ascending: true }),
+      (() => {
+        let q = supabase
+          .from('man_hours')
+          .select('year, month, employee_manhours, contractor_manhours, employee_count, contractor_count')
+          .in('year', years)
+          .order('year', { ascending: true })
+          .order('month', { ascending: true });
+        if (!allCompanies) q = q.eq('company_id', companyId);
+        return q;
+      })(),
 
       // 3. Injured persons (two-step: get incident_nos first, then persons)
       (async () => {
-        const { data: incidentMeta, error: metaErr } = await supabase
+        let metaQ = supabase
           .from('incidents')
-          .select('incident_no, year, work_related, incident_type')
-          .eq('company_id', companyId)
+          .select('incident_no, year, work_related, incident_type, company_id')
           .in('year', years)
           .neq('report_status', 'Draft');
+        if (!allCompanies) metaQ = metaQ.eq('company_id', companyId);
+        const { data: incidentMeta, error: metaErr } = await metaQ;
 
         if (metaErr || !incidentMeta || incidentMeta.length === 0) {
           return { persons: [], incidentMap: {} };
@@ -70,12 +80,13 @@ export async function GET(request: NextRequest) {
         const incidentNos = incidentMeta.map(i => i.incident_no);
 
         // Build incident map
-        const incidentMap: Record<string, { year: number; work_related: string; incident_type: string }> = {};
+        const incidentMap: Record<string, { year: number; work_related: string; incident_type: string; company_id?: string }> = {};
         for (const inc of incidentMeta) {
           incidentMap[inc.incident_no] = {
             year: inc.year,
             work_related: inc.work_related || '',
             incident_type: inc.incident_type || '',
+            company_id: (inc as { company_id?: string }).company_id || '',
           };
         }
 
