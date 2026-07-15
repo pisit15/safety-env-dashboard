@@ -9,6 +9,8 @@ interface GlobalFiltersProps {
   setSelectedYears: (years: number[]) => void;
   workRelatedOnly: boolean;
   setWorkRelatedOnly: (v: boolean) => void;
+  personFilter: 'all' | 'employee' | 'contractor';
+  setPersonFilter: (v: 'all' | 'employee' | 'contractor') => void;
   incidentCategory: IncidentCategory;
   setIncidentCategory: (cat: IncidentCategory) => void;
   dashFilter: { month?: string; type?: string };
@@ -23,6 +25,7 @@ interface GlobalFiltersProps {
 export default function GlobalFilters({
   selectedYears, setSelectedYears,
   workRelatedOnly, setWorkRelatedOnly,
+  personFilter, setPersonFilter,
   incidentCategory, setIncidentCategory,
   dashFilter, setDashFilter,
   viewMode, setViewMode, setPage,
@@ -102,6 +105,25 @@ export default function GlobalFilters({
             />
           </button>
           <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
+        </div>
+
+        {/* Person-type scope — employees / contractors / combined */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold mr-0.5" style={{ color: 'var(--muted)' }}>กลุ่ม:</span>
+          {([['all', 'รวม'], ['employee', 'พนักงาน'], ['contractor', 'ผู้รับเหมา']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => { setPersonFilter(k); setPage(1); }}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+              style={{
+                background: personFilter === k ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: personFilter === k ? '#fff' : 'var(--text-secondary)',
+                border: `1px solid ${personFilter === k ? 'var(--accent)' : 'var(--border)'}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Active chart filter indicator */}

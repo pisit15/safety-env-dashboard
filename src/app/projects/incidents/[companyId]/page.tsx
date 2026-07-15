@@ -94,6 +94,8 @@ export default function IncidentsPage() {
   // Dashboard filter state
   const [dashFilter, setDashFilter] = useState<{ month?: string; type?: string }>({});
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
+  // 'all' | 'employee' | 'contractor' — scopes the entire dashboard (counts + rates)
+  const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
 
   // Dynamic years: default to current year (YTD) so TRIR/LTIFR read as annual
   // rates — matches the HQ overview default. The user's last choice is remembered.
@@ -217,22 +219,6 @@ export default function IncidentsPage() {
     return map;
   }, [manHourRows]);
 
-  // Base incidents filtered by workRelatedOnly
-  const baseIncidents = useMemo(() =>
-    workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents,
-    [dashIncidents, workRelatedOnly]
-  );
-
-  // Category-filtered incidents
-  const categoryIncidents = useMemo(() =>
-    baseIncidents.filter(inc => {
-      if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
-      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
-      return true;
-    }),
-    [baseIncidents, incidentCategory]
-  );
-
   // ---- Person-type helpers using injured persons data ----
   const incidentPersonTypes = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -253,6 +239,24 @@ export default function IncidentsPage() {
     }
     return (inc.person_type || '').includes(keyword);
   }, [incidentPersonTypes]);
+
+  // Base incidents filtered by workRelatedOnly + person type
+  const baseIncidents = useMemo(() => {
+    let list = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
+    if (personFilter === 'employee') list = list.filter(i => hasPersonType(i, 'พนักงาน'));
+    if (personFilter === 'contractor') list = list.filter(i => hasPersonType(i, 'ผู้รับเหมา'));
+    return list;
+  }, [dashIncidents, workRelatedOnly, personFilter, hasPersonType]);
+
+  // Category-filtered incidents
+  const categoryIncidents = useMemo(() =>
+    baseIncidents.filter(inc => {
+      if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
+      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      return true;
+    }),
+    [baseIncidents, incidentCategory]
+  );
 
   // Live stats — computed from categoryIncidents (respects all filters)
   const liveStats = useMemo<LiveStats>(() => {
@@ -337,8 +341,12 @@ export default function IncidentsPage() {
   }, [categoryIncidents, dashIncidents.length, dashLoading, liveStats]);
 
   // TRIR / LTIFR — Combined, Employee, Contractor
-  const trirCombined = manHours.total > 0 ? (liveStats.totalInjuries / manHours.total) * 1000000 : null;
-  const ltifrCombined = manHours.total > 0 ? (liveStats.ltiCases / manHours.total) * 1000000 : null;
+  // When a person-type filter is active, the "combined" rate uses only that group's manhours
+  const mhScoped = personFilter === 'employee' ? manHours.employee
+    : personFilter === 'contractor' ? manHours.contractor
+    : manHours.total;
+  const trirCombined = mhScoped > 0 ? (liveStats.totalInjuries / mhScoped) * 1000000 : null;
+  const ltifrCombined = mhScoped > 0 ? (liveStats.ltiCases / mhScoped) * 1000000 : null;
   const trirEmployee = manHours.employee > 0 ? (liveStats.employeeInjuries / manHours.employee) * 1000000 : null;
   const ltifrEmployee = manHours.employee > 0 ? (liveStats.employeeLti / manHours.employee) * 1000000 : null;
   const trirContractor = manHours.contractor > 0 ? (liveStats.contractorInjuries / manHours.contractor) * 1000000 : null;
@@ -346,8 +354,7 @@ export default function IncidentsPage() {
 
   // Yearly trend — now driven by selectedYears (not fixed 6 years)
   const yearlyTrend = useMemo(() => {
-    const filtered = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
-    const catFiltered = filtered.filter(inc => {
+    const catFiltered = baseIncidents.filter(inc => {
       if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
       if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
       return true;
@@ -357,7 +364,10 @@ export default function IncidentsPage() {
       const yInc = catFiltered.filter(i => i.year === y);
       const injuries = yInc.filter(i => isInjuryType(i.incident_type || '')).length;
       const lti = yInc.filter(i => isLtiType(i.incident_type || '')).length;
-      const mh = manHoursByYear[y]?.total || 0;
+      const mhY = manHoursByYear[y];
+      const mh = personFilter === 'employee' ? (mhY?.emp || 0)
+        : personFilter === 'contractor' ? (mhY?.con || 0)
+        : (mhY?.total || 0);
       return {
         year: y,
         mh,
@@ -365,12 +375,11 @@ export default function IncidentsPage() {
         ltifr: mh > 0 ? (lti / mh) * 1000000 : 0,
       };
     });
-  }, [dashIncidents, workRelatedOnly, incidentCategory, selectedYears, manHoursByYear]);
+  }, [baseIncidents, incidentCategory, selectedYears, manHoursByYear, personFilter]);
 
   // Monthly counts per year (for the month-by-month year comparison chart)
   const monthlyByYear = useMemo(() => {
-    const filtered = workRelatedOnly ? dashIncidents.filter(i => i.work_related === 'ใช่') : dashIncidents;
-    const catFiltered = filtered.filter(inc => {
+    const catFiltered = baseIncidents.filter(inc => {
       if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
       if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
       return true;
@@ -387,7 +396,7 @@ export default function IncidentsPage() {
       });
       return { year: y, counts };
     });
-  }, [dashIncidents, workRelatedOnly, incidentCategory, selectedYears]);
+  }, [baseIncidents, incidentCategory, selectedYears]);
 
   // trendIncidents & trendManhours — kept for backward compat with OverviewWorkspace
   const trendIncidents = dashIncidents;
@@ -603,6 +612,8 @@ export default function IncidentsPage() {
             setSelectedYears={setSelectedYears}
             workRelatedOnly={workRelatedOnly}
             setWorkRelatedOnly={setWorkRelatedOnly}
+            personFilter={personFilter}
+            setPersonFilter={setPersonFilter}
             incidentCategory={incidentCategory}
             setIncidentCategory={setIncidentCategory}
             dashFilter={dashFilter}

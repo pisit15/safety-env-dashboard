@@ -72,8 +72,10 @@ export default function HQIncidentsPage() {
   const router = useRouter();
   const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
-  const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, number>>({});
+  const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, { employee: number; contractor: number; total: number }>>({});
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
+  // 'all' | 'employee' | 'contractor' — scopes counts and rates across the whole overview
+  const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
   const [manHoursByCompany, setManHoursByCompany] = useState<Record<string, { employee: number; contractor: number; total: number }>>({});
@@ -122,14 +124,15 @@ export default function HQIncidentsPage() {
       setManHoursByCompany(mhMap);
 
       // Manhours grouped by year (for the yearly comparison chart)
-      const mhYearMap: Record<number, number> = {};
+      const mhYearMap: Record<number, { employee: number; contractor: number; total: number }> = {};
       mhResults.forEach((r, idx) => {
         const y = selectedYears[idx];
-        let t = 0;
+        let emp = 0, con = 0;
         (r.manHours || []).forEach((row: Record<string, unknown>) => {
-          t += (Number(row.employee_manhours) || 0) + (Number(row.contractor_manhours) || 0);
+          emp += Number(row.employee_manhours) || 0;
+          con += Number(row.contractor_manhours) || 0;
         });
-        mhYearMap[y] = t;
+        mhYearMap[y] = { employee: emp, contractor: con, total: emp + con };
       });
       setManHoursByYearHq(mhYearMap);
     } catch { /* empty */ }
@@ -140,7 +143,14 @@ export default function HQIncidentsPage() {
 
   // Filtered by workRelatedOnly
   const INJURY_TYPES_P = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
-  const baseInc = workRelatedOnly ? allIncidents.filter(i => i.work_related === 'ใช่') : allIncidents;
+  const baseInc = (workRelatedOnly ? allIncidents.filter(i => i.work_related === 'ใช่') : allIncidents)
+    .filter(i => personFilter === 'all' ? true
+      : personFilter === 'employee' ? (i.person_type || '').includes('พนักงาน')
+      : (i.person_type || '').includes('ผู้รับเหมา'));
+
+  // Manhours scoped to the selected person group
+  const mhOf = (mh: { employee: number; contractor: number; total: number } | undefined) =>
+    !mh ? 0 : personFilter === 'employee' ? mh.employee : personFilter === 'contractor' ? mh.contractor : mh.total;
 
   // Total summary computed client-side
   const totalSummary = (() => {
@@ -163,7 +173,7 @@ export default function HQIncidentsPage() {
     const yInc = baseInc.filter(i => i.year === y);
     const injuries = yInc.filter(i => INJURY_TYPES_P.some(p => (i.incident_type || '').includes(p))).length;
     const lti = yInc.filter(i => { const t = i.incident_type || ''; return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)'; }).length;
-    const mh = manHoursByYearHq[y] || 0;
+    const mh = mhOf(manHoursByYearHq[y]);
     return {
       year: y,
       mh,
@@ -203,8 +213,8 @@ export default function HQIncidentsPage() {
         fatality: cInc.filter(i => (i.incident_type || '').includes('เสียชีวิต')).length,
         directCost: cInc.reduce((s, i) => s + (Number(i.direct_cost) || 0), 0),
         indirectCost: cInc.reduce((s, i) => s + (Number(i.indirect_cost) || 0), 0),
-        trir: mh && mh.total > 0 ? (injuries.length / mh.total) * 1000000 : null,
-        ltifr: mh && mh.total > 0 ? (lti.length / mh.total) * 1000000 : null,
+        trir: mhOf(mh) > 0 ? (injuries.length / mhOf(mh)) * 1000000 : null,
+        ltifr: mhOf(mh) > 0 ? (lti.length / mhOf(mh)) * 1000000 : null,
       };
     }
   });
@@ -331,8 +341,8 @@ export default function HQIncidentsPage() {
     });
   }, [tableFiltered, sortCol, sortDir]);
 
-  // Total man-hours
-  const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mh.total, 0);
+  // Total man-hours (scoped to the selected person group)
+  const totalManHours = Object.values(manHoursByCompany).reduce((sum, mh) => sum + mhOf(mh), 0);
   const totalTRIR = totalManHours > 0 ? (totalSummary.totalInjuries / totalManHours) * 1000000 : null;
   const totalLTIFR = totalManHours > 0 ? (totalSummary.ltiCases / totalManHours) * 1000000 : null;
 
@@ -542,6 +552,25 @@ export default function HQIncidentsPage() {
                 />
               </button>
               <span className="text-[12px]" style={{ color: workRelatedOnly ? 'var(--accent)' : 'var(--muted)' }}>เฉพาะจากการทำงาน</span>
+            </div>
+
+            {/* Person-type scope — employees / contractors / combined */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold mr-0.5" style={{ color: 'var(--muted)' }}>กลุ่ม:</span>
+              {([['all', 'รวม'], ['employee', 'พนักงาน'], ['contractor', 'ผู้รับเหมา']] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setPersonFilter(k)}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                  style={{
+                    background: personFilter === k ? 'var(--accent)' : 'var(--bg-secondary)',
+                    color: personFilter === k ? '#fff' : 'var(--text-secondary)',
+                    border: `1px solid ${personFilter === k ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
