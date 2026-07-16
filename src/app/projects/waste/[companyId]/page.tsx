@@ -31,6 +31,29 @@ const emptyForm = (companyId: string): Partial<WasteRecord> => ({
   remark: '',
 });
 
+// One waste line in the multi-item add form (date + disposal company are shared)
+interface WasteItemDraft {
+  waste_category: WasteCategory;
+  disposal_method: string;
+  waste_type: string;
+  waste_type_th: string;
+  waste_code: string;
+  quantity_kg: number;
+  cost: number;
+  remark: string;
+}
+
+const emptyItem = (): WasteItemDraft => ({
+  waste_category: 'Non-Hazardous',
+  disposal_method: '',
+  waste_type: '',
+  waste_type_th: '',
+  waste_code: '',
+  quantity_kg: 0,
+  cost: 0,
+  remark: '',
+});
+
 export default function CompanyWastePage() {
   const params = useParams();
   const companyId = String(params.companyId || '');
@@ -59,7 +82,12 @@ export default function CompanyWastePage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<WasteRecord | null>(null);
   const [form, setForm] = useState<Partial<WasteRecord>>(emptyForm(companyId));
+  const [items, setItems] = useState<WasteItemDraft[]>([emptyItem()]);
   const [saving, setSaving] = useState(false);
+
+  const updateItem = (idx: number, fields: Partial<WasteItemDraft>) => {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...fields } : it));
+  };
 
   const loadAll = useCallback(() => {
     setLoading(true);
@@ -139,28 +167,55 @@ export default function CompanyWastePage() {
   }, [yearRecords, recycleSet, selectedYear]);
   const yearTarget = useMemo(() => target ? targetForYear(target, selectedYear) : null, [target, selectedYear]);
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm(companyId)); setShowForm(true); };
+  const openAdd = () => { setEditing(null); setForm(emptyForm(companyId)); setItems([emptyItem()]); setShowForm(true); };
   const openEdit = (r: WasteRecord) => { setEditing(r); setForm({ ...r }); setShowForm(true); };
 
   const handleSave = async () => {
-    if (!form.record_date || !form.disposal_method || !form.quantity_kg) {
-      setToast({ type: 'error', msg: 'กรุณากรอก วันที่ / วิธีกำจัด / น้ำหนัก ให้ครบ' }); return;
-    }
     setSaving(true);
     try {
-      const body = { ...form, company_id: companyId, created_by: editorName };
-      const res = await fetch('/api/waste/records', {
-        method: editing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editing ? { ...body, id: editing.id } : body),
-      });
-      const data = await res.json();
-      if (data.error) setToast({ type: 'error', msg: data.error });
-      else {
-        setToast({ type: 'success', msg: editing ? 'อัปเดตรายการแล้ว' : 'เพิ่มรายการแล้ว' });
-        setShowForm(false);
-        loadAll();
+      if (editing) {
+        // Edit mode: single record as before
+        if (!form.record_date || !form.disposal_method || !form.quantity_kg) {
+          setToast({ type: 'error', msg: 'กรุณากรอก วันที่ / วิธีกำจัด / น้ำหนัก ให้ครบ' }); setSaving(false); return;
+        }
+        const body = { ...form, company_id: companyId, created_by: editorName, id: editing.id };
+        const res = await fetch('/api/waste/records', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) { setToast({ type: 'error', msg: data.error }); setSaving(false); return; }
+        setToast({ type: 'success', msg: 'อัปเดตรายการแล้ว' });
+      } else {
+        // Add mode: shared header (date + disposal company) + multiple waste lines
+        if (!form.record_date) { setToast({ type: 'error', msg: 'กรุณาเลือกวันที่' }); setSaving(false); return; }
+        const valid = items.filter(it => it.disposal_method && it.quantity_kg > 0);
+        if (valid.length === 0) {
+          setToast({ type: 'error', msg: 'กรุณากรอก วิธีกำจัด และ น้ำหนัก อย่างน้อย 1 รายการ' }); setSaving(false); return;
+        }
+        if (valid.length < items.length) {
+          setToast({ type: 'error', msg: 'บางรายการยังไม่ได้เลือกวิธีกำจัด/น้ำหนัก — กรอกให้ครบหรือลบรายการนั้นออก' }); setSaving(false); return;
+        }
+        let ok = 0;
+        for (const it of valid) {
+          const body = {
+            company_id: companyId,
+            record_date: form.record_date,
+            disposal_company: form.disposal_company || '',
+            disposal_company_code: form.disposal_company_code || '',
+            ...it,
+            created_by: editorName,
+          };
+          const res = await fetch('/api/waste/records', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!data.error) ok++;
+        }
+        if (ok === 0) { setToast({ type: 'error', msg: 'บันทึกล้มเหลว' }); setSaving(false); return; }
+        setToast({ type: 'success', msg: ok === valid.length ? `เพิ่ม ${ok} รายการแล้ว` : `เพิ่มสำเร็จ ${ok}/${valid.length} รายการ` });
       }
+      setShowForm(false);
+      loadAll();
     } catch { setToast({ type: 'error', msg: 'บันทึกล้มเหลว' }); }
     setSaving(false);
   };
@@ -389,63 +444,150 @@ export default function CompanyWastePage() {
               <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{editing ? `แก้ไขรายการ #${editing.id}` : 'บันทึกรายการขยะใหม่'}</h3>
               <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} style={{ color: 'var(--text-secondary)' }} /></button>
             </div>
-            <div style={{ padding: '18px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={labelStyle}>วันที่ *</label>
-                <input type="date" value={String(form.record_date || '')} onChange={e => setForm(f => ({ ...f, record_date: e.target.value }))} style={inputStyle} />
+            {editing ? (
+              <div style={{ padding: '18px 22px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>วันที่ *</label>
+                  <input type="date" value={String(form.record_date || '')} onChange={e => setForm(f => ({ ...f, record_date: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>ประเภทขยะ *</label>
+                  <select value={form.waste_category} onChange={e => setForm(f => ({ ...f, waste_category: e.target.value as WasteCategory }))} style={inputStyle}>
+                    <option value="Non-Hazardous">Non-Hazardous (ไม่อันตราย)</option>
+                    <option value="Hazardous">Hazardous (อันตราย)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>วิธีกำจัด *</label>
+                  <select value={form.disposal_method || ''} onChange={e => setForm(f => ({ ...f, disposal_method: e.target.value }))} style={inputStyle}>
+                    <option value="">เลือกวิธีกำจัด</option>
+                    {activeMethods.map(m => (
+                      <option key={m.id} value={m.method_name}>{m.method_name} {m.is_recycle ? '♻ (รีไซเคิล)' : '(กำจัด)'}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>น้ำหนัก (kg) *</label>
+                  <input type="number" min={0} step="0.01" value={form.quantity_kg || ''} onChange={e => setForm(f => ({ ...f, quantity_kg: parseFloat(e.target.value) || 0 }))} style={inputStyle} placeholder="0" />
+                </div>
+                <div>
+                  <label style={labelStyle}>ชนิดขยะ (ไทย)</label>
+                  <input value={form.waste_type_th || ''} onChange={e => setForm(f => ({ ...f, waste_type_th: e.target.value }))} style={inputStyle} placeholder="เช่น เศษฟอยล์อลูมิเนียม" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Waste Type (EN)</label>
+                  <input value={form.waste_type || ''} onChange={e => setForm(f => ({ ...f, waste_type: e.target.value }))} style={inputStyle} placeholder="e.g. Aluminum Foil" />
+                </div>
+                <div>
+                  <label style={labelStyle}>บริษัทรับกำจัด</label>
+                  <input value={form.disposal_company || ''} onChange={e => setForm(f => ({ ...f, disposal_company: e.target.value }))} style={inputStyle} placeholder="ชื่อบริษัทผู้รับกำจัด" />
+                </div>
+                <div>
+                  <label style={labelStyle}>เลขที่ใบอนุญาต (Code)</label>
+                  <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เช่น DIWD056100019" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Waste Code</label>
+                  <input value={form.waste_code || ''} onChange={e => setForm(f => ({ ...f, waste_code: e.target.value }))} style={inputStyle} placeholder="เช่น 16 05 08" />
+                </div>
+                <div>
+                  <label style={labelStyle}>รายได้ (+) / ค่าใช้จ่าย (−) บาท</label>
+                  <input type="number" step="0.01" value={form.cost ?? ''} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} style={inputStyle} placeholder="ขายได้ = บวก, จ่ายค่ากำจัด = ลบ" />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={labelStyle}>หมายเหตุ</label>
+                  <input value={form.remark || ''} onChange={e => setForm(f => ({ ...f, remark: e.target.value }))} style={inputStyle} placeholder="หมายเหตุเพิ่มเติม..." />
+                </div>
               </div>
-              <div>
-                <label style={labelStyle}>ประเภทขยะ *</label>
-                <select value={form.waste_category} onChange={e => setForm(f => ({ ...f, waste_category: e.target.value as WasteCategory }))} style={inputStyle}>
-                  <option value="Non-Hazardous">Non-Hazardous (ไม่อันตราย)</option>
-                  <option value="Hazardous">Hazardous (อันตราย)</option>
-                </select>
+            ) : (
+              <div style={{ padding: '18px 22px' }}>
+                {/* Shared header: date + disposal company (กรอกครั้งเดียว ใช้กับทุกรายการ) */}
+                <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, border: '1px solid var(--border)', padding: '12px 14px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>ข้อมูลร่วม — ใช้กับขยะทุกรายการด้านล่าง</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={labelStyle}>วันที่ *</label>
+                      <input type="date" value={String(form.record_date || '')} onChange={e => setForm(f => ({ ...f, record_date: e.target.value }))} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>บริษัทรับกำจัด</label>
+                      <input value={form.disposal_company || ''} onChange={e => setForm(f => ({ ...f, disposal_company: e.target.value }))} style={inputStyle} placeholder="ชื่อบริษัทผู้รับกำจัด" />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>เลขที่ใบอนุญาต (Code)</label>
+                      <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เช่น DIWD056100019" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Waste line items */}
+                {items.map((it, idx) => (
+                  <div key={idx} style={{ borderRadius: 10, border: '1px solid var(--border)', padding: '12px 14px', marginBottom: 10, position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C_PRIMARY }}>ขยะรายการที่ {idx + 1}</span>
+                      {items.length > 1 && (
+                        <button onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} title="ลบรายการนี้" style={{ padding: 3, background: 'none', border: 'none', cursor: 'pointer' }}>
+                          <Trash2 size={13} style={{ color: C_DISPOSAL }} />
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div>
+                        <label style={labelStyle}>ประเภทขยะ *</label>
+                        <select value={it.waste_category} onChange={e => updateItem(idx, { waste_category: e.target.value as WasteCategory })} style={inputStyle}>
+                          <option value="Non-Hazardous">Non-Hazardous (ไม่อันตราย)</option>
+                          <option value="Hazardous">Hazardous (อันตราย)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>วิธีกำจัด *</label>
+                        <select value={it.disposal_method} onChange={e => updateItem(idx, { disposal_method: e.target.value })} style={inputStyle}>
+                          <option value="">เลือกวิธีกำจัด</option>
+                          {activeMethods.map(m => (
+                            <option key={m.id} value={m.method_name}>{m.method_name} {m.is_recycle ? '♻ (รีไซเคิล)' : '(กำจัด)'}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>ชนิดขยะ (ไทย)</label>
+                        <input value={it.waste_type_th} onChange={e => updateItem(idx, { waste_type_th: e.target.value })} style={inputStyle} placeholder="เช่น เศษฟอยล์อลูมิเนียม" />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Waste Type (EN)</label>
+                        <input value={it.waste_type} onChange={e => updateItem(idx, { waste_type: e.target.value })} style={inputStyle} placeholder="e.g. Aluminum Foil" />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Waste Code</label>
+                        <input value={it.waste_code} onChange={e => updateItem(idx, { waste_code: e.target.value })} style={inputStyle} placeholder="เช่น 16 05 08" />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <label style={labelStyle}>น้ำหนัก (kg) *</label>
+                          <input type="number" min={0} step="0.01" value={it.quantity_kg || ''} onChange={e => updateItem(idx, { quantity_kg: parseFloat(e.target.value) || 0 })} style={inputStyle} placeholder="0" />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>รายได้/จ่าย (฿)</label>
+                          <input type="number" step="0.01" value={it.cost || ''} onChange={e => updateItem(idx, { cost: parseFloat(e.target.value) || 0 })} style={inputStyle} placeholder="+ขาย −จ่าย" />
+                        </div>
+                      </div>
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={labelStyle}>หมายเหตุ</label>
+                        <input value={it.remark} onChange={e => updateItem(idx, { remark: e.target.value })} style={inputStyle} placeholder="หมายเหตุเพิ่มเติม..." />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button onClick={() => setItems(prev => [...prev, emptyItem()])}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold w-full justify-center"
+                  style={{ color: C_RECYCLE, border: `1px dashed ${C_RECYCLE}66`, background: 'none', cursor: 'pointer' }}>
+                  <Plus size={14} /> เพิ่มขยะอีกรายการ (วันที่/บริษัทรับกำจัดเดิม)
+                </button>
               </div>
-              <div>
-                <label style={labelStyle}>วิธีกำจัด *</label>
-                <select value={form.disposal_method || ''} onChange={e => setForm(f => ({ ...f, disposal_method: e.target.value }))} style={inputStyle}>
-                  <option value="">เลือกวิธีกำจัด</option>
-                  {activeMethods.map(m => (
-                    <option key={m.id} value={m.method_name}>{m.method_name} {m.is_recycle ? '♻ (รีไซเคิล)' : '(กำจัด)'}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>น้ำหนัก (kg) *</label>
-                <input type="number" min={0} step="0.01" value={form.quantity_kg || ''} onChange={e => setForm(f => ({ ...f, quantity_kg: parseFloat(e.target.value) || 0 }))} style={inputStyle} placeholder="0" />
-              </div>
-              <div>
-                <label style={labelStyle}>ชนิดขยะ (ไทย)</label>
-                <input value={form.waste_type_th || ''} onChange={e => setForm(f => ({ ...f, waste_type_th: e.target.value }))} style={inputStyle} placeholder="เช่น เศษฟอยล์อลูมิเนียม" />
-              </div>
-              <div>
-                <label style={labelStyle}>Waste Type (EN)</label>
-                <input value={form.waste_type || ''} onChange={e => setForm(f => ({ ...f, waste_type: e.target.value }))} style={inputStyle} placeholder="e.g. Aluminum Foil" />
-              </div>
-              <div>
-                <label style={labelStyle}>บริษัทรับกำจัด</label>
-                <input value={form.disposal_company || ''} onChange={e => setForm(f => ({ ...f, disposal_company: e.target.value }))} style={inputStyle} placeholder="ชื่อบริษัทผู้รับกำจัด" />
-              </div>
-              <div>
-                <label style={labelStyle}>เลขที่ใบอนุญาต (Code)</label>
-                <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เช่น DIWD056100019" />
-              </div>
-              <div>
-                <label style={labelStyle}>Waste Code</label>
-                <input value={form.waste_code || ''} onChange={e => setForm(f => ({ ...f, waste_code: e.target.value }))} style={inputStyle} placeholder="เช่น 16 05 08" />
-              </div>
-              <div>
-                <label style={labelStyle}>รายได้ (+) / ค่าใช้จ่าย (−) บาท</label>
-                <input type="number" step="0.01" value={form.cost ?? ''} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} style={inputStyle} placeholder="ขายได้ = บวก, จ่ายค่ากำจัด = ลบ" />
-              </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={labelStyle}>หมายเหตุ</label>
-                <input value={form.remark || ''} onChange={e => setForm(f => ({ ...f, remark: e.target.value }))} style={inputStyle} placeholder="หมายเหตุเพิ่มเติม..." />
-              </div>
-            </div>
+            )}
             <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
               <button onClick={handleSave} disabled={saving} className="px-5 py-2 rounded-xl text-[13px] font-semibold text-white" style={{ background: saving ? 'var(--muted)' : C_RECYCLE }}>
-                {saving ? 'กำลังบันทึก...' : editing ? 'อัปเดต' : 'บันทึก'}
+                {saving ? 'กำลังบันทึก...' : editing ? 'อัปเดต' : items.length > 1 ? `บันทึกทั้ง ${items.length} รายการ` : 'บันทึก'}
               </button>
               <button onClick={() => setShowForm(false)} className="px-5 py-2 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>ยกเลิก</button>
             </div>
