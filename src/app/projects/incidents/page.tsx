@@ -7,7 +7,7 @@ import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
 import HqInjuryAnalytics, { HqInjuredPerson, HqIncidentMeta } from './components/HqInjuryAnalytics';
 import YearlyCasesChart from '@/components/YearlyCasesChart';
-import { FACTORY_COMPANY_IDS } from '@/lib/companies';
+import { FACTORY_COMPANY_IDS, BUSINESS_UNITS } from '@/lib/companies';
 import MonthlyByYearChart from '@/components/MonthlyByYearChart';
 import { useCompanies } from '@/hooks/useCompanies';
 import { trimEmptyMonths, MONTH_LABELS_TH } from '@/lib/chart-utils';
@@ -81,10 +81,16 @@ export default function HQIncidentsPage() {
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   // 'all' | 'employee' | 'contractor' — scopes counts and rates across the whole overview
   const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
-  // Business Unit scope — Factory (amt, aab, mmc, ea-kabin, ebi) vs Non-Factory
-  const [buFilter, setBuFilter] = useState<'all' | 'factory' | 'nonfactory'>('all');
+  // Business Unit scope — 'all' | 'factory' | 'nonfactory' | sub-BU key (battery, bio, wind, solar, waste, others)
+  const [buFilter, setBuFilter] = useState<string>('all');
   const isFactory = (cid: string) => FACTORY_COMPANY_IDS.includes(cid);
-  const inBu = (cid: string) => buFilter === 'all' ? true : buFilter === 'factory' ? isFactory(cid) : !isFactory(cid);
+  const inBu = (cid: string) => {
+    if (buFilter === 'all') return true;
+    if (buFilter === 'factory') return isFactory(cid);
+    if (buFilter === 'nonfactory') return !isFactory(cid);
+    const bu = BUSINESS_UNITS.find(b => b.key === buFilter);
+    return bu ? bu.companyIds.includes(cid) : true;
+  };
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
   const [manHoursByCompany, setManHoursByCompany] = useState<Record<string, { employee: number; contractor: number; total: number }>>({});
@@ -603,8 +609,8 @@ export default function HQIncidentsPage() {
               ))}
             </div>
 
-            {/* Business Unit scope — Factory / Non-Factory */}
-            <div className="flex items-center gap-1.5">
+            {/* Business Unit scope — Factory / Non-Factory + sub-BUs */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-semibold mr-0.5" style={{ color: 'var(--muted)' }}>BU:</span>
               {([['all', 'ทั้งหมด'], ['factory', 'Factory'], ['nonfactory', 'Non-Factory']] as const).map(([k, label]) => (
                 <button
@@ -619,6 +625,22 @@ export default function HQIncidentsPage() {
                   }}
                 >
                   {label}
+                </button>
+              ))}
+              <span style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
+              {BUSINESS_UNITS.map(bu => (
+                <button
+                  key={bu.key}
+                  onClick={() => setBuFilter(bu.key)}
+                  title={`${bu.label} — ${bu.companyIds.map(c => c.toUpperCase()).join(', ')}`}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                  style={{
+                    background: buFilter === bu.key ? 'var(--accent)' : 'var(--bg-secondary)',
+                    color: buFilter === bu.key ? '#fff' : 'var(--text-secondary)',
+                    border: `1px solid ${buFilter === bu.key ? 'var(--accent)' : 'var(--border)'}`,
+                  }}
+                >
+                  {bu.shortLabel}
                 </button>
               ))}
             </div>

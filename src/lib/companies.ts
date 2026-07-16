@@ -5,8 +5,27 @@ import { CompanyConfig } from './types';
 export const AVAILABLE_YEARS = [2026];
 export const DEFAULT_YEAR = 2026;
 
-// Business Unit grouping — Factory vs Non-Factory (everything else)
-export const FACTORY_COMPANY_IDS = ['amt', 'aab', 'mmc', 'ea-kabin', 'ebi'];
+// Business Unit grouping — Factory / Non-Factory with sub-BUs
+export interface BusinessUnit {
+  key: string;
+  label: string;       // full name (tooltips)
+  shortLabel: string;  // chip label
+  group: 'factory' | 'nonfactory';
+  companyIds: string[];
+}
+
+export const BUSINESS_UNITS: BusinessUnit[] = [
+  { key: 'battery', label: 'แบตเตอรี่/ยานยนต์ไฟฟ้า', shortLabel: 'แบต/EV', group: 'factory', companyIds: ['amt', 'aab', 'mmc'] },
+  { key: 'bio', label: 'ไบโอ', shortLabel: 'ไบโอ', group: 'factory', companyIds: ['ea-kabin', 'ebi'] },
+  { key: 'wind', label: 'โรงไฟฟ้าพลังงานลม', shortLabel: 'พลังงานลม', group: 'nonfactory', companyIds: ['ewhk', 'hnm'] },
+  { key: 'solar', label: 'โรงไฟฟ้าโซล่าร์', shortLabel: 'โซล่าร์', group: 'nonfactory', companyIds: ['eslo', 'esn', 'esl', 'esp'] },
+  { key: 'waste', label: 'กำจัดขยะ', shortLabel: 'กำจัดขยะ', group: 'nonfactory', companyIds: ['wmp', 'swm'] },
+  { key: 'others', label: 'อื่น ๆ (สำนักงาน/วิจัย)', shortLabel: 'อื่นๆ', group: 'nonfactory', companyIds: ['ea-hq', 'esm', 'gtr', 'mmr'] },
+];
+
+export const FACTORY_COMPANY_IDS = BUSINESS_UNITS
+  .filter(b => b.group === 'factory')
+  .flatMap(b => b.companyIds);
 // Years that are currently active (have data and can be selected)
 export const ACTIVE_YEARS = [2026];
 
