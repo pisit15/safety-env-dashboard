@@ -59,6 +59,77 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const MAX_PHOTOS = 5;
 
+  /* Document attachment state — PDF files or Drive/OneDrive links (max 2) */
+  interface IncidentAttachment {
+    id: string;
+    kind: string;      // 'file' | 'link'
+    title: string;
+    file_url: string;
+  }
+  const [attachments, setAttachments] = useState<IncidentAttachment[]>([]);
+  const [uploadingAtt, setUploadingAtt] = useState(false);
+  const [attError, setAttError] = useState('');
+  const [attLinkUrl, setAttLinkUrl] = useState('');
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const MAX_ATTACHMENTS = 2;
+
+  const loadAttachments = (incidentNo: string) => {
+    fetch(`/api/incidents/attachments?incident_no=${encodeURIComponent(incidentNo)}`)
+      .then(r => r.json())
+      .then(data => setAttachments(data.attachments || []))
+      .catch(() => setAttachments([]));
+  };
+
+  const handleAttachmentUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const incidentNo = (formData.incident_no as string) || '';
+    if (!incidentNo) { setAttError('กรุณาบันทึกอุบัติเหตุก่อน จึงจะแนบเอกสารได้'); return; }
+    if (attachments.length >= MAX_ATTACHMENTS) { setAttError(`แนบเอกสารได้สูงสุด ${MAX_ATTACHMENTS} รายการ`); return; }
+    setAttError('');
+    setUploadingAtt(true);
+    const fd = new FormData();
+    fd.append('file', files[0]);
+    fd.append('incident_no', incidentNo);
+    fd.append('company_id', companyId);
+    try {
+      const res = await fetch('/api/incidents/attachments', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.error) setAttError(data.error);
+      else if (data.attachment) setAttachments(prev => [...prev, data.attachment]);
+    } catch { setAttError('อัปโหลดเอกสารล้มเหลว'); }
+    setUploadingAtt(false);
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
+  };
+
+  const handleAddAttachmentLink = async () => {
+    const incidentNo = (formData.incident_no as string) || '';
+    if (!incidentNo) { setAttError('กรุณาบันทึกอุบัติเหตุก่อน จึงจะแนบเอกสารได้'); return; }
+    if (!attLinkUrl.trim()) return;
+    if (attachments.length >= MAX_ATTACHMENTS) { setAttError(`แนบเอกสารได้สูงสุด ${MAX_ATTACHMENTS} รายการ`); return; }
+    setAttError('');
+    setUploadingAtt(true);
+    try {
+      const res = await fetch('/api/incidents/attachments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ incidentNo, companyId, linkUrl: attLinkUrl.trim() }),
+      });
+      const data = await res.json();
+      if (data.error) setAttError(data.error);
+      else if (data.attachment) { setAttachments(prev => [...prev, data.attachment]); setAttLinkUrl(''); }
+    } catch { setAttError('เพิ่มลิงก์ล้มเหลว'); }
+    setUploadingAtt(false);
+  };
+
+  const handleDeleteAttachment = async (id: string) => {
+    if (!confirm('ต้องการลบเอกสารแนบนี้?')) return;
+    try {
+      const res = await fetch(`/api/incidents/attachments?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) setAttachments(prev => prev.filter(a => a.id !== id));
+      else setAttError(data.error || 'ลบเอกสารล้มเหลว');
+    } catch { setAttError('ลบเอกสารล้มเหลว'); }
+  };
+
   /* ── Auto-save Draft ── */
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [draftIncidentNo, setDraftIncidentNo] = useState<string | null>(null);
@@ -140,6 +211,8 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         .then(r => r.json())
         .then(data => setPhotos(data.photos || []))
         .catch(() => setPhotos([]));
+      // Fetch existing document attachments
+      loadAttachments(editingIncident.incident_no);
     } else {
       // Check for existing draft
       fetch(`/api/incidents/drafts?companyId=${companyId}`)
@@ -159,6 +232,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                   lastSavedJson.current = JSON.stringify({ data: data.draft, injured: d.persons || [] });
                 })
                 .catch(() => {});
+              loadAttachments(data.draft.incident_no);
             }
           } else {
             setFormData({
@@ -183,6 +257,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         });
       setInjuredPersons([]);
       setPhotos([]);
+      setAttachments([]);
       return; // Don't set isInitializing to false yet — wait for draft check
     }
     setTimeout(() => { isInitializing.current = false; }, 500);
@@ -924,6 +999,112 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
 
             {photoError && (
               <p className="text-[11px] mt-2" style={{ color: '#dc2626' }}>{photoError}</p>
+            )}
+          </div>
+
+          {/* Section: Document attachments (PDF / Drive / OneDrive) */}
+          <div>
+            <SH num="📎" label="ATTACHMENTS / เอกสารแนบ (PDF หรือลิงก์ สูงสุด 2 รายการ)" bg="rgba(139,92,246,0.1)" fg="#7c3aed" />
+
+            {/* Existing attachments list */}
+            {attachments.length > 0 && (
+              <div className="flex flex-col gap-2 mb-3">
+                {attachments.map(att => (
+                  <div key={att.id} className="flex items-center gap-2.5 rounded-lg px-3 py-2" style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                    <span className="text-[16px]">{att.kind === 'link' ? '🔗' : '📄'}</span>
+                    <a
+                      href={att.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[12px] font-semibold truncate flex-1 hover:underline"
+                      style={{ color: 'var(--accent)' }}
+                      title={att.file_url}
+                    >
+                      {att.title || att.file_url}
+                    </a>
+                    <span className="text-[10px] shrink-0" style={{ color: 'var(--muted)' }}>{att.kind === 'link' ? 'ลิงก์' : 'PDF'}</span>
+                    <button onClick={() => handleDeleteAttachment(att.id)} className="p-1 rounded hover:opacity-70 shrink-0" title="ลบเอกสารแนบ">
+                      <Trash2 size={13} style={{ color: '#dc2626' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(formData.incident_no as string) ? (
+              attachments.length < MAX_ATTACHMENTS ? (
+                <div className="flex flex-col gap-2.5">
+                  {/* PDF upload */}
+                  <div
+                    className="rounded-lg p-3 text-center cursor-pointer transition-all hover:border-violet-400"
+                    style={{ border: '2px dashed var(--border)', background: 'var(--bg-secondary)' }}
+                    onClick={() => pdfInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#8b5cf6'; }}
+                    onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+                    onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; handleAttachmentUpload(e.dataTransfer.files); }}
+                  >
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={e => handleAttachmentUpload(e.target.files)}
+                    />
+                    {uploadingAtt ? (
+                      <div className="flex items-center justify-center gap-2 py-1">
+                        <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                        <span className="text-[12px]" style={{ color: 'var(--accent)' }}>กำลังบันทึก...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                          📄 คลิกหรือลากไฟล์ PDF มาวางที่นี่
+                        </p>
+                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                          เฉพาะ PDF (สูงสุด 20MB/ไฟล์) — แนบแล้ว {attachments.length}/{MAX_ATTACHMENTS} รายการ
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  {/* Or paste a Drive/OneDrive link */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={attLinkUrl}
+                      onChange={e => setAttLinkUrl(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAttachmentLink(); } }}
+                      placeholder="หรือวางลิงก์ Google Drive / OneDrive ที่นี่..."
+                      className="flex-1 rounded-lg px-3 py-2 text-[12px] outline-none"
+                      style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    />
+                    <button
+                      onClick={handleAddAttachmentLink}
+                      disabled={uploadingAtt || !attLinkUrl.trim()}
+                      className="px-4 py-2 rounded-lg text-[12px] font-semibold text-white shrink-0 disabled:opacity-50"
+                      style={{ background: '#7c3aed' }}
+                    >
+                      เพิ่มลิงก์
+                    </button>
+                  </div>
+                  <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    💡 อย่าลืมเปิดสิทธิ์การเข้าถึงลิงก์ (เช่น &ldquo;ทุกคนที่มีลิงก์ดูได้&rdquo;) เพื่อให้ผู้อื่นเปิดดูเอกสารได้
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+                  📎 แนบเอกสารครบ {MAX_ATTACHMENTS} รายการแล้ว — ลบรายการเดิมก่อนหากต้องการเปลี่ยน
+                </p>
+              )
+            ) : (
+              <div className="rounded-lg p-3 text-center" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)' }}>
+                <p className="text-[12px]" style={{ color: '#b45309' }}>
+                  กรุณาบันทึกอุบัติเหตุก่อน จึงจะแนบเอกสารได้
+                </p>
+              </div>
+            )}
+
+            {attError && (
+              <p className="text-[11px] mt-2" style={{ color: '#dc2626' }}>{attError}</p>
             )}
           </div>
 
