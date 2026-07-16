@@ -181,3 +181,15 @@ export interface WasteTarget {
 }
 
 export type WasteTargetInput = Omit<WasteTarget, 'id' | 'updated_at'>;
+
+export interface WasteRefCompany {
+  id: number;
+  code: string;
+  name: string;
+}
+
+export interface WasteRefType {
+  id: number;
+  name_th: string;
+  name_en: string;
+}

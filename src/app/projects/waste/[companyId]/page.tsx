@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Recycle, Plus, Trash2, X, Pencil, Search } from 'lucide-react';
-import type { WasteRecord, WasteMethod, WasteTarget, WasteCategory } from '@/lib/types';
+import type { WasteRecord, WasteMethod, WasteTarget, WasteCategory, WasteRefCompany, WasteRefType } from '@/lib/types';
 import { aggregateByYear, recycleMethodSet, targetForYear, fmtTon, KG_PER_TON } from '@/lib/waste';
 
 const C_RECYCLE = '#59A14F';
@@ -54,6 +54,60 @@ const emptyItem = (): WasteItemDraft => ({
   remark: '',
 });
 
+// Option for searchable dropdowns (from waste_ref_* reference lists)
+interface SearchOption {
+  key: number;
+  label: string;
+  sublabel?: string;
+  primary: string;   // main value (company name / waste type TH)
+  secondary: string; // paired value (license code / waste type EN)
+}
+
+// Lightweight searchable dropdown: type to filter, pick to autofill paired fields.
+// Free text is still allowed — picking is optional.
+function SearchSelect({ value, placeholder, options, onChange, onPick, inputStyle }: {
+  value: string;
+  placeholder?: string;
+  options: SearchOption[];
+  onChange: (v: string) => void;
+  onPick: (opt: SearchOption) => void;
+  inputStyle: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtered = (q
+    ? options.filter(o => o.label.toLowerCase().includes(q) || (o.sublabel || '').toLowerCase().includes(q))
+    : options
+  ).slice(0, 60);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder}
+        style={inputStyle}
+      />
+      {open && filtered.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 40, marginTop: 2, background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 210, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+          {filtered.map(o => (
+            <button
+              key={o.key}
+              type="button"
+              onMouseDown={e => { e.preventDefault(); onPick(o); setOpen(false); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', fontSize: 12, background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-primary)' }}
+            >
+              <span style={{ fontWeight: 600 }}>{o.label}</span>
+              {o.sublabel && <span style={{ color: 'var(--text-secondary)', marginLeft: 6, fontSize: 10 }}>{o.sublabel}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CompanyWastePage() {
   const params = useParams();
   const companyId = String(params.companyId || '');
@@ -67,6 +121,8 @@ export default function CompanyWastePage() {
   const [records, setRecords] = useState<WasteRecord[]>([]);
   const [methods, setMethods] = useState<WasteMethod[]>([]);
   const [target, setTarget] = useState<WasteTarget | null>(null);
+  const [refCompanies, setRefCompanies] = useState<WasteRefCompany[]>([]);
+  const [refTypes, setRefTypes] = useState<WasteRefType[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
@@ -95,10 +151,13 @@ export default function CompanyWastePage() {
       fetch(`/api/waste/records?companyId=${companyId}`).then(r => r.json()),
       fetch('/api/waste/methods').then(r => r.json()),
       fetch(`/api/waste/targets?companyId=${companyId}`).then(r => r.json()),
-    ]).then(([rec, met, tar]) => {
+      fetch('/api/waste/refs').then(r => r.json()),
+    ]).then(([rec, met, tar, refs]) => {
       setRecords(rec.records || []);
       setMethods(met.methods || []);
       setTarget((tar.targets || [])[0] || null);
+      setRefCompanies(refs.companies || []);
+      setRefTypes(refs.types || []);
     }).catch(() => setToast({ type: 'error', msg: 'โหลดข้อมูลล้มเหลว' }))
       .finally(() => setLoading(false));
   }, [companyId]);
@@ -106,6 +165,14 @@ export default function CompanyWastePage() {
 
   const recycleSet = useMemo(() => recycleMethodSet(methods), [methods]);
   const activeMethods = useMemo(() => methods.filter(m => m.is_active), [methods]);
+
+  // Searchable dropdown options from reference lists (Excel DATA tab)
+  const companyOptions = useMemo<SearchOption[]>(() =>
+    refCompanies.map(c => ({ key: c.id, label: c.name, sublabel: c.code, primary: c.name, secondary: c.code })),
+  [refCompanies]);
+  const typeOptions = useMemo<SearchOption[]>(() =>
+    refTypes.map(t => ({ key: t.id, label: t.name_th, sublabel: t.name_en, primary: t.name_th, secondary: t.name_en })),
+  [refTypes]);
 
   const availableYears = useMemo(() => {
     const ys = new Set<number>(records.map(r => parseInt(String(r.record_date).slice(0, 4))).filter(Boolean));
@@ -471,20 +538,34 @@ export default function CompanyWastePage() {
                   <input type="number" min={0} step="0.01" value={form.quantity_kg || ''} onChange={e => setForm(f => ({ ...f, quantity_kg: parseFloat(e.target.value) || 0 }))} style={inputStyle} placeholder="0" />
                 </div>
                 <div>
-                  <label style={labelStyle}>ชนิดขยะ (ไทย)</label>
-                  <input value={form.waste_type_th || ''} onChange={e => setForm(f => ({ ...f, waste_type_th: e.target.value }))} style={inputStyle} placeholder="เช่น เศษฟอยล์อลูมิเนียม" />
+                  <label style={labelStyle}>ชนิดขยะ (พิมพ์ค้นหา/เลือกจากรายการ)</label>
+                  <SearchSelect
+                    value={(form.waste_type_th as string) || ''}
+                    placeholder="พิมพ์ชนิดขยะ เช่น เศษฟอยล์..."
+                    options={typeOptions}
+                    onChange={v => setForm(f => ({ ...f, waste_type_th: v }))}
+                    onPick={o => setForm(f => ({ ...f, waste_type_th: o.primary, waste_type: o.secondary }))}
+                    inputStyle={inputStyle}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>Waste Type (EN)</label>
-                  <input value={form.waste_type || ''} onChange={e => setForm(f => ({ ...f, waste_type: e.target.value }))} style={inputStyle} placeholder="e.g. Aluminum Foil" />
+                  <input value={form.waste_type || ''} onChange={e => setForm(f => ({ ...f, waste_type: e.target.value }))} style={inputStyle} placeholder="เติมอัตโนมัติเมื่อเลือกชนิดขยะ" />
                 </div>
                 <div>
-                  <label style={labelStyle}>บริษัทรับกำจัด</label>
-                  <input value={form.disposal_company || ''} onChange={e => setForm(f => ({ ...f, disposal_company: e.target.value }))} style={inputStyle} placeholder="ชื่อบริษัทผู้รับกำจัด" />
+                  <label style={labelStyle}>บริษัทรับกำจัด (พิมพ์ค้นหา/เลือกจากรายการ)</label>
+                  <SearchSelect
+                    value={(form.disposal_company as string) || ''}
+                    placeholder="พิมพ์ชื่อบริษัทผู้รับกำจัด..."
+                    options={companyOptions}
+                    onChange={v => setForm(f => ({ ...f, disposal_company: v }))}
+                    onPick={o => setForm(f => ({ ...f, disposal_company: o.primary, disposal_company_code: o.secondary }))}
+                    inputStyle={inputStyle}
+                  />
                 </div>
                 <div>
                   <label style={labelStyle}>เลขที่ใบอนุญาต (Code)</label>
-                  <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เช่น DIWD056100019" />
+                  <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เติมอัตโนมัติเมื่อเลือกบริษัท" />
                 </div>
                 <div>
                   <label style={labelStyle}>Waste Code</label>
@@ -510,12 +591,19 @@ export default function CompanyWastePage() {
                       <input type="date" value={String(form.record_date || '')} onChange={e => setForm(f => ({ ...f, record_date: e.target.value }))} style={inputStyle} />
                     </div>
                     <div>
-                      <label style={labelStyle}>บริษัทรับกำจัด</label>
-                      <input value={form.disposal_company || ''} onChange={e => setForm(f => ({ ...f, disposal_company: e.target.value }))} style={inputStyle} placeholder="ชื่อบริษัทผู้รับกำจัด" />
+                      <label style={labelStyle}>บริษัทรับกำจัด (พิมพ์ค้นหา/เลือกจากรายการ)</label>
+                      <SearchSelect
+                        value={(form.disposal_company as string) || ''}
+                        placeholder="พิมพ์ชื่อบริษัทผู้รับกำจัด..."
+                        options={companyOptions}
+                        onChange={v => setForm(f => ({ ...f, disposal_company: v }))}
+                        onPick={o => setForm(f => ({ ...f, disposal_company: o.primary, disposal_company_code: o.secondary }))}
+                        inputStyle={inputStyle}
+                      />
                     </div>
                     <div>
                       <label style={labelStyle}>เลขที่ใบอนุญาต (Code)</label>
-                      <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เช่น DIWD056100019" />
+                      <input value={form.disposal_company_code || ''} onChange={e => setForm(f => ({ ...f, disposal_company_code: e.target.value }))} style={inputStyle} placeholder="เติมอัตโนมัติเมื่อเลือกบริษัท" />
                     </div>
                   </div>
                 </div>
@@ -549,12 +637,19 @@ export default function CompanyWastePage() {
                         </select>
                       </div>
                       <div>
-                        <label style={labelStyle}>ชนิดขยะ (ไทย)</label>
-                        <input value={it.waste_type_th} onChange={e => updateItem(idx, { waste_type_th: e.target.value })} style={inputStyle} placeholder="เช่น เศษฟอยล์อลูมิเนียม" />
+                        <label style={labelStyle}>ชนิดขยะ (พิมพ์ค้นหา/เลือกจากรายการ)</label>
+                        <SearchSelect
+                          value={it.waste_type_th}
+                          placeholder="พิมพ์ชนิดขยะ เช่น เศษฟอยล์..."
+                          options={typeOptions}
+                          onChange={v => updateItem(idx, { waste_type_th: v })}
+                          onPick={o => updateItem(idx, { waste_type_th: o.primary, waste_type: o.secondary })}
+                          inputStyle={inputStyle}
+                        />
                       </div>
                       <div>
                         <label style={labelStyle}>Waste Type (EN)</label>
-                        <input value={it.waste_type} onChange={e => updateItem(idx, { waste_type: e.target.value })} style={inputStyle} placeholder="e.g. Aluminum Foil" />
+                        <input value={it.waste_type} onChange={e => updateItem(idx, { waste_type: e.target.value })} style={inputStyle} placeholder="เติมอัตโนมัติเมื่อเลือกชนิดขยะ" />
                       </div>
                       <div>
                         <label style={labelStyle}>Waste Code</label>
