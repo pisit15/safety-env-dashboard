@@ -128,3 +128,56 @@ export interface DashboardData {
 }
 
 export type PlanType = 'safety' | 'environment';
+
+// ─────────────────────────────────────────────────────────────
+// Waste Management project
+// ─────────────────────────────────────────────────────────────
+export type WasteCategory = 'Hazardous' | 'Non-Hazardous';
+
+export interface WasteRecord {
+  id: number;
+  company_id: string;
+  record_date: string; // YYYY-MM-DD
+  disposal_company: string;
+  disposal_company_code: string;
+  waste_code: string;
+  waste_category: WasteCategory;
+  disposal_method: string;
+  waste_type: string;
+  waste_type_th: string;
+  quantity_kg: number;
+  cost: number; // positive = revenue from selling, negative = disposal expense
+  remark: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type WasteRecordInput = Omit<WasteRecord, 'id' | 'created_at' | 'updated_at'>;
+
+export interface WasteMethod {
+  id: number;
+  method_name: string;
+  is_recycle: boolean; // true = counts toward recycled/reused target
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export type WasteMethodInput = Partial<Omit<WasteMethod, 'id' | 'created_at'>> & { method_name?: string };
+
+export interface WasteTarget {
+  id: number;
+  company_id: string; // 'all' = group-level
+  base_year: number;
+  base_recycle_nonhaz_ton: number;
+  base_recycle_haz_ton: number;
+  base_disposal_nonhaz_ton: number;
+  base_disposal_haz_ton: number;
+  recycle_step_pct: number;  // +% per year vs base
+  disposal_step_pct: number; // -% per year vs base
+  target_end_year: number;
+  updated_at?: string;
+}
+
+export type WasteTargetInput = Omit<WasteTarget, 'id' | 'updated_at'>;

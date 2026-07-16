@@ -17,6 +17,7 @@ import {
   History,
   Settings,
   Wallet,
+  Recycle,
 } from 'lucide-react';
 
 export type ProjectId =
@@ -28,7 +29,8 @@ export type ProjectId =
   | 'risk'
   | 'employees'
   | 'site-visit'
-  | 'budget';
+  | 'budget'
+  | 'waste';
 
 export interface ProjectNavItem {
   id: string;
@@ -168,6 +170,20 @@ export const PROJECTS: ProjectConfig[] = [
       { id: 'history', label: 'ประวัติการประเมิน', icon: History, href: (cid) => cid === 'all' ? '/projects/site-visit/history' : `/projects/site-visit/${cid}/history`, companyRequired: true },
       { id: 'dashboard', label: 'ภาพรวม KPI', icon: BarChart3, href: () => '/projects/site-visit/dashboard', adminOnly: true },
       { id: 'manage', label: 'จัดการเกณฑ์ประเมิน', icon: Settings, href: () => '/projects/site-visit/manage', adminOnly: true },
+    ],
+  },
+  {
+    id: 'waste',
+    name: 'การจัดการขยะ',
+    shortName: 'Waste Management',
+    description: 'บันทึกการกำจัดขยะ รีไซเคิล และติดตามเป้าหมาย 2030',
+    icon: Recycle,
+    color: 'from-green-500 to-emerald-600',
+    accentColor: '#16a34a',
+    ready: true,
+    nav: [
+      { id: 'overview', label: 'ภาพรวมการจัดการขยะ', icon: Recycle, href: (cid) => cid === 'all' ? '/projects/waste' : `/projects/waste/${cid}` },
+      { id: 'settings', label: 'ตั้งค่า (วิธีกำจัด/เป้าหมาย)', icon: Settings, href: () => '/projects/waste/settings', adminOnly: true },
     ],
   },
   {
