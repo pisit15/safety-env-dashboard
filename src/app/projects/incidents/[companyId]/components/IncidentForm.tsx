@@ -641,70 +641,118 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             </div>
           </div>
 
-          {/* Section 6: Investigation */}
+          {/* Section 6: Investigation — fields appear based on investigation level */}
           <div>
             <SH num="6" label="INVESTIGATION" bg="rgba(234,179,8,0.1)" fg="#ca8a04" />
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label text="ระดับการสอบสวน" />
-                <select value={(formData.investigation_level as string) || ''} onChange={e => updateForm('investigation_level', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {INV_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div>
-                <Label text="วันที่เริ่มสอบสวน" />
-                <DateInput value={(formData.investigation_start_date as string) || ''} onChange={v => updateForm('investigation_start_date', v)} inputStyle={inputStyle} />
-              </div>
-              <div>
-                <Label text="หัวหน้าทีมสอบสวน" />
-                <input type="text" value={(formData.investigation_lead as string) || ''} onChange={e => updateForm('investigation_lead', e.target.value)} style={inputStyle} placeholder="ชื่อหัวหน้าทีม" />
-              </div>
-              <div>
-                <Label text="RCA Method" />
-                <select value={(formData.rca_method as string) || ''} onChange={e => updateForm('rca_method', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {RCA_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <Label text="Root Cause Category" />
-                <select value={(formData.root_cause_category as string) || ''} onChange={e => updateForm('root_cause_category', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {RC_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <Label text="Barrier ที่ล้มเหลว" />
-                <select value={(formData.barrier_failure as string) || ''} onChange={e => updateForm('barrier_failure', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {BARRIER_FAILS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div>
-                <Label text="Immediate Cause" />
-                <textarea value={(formData.immediate_cause as string) || ''} onChange={e => updateForm('immediate_cause', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="สาเหตุโดยตรง" />
-              </div>
-              <div>
-                <Label text="Contributing Cause" />
-                <textarea value={(formData.contributing_cause as string) || ''} onChange={e => updateForm('contributing_cause', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="สาเหตุร่วม" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div>
-                <Label text="Root Cause Detail" />
-                <textarea value={(formData.root_cause_detail as string) || ''} onChange={e => updateForm('root_cause_detail', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="รายละเอียดสาเหตุราก" />
-              </div>
-              <div>
-                <Label text="Just Culture" />
-                <select value={(formData.just_culture as string) || ''} onChange={e => updateForm('just_culture', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {JUST_CULTURES.map(j => <option key={j} value={j}>{j}</option>)}
-                </select>
-              </div>
-            </div>
+            {(() => {
+              const invLevel = (formData.investigation_level as string) || '';
+              const isL0 = invLevel.startsWith('Level 0');
+              const isL23 = invLevel.startsWith('Level 2') || invLevel.startsWith('Level 3');
+              const showCauses = invLevel !== '' && !isL0; // L1 ขึ้นไป
+              const showRca = isL23; // L2-L3 เท่านั้น
+              const hintStyle: React.CSSProperties = { fontSize: 10, color: 'var(--muted)', margin: '2px 0 0', lineHeight: 1.5 };
+              return (
+                <>
+                  {/* Level selector + guide */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label text="ระดับการสอบสวน" />
+                      <select value={invLevel} onChange={e => updateForm('investigation_level', e.target.value)} style={selectStyle}>
+                        <option value="">เลือก</option>
+                        {INV_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    {showCauses && (
+                      <>
+                        <div>
+                          <Label text="วันที่เริ่มสอบสวน" />
+                          <DateInput value={(formData.investigation_start_date as string) || ''} onChange={v => updateForm('investigation_start_date', v)} inputStyle={inputStyle} />
+                        </div>
+                        <div>
+                          <Label text="หัวหน้าทีมสอบสวน" />
+                          <input type="text" value={(formData.investigation_lead as string) || ''} onChange={e => updateForm('investigation_lead', e.target.value)} style={inputStyle} placeholder="ชื่อหัวหน้าทีม" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="rounded-lg p-2.5 mt-2" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.25)' }}>
+                    <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                      💡 <b>เลือกระดับตามความรุนแรง:</b> <b>L0</b> เหตุเล็กน้อย/ไม่บาดเจ็บ — บันทึกเท่านั้น · <b>L1 ACA</b> ปฐมพยาบาล/ทรัพย์สินเสียหายเล็กน้อย — วิเคราะห์สาเหตุที่เห็นชัด · <b>L2 RCA</b> บาดเจ็บ/หยุดงาน — วิเคราะห์สาเหตุราก · <b>L3</b> เหตุร้ายแรง/เสียชีวิต — ตั้งทีมสอบสวน
+                    </p>
+                  </div>
+
+                  {invLevel === '' && (
+                    <p style={{ fontSize: 11, color: 'var(--muted)', margin: '8px 0 0' }}>เลือกระดับการสอบสวนก่อน — ช่องกรอกจะแสดงตามระดับที่เลือก</p>
+                  )}
+                  {isL0 && (
+                    <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' }}>✓ Level 0: บันทึกเหตุการณ์เท่านั้น ไม่ต้องวิเคราะห์สาเหตุ — ข้ามไปกรอกส่วนถัดไปได้เลย</p>
+                  )}
+
+                  {/* L1+: apparent causes */}
+                  {showCauses && (
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <Label text="Immediate Cause (สาเหตุโดยตรง)" />
+                        <textarea value={(formData.immediate_cause as string) || ''} onChange={e => updateForm('immediate_cause', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="เช่น พื้นเปียกลื่น, ไม่สวมถุงมือ, การ์ดเครื่องจักรถูกถอด" />
+                        <p style={hintStyle}>สิ่งที่เห็นได้ทันที ณ จุดเกิดเหตุ — การกระทำ/สภาพการณ์ที่ไม่ปลอดภัย</p>
+                      </div>
+                      <div>
+                        <Label text="Contributing Cause (ปัจจัยเสริม)" />
+                        <textarea value={(formData.contributing_cause as string) || ''} onChange={e => updateForm('contributing_cause', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="เช่น แสงสว่างไม่พอ, เร่งงานตามกำหนด, อุปกรณ์ไม่พร้อม" />
+                        <p style={hintStyle}>ปัจจัยแวดล้อมที่ทำให้เหตุเกิดง่ายขึ้น (อาจมีหลายข้อ)</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* L2-L3: root cause analysis */}
+                  {showRca && (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 mt-3">
+                        <div>
+                          <Label text="RCA Method" />
+                          <select value={(formData.rca_method as string) || ''} onChange={e => updateForm('rca_method', e.target.value)} style={selectStyle}>
+                            <option value="">เลือก</option>
+                            {RCA_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                          <p style={hintStyle}>เครื่องมือที่ใช้วิเคราะห์ เช่น 5 Whys, Fishbone</p>
+                        </div>
+                        <div>
+                          <Label text="Root Cause Category" />
+                          <select value={(formData.root_cause_category as string) || ''} onChange={e => updateForm('root_cause_category', e.target.value)} style={selectStyle}>
+                            <option value="">เลือก</option>
+                            {RC_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <p style={hintStyle}>หมวดของสาเหตุราก (คน/เครื่อง/ระบบ/สภาพแวดล้อม)</p>
+                        </div>
+                        <div>
+                          <Label text="Barrier ที่ล้มเหลว" />
+                          <select value={(formData.barrier_failure as string) || ''} onChange={e => updateForm('barrier_failure', e.target.value)} style={selectStyle}>
+                            <option value="">เลือก</option>
+                            {BARRIER_FAILS.map(b => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                          <p style={hintStyle}>มาตรการป้องกันที่มีอยู่แต่ไม่ทำงาน</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <Label text="Root Cause Detail (สาเหตุราก)" />
+                          <textarea value={(formData.root_cause_detail as string) || ''} onChange={e => updateForm('root_cause_detail', e.target.value)} style={{ ...inputStyle, minHeight: 50 }} placeholder="เช่น ไม่มี WI สำหรับงานนี้, การอบรมไม่ครอบคลุม, ไม่มีการตรวจสอบ PM" />
+                          <p style={hintStyle}>สาเหตุเชิงระบบ — ถาม &ldquo;ทำไม&rdquo; ซ้ำจนถึงข้อบกพร่องของระบบ (ไม่ใช่โทษตัวบุคคล) ถ้าแก้ข้อนี้แล้วเหตุจะไม่เกิดซ้ำ</p>
+                        </div>
+                        <div>
+                          <Label text="Just Culture" />
+                          <select value={(formData.just_culture as string) || ''} onChange={e => updateForm('just_culture', e.target.value)} style={selectStyle}>
+                            <option value="">เลือก</option>
+                            {JUST_CULTURES.map(j => <option key={j} value={j}>{j}</option>)}
+                          </select>
+                          <p style={hintStyle}>จำแนกพฤติกรรมเพื่อตอบสนองอย่างเป็นธรรม: Human Error = พลาดสุจริต → แก้ระบบ · At-Risk = เคยชินความเสี่ยง → โค้ช · Reckless = จงใจฝ่าฝืน → วินัย</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Section 7: Corrective Action */}
