@@ -42,7 +42,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   const [injuredPersons, setInjuredPersons] = useState<Record<string, unknown>[]>([]);
   const [saving, setSaving] = useState(false);
 
-  /* Photo attachment state */
+  /* Photo attachment state — two groups: 'incident' (ขณะเกิดเหตุ) and 'after_fix' (หลังแก้ไข) */
   interface IncidentPhoto {
     id: string;
     incident_no: string;
@@ -50,14 +50,17 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     file_url: string;
     file_size: number;
     caption: string;
+    photo_type?: string; // 'incident' | 'after_fix'
     created_at: string;
   }
+  type PhotoType = 'incident' | 'after_fix';
   const [photos, setPhotos] = useState<IncidentPhoto[]>([]);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState<PhotoType | null>(null);
   const [photoError, setPhotoError] = useState('');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const MAX_PHOTOS = 5;
+  const fileInputAfterRef = useRef<HTMLInputElement>(null);
+  const MAX_PHOTOS = 5; // ต่อประเภท
 
   /* Document attachment state — PDF files or Drive/OneDrive links (max 2) */
   interface IncidentAttachment {
@@ -285,8 +288,8 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     setInjuredPersons(prev => prev.filter((_, i) => i !== idx));
   };
 
-  /* Photo upload handlers */
-  const handlePhotoUpload = async (files: FileList | null) => {
+  /* Photo upload handlers — per photo type */
+  const handlePhotoUpload = async (files: FileList | null, photoType: PhotoType) => {
     if (!files || files.length === 0) return;
 
     // Must have incident_no (saved incident)
@@ -296,15 +299,16 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       return;
     }
 
-    if (photos.length >= MAX_PHOTOS) {
-      setPhotoError(`แนบรูปได้สูงสุด ${MAX_PHOTOS} รูป`);
+    const typePhotos = photos.filter(p => (p.photo_type || 'incident') === photoType);
+    if (typePhotos.length >= MAX_PHOTOS) {
+      setPhotoError(`แนบรูปได้สูงสุด ${MAX_PHOTOS} รูปต่อประเภท`);
       return;
     }
 
     setPhotoError('');
-    setUploadingPhoto(true);
+    setUploadingPhoto(photoType);
 
-    const remainingSlots = MAX_PHOTOS - photos.length;
+    const remainingSlots = MAX_PHOTOS - typePhotos.length;
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
 
     for (const file of filesToUpload) {
@@ -312,6 +316,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       fd.append('file', file);
       fd.append('incident_no', incidentNo);
       fd.append('company_id', companyId);
+      fd.append('photo_type', photoType);
 
       try {
         const res = await fetch('/api/incidents/photos', { method: 'POST', body: fd });
@@ -326,9 +331,10 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       }
     }
 
-    setUploadingPhoto(false);
-    // Reset file input
+    setUploadingPhoto(null);
+    // Reset file inputs
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputAfterRef.current) fileInputAfterRef.current.value = '';
   };
 
   const handleDeletePhoto = async (photoId: string) => {
@@ -957,92 +963,96 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
           </div>
           )}
 
-          {/* Section: Photos */}
+          {/* Section: Photos — two groups: incident vs after fix */}
           <div>
             <SH num="📷" label="PHOTOS / รูปภาพประกอบ" bg="rgba(59,130,246,0.1)" fg="#2563eb" />
 
-            {/* Existing photos grid */}
-            {photos.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-3">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="relative group rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-                    <img
-                      src={photo.file_url}
-                      alt={photo.file_name}
-                      className="w-full h-24 object-cover cursor-pointer"
-                      onClick={() => setPreviewPhoto(photo.file_url)}
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <button
-                        onClick={() => handleDeletePhoto(photo.id)}
-                        className="p-1.5 rounded-full"
-                        style={{ background: 'rgba(239,68,68,0.9)' }}
-                        title="ลบรูป"
-                      >
-                        <Trash2 size={14} className="text-white" />
-                      </button>
-                    </div>
-                    <div className="px-2 py-1">
-                      <p className="text-[9px] truncate" style={{ color: 'var(--muted)' }}>{photo.file_name}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Upload area */}
-            {(formData.incident_no as string) ? (
-              photos.length < MAX_PHOTOS ? (
-                <div
-                  className="relative rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-400"
-                  style={{
-                    border: '2px dashed var(--border)',
-                    background: 'var(--bg-secondary)',
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#3b82f6'; }}
-                  onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
-                  onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; handlePhotoUpload(e.dataTransfer.files); }}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={e => handlePhotoUpload(e.target.files)}
-                  />
-                  {uploadingPhoto ? (
-                    <div className="flex items-center justify-center gap-2 py-2">
-                      <Loader2 size={18} className="animate-spin" style={{ color: 'var(--accent)' }} />
-                      <span className="text-[12px]" style={{ color: 'var(--accent)' }}>กำลังอัปโหลด...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-center gap-2 mb-1">
-                        <Camera size={20} style={{ color: 'var(--muted)' }} />
-                        <Upload size={16} style={{ color: 'var(--muted)' }} />
-                      </div>
-                      <p className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                        คลิกหรือลากรูปมาวางที่นี่
-                      </p>
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                        JPG, PNG, WebP (สูงสุด 10MB/รูป) — {photos.length}/{MAX_PHOTOS} รูป
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
-                  <ImageIcon size={14} /> แนบรูปครบ {MAX_PHOTOS} รูปแล้ว
-                </p>
-              )
-            ) : (
+            {!(formData.incident_no as string) ? (
               <div className="rounded-lg p-3 text-center" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)' }}>
                 <p className="text-[12px]" style={{ color: '#b45309' }}>
                   กรุณาบันทึกอุบัติเหตุก่อน จึงจะแนบรูปภาพได้
                 </p>
               </div>
+            ) : (
+              ([
+                { type: 'incident' as PhotoType, title: '🔴 รูปภาพการเกิดอุบัติเหตุ', hint: 'สภาพจุดเกิดเหตุ ความเสียหาย ขณะ/หลังเกิดเหตุทันที', ref: fileInputRef, accent: '#dc2626' },
+                { type: 'after_fix' as PhotoType, title: '🟢 รูปภาพหลังแก้ไข', hint: 'สภาพหลังดำเนินการแก้ไข/ปรับปรุงตาม Corrective Action', ref: fileInputAfterRef, accent: '#16a34a' },
+              ]).map(sec => {
+                const secPhotos = photos.filter(p => (p.photo_type || 'incident') === sec.type);
+                return (
+                  <div key={sec.type} className="mb-4">
+                    <div className="flex items-baseline gap-2 mb-2">
+                      <span className="text-[12px] font-bold" style={{ color: 'var(--text-primary)' }}>{sec.title}</span>
+                      <span className="text-[10px]" style={{ color: 'var(--muted)' }}>{sec.hint} — {secPhotos.length}/{MAX_PHOTOS} รูป</span>
+                    </div>
+
+                    {secPhotos.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-2">
+                        {secPhotos.map((photo) => (
+                          <div key={photo.id} className="relative group rounded-lg overflow-hidden" style={{ border: `1px solid ${sec.accent}44`, background: 'var(--bg-secondary)' }}>
+                            <img
+                              src={photo.file_url}
+                              alt={photo.file_name}
+                              className="w-full h-24 object-cover cursor-pointer"
+                              onClick={() => setPreviewPhoto(photo.file_url)}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                              <button
+                                onClick={() => handleDeletePhoto(photo.id)}
+                                className="p-1.5 rounded-full"
+                                style={{ background: 'rgba(239,68,68,0.9)' }}
+                                title="ลบรูป"
+                              >
+                                <Trash2 size={14} className="text-white" />
+                              </button>
+                            </div>
+                            <div className="px-2 py-1">
+                              <p className="text-[9px] truncate" style={{ color: 'var(--muted)' }}>{photo.file_name}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {secPhotos.length < MAX_PHOTOS ? (
+                      <div
+                        className="relative rounded-lg p-3 text-center cursor-pointer transition-all"
+                        style={{ border: '2px dashed var(--border)', background: 'var(--bg-secondary)' }}
+                        onClick={() => sec.ref.current?.click()}
+                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = sec.accent; }}
+                        onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+                        onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--border)'; handlePhotoUpload(e.dataTransfer.files, sec.type); }}
+                      >
+                        <input
+                          ref={sec.ref}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={e => handlePhotoUpload(e.target.files, sec.type)}
+                        />
+                        {uploadingPhoto === sec.type ? (
+                          <div className="flex items-center justify-center gap-2 py-1">
+                            <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />
+                            <span className="text-[12px]" style={{ color: 'var(--accent)' }}>กำลังอัปโหลด...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            <Camera size={16} style={{ color: 'var(--muted)' }} />
+                            <Upload size={13} style={{ color: 'var(--muted)' }} />
+                            <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>คลิกหรือลากรูปมาวางที่นี่</span>
+                            <span className="text-[9px]" style={{ color: 'var(--muted)' }}>JPG, PNG, WebP ≤10MB/รูป</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--muted)' }}>
+                        <ImageIcon size={14} /> แนบรูปครบ {MAX_PHOTOS} รูปแล้ว
+                      </p>
+                    )}
+                  </div>
+                );
+              })
             )}
 
             {photoError && (

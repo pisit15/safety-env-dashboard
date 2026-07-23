@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     const incidentNo = formData.get('incident_no') as string;
     const companyId = formData.get('company_id') as string;
     const caption = (formData.get('caption') as string) || '';
+    const photoType = (formData.get('photo_type') as string) === 'after_fix' ? 'after_fix' : 'incident';
 
     if (!file || !incidentNo || !companyId) {
       return NextResponse.json({ error: 'Missing required fields (file, incident_no, company_id)' }, { status: 400 });
@@ -59,14 +60,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabase();
 
-    // Check existing photo count
+    // Check existing photo count (per photo type)
     const { count } = await supabase
       .from('incident_photos')
       .select('id', { count: 'exact', head: true })
-      .eq('incident_no', incidentNo);
+      .eq('incident_no', incidentNo)
+      .eq('photo_type', photoType);
 
     if ((count || 0) >= MAX_PHOTOS) {
-      return NextResponse.json({ error: `แนบรูปได้สูงสุด ${MAX_PHOTOS} รูปต่อรายการ` }, { status: 400 });
+      return NextResponse.json({ error: `แนบรูปได้สูงสุด ${MAX_PHOTOS} รูปต่อประเภท` }, { status: 400 });
     }
 
     // Upload to Supabase Storage
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
         storage_path: storagePath,
         file_size: file.size,
         caption,
+        photo_type: photoType,
       })
       .select()
       .single();
