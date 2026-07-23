@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
+import { useAuth } from '@/components/AuthContext';
 import { X, Plus, Camera, Trash2, ImageIcon, Upload, Loader2, Save, CloudOff, CheckCircle2 } from 'lucide-react';
 import type { Incident } from '../types';
 import {
@@ -38,6 +39,11 @@ const SH = ({ num, label, bg, fg }: { num: string; label: string; bg: string; fg
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 export default function IncidentForm({ companyId, companyName, editingIncident, onClose, onSaved }: IncidentFormProps) {
+  const auth = useAuth();
+  // Display name of the logged-in user — sent with saves so the audit log shows who did it
+  const editorName = auth.isAdmin
+    ? (auth.adminName || 'Admin')
+    : (auth.companyAuth[companyId]?.displayName || '');
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [injuredPersons, setInjuredPersons] = useState<Record<string, unknown>[]>([]);
   const [saving, setSaving] = useState(false);
@@ -155,6 +161,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       const payload = {
         ...data,
         report_status: 'Draft',
+        performed_by: editorName,
         injured_persons: injured.length > 0 ? injured : undefined,
         ...(existingNo ? { incident_no: existingNo } : {}),
       };
@@ -181,7 +188,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     } catch {
       setDraftStatus('error');
     }
-  }, [draftIncidentNo]);
+  }, [draftIncidentNo, editorName]);
 
   // Debounced auto-save: trigger 2 seconds after last change
   useEffect(() => {
@@ -365,6 +372,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       const payload = {
         ...formData,
         report_status: 'Under Review', // Finalize: no longer a draft
+        performed_by: editorName,
         injured_persons: injuredPersons.length > 0 ? injuredPersons : undefined,
         ...(existingNo ? { incident_no: existingNo } : {}),
       };

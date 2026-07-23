@@ -271,6 +271,10 @@ export async function POST(request: NextRequest) {
     const injuredPersons = body.injured_persons;
     delete body.injured_persons;
 
+    // Capture performer name for audit log (not a DB column — strip before insert)
+    const performedBy = (body.performed_by as string) || '';
+    delete body.performed_by;
+
     // Strip computed/non-DB fields
     const NON_DB_FIELDS = ['totalCostVal', 'injured_persons_list', '_computed', '_index'];
     NON_DB_FIELDS.forEach(f => delete body[f]);
@@ -294,7 +298,7 @@ export async function POST(request: NextRequest) {
       companyId: data.company_id,
       module: 'incidents',
       action: 'create_incident',
-      performedBy: body.created_by || 'user',
+      performedBy: performedBy || (body.created_by as string) || 'user',
       newValue: `${data.incident_no} — ${data.incident_type || ''} ${data.location || ''}`.trim(),
     });
 
@@ -320,6 +324,10 @@ export async function PUT(request: NextRequest) {
     // Separate injured persons
     const injuredPersons = fields.injured_persons;
     delete fields.injured_persons;
+
+    // Capture performer name for audit log (not a DB column — strip before update)
+    const performedBy = (fields.performed_by as string) || '';
+    delete fields.performed_by;
 
     // Strip computed/non-DB fields that may leak from client
     const NON_DB_FIELDS = ['totalCostVal', 'injured_persons_list', '_computed', '_index'];
@@ -353,7 +361,7 @@ export async function PUT(request: NextRequest) {
       companyId: data.company_id,
       module: 'incidents',
       action: 'update_incident',
-      performedBy: fields.updated_by || 'user',
+      performedBy: performedBy || (fields.updated_by as string) || 'user',
       newValue: `${data.incident_no} — updated`,
     });
 
