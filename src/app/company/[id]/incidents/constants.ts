@@ -108,7 +108,8 @@ export const AGENCY_SOURCES = [
   'ยานพาหนะ', 'ไฟฟ้า', 'เศษวัสดุ ขยะ ', 'โครงสร้าง/อาคาร', 'อื่นๆ',
 ];
 
-export const SHIFTS = ['Day (08:00-18:00)', 'Night (20:00-08:00)', 'OT (กะกลางวัน)', 'OT (กะกลางคืน)'];
+// ไม่ระบุช่วงเวลา — เวลากะแต่ละบริษัทไม่เท่ากัน (เวลาที่เกิดเหตุจริงอยู่ในช่อง "เวลาเกิดเหตุ")
+export const SHIFTS = ['กะกลางวัน (Day)', 'กะกลางคืน (Night)', 'OT (กะกลางวัน)', 'OT (กะกลางคืน)'];
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const MONTH_TH: Record<string, string> = {
