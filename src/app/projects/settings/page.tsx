@@ -141,6 +141,7 @@ export default function AdminPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [auditPage, setAuditPage] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
   const AUDIT_PAGE_SIZE = 30;
   const [deadlineEnabled, setDeadlineEnabled] = useState(true);
   const [deadlineToggleLoading, setDeadlineToggleLoading] = useState(false);
@@ -338,13 +339,27 @@ export default function AdminPage() {
   };
 
   // Data fetchers
+  // Server-side pagination — default window: last 3 months (override with date filters)
   const fetchAudit = useCallback(() => {
     setLoading(true);
-    fetch(`/api/audit?companyId=${auditFilter}&limit=100`)
+    const params = new URLSearchParams({
+      companyId: auditFilter,
+      limit: String(AUDIT_PAGE_SIZE),
+      offset: String((auditPage - 1) * AUDIT_PAGE_SIZE),
+    });
+    if (dateFrom) {
+      params.set('from', new Date(dateFrom).toISOString());
+    } else {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 3);
+      params.set('from', d.toISOString());
+    }
+    if (dateTo) params.set('to', new Date(dateTo + 'T23:59:59').toISOString());
+    fetch(`/api/audit?${params.toString()}`)
       .then(r => r.json())
-      .then(d => { setAuditEntries(d.entries || []); setLoading(false); })
+      .then(d => { setAuditEntries(d.entries || []); setAuditTotal(d.total || 0); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [auditFilter]);
+  }, [auditFilter, auditPage, dateFrom, dateTo]);
 
   const fetchRequests = useCallback(() => {
     fetch(`/api/edit-requests?companyId=all&status=${requestFilter}`)
@@ -1450,20 +1465,16 @@ export default function AdminPage() {
             ) : (
               <>
                 {(() => {
-                  const filteredAudit = auditEntries.filter(e => {
-                    if (auditFilter !== 'all' && e.company_id !== auditFilter) return false;
-                    if (dateFrom && new Date(e.created_at) < new Date(dateFrom)) return false;
-                    if (dateTo && new Date(e.created_at) > new Date(dateTo + 'T23:59:59')) return false;
-                    return true;
-                  });
-                  const totalAuditPages = Math.ceil(filteredAudit.length / AUDIT_PAGE_SIZE);
-                  const pagedAudit = filteredAudit.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE);
+                  // Entries are already filtered + paged server-side
+                  const filteredAudit = auditEntries;
+                  const totalAuditPages = Math.max(1, Math.ceil(auditTotal / AUDIT_PAGE_SIZE));
+                  const pagedAudit = filteredAudit;
 
                   return (
                     <>
                       <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                         <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                          ทั้งหมด {filteredAudit.length} รายการ
+                          ทั้งหมด {auditTotal.toLocaleString()} รายการ {!dateFrom && '(3 เดือนล่าสุด)'}
                         </span>
                         {filteredAudit.length > 0 && (
                           <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -1550,7 +1561,7 @@ export default function AdminPage() {
                             ← ก่อนหน้า
                           </button>
                           <span style={{ padding: '6px 12px', color: 'var(--text-secondary)', fontSize: 13 }}>
-                            หน้า {auditPage} / {totalAuditPages} ({filteredAudit.length} รายการ)
+                            หน้า {auditPage} / {totalAuditPages} ({auditTotal.toLocaleString()} รายการ)
                           </span>
                           <button onClick={() => setAuditPage(p => Math.min(totalAuditPages, p+1))} disabled={auditPage === totalAuditPages}
                             style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', cursor: auditPage === totalAuditPages ? 'default' : 'pointer', opacity: auditPage === totalAuditPages ? 0.4 : 1 }}>
