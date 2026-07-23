@@ -575,7 +575,20 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             </div>
             <div className="mt-3">
               <Label text="รายละเอียดเหตุการณ์" />
-              <textarea value={(formData.description as string) || ''} onChange={e => updateForm('description', e.target.value)} style={{ ...inputStyle, minHeight: 80 }} placeholder="อธิบายรายละเอียดเหตุการณ์..." />
+              <textarea
+                value={(formData.description as string) || ''}
+                onChange={e => {
+                  updateForm('description', e.target.value);
+                  // Auto-grow to fit content
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.max(e.target.scrollHeight, 160)}px`;
+                }}
+                ref={el => {
+                  if (el) { el.style.height = 'auto'; el.style.height = `${Math.max(el.scrollHeight, 160)}px`; }
+                }}
+                style={{ ...inputStyle, minHeight: 160, fontSize: 14, lineHeight: 1.7, resize: 'vertical', overflow: 'hidden' }}
+                placeholder="อธิบายรายละเอียดเหตุการณ์..."
+              />
             </div>
             <div className="grid grid-cols-3 gap-3 mt-3">
               <div>
