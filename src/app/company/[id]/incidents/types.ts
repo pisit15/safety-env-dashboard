@@ -108,6 +108,7 @@ export const getTypeColor = (t: string): string => {
     'โรคจากการทำงาน': '#64748b',
     'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน': '#14b8a6',
     'สิ่งแวดล้อม': '#84cc16',
+    'เหตุการณ์สูญเสียการผลิต (Production Loss)': '#0ea5e9',
   };
   return TYPE_COLORS[t] || '#9ca3af';
 };

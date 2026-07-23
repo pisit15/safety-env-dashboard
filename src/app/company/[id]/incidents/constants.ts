@@ -6,6 +6,7 @@ export const INCIDENT_TYPES = [
   'บาดเจ็บ - ทำงานอย่างจำกัด', 'บาดเจ็บ - ไม่หยุดงาน',
   'ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล',
   'Near Miss', 'โรคจากการทำงาน', 'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน', 'สิ่งแวดล้อม',
+  'เหตุการณ์สูญเสียการผลิต (Production Loss)',
 ];
 
 export const ACTUAL_SEVERITIES = [
@@ -117,7 +118,7 @@ export const MONTH_TH: Record<string, string> = {
   Jul: 'ก.ค.', Aug: 'ส.ค.', Sep: 'ก.ย.', Oct: 'ต.ค.', Nov: 'พ.ย.', Dec: 'ธ.ค.',
 };
 
-export const NON_INJURY_TYPES = ['ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล', 'Near Miss', 'สิ่งแวดล้อม'];
+export const NON_INJURY_TYPES = ['ทรัพย์สินเสียหาย', 'เพลิงไหม้ (Fire)', 'สารเคมีรั่วไหล', 'Near Miss', 'สิ่งแวดล้อม', 'เหตุการณ์สูญเสียการผลิต (Production Loss)'];
 
 export const INJURY_TYPES_PART = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
 
@@ -135,6 +136,7 @@ export const TYPE_COLORS: Record<string, string> = {
   'โรคจากการทำงาน': '#64748b',
   'อุบัติเหตุระหว่าง บ้าน-ที่ทำงาน': '#14b8a6',
   'สิ่งแวดล้อม': '#84cc16',
+  'เหตุการณ์สูญเสียการผลิต (Production Loss)': '#0ea5e9',
 };
 
 // Dynamic year options: 2021..currentYear+1 (generated at runtime, not hardcoded)
