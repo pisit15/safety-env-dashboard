@@ -236,23 +236,31 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceSupabase();
     const body = await request.json();
 
-    // Generate incident_no if not provided
+    // Generate incident_no if not provided.
+    // Sequence is derived from the MAX existing number for the company+month prefix
+    // (counting rows breaks when a record in that month was deleted → duplicate key).
+    let autoNoPrefix: string | null = null;
+    const nextIncidentNo = async (prefix: string): Promise<string> => {
+      const { data: last } = await supabase
+        .from('incidents')
+        .select('incident_no')
+        .like('incident_no', `${prefix}%`)
+        .order('incident_no', { ascending: false })
+        .limit(1);
+      let seq = 1;
+      if (last && last.length > 0) {
+        const n = parseInt(String(last[0].incident_no).slice(prefix.length), 10);
+        if (!isNaN(n)) seq = n + 1;
+      }
+      return `${prefix}${String(seq).padStart(3, '0')}`;
+    };
     if (!body.incident_no) {
       const companyId = (body.company_id || '').toUpperCase();
       const date = new Date(body.incident_date);
       const mm = String(date.getMonth() + 1).padStart(2, '0');
       const yy = String(date.getFullYear()).slice(-2);
-
-      // Get count for this company/month/year
-      const { count } = await supabase
-        .from('incidents')
-        .select('id', { count: 'exact' })
-        .eq('company_id', body.company_id)
-        .gte('incident_date', `${date.getFullYear()}-${mm}-01`)
-        .lt('incident_date', `${date.getFullYear()}-${String(date.getMonth() + 2).padStart(2, '0')}-01`);
-
-      const seq = String((count || 0) + 1).padStart(3, '0');
-      body.incident_no = `${companyId}-${mm}-${yy}-${seq}`;
+      autoNoPrefix = `${companyId}-${mm}-${yy}-`;
+      body.incident_no = await nextIncidentNo(autoNoPrefix);
     }
 
     // Set computed fields
@@ -280,7 +288,15 @@ export async function POST(request: NextRequest) {
     NON_DB_FIELDS.forEach(f => delete body[f]);
     Object.keys(body).forEach(k => { if (k.startsWith('_')) delete body[k]; });
 
-    const { data, error } = await supabase.from('incidents').insert(body).select().single();
+    // Insert — retry with a fresh number if two saves collided on the same auto-generated no.
+    let insertRes = await supabase.from('incidents').insert(body).select().single();
+    let attempts = 0;
+    while (insertRes.error && autoNoPrefix && attempts < 3 && insertRes.error.message.includes('incidents_incident_no_key')) {
+      attempts++;
+      body.incident_no = await nextIncidentNo(autoNoPrefix);
+      insertRes = await supabase.from('incidents').insert(body).select().single();
+    }
+    const { data, error } = insertRes;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // Insert injured persons if any
