@@ -120,6 +120,7 @@ export const COMPANIES: CompanyConfig[] = [
   { id: 'mmr', name: 'MMR', shortName: 'MMR', fullName: 'Mine Mobility Research Co., Ltd. - วิจัยและพัฒนา EV', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
   { id: 'gtr', name: 'GTR', shortName: 'GTR', fullName: 'Green Technology Research Co., Ltd. - วิจัยเทคโนโลยีสีเขียว', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
   { id: 'swm', name: 'SWM', shortName: 'SWM', fullName: 'Smart Waste Management Co., Ltd. - จัดการขยะอัจฉริยะ', sheetId: '', safetySheet: '', enviSheet: '', group: 'Factory', bu: 'Waste Management' },
+  { id: 'aea', name: 'AEA', shortName: 'AEA', fullName: 'บริษัท ท่าอากาศยาน พลังงานบริสุทธิ์ จำกัด', sheetId: '', safetySheet: '', enviSheet: '', group: 'Non-Factory', bu: '' },
 ];
 
 export function getCompanyById(id: string): CompanyConfig | undefined {
