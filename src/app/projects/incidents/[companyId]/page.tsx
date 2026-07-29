@@ -449,9 +449,11 @@ export default function IncidentsPage() {
     const stacked: Record<string, Record<string, number>> = {};
     MONTHS.forEach(m => { stacked[m] = {}; });
     categoryIncidents.forEach(inc => {
-      const raw = inc.month;
-      const num = parseInt(String(raw));
-      const m = (num >= 1 && num <= 12) ? MONTHS[num - 1] : String(raw);
+      // Derive month from the actual incident_date — the stored month column
+      // drifted (mixed formats + not updated when the date was edited)
+      const d = new Date(inc.incident_date as string);
+      if (isNaN(d.getTime())) return;
+      const m = MONTHS[d.getMonth()];
       if (m && stacked[m] !== undefined) {
         const t = inc.incident_type || 'อื่นๆ';
         stacked[m][t] = (stacked[m][t] || 0) + 1;

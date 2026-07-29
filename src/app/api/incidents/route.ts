@@ -337,6 +337,18 @@ export async function PUT(request: NextRequest) {
 
     fields.updated_at = new Date().toISOString();
 
+    // Recompute derived date fields when the incident date changes
+    if (fields.incident_date) {
+      const d = new Date(fields.incident_date);
+      if (!isNaN(d.getTime())) {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+        fields.year = d.getFullYear();
+        fields.month = monthNames[d.getMonth()];
+        fields.day_of_week = dayNames[d.getDay()];
+      }
+    }
+
     // Separate injured persons
     const injuredPersons = fields.injured_persons;
     delete fields.injured_persons;
