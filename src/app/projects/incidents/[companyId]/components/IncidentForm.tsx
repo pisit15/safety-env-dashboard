@@ -160,7 +160,9 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       const method = existingNo ? 'PUT' : 'POST';
       const payload = {
         ...data,
-        report_status: 'Draft',
+        // Keep the existing status — auto-save must never downgrade a finalized
+        // report back to Draft (that hides it from the list view)
+        report_status: (data.report_status as string) || 'Draft',
         performed_by: editorName,
         injured_persons: injured.length > 0 ? injured : undefined,
         ...(existingNo ? { incident_no: existingNo } : {}),
