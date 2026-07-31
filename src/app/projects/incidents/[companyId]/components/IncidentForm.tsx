@@ -1017,9 +1017,15 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                               className="w-full h-24 object-cover cursor-pointer"
                               onClick={() => setPreviewPhoto(photo.file_url)}
                             />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            {/* Hover overlay — clicking it opens the preview (it covers the img, so it must forward the click) */}
+                            <div
+                              className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer"
+                              style={{ height: '6rem', top: 0 }}
+                              onClick={() => setPreviewPhoto(photo.file_url)}
+                              title="คลิกเพื่อขยายดูรูป"
+                            >
                               <button
-                                onClick={() => handleDeletePhoto(photo.id)}
+                                onClick={e => { e.stopPropagation(); handleDeletePhoto(photo.id); }}
                                 className="p-1.5 rounded-full"
                                 style={{ background: 'rgba(239,68,68,0.9)' }}
                                 title="ลบรูป"
