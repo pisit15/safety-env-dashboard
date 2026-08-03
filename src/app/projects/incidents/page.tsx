@@ -81,6 +81,7 @@ export default function HQIncidentsPage() {
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
   // 'all' | 'employee' | 'contractor' — scopes counts and rates across the whole overview
   const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
+  const [monthlyCaseType, setMonthlyCaseType] = useState<'all' | 'trc' | 'lti'>('all');
   // Business Unit scope — 'all' | 'factory' | 'nonfactory' | sub-BU key (battery, bio, wind, solar, waste, others)
   const [buFilter, setBuFilter] = useState<string>('all');
   const isFactory = (cid: string) => FACTORY_COMPANY_IDS.includes(cid);
@@ -216,9 +217,16 @@ export default function HQIncidentsPage() {
   });
 
   // Monthly counts per year (all companies combined)
+  // Case-type filter for the monthly comparison chart (ทั้งหมด / TRC / LTI)
+  const matchMonthlyCaseType = (i: { incident_type?: string }): boolean => {
+    const t = i.incident_type || '';
+    if (monthlyCaseType === 'trc') return INJURY_TYPES_P.some(p => t.includes(p));
+    if (monthlyCaseType === 'lti') return (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+    return true;
+  };
   const hqMonthlyByYear = [...selectedYears].sort().map(y => {
     const counts = new Array(12).fill(0);
-    baseInc.filter(i => i.year === y).forEach(i => {
+    baseInc.filter(i => i.year === y && matchMonthlyCaseType(i)).forEach(i => {
       let idx = -1;
       const mNum = parseInt(String(i.month));
       if (mNum >= 1 && mNum <= 12) idx = mNum - 1;
@@ -799,7 +807,20 @@ export default function HQIncidentsPage() {
               <div className="mb-6">
                 <YearlyTrendChart data={hqYearlyTrend} />
                 <YearlyCasesChart data={hqYearlyTrend} title="จำนวนเคสบาดเจ็บรายปี — TRC / LTI (ทุกบริษัท)" />
-                <MonthlyByYearChart series={hqMonthlyByYear} title="อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (ทุกบริษัท)" />
+                {/* Case-type chips for the monthly comparison chart */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16, fontSize: 12 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>ประเภทเคส:</span>
+                  {([['all', 'ทั้งหมด'], ['trc', 'TRC (บาดเจ็บ)'], ['lti', 'LTI (หยุดงาน)']] as const).map(([k, label]) => (
+                    <button key={k} onClick={() => setMonthlyCaseType(k)}
+                      style={{ padding: '4px 12px', borderRadius: 14, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid', borderColor: monthlyCaseType === k ? 'var(--accent)' : 'var(--border)', background: monthlyCaseType === k ? 'var(--accent)' : 'var(--card-solid)', color: monthlyCaseType === k ? '#fff' : 'var(--text-secondary)' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <MonthlyByYearChart
+                  series={hqMonthlyByYear}
+                  title={`อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (${monthlyCaseType === 'all' ? 'ทุกบริษัท ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะเคสบาดเจ็บ TRC' : 'เฉพาะเคสหยุดงาน LTI'})`}
+                />
                 <HqInjuryAnalytics
                   persons={hqInjured.persons.filter(p => inBu(hqInjured.map[p.incident_no]?.company_id || ''))}
                   incidentMap={hqInjured.map}
