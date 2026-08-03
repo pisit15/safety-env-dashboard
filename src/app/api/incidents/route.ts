@@ -299,12 +299,15 @@ export async function POST(request: NextRequest) {
     const { data, error } = insertRes;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Insert injured persons if any
+    // Insert injured persons if any — lost-time incident types force is_lti='ใช่'
     if (injuredPersons && Array.isArray(injuredPersons) && injuredPersons.length > 0) {
+      const t = String(data.incident_type || '');
+      const forceLti = (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
       const persons = injuredPersons.map((p: Record<string, unknown>, idx: number) => ({
         ...p,
         incident_no: data.incident_no,
         person_order: idx + 1,
+        ...(forceLti ? { is_lti: 'ใช่' } : {}),
       }));
       await supabase.from('injured_persons').insert(persons);
     }
@@ -370,15 +373,18 @@ export async function PUT(request: NextRequest) {
     const { data, error } = await query.select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // Update injured persons if provided
+    // Update injured persons if provided — lost-time incident types force is_lti='ใช่'
     if (injuredPersons && Array.isArray(injuredPersons)) {
       // Delete existing and re-insert
       await supabase.from('injured_persons').delete().eq('incident_no', data.incident_no);
       if (injuredPersons.length > 0) {
+        const t = String(data.incident_type || '');
+        const forceLti = (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
         const persons = injuredPersons.map((p: Record<string, unknown>, idx: number) => ({
           ...p,
           incident_no: data.incident_no,
           person_order: idx + 1,
+          ...(forceLti ? { is_lti: 'ใช่' } : {}),
         }));
         await supabase.from('injured_persons').insert(persons);
       }

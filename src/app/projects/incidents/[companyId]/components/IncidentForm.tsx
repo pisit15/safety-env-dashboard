@@ -275,8 +275,18 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     setTimeout(() => { isInitializing.current = false; }, 500);
   }, [editingIncident, companyId]);
 
+  /* True when the selected incident type implies lost time (หยุดงาน/เสียชีวิต) */
+  const isLtiIncidentType = (t: unknown): boolean => {
+    const s = String(t || '');
+    return (s.includes('หยุดงาน') && !s.includes('ไม่หยุดงาน')) || s === 'เสียชีวิต (Fatality)';
+  };
+
   const updateForm = (key: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [key]: value }));
+    // Auto-tick LTI on every injured person when the incident type is a lost-time type
+    if (key === 'incident_type' && isLtiIncidentType(value)) {
+      setInjuredPersons(prev => prev.map(p => ({ ...p, is_lti: 'ใช่' })));
+    }
   };
 
   /* Injured persons helpers */
@@ -284,7 +294,8 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     setInjuredPersons(prev => [...prev, {
       person_type: '', full_name: '', position: '', department: '', years_of_service: null,
       training_status: '', injury_severity: '', nature_of_injury: '', body_part: '', body_side: '',
-      injury_detail: '', is_lti: 'ไม่ใช่', lost_work_days: 0, leave_start_date: '', return_to_work_date: '',
+      injury_detail: '', is_lti: isLtiIncidentType(formData.incident_type) ? 'ใช่' : 'ไม่ใช่',
+      lost_work_days: 0, leave_start_date: '', return_to_work_date: '',
       treatment: '', hospital: '', medical_cost: 0,
     }]);
   };
