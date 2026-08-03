@@ -237,11 +237,31 @@ export default function HQIncidentsPage() {
     return { year: y, counts };
   });
 
-  // Cumulative (running total) version of the same series — follows the case-type toggle
-  const hqMonthlyByYearCum = hqMonthlyByYear.map(s => {
+  // Cumulative series per case type (TRC / LTI) — independent of the toggle above
+  const monthIdxOf = (i: { month?: unknown; incident_date?: string }): number => {
+    const mNum = parseInt(String(i.month));
+    if (mNum >= 1 && mNum <= 12) return mNum - 1;
+    if (MONTHS.includes(String(i.month))) return MONTHS.indexOf(String(i.month));
+    if (i.incident_date) return new Date(i.incident_date).getMonth();
+    return -1;
+  };
+  const cumSeriesFor = (type: 'trc' | 'lti') => [...selectedYears].sort().map(y => {
+    const counts = new Array(12).fill(0);
+    baseInc.filter(i => {
+      if (i.year !== y) return false;
+      const t = i.incident_type || '';
+      return type === 'trc'
+        ? INJURY_TYPES_P.some(p => t.includes(p))
+        : (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+    }).forEach(i => {
+      const idx = monthIdxOf(i);
+      if (idx >= 0 && idx < 12) counts[idx]++;
+    });
     let run = 0;
-    return { year: s.year, counts: s.counts.map(c => (run += c)) };
+    return { year: y, counts: counts.map(c => (run += c)) };
   });
+  const hqCumTrc = cumSeriesFor('trc');
+  const hqCumLti = cumSeriesFor('lti');
 
   // Per-company stats (only companies in the selected BU)
   const companyStats: Record<string, CompanyStat> = {};
@@ -828,10 +848,16 @@ export default function HQIncidentsPage() {
                   title={`อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (${monthlyCaseType === 'all' ? 'ทุกบริษัท ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะเคสบาดเจ็บ TRC' : 'เฉพาะเคสหยุดงาน LTI'})`}
                 />
                 <MonthlyByYearChart
-                  series={hqMonthlyByYearCum}
+                  series={hqCumTrc}
                   cumulative
-                  title={`อุบัติการณ์สะสมตั้งแต่ต้นปี — Cumulative (${monthlyCaseType === 'all' ? 'ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะ TRC บาดเจ็บ' : 'เฉพาะ LTI หยุดงาน'})`}
-                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เส้นราบ = เดือนที่ไม่มีเหตุเพิ่ม"
+                  title="เคสบาดเจ็บสะสมตั้งแต่ต้นปี — TRC (Cumulative)"
+                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสบาดเจ็บ/เสียชีวิต/โรคจากการทำงาน"
+                />
+                <MonthlyByYearChart
+                  series={hqCumLti}
+                  cumulative
+                  title="เคสหยุดงานสะสมตั้งแต่ต้นปี — LTI (Cumulative)"
+                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสหยุดงาน/เสียชีวิต"
                 />
                 <HqInjuryAnalytics
                   persons={hqInjured.persons.filter(p => inBu(hqInjured.map[p.incident_no]?.company_id || ''))}
