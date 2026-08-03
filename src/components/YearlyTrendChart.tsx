@@ -40,7 +40,7 @@ export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifr
   const plotH = H - padT - padB;
 
   const maxMh = Math.max(...points.map(p => p.mh), 1);
-  const maxRate = Math.max(...points.map(p => Math.max(p.trir, p.ltifr)), trirTarget, 1) * 1.15;
+  const maxRate = Math.max(...points.map(p => Math.max(p.trir, p.ltifr)), ltifrTarget, 1) * 1.15;
 
   const n = points.length;
   const slotW = plotW / Math.max(n, 1);
@@ -75,10 +75,7 @@ export default function YearlyTrendChart({ data, trirTarget = TRIR_TARGET, ltifr
                 <line key={f} x1={padL} x2={W - padR} y1={padT + plotH * f} y2={padT + plotH * f} stroke="var(--border)" strokeWidth={1} />
               ))}
 
-              {/* TRIR target line */}
-              <line x1={padL} x2={W - padR} y1={yRate(trirTarget)} y2={yRate(trirTarget)} stroke={C_TRIR} strokeWidth={1} strokeDasharray="5 4" opacity={0.55} />
-              <text x={W - padR + 4} y={yRate(trirTarget) + 3} fontSize={9} fill={C_TRIR} opacity={0.8}>อ้างอิง {trirTarget}</text>
-              {/* LTIFR target line */}
+              {/* LTIFR target line (TRIR reference line removed — no official TRIR target yet) */}
               <line x1={padL} x2={W - padR} y1={yRate(ltifrTarget)} y2={yRate(ltifrTarget)} stroke={C_LTIFR} strokeWidth={1} strokeDasharray="5 4" opacity={0.55} />
               <text x={W - padR + 4} y={yRate(ltifrTarget) + 3} fontSize={9} fill={C_LTIFR} opacity={0.8}>เป้า 2030 · {ltifrTarget}</text>
 
