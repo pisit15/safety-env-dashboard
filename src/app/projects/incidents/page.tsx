@@ -725,12 +725,13 @@ export default function HQIncidentsPage() {
               {/* ═══ Tier 2: Key Safety Rates — TRIR + LTIFR with targets ═══ */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
-                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: TRIR_TARGET, targetLabel: TRIR_TARGET_LABEL, icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}` },
-                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: LTIFR_TARGET, targetLabel: LTIFR_TARGET_LABEL, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
+                  // TRIR: no official target yet — show the value only, no target comparison
+                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: null as number | null, targetLabel: '', icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}` },
+                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: LTIFR_TARGET as number | null, targetLabel: LTIFR_TARGET_LABEL, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
                 ].map((kpi, idx) => {
                   const numVal = parseFloat(String(kpi.value));
-                  const aboveTarget = !isNaN(numVal) && numVal > kpi.target;
-                  const rateColor = kpi.value === 'N/A' ? '#9ca3af' : aboveTarget ? '#F28E2B' : '#2B8C3E';
+                  const aboveTarget = kpi.target !== null && !isNaN(numVal) && numVal > kpi.target;
+                  const rateColor = kpi.value === 'N/A' ? '#9ca3af' : kpi.target === null ? '#4E79A7' : aboveTarget ? '#F28E2B' : '#2B8C3E';
                   return (
                     <div key={idx} className="glass-card rounded-2xl p-4" style={{ borderLeft: `3px solid ${rateColor}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -740,14 +741,16 @@ export default function HQIncidentsPage() {
                         <span className="text-[11px] uppercase tracking-[0.06em] font-semibold" style={{ color: 'var(--muted)' }}>{kpi.label}</span>
                       </div>
                       <p style={{ fontSize: 28, fontWeight: 700, color: rateColor, lineHeight: 1 }}>{kpi.value}</p>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{kpi.targetLabel}</span>
-                        {!isNaN(numVal) && (
-                          <span style={{ fontSize: 11, fontWeight: 600, color: aboveTarget ? '#F28E2B' : '#2B8C3E' }}>
-                            {aboveTarget ? '↑ เกินเป้า' : '↓ ในเป้าหมาย'}
-                          </span>
-                        )}
-                      </div>
+                      {kpi.target !== null && (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{kpi.targetLabel}</span>
+                          {!isNaN(numVal) && (
+                            <span style={{ fontSize: 11, fontWeight: 600, color: aboveTarget ? '#F28E2B' : '#2B8C3E' }}>
+                              {aboveTarget ? '↑ เกินเป้า' : '↓ ในเป้าหมาย'}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {kpi.subtitle && <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{kpi.subtitle}</p>}
                     </div>
                   );

@@ -99,7 +99,8 @@ export default function OverviewWorkspace({
   // Tier 2: Key Rates (TRIR, LTIFR)
   type Tier2KPIItem = { label: string; value: string | number; target?: string; icon: typeof TrendingUp; color: string };
   const tier2Kpis: Tier2KPIItem[] = [
-    { label: 'TRIR', value: trirVal, target: TRIR_TARGET_LABEL, icon: TrendingUp, color: '#8b5cf6' },
+    // TRIR: no official target yet — value only, no comparison
+    { label: 'TRIR', value: trirVal, icon: TrendingUp, color: '#8b5cf6' },
     { label: 'LTIFR', value: ltifrVal, target: LTIFR_TARGET_LABEL, icon: TrendingDown, color: '#ec4899' },
   ];
 
@@ -158,8 +159,9 @@ export default function OverviewWorkspace({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {tier2Kpis.map((kpi) => {
           const Icon = kpi.icon;
-          const isAboveTarget = typeof kpi.value === 'string' && parseFloat(kpi.value) > (kpi.label === 'TRIR' ? TRIR_TARGET : LTIFR_TARGET);
-          const cardColor = isAboveTarget ? '#F28E2B' : '#2B8C3E';
+          const hasTarget = kpi.label === 'LTIFR';
+          const isAboveTarget = hasTarget && typeof kpi.value === 'string' && parseFloat(kpi.value) > LTIFR_TARGET;
+          const cardColor = !hasTarget ? kpi.color : isAboveTarget ? '#F28E2B' : '#2B8C3E';
           
           return (
             <div
@@ -171,15 +173,17 @@ export default function OverviewWorkspace({
                 <div>
                   <p className="text-[12px] font-medium" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</p>
                   <p className="text-[28px] font-bold mt-1" style={{ color: cardColor }}>{kpi.value}</p>
-                  <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>{kpi.target}</p>
+                  {kpi.target && <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>{kpi.target}</p>}
                 </div>
                 <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ background: `${cardColor}15` }}>
                   <Icon size={20} style={{ color: cardColor }} />
                 </div>
               </div>
-              <p className="text-[11px]" style={{ color: isAboveTarget ? '#F28E2B' : '#2B8C3E' }}>
-                {isAboveTarget ? '↑ ต้องปรับปรุง' : '↓ ในเป้าหมาย'}
-              </p>
+              {hasTarget && (
+                <p className="text-[11px]" style={{ color: isAboveTarget ? '#F28E2B' : '#2B8C3E' }}>
+                  {isAboveTarget ? '↑ ต้องปรับปรุง' : '↓ ในเป้าหมาย'}
+                </p>
+              )}
             </div>
           );
         })}
