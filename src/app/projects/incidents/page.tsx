@@ -237,6 +237,12 @@ export default function HQIncidentsPage() {
     return { year: y, counts };
   });
 
+  // Cumulative (running total) version of the same series — follows the case-type toggle
+  const hqMonthlyByYearCum = hqMonthlyByYear.map(s => {
+    let run = 0;
+    return { year: s.year, counts: s.counts.map(c => (run += c)) };
+  });
+
   // Per-company stats (only companies in the selected BU)
   const companyStats: Record<string, CompanyStat> = {};
   COMPANIES.forEach(c => {
@@ -820,6 +826,12 @@ export default function HQIncidentsPage() {
                 <MonthlyByYearChart
                   series={hqMonthlyByYear}
                   title={`อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (${monthlyCaseType === 'all' ? 'ทุกบริษัท ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะเคสบาดเจ็บ TRC' : 'เฉพาะเคสหยุดงาน LTI'})`}
+                />
+                <MonthlyByYearChart
+                  series={hqMonthlyByYearCum}
+                  cumulative
+                  title={`อุบัติการณ์สะสมตั้งแต่ต้นปี — Cumulative (${monthlyCaseType === 'all' ? 'ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะ TRC บาดเจ็บ' : 'เฉพาะ LTI หยุดงาน'})`}
+                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เส้นราบ = เดือนที่ไม่มีเหตุเพิ่ม"
                 />
                 <HqInjuryAnalytics
                   persons={hqInjured.persons.filter(p => inBu(hqInjured.map[p.incident_no]?.company_id || ''))}
