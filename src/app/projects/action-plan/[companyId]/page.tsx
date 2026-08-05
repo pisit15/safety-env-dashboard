@@ -1169,6 +1169,8 @@ export default function CompanyDrilldown() {
           requestedStatus,
           reason: reason.trim(),
           requestedBy: loginDisplayName || loginCompanyName,
+          // ชื่อกิจกรรม — เก็บไว้ให้หน้า Admin แสดงโดยไม่ต้องเปิด Sheet
+          activityName: (activities.find(a => a.no === actualAN || `${(a as { _planTag?: string })._planTag}:${a.no}` === editingCell.actNo)?.activity || ''),
         }),
       });
       const data = await res.json();

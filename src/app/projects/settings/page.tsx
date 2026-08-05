@@ -99,6 +99,7 @@ interface CancellationRequest {
   id: number; company_id: string; plan_type: string; activity_no: string;
   month: string; requested_status: string; reason: string; requested_by: string;
   status: string; reviewed_by: string; reviewed_at: string; created_at: string;
+  activity_name?: string;
 }
 
 interface Deadline {
@@ -145,6 +146,31 @@ export default function AdminPage() {
   const AUDIT_PAGE_SIZE = 30;
   const [deadlineEnabled, setDeadlineEnabled] = useState(true);
   const [deadlineToggleLoading, setDeadlineToggleLoading] = useState(false);
+  // Activity-name resolution for old requests that were saved without a name
+  // (names live in the Google Sheet — fetched once per company+plan)
+  const [actNameMap, setActNameMap] = useState<Record<string, string>>({});
+  const fetchedNamePairs = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const missing = cancellationRequests.filter(r => !r.activity_name);
+    const pairs = Array.from(new Set(missing.map(r => `${r.company_id}|${r.plan_type}`)));
+    pairs.forEach(pair => {
+      if (fetchedNamePairs.current.has(pair)) return;
+      fetchedNamePairs.current.add(pair);
+      const [cid, pt] = pair.split('|');
+      fetch(`/api/company?id=${cid}&plan=${pt}`)
+        .then(r => r.json())
+        .then(d => {
+          setActNameMap(prev => {
+            const next = { ...prev };
+            (d.activities || []).forEach((a: { no: string; activity: string }) => {
+              next[`${cid}|${pt}|${a.no}`] = a.activity;
+            });
+            return next;
+          });
+        })
+        .catch(() => {});
+    });
+  }, [cancellationRequests]);
 
   // Notification recipients (monthly email digest)
   interface NotifyRecipient {
@@ -1662,6 +1688,11 @@ export default function AdminPage() {
                             <span className="font-medium text-[13px]" style={{ color: 'var(--text-primary)' }}>{req.company_id.toUpperCase()}</span>
                             <span style={{ color: 'var(--border)' }} className="text-[11px]">|</span>
                             <span style={{ color: 'var(--text-secondary)' }} className="text-[11px]">{req.plan_type === 'safety' ? 'Safety' : 'Envi'} กิจกรรม {req.activity_no}</span>
+                            {(req.activity_name || actNameMap[`${req.company_id}|${req.plan_type}|${req.activity_no}`]) && (
+                              <span style={{ color: 'var(--text-primary)' }} className="text-[11px] font-medium">
+                                — {req.activity_name || actNameMap[`${req.company_id}|${req.plan_type}|${req.activity_no}`]}
+                              </span>
+                            )}
                             <span style={{ color: 'var(--border)' }} className="text-[11px]">|</span>
                             <span style={{ color: 'var(--text-secondary)' }} className="text-[11px]">{MONTH_LABELS[req.month] || req.month}</span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(100,100,255,0.15)', color: '#7b7bff' }}>

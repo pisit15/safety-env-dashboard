@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyId, planType, activityNo, month, requestedStatus, reason, requestedBy } = body;
+    const { companyId, planType, activityNo, month, requestedStatus, reason, requestedBy, activityName } = body;
 
     if (!companyId || !planType || !activityNo || !month || !requestedStatus || !reason) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
         requested_status: requestedStatus,
         reason,
         requested_by: requestedBy || '',
+        activity_name: activityName || '',
       })
       .select()
       .single();
