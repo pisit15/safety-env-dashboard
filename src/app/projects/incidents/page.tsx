@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
 import YearlyTrendChart from '@/components/YearlyTrendChart';
 import { TRIR_TARGET, TRIR_TARGET_LABEL, LTIFR_TARGET, LTIFR_TARGET_LABEL } from '@/lib/she-targets';
@@ -82,15 +83,19 @@ export default function HQIncidentsPage() {
   // 'all' | 'employee' | 'contractor' — scopes counts and rates across the whole overview
   const [personFilter, setPersonFilter] = useState<'all' | 'employee' | 'contractor'>('all');
   const [monthlyCaseType, setMonthlyCaseType] = useState<'all' | 'trc' | 'lti'>('all');
-  // Business Unit scope — 'all' | 'factory' | 'nonfactory' | sub-BU key (battery, bio, wind, solar, waste, others)
+  // Business Unit scope — quick modes ('all' | 'factory' | 'nonfactory')
+  // + multi-select sub-BU keys (e.g. เลือก พลังงานลม + โซล่าร์ พร้อมกันได้)
   const [buFilter, setBuFilter] = useState<string>('all');
+  const [buKeys, setBuKeys] = useState<string[]>([]);
   const isFactory = (cid: string) => FACTORY_COMPANY_IDS.includes(cid);
   const inBu = (cid: string) => {
+    if (buKeys.length > 0) {
+      return BUSINESS_UNITS.some(b => buKeys.includes(b.key) && b.companyIds.includes(cid));
+    }
     if (buFilter === 'all') return true;
     if (buFilter === 'factory') return isFactory(cid);
     if (buFilter === 'nonfactory') return !isFactory(cid);
-    const bu = BUSINESS_UNITS.find(b => b.key === buFilter);
-    return bu ? bu.companyIds.includes(cid) : true;
+    return true;
   };
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
@@ -646,37 +651,44 @@ export default function HQIncidentsPage() {
             {/* Business Unit scope — Factory / Non-Factory + sub-BUs */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-semibold mr-0.5" style={{ color: 'var(--muted)' }}>BU:</span>
-              {([['all', 'ทั้งหมด'], ['factory', 'Factory'], ['nonfactory', 'Non-Factory']] as const).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setBuFilter(k)}
-                  title={k === 'factory' ? 'AMT, AAB, MMC, EA Kabin, EBI' : k === 'nonfactory' ? 'บริษัทอื่นทั้งหมดนอกเหนือจากกลุ่มโรงงาน' : undefined}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
-                  style={{
-                    background: buFilter === k ? 'var(--accent)' : 'var(--bg-secondary)',
-                    color: buFilter === k ? '#fff' : 'var(--text-secondary)',
-                    border: `1px solid ${buFilter === k ? 'var(--accent)' : 'var(--border)'}`,
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
+              {([['all', 'ทั้งหมด'], ['factory', 'Factory'], ['nonfactory', 'Non-Factory']] as const).map(([k, label]) => {
+                const active = buKeys.length === 0 && buFilter === k;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => { setBuFilter(k); setBuKeys([]); }}
+                    title={k === 'factory' ? 'AMT, AAB, MMC, EA Kabin, EBI' : k === 'nonfactory' ? 'บริษัทอื่นทั้งหมดนอกเหนือจากกลุ่มโรงงาน' : undefined}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                    style={{
+                      background: active ? 'var(--accent)' : 'var(--bg-secondary)',
+                      color: active ? '#fff' : 'var(--text-secondary)',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
               <span style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 3px' }} />
-              {BUSINESS_UNITS.map(bu => (
-                <button
-                  key={bu.key}
-                  onClick={() => setBuFilter(bu.key)}
-                  title={`${bu.label} — ${bu.companyIds.map(c => c.toUpperCase()).join(', ')}`}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
-                  style={{
-                    background: buFilter === bu.key ? 'var(--accent)' : 'var(--bg-secondary)',
-                    color: buFilter === bu.key ? '#fff' : 'var(--text-secondary)',
-                    border: `1px solid ${buFilter === bu.key ? 'var(--accent)' : 'var(--border)'}`,
-                  }}
-                >
-                  {bu.shortLabel}
-                </button>
-              ))}
+              {BUSINESS_UNITS.map(bu => {
+                const active = buKeys.includes(bu.key);
+                return (
+                  <button
+                    key={bu.key}
+                    onClick={() => setBuKeys(prev => prev.includes(bu.key) ? prev.filter(k => k !== bu.key) : [...prev, bu.key])}
+                    title={`${bu.label} — ${bu.companyIds.map(c => c.toUpperCase()).join(', ')} (กดเลือกได้หลายกลุ่ม)`}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                    style={{
+                      background: active ? 'var(--accent)' : 'var(--bg-secondary)',
+                      color: active ? '#fff' : 'var(--text-secondary)',
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                    }}
+                  >
+                    {active ? '✓ ' : ''}{bu.shortLabel}
+                  </button>
+                );
+              })}
+              <span className="text-[10px]" style={{ color: 'var(--muted)' }}>· กลุ่มย่อยเลือกซ้อนกันได้</span>
             </div>
           </div>
         </div>
@@ -865,6 +877,102 @@ export default function HQIncidentsPage() {
                   workRelatedOnly={workRelatedOnly}
                   personFilter={personFilter}
                 />
+
+                {/* ═══ Property damage analytics — all companies ═══ */}
+                {(() => {
+                  const propInc = baseInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+                  const costOf = (i: Incident) => (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0);
+                  const totalCost = propInc.reduce((s, i) => s + costOf(i), 0);
+                  const byType: Record<string, { count: number; cost: number }> = {};
+                  const byCompany: Record<string, { count: number; cost: number }> = {};
+                  propInc.forEach(i => {
+                    const t = (i.property_damage_type as string) || 'ไม่ระบุ';
+                    byType[t] = byType[t] || { count: 0, cost: 0 };
+                    byType[t].count++; byType[t].cost += costOf(i);
+                    const c = i.company_id.toUpperCase();
+                    byCompany[c] = byCompany[c] || { count: 0, cost: 0 };
+                    byCompany[c].count++; byCompany[c].cost += costOf(i);
+                  });
+                  const topTypes = Object.entries(byType).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
+                  const topCompanies = Object.entries(byCompany).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
+                  const topCost = [...propInc].sort((a, b) => costOf(b) - costOf(a)).slice(0, 10);
+                  const maxTypeCount = Math.max(...topTypes.map(([, v]) => v.count), 1);
+                  const maxCompCount = Math.max(...topCompanies.map(([, v]) => v.count), 1);
+                  const fmtBaht = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(2)}M ฿` : v >= 1000 ? `${Math.round(v / 1000).toLocaleString()}K ฿` : `${v.toLocaleString()} ฿`;
+                  if (propInc.length === 0) return null;
+                  return (
+                    <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginTop: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>วิเคราะห์ทรัพย์สินเสียหาย — ทุกบริษัท</h3>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ · ค่าเสียหายรวม {fmtBaht(totalCost)} · ตามตัวกรองด้านบน</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
+                        {/* By damage type */}
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>ประเภทความเสียหาย</p>
+                          {topTypes.map(([t, v]) => (
+                            <div key={t} style={{ marginBottom: 8 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                                <span style={{ color: 'var(--text-primary)' }}>{t}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}><b style={{ color: 'var(--text-primary)' }}>{v.count}</b> เหตุ · {fmtBaht(v.cost)}</span>
+                              </div>
+                              <div style={{ height: 6, borderRadius: 3, background: 'var(--border)' }}>
+                                <div style={{ height: 6, borderRadius: 3, width: `${(v.count / maxTypeCount) * 100}%`, background: '#4E79A7' }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* By company */}
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>บริษัท</p>
+                          {topCompanies.map(([c, v]) => (
+                            <div key={c} style={{ marginBottom: 8 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                                <span style={{ color: 'var(--text-primary)' }}>{c}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}><b style={{ color: 'var(--text-primary)' }}>{v.count}</b> เหตุ · {fmtBaht(v.cost)}</span>
+                              </div>
+                              <div style={{ height: 6, borderRadius: 3, background: 'var(--border)' }}>
+                                <div style={{ height: 6, borderRadius: 3, width: `${(v.count / maxCompCount) * 100}%`, background: '#F28E2B' }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Top 10 by cost */}
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>ค่าเสียหายสูงสุด (Top 10)</p>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ color: 'var(--text-secondary)', textAlign: 'left' }}>
+                              <th style={{ padding: '5px 8px' }}>บริษัท</th>
+                              <th style={{ padding: '5px 8px' }}>เลขที่เหตุการณ์</th>
+                              <th style={{ padding: '5px 8px' }}>วันที่</th>
+                              <th style={{ padding: '5px 8px' }}>ประเภทความเสียหาย</th>
+                              <th style={{ padding: '5px 8px' }}>รายละเอียด</th>
+                              <th style={{ padding: '5px 8px', textAlign: 'right' }}>ค่าเสียหาย (฿)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {topCost.map(i => (
+                              <tr key={i.incident_no} style={{ borderTop: '1px solid var(--border)' }}>
+                                <td style={{ padding: '6px 8px' }}>
+                                  <Link href={`/projects/incidents/${i.company_id}`} style={{ color: '#4E79A7', fontWeight: 700, textDecoration: 'none' }}>{i.company_id.toUpperCase()}</Link>
+                                </td>
+                                <td style={{ padding: '6px 8px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{i.incident_no}</td>
+                                <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                                <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{(i.property_damage_type as string) || '—'}</td>
+                                <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={(i.property_damage_detail as string) || (i.description as string) || ''}>
+                                  {(i.property_damage_detail as string) || (i.description as string) || '—'}
+                                </td>
+                                <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: costOf(i) > 0 ? '#E15759' : 'var(--text-secondary)' }}>{costOf(i).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* ═══ Quick Manhours Entry (Admin) ═══ */}
