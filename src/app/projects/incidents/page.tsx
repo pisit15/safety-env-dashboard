@@ -107,6 +107,8 @@ export default function HQIncidentsPage() {
   const [pdMetric, setPdMetric] = useState<'cost' | 'count'>('cost');
   const [pdEventMode, setPdEventMode] = useState<'select' | 'stack'>('select');
   const [pdEventSel, setPdEventSel] = useState<string>('ทั้งหมด');
+  // Drill-down: click a bar → list the underlying incidents
+  const [pdDrill, setPdDrill] = useState<{ title: string; items: Incident[] } | null>(null);
   // Table filter from alert clicks
   const [tableFilter, setTableFilter] = useState<'all' | 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH'>('all');
   // Column sorting
@@ -1013,8 +1015,15 @@ export default function HQIncidentsPage() {
                         if (yearsSel.length === 0) return null;
                         const fmtCompact = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v / 1000)}K` : `${Math.round(v)}`;
                         // Grouped bar renderer: companies on X, one bar per year
+                        // เปิด modal รายละเอียดเคสของแท่งที่คลิก
+                        const openDrill = (c: string, y: number, extra?: (i: Incident) => boolean, extraLabel?: string) => {
+                          const items = propInc
+                            .filter(i => i.company_id.toUpperCase() === c && yrOf(i) === y && (!extra || extra(i)))
+                            .sort((a, b) => costOf(b) - costOf(a));
+                          setPdDrill({ title: `${c} · ${y}${extraLabel ? ` · ${extraLabel}` : ''} — ${items.length} เหตุ · รวม ${fmtBaht(items.reduce((s, i) => s + costOf(i), 0))}`, items });
+                        };
                         // frac (ถ้ามี) = สัดส่วนส่วนล่างของแท่ง (direct) — ส่วนบนวาดสีอ่อน (indirect)
-                        const groupedBars = (comps: string[], val: (c: string, y: number) => number, fmt: (v: number) => string, frac?: (c: string, y: number) => number) => {
+                        const groupedBars = (comps: string[], val: (c: string, y: number) => number, fmt: (v: number) => string, frac?: (c: string, y: number) => number, onBar?: (c: string, y: number) => void) => {
                           const bw = 22, gap = 4;
                           const gw = yearsSel.length * (bw + gap) + 26;
                           const W = 30 + comps.length * gw;
@@ -1031,13 +1040,16 @@ export default function HQIncidentsPage() {
                                       const x = 22 + ci * gw + yi * (bw + gap);
                                       const f = frac ? Math.max(0, Math.min(1, frac(c, y))) : 1;
                                       const hDirect = h * f;
+                                      const clickable = onBar && v > 0;
                                       return (
-                                        <g key={y}>
+                                        <g key={y} onClick={clickable ? () => onBar(c, y) : undefined} style={clickable ? { cursor: 'pointer' } : undefined}>
+                                          {/* พื้นที่คลิกเต็มแท่ง */}
+                                          {clickable && <rect x={x - 2} y={30} width={bw + 4} height={140} fill="transparent" />}
                                           {/* ส่วนบน = indirect (สีอ่อน) */}
                                           {f < 1 && <rect x={x} y={168 - h} width={bw} height={h - hDirect} rx={2} fill={YEAR_COLORS[yi % 6]} opacity={0.35} />}
                                           {/* ส่วนล่าง = direct (สีเข้ม) */}
                                           <rect x={x} y={168 - hDirect} width={bw} height={Math.max(hDirect, v > 0 ? 2 : 0)} rx={2} fill={YEAR_COLORS[yi % 6]} opacity={0.9} />
-                                          {v > 0 && <text x={x + bw / 2} y={162 - h} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)">{fmt(v)}</text>}
+                                          {v > 0 && <text x={x + bw / 2} y={162 - h} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{fmt(v)}</text>}
                                         </g>
                                       );
                                     })}
@@ -1119,14 +1131,15 @@ export default function HQIncidentsPage() {
                                       const x = 22 + ci * gw + yi * (bw + gap);
                                       let yCur = 168;
                                       return (
-                                        <g key={y}>
+                                        <g key={y} onClick={total > 0 ? () => openDrill(c, y) : undefined} style={total > 0 ? { cursor: 'pointer' } : undefined}>
+                                          {total > 0 && <rect x={x - 2} y={30} width={bw + 4} height={140} fill="transparent" />}
                                           {segs.map(([e, n]) => {
                                             if (n === 0) return null;
                                             const h = (n / maxV) * 130;
                                             yCur -= h;
                                             return <rect key={e} x={x} y={yCur} width={bw} height={h} fill={evColor(e)} opacity={0.9} />;
                                           })}
-                                          {total > 0 && <text x={x + bw / 2} y={yCur - 4} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)">{total}</text>}
+                                          {total > 0 && <text x={x + bw / 2} y={yCur - 4} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{total}</text>}
                                         </g>
                                       );
                                     })}
@@ -1144,14 +1157,14 @@ export default function HQIncidentsPage() {
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                  {pdMetric === 'cost' ? 'มูลค่าความเสียหาย' : 'จำนวนเหตุ'}รายบริษัท — เทียบรายปี (Top 8)
+                                  {pdMetric === 'cost' ? 'มูลค่าความเสียหาย' : 'จำนวนเหตุ'}รายบริษัท — เทียบรายปี (Top 8) <span style={{ fontWeight: 400, fontSize: 10.5, color: 'var(--text-secondary)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
                                 </p>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                   {toggleBtn(pdMetric === 'cost', 'มูลค่า ฿', () => setPdMetric('cost'))}
                                   {toggleBtn(pdMetric === 'count', 'จำนวนเหตุ', () => setPdMetric('count'))}
                                 </div>
                               </div>
-                              {groupedBars(c1Comps, c1Val, pdMetric === 'cost' ? fmtCompact : v => String(v), pdMetric === 'cost' ? c1DirectFrac : undefined)}
+                              {groupedBars(c1Comps, c1Val, pdMetric === 'cost' ? fmtCompact : v => String(v), pdMetric === 'cost' ? c1DirectFrac : undefined, (c, y) => openDrill(c, y))}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                                   {yearLegend}
@@ -1180,7 +1193,7 @@ export default function HQIncidentsPage() {
                                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                                     {eventChips.map(e => toggleBtn(pdEventSel === e, e, () => setPdEventSel(e)))}
                                   </div>
-                                  {c2Comps.length > 0 ? groupedBars(c2Comps, c2Val, v => String(v)) : <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ไม่มีข้อมูลเหตุการณ์นี้ตามตัวกรอง</p>}
+                                  {c2Comps.length > 0 ? groupedBars(c2Comps, c2Val, v => String(v), undefined, (c, y) => openDrill(c, y, c2Match, pdEventSel === 'ทั้งหมด' ? undefined : pdEventSel)) : <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ไม่มีข้อมูลเหตุการณ์นี้ตามตัวกรอง</p>}
                                   {yearLegend}
                                 </>
                               ) : (
@@ -1193,10 +1206,57 @@ export default function HQIncidentsPage() {
                                       </span>
                                     ))}
                                   </div>
-                                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '6px 0 0' }}>แท่ง = บริษัท×ปี (เรียงปีซ้าย→ขวาในแต่ละบริษัท) · สีในแท่ง = สัดส่วนเหตุการณ์</p>
+                                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '6px 0 0' }}>แท่ง = บริษัท×ปี (เรียงปีซ้าย→ขวาในแต่ละบริษัท) · สีในแท่ง = สัดส่วนเหตุการณ์ · คลิกแท่งเพื่อดูรายการเคส</p>
                                 </>
                               )}
                             </div>
+
+                            {/* Drill-down modal: รายการเคสของแท่งที่คลิก */}
+                            {pdDrill && (
+                              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setPdDrill(null)}>
+                                <div style={{ background: 'var(--card-solid)', borderRadius: 14, padding: '18px 22px', maxWidth: 900, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                    <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{pdDrill.title}</h4>
+                                    <button onClick={() => setPdDrill(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-secondary)', padding: 4 }}>✕</button>
+                                  </div>
+                                  <div style={{ overflowY: 'auto', overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                                      <thead>
+                                        <tr style={{ color: 'var(--text-secondary)', textAlign: 'left', position: 'sticky', top: 0, background: 'var(--card-solid)' }}>
+                                          <th style={{ padding: '5px 8px' }}>เลขที่เหตุการณ์</th>
+                                          <th style={{ padding: '5px 8px' }}>วันที่</th>
+                                          <th style={{ padding: '5px 8px' }}>เหตุการณ์</th>
+                                          <th style={{ padding: '5px 8px' }}>ทรัพย์สิน / ลักษณะ</th>
+                                          <th style={{ padding: '5px 8px' }}>รายละเอียด</th>
+                                          <th style={{ padding: '5px 8px', textAlign: 'right' }}>Direct (฿)</th>
+                                          <th style={{ padding: '5px 8px', textAlign: 'right' }}>Indirect (฿)</th>
+                                          <th style={{ padding: '5px 8px', textAlign: 'right' }}>รวม (฿)</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {pdDrill.items.map(i => (
+                                          <tr key={i.incident_no} style={{ borderTop: '1px solid var(--border)' }}>
+                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                                              <Link href={`/projects/incidents/${i.company_id}`} style={{ color: '#4E79A7', fontWeight: 700, fontFamily: 'monospace', textDecoration: 'none' }}>{i.incident_no}</Link>
+                                            </td>
+                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                                            <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 150 }}>{(i.contact_type as string) || '—'}</td>
+                                            <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 150 }}>{[(i.damaged_asset as string), (i.damage_nature as string)].filter(Boolean).join(' · ') || '—'}</td>
+                                            <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={(i.property_damage_detail as string) || (i.description as string) || ''}>
+                                              {(i.property_damage_detail as string) || (i.description as string) || '—'}
+                                            </td>
+                                            <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{(Number(i.direct_cost) || 0).toLocaleString()}</td>
+                                            <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{(Number(i.indirect_cost) || 0).toLocaleString()}</td>
+                                            <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: costOf(i) > 0 ? '#E15759' : 'var(--text-secondary)' }}>{costOf(i).toLocaleString()}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '8px 0 0' }}>เรียงตามค่าเสียหายมาก→น้อย · คลิกเลขที่เหตุการณ์เพื่อเปิดหน้าบริษัทนั้น</p>
+                                </div>
+                              </div>
+                            )}
                           </>
                         );
                       })()}
