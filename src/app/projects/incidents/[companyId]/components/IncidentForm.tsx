@@ -455,7 +455,10 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       const method = existingNo ? 'PUT' : 'POST';
       const payload = {
         ...formData,
-        report_status: 'Under Review', // Finalize: no longer a draft
+        // Finalize: Draft ยกระดับเป็น Under Review แต่ถ้าผู้ใช้เลือกสถานะสูงกว่าไว้ (Approved/Closed) ต้องคงตามนั้น
+        report_status: (formData.report_status as string) && (formData.report_status as string) !== 'Draft'
+          ? (formData.report_status as string)
+          : 'Under Review',
         performed_by: editorName,
         injured_persons: injuredPersons.length > 0 ? injuredPersons : undefined,
         ...(existingNo ? { incident_no: existingNo } : {}),
