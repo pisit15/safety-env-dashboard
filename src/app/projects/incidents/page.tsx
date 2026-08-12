@@ -1020,7 +1020,7 @@ export default function HQIncidentsPage() {
                           const maxV = Math.max(...comps.flatMap(c => yearsSel.map(y => val(c, y))), 1);
                           return (
                             <div style={{ overflowX: 'auto' }}>
-                              <svg viewBox={`0 0 ${W} 205`} style={{ width: '100%', minWidth: Math.min(W, 900), height: 'auto' }}>
+                              <svg viewBox={`0 0 ${W} 205`} style={{ width: '100%', maxWidth: Math.max(W * 1.6, 620), height: 'auto', display: 'block', margin: '0 auto' }}>
                                 <line x1={14} y1={168} x2={W - 10} y2={168} stroke="var(--border)" strokeWidth={1} />
                                 {comps.map((c, ci) => (
                                   <g key={c}>
@@ -1094,7 +1094,7 @@ export default function HQIncidentsPage() {
                           const maxV = Math.max(...totals, 1);
                           return (
                             <div style={{ overflowX: 'auto' }}>
-                              <svg viewBox={`0 0 ${W} 205`} style={{ width: '100%', minWidth: Math.min(W, 900), height: 'auto' }}>
+                              <svg viewBox={`0 0 ${W} 205`} style={{ width: '100%', maxWidth: Math.max(W * 1.6, 620), height: 'auto', display: 'block', margin: '0 auto' }}>
                                 <line x1={14} y1={168} x2={W - 10} y2={168} stroke="var(--border)" strokeWidth={1} />
                                 {stComps.map((c, ci) => (
                                   <g key={c}>
