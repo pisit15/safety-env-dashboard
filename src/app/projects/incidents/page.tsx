@@ -553,6 +553,11 @@ export default function HQIncidentsPage() {
                 </p>
               )}
             </div>
+            <Link href="/projects/incidents/settings"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+              ⚙ ตั้งค่ารายการจำแนก
+            </Link>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
             {/* Wave A: Year Presets */}

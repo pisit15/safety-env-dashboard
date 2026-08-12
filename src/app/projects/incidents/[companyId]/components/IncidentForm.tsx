@@ -26,6 +26,59 @@ interface IncidentFormProps {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Classification master item + searchable single-select             */
+/* ------------------------------------------------------------------ */
+export interface RefItem { id: number; name: string; grp: string; sort_order: number; is_active: boolean }
+
+// Searchable dropdown for long classification lists (่>20 รายการห้ามใช้ select ธรรมดา)
+// — พิมพ์ค้นหาได้ทั้งชื่อและกลุ่ม เลือกจากรายการ หรือพิมพ์ค่าเองก็ได้
+function RefSelect({ value, placeholder, options, onChange, style }: {
+  value: string;
+  placeholder?: string;
+  options: { name: string; grp?: string }[];
+  onChange: (v: string) => void;
+  style: React.CSSProperties;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState<string | null>(null); // null = ยังไม่พิมพ์ค้นหา (แสดงทั้งหมด)
+  const shown = value;
+  const query = (q ?? '').trim().toLowerCase();
+  const filtered = (query
+    ? options.filter(o => o.name.toLowerCase().includes(query) || (o.grp || '').toLowerCase().includes(query))
+    : options
+  ).slice(0, 60);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={q ?? shown}
+        onChange={e => { setQ(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => { setQ(null); setOpen(true); }}
+        onBlur={() => setTimeout(() => { setOpen(false); setQ(null); }, 150)}
+        placeholder={placeholder || 'พิมพ์ค้นหา/เลือกจากรายการ...'}
+        style={style}
+      />
+      {open && filtered.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 2, background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 230, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+          {filtered.map(o => (
+            <button
+              key={o.name}
+              type="button"
+              onMouseDown={e => { e.preventDefault(); onChange(o.name); setQ(null); setOpen(false); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', fontSize: 12, background: o.name === value ? 'var(--bg-secondary)' : 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-primary)' }}
+            >
+              <span style={{ fontWeight: 600 }}>{o.name}</span>
+              {o.grp && <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 10 }}>{o.grp}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DOWNTIMES = ['ไม่กระทบ', '< 1 ชม.', '1–8 ชม.', '1–3 วัน', '> 3 วัน'];
+
+/* ------------------------------------------------------------------ */
 /*  Section header                                                     */
 /* ------------------------------------------------------------------ */
 const SH = ({ num, label, bg, fg }: { num: string; label: string; bg: string; fg: string }) => (
@@ -47,6 +100,24 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [injuredPersons, setInjuredPersons] = useState<Record<string, unknown>[]>([]);
   const [saving, setSaving] = useState(false);
+
+  /* Classification masters (แกน 1-3) — โหลดจาก DB, fallback เป็นค่าคงที่เดิม */
+  const [refEvents, setRefEvents] = useState<RefItem[]>([]);
+  const [refSources, setRefSources] = useState<RefItem[]>([]);
+  const [refNatures, setRefNatures] = useState<RefItem[]>([]);
+  useEffect(() => {
+    fetch('/api/incidents/refs')
+      .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { events?: RefItem[]; sources?: RefItem[]; damage_natures?: RefItem[] }) => {
+        setRefEvents((d.events || []).filter(x => x.is_active));
+        setRefSources((d.sources || []).filter(x => x.is_active));
+        setRefNatures((d.damage_natures || []).filter(x => x.is_active));
+      })
+      .catch(() => { /* fallback to constants below */ });
+  }, []);
+  const eventOptions = refEvents.length > 0 ? refEvents.map(x => ({ name: x.name, grp: x.grp })) : CONTACT_TYPES.map(n => ({ name: n }));
+  const sourceOptions = refSources.length > 0 ? refSources.map(x => ({ name: x.name, grp: x.grp })) : AGENCY_SOURCES.map(n => ({ name: n }));
+  const natureOptions = refNatures.map(x => ({ name: x.name, grp: x.grp }));
 
   /* Photo attachment state — two groups: 'incident' (ขณะเกิดเหตุ) and 'after_fix' (หลังแก้ไข) */
   interface IncidentPhoto {
@@ -579,17 +650,16 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               </div>
               <div>
                 <Label text="เหตุการณ์/การสัมผัส" />
-                <select value={(formData.contact_type as string) || ''} onChange={e => updateForm('contact_type', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <RefSelect value={(formData.contact_type as string) || ''} options={eventOptions} onChange={v => updateForm('contact_type', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ตกจากที่สูง, ไฟไหม้..." />
               </div>
               <div>
                 <Label text="แหล่งที่มาอุบัติเหตุ" />
-                <select value={(formData.agency_source as string) || ''} onChange={e => updateForm('agency_source', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {AGENCY_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <RefSelect value={(formData.agency_source as string) || ''} options={sourceOptions} onChange={v => updateForm('agency_source', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ยานพาหนะ, สัตว์..." />
+              </div>
+              <div>
+                <Label text="แหล่งที่มาต้นทาง (ถ้ามี)" />
+                <RefSelect value={(formData.secondary_source as string) || ''} options={sourceOptions} onChange={v => updateForm('secondary_source', v)} style={inputStyle} placeholder="เช่น สัตว์กัดสายไฟจนไฟไหม้ → ต้นทาง: สัตว์" />
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>กรณีมีต้นเหตุอีกชั้น เช่น งูทำให้ไฟฟ้าลัดวงจร — แหล่งที่มา = ไฟฟ้า, ต้นทาง = สัตว์เลื้อยคลาน</div>
               </div>
               </>
               )}
@@ -635,12 +705,23 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             <SH num="4" label="PROPERTY DAMAGE" bg="rgba(168,85,247,0.1)" fg="#7c3aed" />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label text="ประเภททรัพย์สินเสียหาย" />
-                <select value={(formData.property_damage_type as string) || ''} onChange={e => updateForm('property_damage_type', e.target.value)} style={selectStyle}>
-                  <option value="">เลือก</option>
-                  {PROP_DMG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <Label text="ทรัพย์สินที่เสียหาย" />
+                <RefSelect value={(formData.damaged_asset as string) || ''} options={sourceOptions} onChange={v => updateForm('damaged_asset', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น รถยนต์, แผงโซล่าร์..." />
               </div>
+              <div>
+                <Label text="ลักษณะความเสียหาย" />
+                <RefSelect value={(formData.damage_nature as string) || ''} options={natureOptions} onChange={v => updateForm('damage_nature', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ไหม้, แตกหัก, บุบ..." />
+              </div>
+              {!!(formData.property_damage_type as string) && (
+                <div>
+                  <Label text="ประเภททรัพย์สินเสียหาย (ระบบเดิม)" />
+                  <select value={(formData.property_damage_type as string) || ''} onChange={e => updateForm('property_damage_type', e.target.value)} style={selectStyle}>
+                    <option value="">เลือก</option>
+                    {PROP_DMG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    {!PROP_DMG_TYPES.includes(formData.property_damage_type as string) && <option value={formData.property_damage_type as string}>{formData.property_damage_type as string}</option>}
+                  </select>
+                </div>
+              )}
               <div>
                 <Label text="อุปกรณ์ดับเพลิงที่ใช้" />
                 <input type="text" value={(formData.fire_equipment_used as string) || ''} onChange={e => updateForm('fire_equipment_used', e.target.value)} style={inputStyle} placeholder="ถ้ามี" />
@@ -672,6 +753,13 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 </select>
               </div>
               <div>
+                <Label text="ระยะเวลาหยุดการผลิต" />
+                <select value={(formData.production_downtime as string) || ''} onChange={e => updateForm('production_downtime', e.target.value)} style={selectStyle}>
+                  <option value="">เลือก</option>
+                  {DOWNTIMES.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
                 <Label text="สถานะเคลมประกัน" />
                 <select value={(formData.insurance_claim as string) || ''} onChange={e => updateForm('insurance_claim', e.target.value)} style={selectStyle}>
                   <option value="">เลือก</option>
@@ -679,6 +767,20 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 </select>
               </div>
             </div>
+            {(() => {
+              const dmgCost = (Number(formData.direct_cost) || 0) + (Number(formData.indirect_cost) || 0);
+              if (dmgCost <= 0) return null;
+              const band = dmgCost < 10000 ? { n: 1, t: 'น้อยกว่า 10,000 บาท', c: '#59A14F' }
+                : dmgCost < 100000 ? { n: 2, t: '10,000 – 100,000 บาท', c: '#F28E2B' }
+                : dmgCost < 1000000 ? { n: 3, t: '100,000 – 1,000,000 บาท', c: '#E15759' }
+                : { n: 4, t: 'มากกว่า 1,000,000 บาท', c: '#B22222' };
+              return (
+                <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'var(--bg-secondary)', border: `1px solid ${band.c}`, fontSize: 11 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: band.c }} />
+                  ระดับความรุนแรงมูลค่าความเสียหาย: <b style={{ color: band.c }}>ระดับ {band.n}</b> ({band.t}) — คำนวณอัตโนมัติจากค่าเสียหายรวม {dmgCost.toLocaleString()} บาท
+                </div>
+              );
+            })()}
           </div>
 
           {/* Section 6: Investigation — fields appear based on investigation level */}
