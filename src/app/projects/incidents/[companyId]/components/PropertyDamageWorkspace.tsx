@@ -489,6 +489,13 @@ export default function PropertyDamageWorkspace({
                           {cmpMetric === 'cost' && h - hDir > 0.5 && <rect x={x} y={155 - h} width={50} height={h - hDir} rx={3} fill={col} opacity={0.3} />}
                           <rect x={x} y={155 - hDir} width={50} height={Math.max(hDir, total > 0 ? 2 : 0)} rx={3} fill={col} opacity={0.9} />
                           {total > 0 && <text x={x + 25} y={148 - h} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{cmpMetric === 'cost' ? fmtCostShort(total) : total}</text>}
+                          {/* ตัวเลขย่อยในแต่ละชั้น (แสดงเมื่อชั้นสูงพอ) */}
+                          {cmpMetric === 'cost' && hDir >= 14 && d.direct > 0 && (
+                            <text x={x + 25} y={155 - hDir / 2 + 3.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#fff" style={{ pointerEvents: 'none' }}>{fmtCostShort(d.direct)}</text>
+                          )}
+                          {cmpMetric === 'cost' && h - hDir >= 14 && d.indirect > 0 && (
+                            <text x={x + 25} y={155 - hDir - (h - hDir) / 2 + 3.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{fmtCostShort(d.indirect)}</text>
+                          )}
                           <text x={x + 25} y={172} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-secondary)">{y}</text>
                         </g>
                       );
