@@ -37,6 +37,8 @@ import {
 /* ─── helpers (pure functions, no state) ─── */
 
 const isInjuryType = (t: string) => INJURY_TYPES_PART.some(p => t.includes(p));
+// หมวด "ความสูญเสีย" = ทรัพย์สินเสียหาย + เหตุการณ์สูญเสียการผลิต (นำเสนอผู้บริหารเห็นความสูญเสียรวม)
+const LOSS_TYPES = ['ทรัพย์สินเสียหาย', 'เหตุการณ์สูญเสียการผลิต (Production Loss)'];
 const isLtiType = (t: string) =>
   (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
 
@@ -268,7 +270,7 @@ export default function IncidentsPage() {
   const categoryIncidents = useMemo(() =>
     baseIncidents.filter(inc => {
       if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
-      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      if (incidentCategory === 'property') return LOSS_TYPES.includes(inc.incident_type || '');
       return true;
     }),
     [baseIncidents, incidentCategory]
@@ -372,7 +374,7 @@ export default function IncidentsPage() {
   const yearlyTrend = useMemo(() => {
     const catFiltered = baseIncidents.filter(inc => {
       if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
-      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      if (incidentCategory === 'property') return LOSS_TYPES.includes(inc.incident_type || '');
       return true;
     });
 
@@ -400,7 +402,7 @@ export default function IncidentsPage() {
   const monthlyByYear = useMemo(() => {
     const catFiltered = baseIncidents.filter(inc => {
       if (incidentCategory === 'injury') return isInjuryType(inc.incident_type || '');
-      if (incidentCategory === 'property') return inc.incident_type === 'ทรัพย์สินเสียหาย';
+      if (incidentCategory === 'property') return LOSS_TYPES.includes(inc.incident_type || '');
       return true;
     });
     return [...selectedYears].sort().map(y => {
@@ -518,7 +520,7 @@ export default function IncidentsPage() {
       results.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
       if (workRelatedOnly) allInc = allInc.filter(i => i.work_related === 'ใช่');
       if (incidentCategory === 'injury') allInc = allInc.filter(i => isInjuryType(i.incident_type || ''));
-      if (incidentCategory === 'property') allInc = allInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+      if (incidentCategory === 'property') allInc = allInc.filter(i => LOSS_TYPES.includes(i.incident_type || ''));
       // List-view filters (client-side — rows for the selected years are already loaded)
       if (filterSeverity) allInc = allInc.filter(i => ((i.actual_severity as string) || '').startsWith(filterSeverity));
       if (filterStatus) allInc = allInc.filter(i => ((i.report_status as string) || 'Draft') === filterStatus);

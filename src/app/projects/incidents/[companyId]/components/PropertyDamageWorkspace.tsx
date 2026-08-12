@@ -287,6 +287,8 @@ export default function PropertyDamageWorkspace({
   // ---- Quick filter chips ----
   const chipFilters: { label: string; field: string; value: string; count?: number; color?: string }[] = [
     { label: 'ทั้งหมด', field: '', value: '', count: categoryIncidents.length },
+    { label: 'ทรัพย์สินเสียหาย', field: 'incident_type', value: 'ทรัพย์สินเสียหาย', count: categoryIncidents.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย').length, color: '#1e40af' },
+    { label: 'Production Loss', field: 'incident_type', value: 'เหตุการณ์สูญเสียการผลิต (Production Loss)', count: categoryIncidents.filter(i => i.incident_type === 'เหตุการณ์สูญเสียการผลิต (Production Loss)').length, color: '#0ea5e9' },
     { label: 'Open/Draft', field: '_status', value: 'open', count: openRecords.length, color: '#d97706' },
     { label: 'High Cost', field: '_highcost', value: 'high', count: highCostRecords.length, color: '#dc2626' },
     { label: 'ไม่ระบุประเภท', field: '_missing_type', value: 'missing', count: missingDmgType.length, color: '#9333ea' },

@@ -927,7 +927,11 @@ export default function HQIncidentsPage() {
 
                 {/* ═══ Property damage analytics — all companies ═══ */}
                 {(() => {
-                  const propInc = baseInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย');
+                  // ความสูญเสียรวม = ทรัพย์สินเสียหาย + เหตุการณ์สูญเสียการผลิต
+                  const LOSS_TYPES_HQ = ['ทรัพย์สินเสียหาย', 'เหตุการณ์สูญเสียการผลิต (Production Loss)'];
+                  const propInc = baseInc.filter(i => LOSS_TYPES_HQ.includes(i.incident_type || ''));
+                  const nProp = propInc.filter(i => i.incident_type === 'ทรัพย์สินเสียหาย').length;
+                  const nProd = propInc.length - nProp;
                   const costOf = (i: Incident) => (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0);
                   const totalCost = propInc.reduce((s, i) => s + costOf(i), 0);
                   const byType: Record<string, { count: number; cost: number }> = {};
@@ -974,8 +978,8 @@ export default function HQIncidentsPage() {
                   return (
                     <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginTop: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>วิเคราะห์ทรัพย์สินเสียหาย — ทุกบริษัท</h3>
-                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ · ค่าเสียหายรวม {fmtBaht(totalCost)} · ตามตัวกรองด้านบน</span>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>วิเคราะห์ความสูญเสีย — ทรัพย์สินเสียหาย + Production Loss (ทุกบริษัท)</h3>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ (ทรัพย์สิน {nProp} · Production Loss {nProd}) · ค่าเสียหายรวม {fmtBaht(totalCost)} · ตามตัวกรองด้านบน</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
                         {/* แกนที่ 1: เหตุการณ์/การสัมผัส */}
