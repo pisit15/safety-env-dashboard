@@ -562,6 +562,28 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                     : '⚡ ฟอร์มจะซ่อนส่วนข้อมูลการบาดเจ็บ (ไม่เกี่ยวข้อง)'}
                 </p>
               )}
+              {/* เฟส 2: ผลกระทบเพิ่มเติม — เหตุเดียวกระทบหลายด้าน (ไม่เปลี่ยนประเภทหลัก/ไม่กระทบ TRIR) */}
+              {selectedType && (
+                <div className="mt-2 pt-2" style={{ borderTop: '1px dashed var(--border)' }}>
+                  <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>ผลกระทบเพิ่มเติม (ถ้ามี — เลือกได้หลายข้อ):</span>
+                  <div className="flex flex-wrap gap-3 mt-1">
+                    {['บาดเจ็บ', 'ทรัพย์สินเสียหาย', 'สูญเสียการผลิต', 'สิ่งแวดล้อม'].map(o => {
+                      const cur = ((formData.additional_outcomes as string) || '').split(',').filter(Boolean);
+                      const checked = cur.includes(o);
+                      return (
+                        <label key={o} className="flex items-center gap-1.5 text-[12px] cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => {
+                              const next = checked ? cur.filter(x => x !== o) : [...cur, o];
+                              updateForm('additional_outcomes', next.join(','));
+                            }} />
+                          {o}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>

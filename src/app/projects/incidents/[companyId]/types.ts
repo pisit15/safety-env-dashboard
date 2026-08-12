@@ -29,6 +29,13 @@ export interface Incident {
   direct_cost?: number;
   indirect_cost?: number;
   report_status?: string;
+  // Classification axes (เฟส 1) — filled from masters in incident_ref_* tables
+  damaged_asset?: string;       // ทรัพย์สินที่เสียหาย (source master)
+  damage_nature?: string;       // ลักษณะความเสียหาย (damage nature master)
+  secondary_source?: string;    // แหล่งที่มาต้นทาง (source master, optional)
+  production_downtime?: string; // ระยะเวลาหยุดการผลิต (5 bands)
+  classification_status?: string; // '' | 'auto' (rule backfill) | 'review' (ทีมต้องตรวจ/เติม)
+  additional_outcomes?: string;   // ผลกระทบเพิ่มเติมนอกเหนือประเภทหลัก (comma-separated)
   [key: string]: unknown;
 }
 

@@ -890,19 +890,42 @@ export default function HQIncidentsPage() {
                   const totalCost = propInc.reduce((s, i) => s + costOf(i), 0);
                   const byType: Record<string, { count: number; cost: number }> = {};
                   const byCompany: Record<string, { count: number; cost: number }> = {};
+                  const byAsset: Record<string, { count: number; cost: number }> = {};
+                  const byNature: Record<string, { count: number; cost: number }> = {};
+                  const animalByMonth: number[] = Array(12).fill(0);
+                  const isAnimal = (i: Incident) => ((i.secondary_source as string) || '').startsWith('สัตว์') || ((i.agency_source as string) || '').startsWith('สัตว์');
                   propInc.forEach(i => {
-                    const t = (i.property_damage_type as string) || 'ไม่ระบุ';
+                    // แกนที่ 1: เหตุการณ์/การสัมผัส (ครบทุกเคสหลัง backfill)
+                    const t = (i.contact_type as string) || 'ไม่ระบุ';
                     byType[t] = byType[t] || { count: 0, cost: 0 };
                     byType[t].count++; byType[t].cost += costOf(i);
                     const c = i.company_id.toUpperCase();
                     byCompany[c] = byCompany[c] || { count: 0, cost: 0 };
                     byCompany[c].count++; byCompany[c].cost += costOf(i);
+                    // แกนที่ 2+3
+                    const a = (i.damaged_asset as string) || '';
+                    if (a) { byAsset[a] = byAsset[a] || { count: 0, cost: 0 }; byAsset[a].count++; byAsset[a].cost += costOf(i); }
+                    const n = (i.damage_nature as string) || '';
+                    if (n) { byNature[n] = byNature[n] || { count: 0, cost: 0 }; byNature[n].count++; byNature[n].cost += costOf(i); }
+                    // สัตว์ตามฤดูกาล
+                    if (isAnimal(i)) {
+                      const m = new Date(i.incident_date).getMonth();
+                      if (m >= 0 && m <= 11) animalByMonth[m]++;
+                    }
                   });
                   const topTypes = Object.entries(byType).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
                   const topCompanies = Object.entries(byCompany).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
+                  const topAssets = Object.entries(byAsset).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
+                  const topNatures = Object.entries(byNature).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
                   const topCost = [...propInc].sort((a, b) => costOf(b) - costOf(a)).slice(0, 10);
                   const maxTypeCount = Math.max(...topTypes.map(([, v]) => v.count), 1);
                   const maxCompCount = Math.max(...topCompanies.map(([, v]) => v.count), 1);
+                  const maxAssetCount = Math.max(...topAssets.map(([, v]) => v.count), 1);
+                  const maxNatureCount = Math.max(...topNatures.map(([, v]) => v.count), 1);
+                  const animalTotal = animalByMonth.reduce((s, v) => s + v, 0);
+                  const maxAnimal = Math.max(...animalByMonth, 1);
+                  const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+                  const reviewQueue = propInc.filter(i => (i.classification_status as string) === 'review');
                   const fmtBaht = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(2)}M ฿` : v >= 1000 ? `${Math.round(v / 1000).toLocaleString()}K ฿` : `${v.toLocaleString()} ฿`;
                   if (propInc.length === 0) return null;
                   return (
@@ -912,9 +935,9 @@ export default function HQIncidentsPage() {
                         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ · ค่าเสียหายรวม {fmtBaht(totalCost)} · ตามตัวกรองด้านบน</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
-                        {/* By damage type */}
+                        {/* แกนที่ 1: เหตุการณ์/การสัมผัส */}
                         <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>ประเภทความเสียหาย</p>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>เหตุการณ์/การสัมผัส</p>
                           {topTypes.map(([t, v]) => (
                             <div key={t} style={{ marginBottom: 8 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
@@ -927,6 +950,40 @@ export default function HQIncidentsPage() {
                             </div>
                           ))}
                         </div>
+                        {/* แกนที่ 2: ทรัพย์สินที่เสียหาย */}
+                        {topAssets.length > 0 && (
+                          <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>ทรัพย์สินที่เสียหาย</p>
+                            {topAssets.map(([t, v]) => (
+                              <div key={t} style={{ marginBottom: 8 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                                  <span style={{ color: 'var(--text-primary)' }}>{t}</span>
+                                  <span style={{ color: 'var(--text-secondary)' }}><b style={{ color: 'var(--text-primary)' }}>{v.count}</b> เหตุ · {fmtBaht(v.cost)}</span>
+                                </div>
+                                <div style={{ height: 6, borderRadius: 3, background: 'var(--border)' }}>
+                                  <div style={{ height: 6, borderRadius: 3, width: `${(v.count / maxAssetCount) * 100}%`, background: '#59A14F' }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* แกนที่ 3: ลักษณะความเสียหาย */}
+                        {topNatures.length > 0 && (
+                          <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>ลักษณะความเสียหาย</p>
+                            {topNatures.map(([t, v]) => (
+                              <div key={t} style={{ marginBottom: 8 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                                  <span style={{ color: 'var(--text-primary)' }}>{t}</span>
+                                  <span style={{ color: 'var(--text-secondary)' }}><b style={{ color: 'var(--text-primary)' }}>{v.count}</b> เหตุ · {fmtBaht(v.cost)}</span>
+                                </div>
+                                <div style={{ height: 6, borderRadius: 3, background: 'var(--border)' }}>
+                                  <div style={{ height: 6, borderRadius: 3, width: `${(v.count / maxNatureCount) * 100}%`, background: '#E15759' }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         {/* By company */}
                         <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
                           <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>บริษัท</p>
@@ -943,6 +1000,50 @@ export default function HQIncidentsPage() {
                           ))}
                         </div>
                       </div>
+
+                      {/* สัตว์ทำความเสียหาย — รายเดือน (ฤดูกาล) */}
+                      {animalTotal > 0 && (
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>🐍 เหตุจากสัตว์ — แนวโน้มรายเดือน (รวมทุกปีที่เลือก)</p>
+                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{animalTotal} เหตุ</span>
+                          </div>
+                          <svg viewBox="0 0 720 130" style={{ width: '100%', height: 'auto' }}>
+                            {animalByMonth.map((v, m) => {
+                              const bw = 44; const x = 16 + m * 58; const h = (v / maxAnimal) * 80;
+                              return (
+                                <g key={m}>
+                                  <rect x={x} y={100 - h} width={bw} height={h} rx={3} fill={v === maxAnimal && v > 0 ? '#E15759' : '#59A14F'} opacity={0.85} />
+                                  {v > 0 && <text x={x + bw / 2} y={94 - h} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-primary)">{v}</text>}
+                                  <text x={x + bw / 2} y={116} textAnchor="middle" fontSize={10} fill="var(--text-secondary)">{TH_MONTHS[m]}</text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                          <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '4px 0 0' }}>นับจากเคสที่แหล่งที่มาหรือต้นทางเป็นสัตว์ · เดือนสีแดง = สูงสุด ใช้วางแผนป้องกันตามฤดูกาล</p>
+                        </div>
+                      )}
+
+                      {/* คิวรอตรวจสอบการจำแนก */}
+                      {reviewQueue.length > 0 && (
+                        <div style={{ background: 'rgba(242,142,43,0.08)', border: '1px solid rgba(242,142,43,0.35)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                            ⏳ รอทีมตรวจสอบการจำแนก {reviewQueue.length} เหตุ
+                          </p>
+                          <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px' }}>
+                            เคสที่ระบบจำแนกอัตโนมัติไม่ได้ครบ (เช่น สายส่ง Trip ไม่ทราบต้นทาง) — เปิดเหตุการณ์ในหน้าบริษัทเพื่อเติม เหตุการณ์/แหล่งที่มา/ต้นทาง/ลักษณะความเสียหาย
+                          </p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {Object.entries(reviewQueue.reduce((acc: Record<string, number>, i) => { acc[i.company_id.toUpperCase()] = (acc[i.company_id.toUpperCase()] || 0) + 1; return acc; }, {}))
+                              .sort((a, b) => b[1] - a[1])
+                              .map(([c, n]) => (
+                                <Link key={c} href={`/projects/incidents/${c.toLowerCase()}`} style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 12, background: 'var(--card-solid)', border: '1px solid var(--border)', color: '#F28E2B', textDecoration: 'none' }}>
+                                  {c} · {n}
+                                </Link>
+                              ))}
+                          </div>
+                        </div>
+                      )}
                       {/* Top 10 by cost */}
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>ค่าเสียหายสูงสุด (Top 10)</p>
                       <div style={{ overflowX: 'auto' }}>
@@ -952,7 +1053,7 @@ export default function HQIncidentsPage() {
                               <th style={{ padding: '5px 8px' }}>บริษัท</th>
                               <th style={{ padding: '5px 8px' }}>เลขที่เหตุการณ์</th>
                               <th style={{ padding: '5px 8px' }}>วันที่</th>
-                              <th style={{ padding: '5px 8px' }}>ประเภทความเสียหาย</th>
+                              <th style={{ padding: '5px 8px' }}>ทรัพย์สิน / ลักษณะความเสียหาย</th>
                               <th style={{ padding: '5px 8px' }}>รายละเอียด</th>
                               <th style={{ padding: '5px 8px', textAlign: 'right' }}>ค่าเสียหาย (฿)</th>
                             </tr>
@@ -965,7 +1066,7 @@ export default function HQIncidentsPage() {
                                 </td>
                                 <td style={{ padding: '6px 8px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{i.incident_no}</td>
                                 <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
-                                <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{(i.property_damage_type as string) || '—'}</td>
+                                <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{[(i.damaged_asset as string), (i.damage_nature as string)].filter(Boolean).join(' · ') || (i.property_damage_type as string) || '—'}</td>
                                 <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={(i.property_damage_detail as string) || (i.description as string) || ''}>
                                   {(i.property_damage_detail as string) || (i.description as string) || '—'}
                                 </td>
