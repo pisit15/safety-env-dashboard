@@ -109,6 +109,18 @@ export default function HQIncidentsPage() {
   const [pdEventSel, setPdEventSel] = useState<string>('ทั้งหมด');
   // Drill-down: click a bar → list the underlying incidents
   const [pdDrill, setPdDrill] = useState<{ title: string; items: Incident[] } | null>(null);
+  // Click an incident no → read-only case detail inside the modal (+ photos fetched on open)
+  const [pdCase, setPdCase] = useState<Incident | null>(null);
+  const [pdCasePhotos, setPdCasePhotos] = useState<{ file_url: string; photo_type?: string; caption?: string }[] | null>(null);
+  const [pdImgView, setPdImgView] = useState<string | null>(null);
+  const openPdCase = (i: Incident) => {
+    setPdCase(i);
+    setPdCasePhotos(null);
+    fetch(`/api/incidents/photos?incident_no=${encodeURIComponent(i.incident_no)}`)
+      .then(r => r.json())
+      .then(d => setPdCasePhotos(d.photos || []))
+      .catch(() => setPdCasePhotos([]));
+  };
   // Table filter from alert clicks
   const [tableFilter, setTableFilter] = useState<'all' | 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH'>('all');
   // Column sorting
@@ -1213,8 +1225,91 @@ export default function HQIncidentsPage() {
 
                             {/* Drill-down modal: รายการเคสของแท่งที่คลิก */}
                             {pdDrill && (
-                              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setPdDrill(null)}>
+                              <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => { setPdDrill(null); setPdCase(null); }}>
                                 <div style={{ background: 'var(--card-solid)', borderRadius: 14, padding: '18px 22px', maxWidth: 900, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                                  {pdCase ? (() => {
+                                    const F = (v: unknown) => (v === null || v === undefined || v === '' || v === 0 ? '—' : String(v));
+                                    const row = (label: string, v: unknown) => (
+                                      <div style={{ display: 'flex', gap: 8, padding: '3px 0', fontSize: 12 }}>
+                                        <span style={{ minWidth: 150, color: 'var(--text-secondary)', flexShrink: 0 }}>{label}</span>
+                                        <span style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{F(v)}</span>
+                                      </div>
+                                    );
+                                    const sec = (t: string) => <p style={{ fontSize: 11.5, fontWeight: 700, color: '#4E79A7', margin: '12px 0 4px', borderBottom: '1px solid var(--border)', paddingBottom: 3 }}>{t}</p>;
+                                    const c = pdCase;
+                                    const incPhotos = (pdCasePhotos || []).filter(p => (p.photo_type || 'incident') === 'incident');
+                                    const fixPhotos = (pdCasePhotos || []).filter(p => p.photo_type === 'after_fix');
+                                    const photoGrid = (ps: typeof incPhotos) => (
+                                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                                        {ps.map((p, idx) => (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img key={idx} src={p.file_url} alt={p.caption || 'photo'} onClick={() => setPdImgView(p.file_url)}
+                                            style={{ width: 110, height: 82, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'zoom-in' }} />
+                                        ))}
+                                      </div>
+                                    );
+                                    return (
+                                      <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                            <button onClick={() => setPdCase(null)} style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer' }}>← กลับรายการ</button>
+                                            <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'monospace' }}>{c.incident_no}</h4>
+                                            <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 10, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>{F(c.report_status)}</span>
+                                            <Link href={`/projects/incidents/${c.company_id}`} style={{ fontSize: 11, color: '#4E79A7', fontWeight: 600 }}>เปิดหน้าบริษัท ↗</Link>
+                                          </div>
+                                          <button onClick={() => { setPdDrill(null); setPdCase(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-secondary)', padding: 4 }}>✕</button>
+                                        </div>
+                                        <div style={{ overflowY: 'auto', paddingRight: 6 }}>
+                                          {sec('ข้อมูลทั่วไป')}
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: 24 }}>
+                                            {row('วันที่ / เวลา', `${new Date(c.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}${c.incident_time ? ` · ${c.incident_time}` : ''}`)}
+                                            {row('กะการทำงาน', c.shift)}
+                                            {row('ผู้รายงาน', c.reporter)}
+                                            {row('แผนก', c.department)}
+                                            {row('พื้นที่เกิดเหตุ', c.area)}
+                                            {row('กิจกรรมขณะเกิดเหตุ', c.activity)}
+                                            {row('สภาพแวดล้อม', c.environment)}
+                                            {row('เครื่องจักร/อุปกรณ์', c.equipment)}
+                                          </div>
+                                          {sec('การจำแนก')}
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: 24 }}>
+                                            {row('ประเภทอุบัติการณ์', c.incident_type)}
+                                            {row('ความรุนแรง', c.actual_severity)}
+                                            {row('เหตุการณ์/การสัมผัส', c.contact_type)}
+                                            {row('แหล่งที่มา', c.agency_source)}
+                                            {row('แหล่งที่มาต้นทาง', c.secondary_source)}
+                                            {row('ทรัพย์สินที่เสียหาย', c.damaged_asset)}
+                                            {row('ลักษณะความเสียหาย', c.damage_nature)}
+                                            {row('ผลกระทบต่อการผลิต', c.production_impact)}
+                                            {row('ระยะเวลาหยุดการผลิต', c.production_downtime)}
+                                          </div>
+                                          {sec('รายละเอียดเหตุการณ์')}
+                                          <p style={{ fontSize: 12, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', margin: '2px 0' }}>{F(c.description)}</p>
+                                          {!!(c.property_damage_detail as string) && row('รายละเอียดความเสียหาย', c.property_damage_detail)}
+                                          {sec('ค่าเสียหาย')}
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: 24 }}>
+                                            {row('Direct (฿)', (Number(c.direct_cost) || 0).toLocaleString())}
+                                            {row('Indirect (฿)', (Number(c.indirect_cost) || 0).toLocaleString())}
+                                            {row('รวม (฿)', ((Number(c.direct_cost) || 0) + (Number(c.indirect_cost) || 0)).toLocaleString())}
+                                            {row('สถานะเคลมประกัน', c.insurance_claim)}
+                                          </div>
+                                          {sec('การสอบสวน')}
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: 24 }}>
+                                            {row('ระดับการสอบสวน', c.investigation_level)}
+                                            {row('ผู้นำการสอบสวน', c.investigation_lead)}
+                                            {row('Immediate Cause', c.immediate_cause)}
+                                            {row('Contributing Cause', c.contributing_cause)}
+                                            {row('Root Cause', c.root_cause_detail)}
+                                          </div>
+                                          {sec(`รูปภาพ (${pdCasePhotos === null ? 'กำลังโหลด...' : pdCasePhotos.length})`)}
+                                          {pdCasePhotos !== null && pdCasePhotos.length === 0 && <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ไม่มีรูปภาพแนบ</p>}
+                                          {incPhotos.length > 0 && (<><p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' }}>รูปการเกิดอุบัติเหตุ</p>{photoGrid(incPhotos)}</>)}
+                                          {fixPhotos.length > 0 && (<><p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '8px 0 0' }}>รูปหลังแก้ไข</p>{photoGrid(fixPhotos)}</>)}
+                                        </div>
+                                      </>
+                                    );
+                                  })() : (
+                                  <>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                                     <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{pdDrill.title}</h4>
                                     <button onClick={() => setPdDrill(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-secondary)', padding: 4 }}>✕</button>
@@ -1237,7 +1332,7 @@ export default function HQIncidentsPage() {
                                         {pdDrill.items.map(i => (
                                           <tr key={i.incident_no} style={{ borderTop: '1px solid var(--border)' }}>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                                              <Link href={`/projects/incidents/${i.company_id}`} style={{ color: '#4E79A7', fontWeight: 700, fontFamily: 'monospace', textDecoration: 'none' }}>{i.incident_no}</Link>
+                                              <button onClick={() => openPdCase(i)} style={{ color: '#4E79A7', fontWeight: 700, fontFamily: 'monospace', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: 11 }}>{i.incident_no}</button>
                                             </td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
                                             <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 150 }}>{(i.contact_type as string) || '—'}</td>
@@ -1253,8 +1348,19 @@ export default function HQIncidentsPage() {
                                       </tbody>
                                     </table>
                                   </div>
-                                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '8px 0 0' }}>เรียงตามค่าเสียหายมาก→น้อย · คลิกเลขที่เหตุการณ์เพื่อเปิดหน้าบริษัทนั้น</p>
+                                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '8px 0 0' }}>เรียงตามค่าเสียหายมาก→น้อย · คลิกเลขที่เหตุการณ์เพื่อดูรายละเอียดเคสทันที</p>
+                                  </>
+                                  )}
                                 </div>
+                              </div>
+                            )}
+
+                            {/* ขยายรูปภาพ */}
+                            {pdImgView && (
+                              <div className="fixed inset-0 z-[60] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.8)' }} onClick={() => setPdImgView(null)}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={pdImgView} alt="photo" style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 10 }} onClick={e => e.stopPropagation()} />
+                                <button onClick={() => setPdImgView(null)} style={{ position: 'absolute', top: 18, right: 24, background: 'none', border: 'none', color: '#fff', fontSize: 26, cursor: 'pointer' }}>✕</button>
                               </div>
                             )}
                           </>
