@@ -16,6 +16,8 @@ interface Props {
   /** cumulative series — legend shows the year-end total instead of the sum */
   cumulative?: boolean;
   subtitle?: string;
+  /** คลิกจุดบนกราฟ → drill-down (year, monthIdx 0-11) */
+  onPointClick?: (year: number, monthIdx: number) => void;
 }
 
 const MONTH_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -27,7 +29,7 @@ const YEAR_COLORS: Record<number, string> = {
 const FALLBACK_COLORS = ['#4E79A7', '#F28E2B', '#59A14F', '#E15759', '#76B7B2', '#B07AA1'];
 const colorOf = (year: number, i: number) => YEAR_COLORS[year] || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
 
-export default function MonthlyByYearChart({ series, title = 'อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี', cumulative = false, subtitle }: Props) {
+export default function MonthlyByYearChart({ series, title = 'อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี', cumulative = false, subtitle, onPointClick }: Props) {
   const sorted = [...series].sort((a, b) => a.year - b.year);
 
   const W = 760, H = 260;
@@ -82,14 +84,18 @@ export default function MonthlyByYearChart({ series, title = 'อุบัติ
               {sorted.map((s, si) => (
                 <g key={s.year}>
                   <path d={linePath(s.counts)} fill="none" stroke={colorOf(s.year, si)} strokeWidth={2.5} opacity={0.9} />
-                  {s.counts.map((v, m) => (
-                    <g key={m}>
-                      <circle cx={x(m)} cy={y(v)} r={v > 0 ? 4 : 2.5} fill={colorOf(s.year, si)} stroke="var(--card-solid)" strokeWidth={1.5} />
-                      {v > 0 && (
-                        <text x={x(m)} y={y(v) - 7} fontSize={10} fontWeight={700} textAnchor="middle" fill={colorOf(s.year, si)}>{v}</text>
-                      )}
-                    </g>
-                  ))}
+                  {s.counts.map((v, m) => {
+                    const clickable = !!onPointClick && v > 0;
+                    return (
+                      <g key={m} onClick={clickable ? () => onPointClick(s.year, m) : undefined} style={clickable ? { cursor: 'pointer' } : undefined}>
+                        {clickable && <circle cx={x(m)} cy={y(v)} r={12} fill="transparent" />}
+                        <circle cx={x(m)} cy={y(v)} r={v > 0 ? 4 : 2.5} fill={colorOf(s.year, si)} stroke="var(--card-solid)" strokeWidth={1.5} />
+                        {v > 0 && (
+                          <text x={x(m)} y={y(v) - 7} fontSize={10} fontWeight={700} textAnchor="middle" fill={colorOf(s.year, si)} style={{ pointerEvents: 'none' }}>{v}</text>
+                        )}
+                      </g>
+                    );
+                  })}
                 </g>
               ))}
             </svg>

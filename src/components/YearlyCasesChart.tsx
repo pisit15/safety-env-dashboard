@@ -16,12 +16,14 @@ export interface YearlyCasesPoint {
 interface Props {
   data: YearlyCasesPoint[];
   title?: string;
+  /** คลิกแท่ง → drill-down (year, 'trc'|'lti') */
+  onBarClick?: (year: number, kind: 'trc' | 'lti') => void;
 }
 
 const C_TRC = '#4E79A7';
 const C_LTI = '#F28E2B';
 
-export default function YearlyCasesChart({ data, title = 'จำนวนเคสบาดเจ็บรายปี — TRC / LTI' }: Props) {
+export default function YearlyCasesChart({ data, title = 'จำนวนเคสบาดเจ็บรายปี — TRC / LTI', onBarClick }: Props) {
   const points = [...data].sort((a, b) => a.year - b.year);
 
   const W = 760, H = 280;
@@ -68,12 +70,20 @@ export default function YearlyCasesChart({ data, title = 'จำนวนเค�
                 const lti = p.lti || 0;
                 const xT = xCenter(i) - gap / 2 - barW;
                 const xL = xCenter(i) + gap / 2;
+                const clickT = !!onBarClick && trc > 0;
+                const clickL = !!onBarClick && lti > 0;
                 return (
                   <g key={p.year}>
-                    <rect x={xT} y={y(trc)} width={barW} height={Math.max(padT + plotH - y(trc), trc > 0 ? 2 : 0)} rx={4} fill={C_TRC} opacity={0.85} />
-                    <text x={xT + barW / 2} y={y(trc) - 5} fontSize={12} fontWeight={700} textAnchor="middle" fill={C_TRC}>{trc}</text>
-                    <rect x={xL} y={y(lti)} width={barW} height={Math.max(padT + plotH - y(lti), lti > 0 ? 2 : 0)} rx={4} fill={C_LTI} opacity={0.85} />
-                    <text x={xL + barW / 2} y={y(lti) - 5} fontSize={12} fontWeight={700} textAnchor="middle" fill={C_LTI}>{lti}</text>
+                    <g onClick={clickT ? () => onBarClick(p.year, 'trc') : undefined} style={clickT ? { cursor: 'pointer' } : undefined}>
+                      {clickT && <rect x={xT - 3} y={padT} width={barW + 6} height={plotH} fill="transparent" />}
+                      <rect x={xT} y={y(trc)} width={barW} height={Math.max(padT + plotH - y(trc), trc > 0 ? 2 : 0)} rx={4} fill={C_TRC} opacity={0.85} />
+                      <text x={xT + barW / 2} y={y(trc) - 5} fontSize={12} fontWeight={700} textAnchor="middle" fill={C_TRC} style={{ pointerEvents: 'none' }}>{trc}</text>
+                    </g>
+                    <g onClick={clickL ? () => onBarClick(p.year, 'lti') : undefined} style={clickL ? { cursor: 'pointer' } : undefined}>
+                      {clickL && <rect x={xL - 3} y={padT} width={barW + 6} height={plotH} fill="transparent" />}
+                      <rect x={xL} y={y(lti)} width={barW} height={Math.max(padT + plotH - y(lti), lti > 0 ? 2 : 0)} rx={4} fill={C_LTI} opacity={0.85} />
+                      <text x={xL + barW / 2} y={y(lti) - 5} fontSize={12} fontWeight={700} textAnchor="middle" fill={C_LTI} style={{ pointerEvents: 'none' }}>{lti}</text>
+                    </g>
                   </g>
                 );
               })}

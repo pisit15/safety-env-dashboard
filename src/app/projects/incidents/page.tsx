@@ -286,6 +286,27 @@ export default function HQIncidentsPage() {
   const hqCumTrc = cumSeriesFor('trc');
   const hqCumLti = cumSeriesFor('lti');
 
+  // Drill-down helpers for injury charts (ใช้ modal เดียวกับ property damage)
+  const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const isTrcT = (t: string) => INJURY_TYPES_P.some(p => t.includes(p));
+  const isLtiT = (t: string) => (t.includes('หยุดงาน') && !t.includes('ไม่หยุดงาน')) || t === 'เสียชีวิต (Fatality)';
+  const openCaseDrill = (title: string, items: Incident[]) => {
+    const sorted = [...items].sort((a, b) => new Date(b.incident_date).getTime() - new Date(a.incident_date).getTime());
+    setPdDrill({ title: `${title} — ${sorted.length} เหตุ`, items: sorted });
+  };
+  const drillMonthly = (y: number, m: number) => {
+    const label = monthlyCaseType === 'all' ? 'ทุกประเภท' : monthlyCaseType === 'trc' ? 'TRC' : 'LTI';
+    openCaseDrill(`${TH_M[m]} ${y} · ${label}`, baseInc.filter(i => i.year === y && monthIdxOf(i) === m && matchMonthlyCaseType(i)));
+  };
+  const drillCum = (kind: 'trc' | 'lti') => (y: number, m: number) => {
+    const match = kind === 'trc' ? isTrcT : isLtiT;
+    openCaseDrill(`สะสม ม.ค.–${TH_M[m]} ${y} · ${kind.toUpperCase()}`, baseInc.filter(i => i.year === y && monthIdxOf(i) <= m && match(i.incident_type || '')));
+  };
+  const drillYearly = (y: number, kind: 'trc' | 'lti') => {
+    const match = kind === 'trc' ? isTrcT : isLtiT;
+    openCaseDrill(`${y} · ${kind.toUpperCase()}`, baseInc.filter(i => i.year === y && match(i.incident_type || '')));
+  };
+
   // Per-company stats (only companies in the selected BU)
   const companyStats: Record<string, CompanyStat> = {};
   COMPANIES.forEach(c => {
@@ -867,7 +888,7 @@ export default function HQIncidentsPage() {
               {/* ═══ Yearly comparison — TRIR / LTIFR / Manhours ═══ */}
               <div className="mb-6">
                 <YearlyTrendChart data={hqYearlyTrend} />
-                <YearlyCasesChart data={hqYearlyTrend} title="จำนวนเคสบาดเจ็บรายปี — TRC / LTI (ทุกบริษัท)" />
+                <YearlyCasesChart data={hqYearlyTrend} title="จำนวนเคสบาดเจ็บรายปี — TRC / LTI (ทุกบริษัท)" onBarClick={drillYearly} />
                 {/* Case-type chips for the monthly comparison chart */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16, fontSize: 12 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>ประเภทเคส:</span>
@@ -881,18 +902,21 @@ export default function HQIncidentsPage() {
                 <MonthlyByYearChart
                   series={hqMonthlyByYear}
                   title={`อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (${monthlyCaseType === 'all' ? 'ทุกบริษัท ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะเคสบาดเจ็บ TRC' : 'เฉพาะเคสหยุดงาน LTI'})`}
+                  onPointClick={drillMonthly}
                 />
                 <MonthlyByYearChart
                   series={hqCumTrc}
                   cumulative
                   title="เคสบาดเจ็บสะสมตั้งแต่ต้นปี — TRC (Cumulative)"
-                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสบาดเจ็บ/เสียชีวิต/โรคจากการทำงาน"
+                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสบาดเจ็บ/เสียชีวิต/โรคจากการทำงาน · คลิกจุดเพื่อดูรายการเคส"
+                  onPointClick={drillCum('trc')}
                 />
                 <MonthlyByYearChart
                   series={hqCumLti}
                   cumulative
                   title="เคสหยุดงานสะสมตั้งแต่ต้นปี — LTI (Cumulative)"
-                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสหยุดงาน/เสียชีวิต"
+                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสหยุดงาน/เสียชีวิต · คลิกจุดเพื่อดูรายการเคส"
+                  onPointClick={drillCum('lti')}
                 />
                 <HqInjuryAnalytics
                   persons={hqInjured.persons.filter(p => inBu(hqInjured.map[p.incident_no]?.company_id || ''))}
@@ -945,7 +969,8 @@ export default function HQIncidentsPage() {
                   const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
                   const reviewQueue = propInc.filter(i => (i.classification_status as string) === 'review');
                   const fmtBaht = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(2)}M ฿` : v >= 1000 ? `${Math.round(v / 1000).toLocaleString()}K ฿` : `${v.toLocaleString()} ฿`;
-                  if (propInc.length === 0) return null;
+                  // ยังต้อง render modal แม้ไม่มีเคสทรัพย์สิน (drill-down จากกราฟบาดเจ็บใช้ modal ตัวเดียวกัน)
+                  if (propInc.length === 0 && !pdDrill && !pdImgView) return null;
                   return (
                     <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginTop: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
