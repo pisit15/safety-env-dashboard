@@ -1013,7 +1013,8 @@ export default function HQIncidentsPage() {
                         if (yearsSel.length === 0) return null;
                         const fmtCompact = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v / 1000)}K` : `${Math.round(v)}`;
                         // Grouped bar renderer: companies on X, one bar per year
-                        const groupedBars = (comps: string[], val: (c: string, y: number) => number, fmt: (v: number) => string) => {
+                        // frac (ถ้ามี) = สัดส่วนส่วนล่างของแท่ง (direct) — ส่วนบนวาดสีอ่อน (indirect)
+                        const groupedBars = (comps: string[], val: (c: string, y: number) => number, fmt: (v: number) => string, frac?: (c: string, y: number) => number) => {
                           const bw = 22, gap = 4;
                           const gw = yearsSel.length * (bw + gap) + 26;
                           const W = 30 + comps.length * gw;
@@ -1028,9 +1029,14 @@ export default function HQIncidentsPage() {
                                       const v = val(c, y);
                                       const h = (v / maxV) * 130;
                                       const x = 22 + ci * gw + yi * (bw + gap);
+                                      const f = frac ? Math.max(0, Math.min(1, frac(c, y))) : 1;
+                                      const hDirect = h * f;
                                       return (
                                         <g key={y}>
-                                          <rect x={x} y={168 - h} width={bw} height={Math.max(h, v > 0 ? 2 : 0)} rx={2} fill={YEAR_COLORS[yi % 6]} opacity={0.9} />
+                                          {/* ส่วนบน = indirect (สีอ่อน) */}
+                                          {f < 1 && <rect x={x} y={168 - h} width={bw} height={h - hDirect} rx={2} fill={YEAR_COLORS[yi % 6]} opacity={0.35} />}
+                                          {/* ส่วนล่าง = direct (สีเข้ม) */}
+                                          <rect x={x} y={168 - hDirect} width={bw} height={Math.max(hDirect, v > 0 ? 2 : 0)} rx={2} fill={YEAR_COLORS[yi % 6]} opacity={0.9} />
                                           {v > 0 && <text x={x + bw / 2} y={162 - h} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)">{fmt(v)}</text>}
                                         </g>
                                       );
@@ -1061,17 +1067,25 @@ export default function HQIncidentsPage() {
                         );
 
                         // ── Chart 1: มูลค่า/จำนวน รายบริษัท × ปี ──
-                        const c1: Record<string, Record<number, { cost: number; count: number }>> = {};
+                        const c1: Record<string, Record<number, { direct: number; indirect: number; count: number }>> = {};
                         const c1Tot: Record<string, { cost: number; count: number }> = {};
                         propInc.forEach(i => {
                           const c = i.company_id.toUpperCase(); const y = yrOf(i);
-                          c1[c] = c1[c] || {}; c1[c][y] = c1[c][y] || { cost: 0, count: 0 };
-                          c1[c][y].cost += costOf(i); c1[c][y].count++;
+                          c1[c] = c1[c] || {}; c1[c][y] = c1[c][y] || { direct: 0, indirect: 0, count: 0 };
+                          c1[c][y].direct += Number(i.direct_cost) || 0;
+                          c1[c][y].indirect += Number(i.indirect_cost) || 0;
+                          c1[c][y].count++;
                           c1Tot[c] = c1Tot[c] || { cost: 0, count: 0 };
                           c1Tot[c].cost += costOf(i); c1Tot[c].count++;
                         });
                         const c1Comps = Object.entries(c1Tot).sort((a, b) => (pdMetric === 'cost' ? b[1].cost - a[1].cost : b[1].count - a[1].count)).slice(0, 8).map(([c]) => c);
-                        const c1Val = (c: string, y: number) => (c1[c]?.[y] ? (pdMetric === 'cost' ? c1[c][y].cost : c1[c][y].count) : 0);
+                        const c1Val = (c: string, y: number) => (c1[c]?.[y] ? (pdMetric === 'cost' ? c1[c][y].direct + c1[c][y].indirect : c1[c][y].count) : 0);
+                        // สัดส่วน direct ในแท่ง (โหมดมูลค่า): ใช้วาด segment สีเข้ม/อ่อน
+                        const c1DirectFrac = (c: string, y: number) => {
+                          const d = c1[c]?.[y]; if (!d) return 1;
+                          const tot = d.direct + d.indirect;
+                          return tot > 0 ? d.direct / tot : 1;
+                        };
 
                         // ── Chart 2: เหตุการณ์ × บริษัท × ปี ──
                         const eventChips = ['ทั้งหมด', ...topTypes.slice(0, 6).map(([t]) => t)];
@@ -1137,10 +1151,18 @@ export default function HQIncidentsPage() {
                                   {toggleBtn(pdMetric === 'count', 'จำนวนเหตุ', () => setPdMetric('count'))}
                                 </div>
                               </div>
-                              {groupedBars(c1Comps, c1Val, pdMetric === 'cost' ? fmtCompact : v => String(v))}
+                              {groupedBars(c1Comps, c1Val, pdMetric === 'cost' ? fmtCompact : v => String(v), pdMetric === 'cost' ? c1DirectFrac : undefined)}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                                {yearLegend}
-                                {pdMetric === 'cost' && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>หมายเหตุ: เคสเก่าบางส่วนไม่ได้กรอกค่าเสียหาย — สลับดู &ldquo;จำนวนเหตุ&rdquo; ประกอบ</span>}
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  {yearLegend}
+                                  {pdMetric === 'cost' && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: 'var(--text-secondary)', borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#4E79A7', opacity: 0.9 }} /> Direct</span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#4E79A7', opacity: 0.35 }} /> Indirect</span>
+                                    </span>
+                                  )}
+                                </div>
+                                {pdMetric === 'cost' && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>มูลค่า = Direct + Indirect · เคสเก่าบางส่วนไม่ได้กรอกค่าเสียหาย — สลับดู &ldquo;จำนวนเหตุ&rdquo; ประกอบ</span>}
                               </div>
                             </div>
 
