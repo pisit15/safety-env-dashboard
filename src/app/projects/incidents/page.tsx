@@ -103,6 +103,10 @@ export default function HQIncidentsPage() {
   const [showAdvancedYears, setShowAdvancedYears] = useState(false);
   // Wave C: chart toggle
   const [chartMode, setChartMode] = useState<'all' | 'byCompany'>('all');
+  // Property damage comparison charts (company × year)
+  const [pdMetric, setPdMetric] = useState<'cost' | 'count'>('cost');
+  const [pdEventMode, setPdEventMode] = useState<'select' | 'stack'>('select');
+  const [pdEventSel, setPdEventSel] = useState<string>('ทั้งหมด');
   // Table filter from alert clicks
   const [tableFilter, setTableFilter] = useState<'all' | 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH'>('all');
   // Column sorting
@@ -1000,6 +1004,180 @@ export default function HQIncidentsPage() {
                           ))}
                         </div>
                       </div>
+
+                      {/* ═══ กราฟเปรียบเทียบ บริษัท × ปี ═══ */}
+                      {(() => {
+                        const YEAR_COLORS = ['#4E79A7', '#F28E2B', '#59A14F', '#E15759', '#B07AA1', '#76B7B2'];
+                        const yrOf = (i: Incident) => new Date(i.incident_date).getFullYear();
+                        const yearsSel = Array.from(new Set(propInc.map(yrOf))).sort();
+                        if (yearsSel.length === 0) return null;
+                        const fmtCompact = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${Math.round(v / 1000)}K` : `${Math.round(v)}`;
+                        // Grouped bar renderer: companies on X, one bar per year
+                        const groupedBars = (comps: string[], val: (c: string, y: number) => number, fmt: (v: number) => string) => {
+                          const bw = 22, gap = 4;
+                          const gw = yearsSel.length * (bw + gap) + 26;
+                          const W = 30 + comps.length * gw;
+                          const maxV = Math.max(...comps.flatMap(c => yearsSel.map(y => val(c, y))), 1);
+                          return (
+                            <div style={{ overflowX: 'auto' }}>
+                              <svg viewBox={`0 0 ${W} 205`} style={{ width: '100%', minWidth: Math.min(W, 900), height: 'auto' }}>
+                                <line x1={14} y1={168} x2={W - 10} y2={168} stroke="var(--border)" strokeWidth={1} />
+                                {comps.map((c, ci) => (
+                                  <g key={c}>
+                                    {yearsSel.map((y, yi) => {
+                                      const v = val(c, y);
+                                      const h = (v / maxV) * 130;
+                                      const x = 22 + ci * gw + yi * (bw + gap);
+                                      return (
+                                        <g key={y}>
+                                          <rect x={x} y={168 - h} width={bw} height={Math.max(h, v > 0 ? 2 : 0)} rx={2} fill={YEAR_COLORS[yi % 6]} opacity={0.9} />
+                                          {v > 0 && <text x={x + bw / 2} y={162 - h} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)">{fmt(v)}</text>}
+                                        </g>
+                                      );
+                                    })}
+                                    <text x={22 + ci * gw + (yearsSel.length * (bw + gap)) / 2 - gap} y={185} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="var(--text-secondary)">{c}</text>
+                                  </g>
+                                ))}
+                              </svg>
+                            </div>
+                          );
+                        };
+                        const yearLegend = (
+                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            {yearsSel.map((y, yi) => (
+                              <span key={y} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-secondary)' }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 2, background: YEAR_COLORS[yi % 6] }} /> {y}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                        const toggleBtn = (active: boolean, label: string, onClick: () => void) => (
+                          <button key={label} onClick={onClick} style={{
+                            padding: '3px 12px', borderRadius: 12, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                            border: active ? '1px solid #4E79A7' : '1px solid var(--border)',
+                            background: active ? 'rgba(78,121,167,0.12)' : 'var(--card-solid)',
+                            color: active ? '#4E79A7' : 'var(--text-secondary)',
+                          }}>{label}</button>
+                        );
+
+                        // ── Chart 1: มูลค่า/จำนวน รายบริษัท × ปี ──
+                        const c1: Record<string, Record<number, { cost: number; count: number }>> = {};
+                        const c1Tot: Record<string, { cost: number; count: number }> = {};
+                        propInc.forEach(i => {
+                          const c = i.company_id.toUpperCase(); const y = yrOf(i);
+                          c1[c] = c1[c] || {}; c1[c][y] = c1[c][y] || { cost: 0, count: 0 };
+                          c1[c][y].cost += costOf(i); c1[c][y].count++;
+                          c1Tot[c] = c1Tot[c] || { cost: 0, count: 0 };
+                          c1Tot[c].cost += costOf(i); c1Tot[c].count++;
+                        });
+                        const c1Comps = Object.entries(c1Tot).sort((a, b) => (pdMetric === 'cost' ? b[1].cost - a[1].cost : b[1].count - a[1].count)).slice(0, 8).map(([c]) => c);
+                        const c1Val = (c: string, y: number) => (c1[c]?.[y] ? (pdMetric === 'cost' ? c1[c][y].cost : c1[c][y].count) : 0);
+
+                        // ── Chart 2: เหตุการณ์ × บริษัท × ปี ──
+                        const eventChips = ['ทั้งหมด', ...topTypes.slice(0, 6).map(([t]) => t)];
+                        const c2Match = (i: Incident) => pdEventSel === 'ทั้งหมด' || ((i.contact_type as string) || 'ไม่ระบุ') === pdEventSel;
+                        const c2Tot: Record<string, number> = {};
+                        propInc.filter(c2Match).forEach(i => { const c = i.company_id.toUpperCase(); c2Tot[c] = (c2Tot[c] || 0) + 1; });
+                        const c2Comps = Object.entries(c2Tot).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c]) => c);
+                        const c2Val = (c: string, y: number) => propInc.filter(i => c2Match(i) && i.company_id.toUpperCase() === c && yrOf(i) === y).length;
+
+                        // Stacked mode data
+                        const stackEvents = topTypes.slice(0, 5).map(([t]) => t);
+                        const EV_COLORS = ['#4E79A7', '#F28E2B', '#59A14F', '#E15759', '#B07AA1'];
+                        const evColor = (t: string) => { const idx = stackEvents.indexOf(t); return idx >= 0 ? EV_COLORS[idx] : '#BAB0AC'; };
+                        const stComps = Object.entries(c1Tot).sort((a, b) => b[1].count - a[1].count).slice(0, 8).map(([c]) => c);
+                        const stackedChart = (() => {
+                          const bw = 22, gap = 4;
+                          const gw = yearsSel.length * (bw + gap) + 26;
+                          const W = 30 + stComps.length * gw;
+                          const totals = stComps.flatMap(c => yearsSel.map(y => propInc.filter(i => i.company_id.toUpperCase() === c && yrOf(i) === y).length));
+                          const maxV = Math.max(...totals, 1);
+                          return (
+                            <div style={{ overflowX: 'auto' }}>
+                              <svg viewBox={`0 0 ${W} 205`} style={{ width: '100%', minWidth: Math.min(W, 900), height: 'auto' }}>
+                                <line x1={14} y1={168} x2={W - 10} y2={168} stroke="var(--border)" strokeWidth={1} />
+                                {stComps.map((c, ci) => (
+                                  <g key={c}>
+                                    {yearsSel.map((y, yi) => {
+                                      const rows = propInc.filter(i => i.company_id.toUpperCase() === c && yrOf(i) === y);
+                                      const segs: [string, number][] = [...stackEvents.map(e => [e, rows.filter(i => ((i.contact_type as string) || '') === e).length] as [string, number]), ['อื่นๆ', rows.filter(i => !stackEvents.includes((i.contact_type as string) || '')).length]];
+                                      const total = rows.length;
+                                      const x = 22 + ci * gw + yi * (bw + gap);
+                                      let yCur = 168;
+                                      return (
+                                        <g key={y}>
+                                          {segs.map(([e, n]) => {
+                                            if (n === 0) return null;
+                                            const h = (n / maxV) * 130;
+                                            yCur -= h;
+                                            return <rect key={e} x={x} y={yCur} width={bw} height={h} fill={evColor(e)} opacity={0.9} />;
+                                          })}
+                                          {total > 0 && <text x={x + bw / 2} y={yCur - 4} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--text-primary)">{total}</text>}
+                                        </g>
+                                      );
+                                    })}
+                                    <text x={22 + ci * gw + (yearsSel.length * (bw + gap)) / 2 - gap} y={185} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="var(--text-secondary)">{c}</text>
+                                  </g>
+                                ))}
+                              </svg>
+                            </div>
+                          );
+                        })();
+
+                        return (
+                          <>
+                            {/* Chart 1 */}
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                                  {pdMetric === 'cost' ? 'มูลค่าความเสียหาย' : 'จำนวนเหตุ'}รายบริษัท — เทียบรายปี (Top 8)
+                                </p>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  {toggleBtn(pdMetric === 'cost', 'มูลค่า ฿', () => setPdMetric('cost'))}
+                                  {toggleBtn(pdMetric === 'count', 'จำนวนเหตุ', () => setPdMetric('count'))}
+                                </div>
+                              </div>
+                              {groupedBars(c1Comps, c1Val, pdMetric === 'cost' ? fmtCompact : v => String(v))}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                                {yearLegend}
+                                {pdMetric === 'cost' && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>หมายเหตุ: เคสเก่าบางส่วนไม่ได้กรอกค่าเสียหาย — สลับดู &ldquo;จำนวนเหตุ&rdquo; ประกอบ</span>}
+                              </div>
+                            </div>
+
+                            {/* Chart 2 */}
+                            <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>เหตุการณ์/การสัมผัส รายบริษัท — เทียบรายปี</p>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  {toggleBtn(pdEventMode === 'select', 'เลือกเหตุการณ์', () => setPdEventMode('select'))}
+                                  {toggleBtn(pdEventMode === 'stack', 'ภาพรวม (Stacked)', () => setPdEventMode('stack'))}
+                                </div>
+                              </div>
+                              {pdEventMode === 'select' ? (
+                                <>
+                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                                    {eventChips.map(e => toggleBtn(pdEventSel === e, e, () => setPdEventSel(e)))}
+                                  </div>
+                                  {c2Comps.length > 0 ? groupedBars(c2Comps, c2Val, v => String(v)) : <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ไม่มีข้อมูลเหตุการณ์นี้ตามตัวกรอง</p>}
+                                  {yearLegend}
+                                </>
+                              ) : (
+                                <>
+                                  {stackedChart}
+                                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                                    {[...stackEvents, 'อื่นๆ'].map(e => (
+                                      <span key={e} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text-secondary)' }}>
+                                        <span style={{ width: 10, height: 10, borderRadius: 2, background: evColor(e) }} /> {e}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '6px 0 0' }}>แท่ง = บริษัท×ปี (เรียงปีซ้าย→ขวาในแต่ละบริษัท) · สีในแท่ง = สัดส่วนเหตุการณ์</p>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
 
                       {/* สัตว์ทำความเสียหาย — รายเดือน (ฤดูกาล) */}
                       {animalTotal > 0 && (
