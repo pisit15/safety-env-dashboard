@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Incident, LiveStats } from '../types';
 import { MONTHS, MONTH_TH } from '../constants';
 import { Shield, DollarSign, Activity, FileText, Download, AlertCircle, X, TrendingUp } from 'lucide-react';
@@ -22,6 +22,11 @@ export default function PropertyDamageWorkspace({
 }: PropertyDamageWorkspaceProps) {
   // Compute totalCost for the property category
   const totalCost = categoryIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0);
+
+  // ── เทียบรายปี: มูลค่า/จำนวน + เหตุการณ์ (drill-down เหมือนหน้า HQ) ──
+  const [cmpMetric, setCmpMetric] = useState<'cost' | 'count'>('cost');
+  const [cmpDrill, setCmpDrill] = useState<{ title: string; items: Incident[] } | null>(null);
+  const costOfInc = (i: Incident) => (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0);
 
   // Format cost function (for KPIs)
   const fmtCost = (v: number) => 
@@ -430,6 +435,107 @@ export default function PropertyDamageWorkspace({
             )}
           </div>
 
+          {/* ═══ เปรียบเทียบรายปี: มูลค่า + เหตุการณ์ (คลิกแท่ง → รายการเคส) ═══ */}
+          {(() => {
+            const years = propActiveYears;
+            if (years.length === 0) return null;
+            const byYear: Record<number, { direct: number; indirect: number; count: number }> = {};
+            years.forEach(y => { byYear[y] = { direct: 0, indirect: 0, count: 0 }; });
+            categoryIncidents.forEach(inc => {
+              const b = byYear[inc.year]; if (!b) return;
+              b.direct += Number(inc.direct_cost) || 0;
+              b.indirect += Number(inc.indirect_cost) || 0;
+              b.count++;
+            });
+            const maxYearVal = Math.max(...years.map(y => (cmpMetric === 'cost' ? byYear[y].direct + byYear[y].indirect : byYear[y].count)), 1);
+            const openYearDrill = (y: number, extra?: (i: Incident) => boolean, label?: string) => {
+              const items = categoryIncidents.filter(i => i.year === y && (!extra || extra(i))).sort((a, b2) => costOfInc(b2) - costOfInc(a));
+              setCmpDrill({ title: `${y}${label ? ` · ${label}` : ''} — ${items.length} เหตุ · รวม ${fmtCost(items.reduce((s, i) => s + costOfInc(i), 0))}`, items });
+            };
+            // Top events (เหตุการณ์/การสัมผัส)
+            const evCount: Record<string, number> = {};
+            categoryIncidents.forEach(i => { const e = ((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ'; evCount[e] = (evCount[e] || 0) + 1; });
+            const topEvents = Object.entries(evCount).sort((a, b2) => b2[1] - a[1]).slice(0, 6);
+            const maxEvYear = Math.max(...topEvents.flatMap(([e]) => years.map(y => categoryIncidents.filter(i => (((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ') === e && i.year === y).length)), 1);
+            const toggle = (active: boolean, label: string, onClick: () => void) => (
+              <button key={label} onClick={onClick} className="px-3 py-1 rounded-full text-[11px] font-semibold"
+                style={{ border: active ? '1px solid #1e40af' : '1px solid var(--border)', background: active ? 'rgba(30,64,175,0.1)' : 'var(--card-solid)', color: active ? '#1e40af' : 'var(--text-secondary)', cursor: 'pointer' }}>{label}</button>
+            );
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+                {/* Chart A: มูลค่า/จำนวน ต่อปี (stack direct/indirect) */}
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                    <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {cmpMetric === 'cost' ? 'มูลค่าความเสียหาย' : 'จำนวนเหตุ'}รายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
+                    </h3>
+                    <div className="flex gap-1.5">
+                      {toggle(cmpMetric === 'cost', 'มูลค่า ฿', () => setCmpMetric('cost'))}
+                      {toggle(cmpMetric === 'count', 'จำนวนเหตุ', () => setCmpMetric('count'))}
+                    </div>
+                  </div>
+                  <svg viewBox={`0 0 ${40 + years.length * 90} 190`} style={{ width: '100%', maxWidth: 120 + years.length * 110, height: 'auto' }}>
+                    <line x1={16} y1={155} x2={24 + years.length * 90} y2={155} stroke="var(--border)" strokeWidth={1} />
+                    {years.map((y, yi) => {
+                      const d = byYear[y];
+                      const total = cmpMetric === 'cost' ? d.direct + d.indirect : d.count;
+                      const h = (total / maxYearVal) * 120;
+                      const hDir = cmpMetric === 'cost' && total > 0 ? h * (d.direct / (d.direct + d.indirect || 1)) : h;
+                      const x = 30 + yi * 90;
+                      const col = YEAR_COLORS_PROP[y] || '#4E79A7';
+                      return (
+                        <g key={y} onClick={total > 0 ? () => openYearDrill(y) : undefined} style={total > 0 ? { cursor: 'pointer' } : undefined}>
+                          <rect x={x - 4} y={20} width={58} height={140} fill="transparent" />
+                          {cmpMetric === 'cost' && h - hDir > 0.5 && <rect x={x} y={155 - h} width={50} height={h - hDir} rx={3} fill={col} opacity={0.3} />}
+                          <rect x={x} y={155 - hDir} width={50} height={Math.max(hDir, total > 0 ? 2 : 0)} rx={3} fill={col} opacity={0.9} />
+                          {total > 0 && <text x={x + 25} y={148 - h} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{cmpMetric === 'cost' ? fmtCostShort(total) : total}</text>}
+                          <text x={x + 25} y={172} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-secondary)">{y}</text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  {cmpMetric === 'cost' && (
+                    <p className="text-[10px] mt-1 flex items-center gap-3" style={{ color: 'var(--text-secondary)' }}>
+                      <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', opacity: 0.9, display: 'inline-block' }} /> Direct</span>
+                      <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', opacity: 0.3, display: 'inline-block' }} /> Indirect</span>
+                      <span>มูลค่า = Direct + Indirect</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Chart B: เหตุการณ์/การสัมผัส × ปี */}
+                <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                  <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+                    เหตุการณ์/การสัมผัส — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {topEvents.map(([ev]) => (
+                      <div key={ev}>
+                        <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{ev}</p>
+                        <div className="space-y-1">
+                          {years.map(y => {
+                            const n = categoryIncidents.filter(i => (((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ') === ev && i.year === y).length;
+                            const col = YEAR_COLORS_PROP[y] || '#9ca3af';
+                            return (
+                              <div key={y} className="flex items-center gap-2" style={{ cursor: n > 0 ? 'pointer' : 'default' }}
+                                onClick={n > 0 ? () => openYearDrill(y, i => ((((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ') === ev), ev) : undefined}>
+                                <span className="text-[10px] w-8 shrink-0" style={{ color: col, fontWeight: 700 }}>{y}</span>
+                                <div className="flex-1 h-[9px] rounded" style={{ background: 'var(--bg-secondary)' }}>
+                                  <div className="h-[9px] rounded" style={{ width: `${(n / maxEvYear) * 100}%`, background: col, opacity: 0.85, minWidth: n > 0 ? 4 : 0 }} />
+                                </div>
+                                <span className="text-[10px] w-6 text-right shrink-0" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{n || ''}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Cost Driver Insights */}
           {totalPropCost > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
@@ -626,6 +732,52 @@ export default function PropertyDamageWorkspace({
             </div>
           </div>
         </>
+      )}
+
+      {/* Drill-down modal: รายการเคสของแท่งที่คลิก — คลิกแถวเพื่อเปิดรายละเอียดเต็ม */}
+      {cmpDrill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={() => setCmpDrill(null)}>
+          <div style={{ background: 'var(--card-solid)', borderRadius: 14, padding: '18px 22px', maxWidth: 760, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[14px] font-bold" style={{ color: 'var(--text-primary)', margin: 0 }}>{cmpDrill.title}</h4>
+              <button onClick={() => setCmpDrill(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-secondary)', padding: 4 }}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ color: 'var(--text-secondary)', textAlign: 'left', position: 'sticky', top: 0, background: 'var(--card-solid)' }}>
+                    <th style={{ padding: '5px 8px' }}>เลขที่เหตุการณ์</th>
+                    <th style={{ padding: '5px 8px' }}>วันที่</th>
+                    <th style={{ padding: '5px 8px' }}>เหตุการณ์</th>
+                    <th style={{ padding: '5px 8px' }}>รายละเอียด</th>
+                    <th style={{ padding: '5px 8px', textAlign: 'right' }}>Direct (฿)</th>
+                    <th style={{ padding: '5px 8px', textAlign: 'right' }}>Indirect (฿)</th>
+                    <th style={{ padding: '5px 8px', textAlign: 'right' }}>รวม (฿)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cmpDrill.items.map(i => (
+                    <tr key={i.incident_no} onClick={() => { setCmpDrill(null); openDrawer(i); }}
+                      style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: '#1e40af', fontWeight: 700, fontFamily: 'monospace' }}>{i.incident_no}</td>
+                      <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                      <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 140 }}>{((i as Record<string, unknown>).contact_type as string) || '—'}</td>
+                      <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={((i as Record<string, unknown>).property_damage_detail as string) || i.description || ''}>
+                        {((i as Record<string, unknown>).property_damage_detail as string) || i.description || '—'}
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>{(Number(i.direct_cost) || 0).toLocaleString()}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{(Number(i.indirect_cost) || 0).toLocaleString()}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700, color: costOfInc(i) > 0 ? '#dc2626' : 'var(--text-secondary)' }}>{costOfInc(i).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '8px 0 0' }}>เรียงตามค่าเสียหายมาก→น้อย · คลิกแถวเพื่อเปิดรายละเอียดเคสเต็ม</p>
+          </div>
+        </div>
       )}
     </div>
   );
