@@ -1220,6 +1220,51 @@ export default function HQIncidentsPage() {
                               </div>
                             </div>
 
+                            {/* Chart 1.5: แยกประเภทความสูญเสีย */}
+                              {(() => {
+                                const LOSS_DEFS = [
+                                  { key: 'ทรัพย์สินเสียหาย', label: 'ทรัพย์สินเสียหาย', color: '#1e40af' },
+                                  { key: 'เหตุการณ์สูญเสียการผลิต (Production Loss)', label: 'Production Loss', color: '#0ea5e9' },
+                                ];
+                                const cell = (t: string, y: number) => {
+                                  const rows = propInc.filter(i => i.incident_type === t && yrOf(i) === y);
+                                  return { count: rows.length, cost: rows.reduce((s, i) => s + costOf(i), 0) };
+                                };
+                                const maxC = Math.max(...LOSS_DEFS.flatMap(d => yearsSel.map(y => cell(d.key, y).cost)), 1);
+                                return (
+                                  <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+                                    <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>
+                                      แยกตามประเภทความสูญเสีย — เทียบรายปี <span style={{ fontWeight: 400, fontSize: 10.5, color: 'var(--text-secondary)' }}>· คลิกแถบเพื่อดูรายการเคส</span>
+                                    </p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+                                      {LOSS_DEFS.map(d => {
+                                        const tot = yearsSel.reduce((s, y) => { const c = cell(d.key, y); return { count: s.count + c.count, cost: s.cost + c.cost }; }, { count: 0, cost: 0 });
+                                        return (
+                                          <div key={d.key}>
+                                            <p style={{ fontSize: 12, fontWeight: 700, color: d.color, margin: '0 0 4px' }}>
+                                              {d.label} <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)' }}>— รวม {tot.count} เหตุ · {fmtBaht(tot.cost)}</span>
+                                            </p>
+                                            {yearsSel.map(y => {
+                                              const c = cell(d.key, y);
+                                              return (
+                                                <div key={y} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, cursor: c.count > 0 ? 'pointer' : 'default' }}
+                                                  onClick={c.count > 0 ? () => setPdDrill({ title: `${y} · ${d.label} — ${c.count} เหตุ · รวม ${fmtBaht(c.cost)}`, items: propInc.filter(i => i.incident_type === d.key && yrOf(i) === y).sort((a, b) => costOf(b) - costOf(a)) }) : undefined}>
+                                                  <span style={{ fontSize: 10, width: 30, flexShrink: 0, fontWeight: 700, color: YEAR_COLORS[yearsSel.indexOf(y) % 6] }}>{y}</span>
+                                                  <div style={{ flex: 1, height: 10, borderRadius: 5, background: 'var(--border)' }}>
+                                                    <div style={{ height: 10, borderRadius: 5, width: `${(c.cost / maxC) * 100}%`, background: d.color, opacity: 0.85, minWidth: c.count > 0 ? 4 : 0 }} />
+                                                  </div>
+                                                  <span style={{ fontSize: 10.5, flexShrink: 0, minWidth: 110, textAlign: 'right', color: 'var(--text-primary)' }}><b>{c.count}</b> เหตุ · {fmtBaht(c.cost)}</span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                             {/* Chart 2 */}
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>

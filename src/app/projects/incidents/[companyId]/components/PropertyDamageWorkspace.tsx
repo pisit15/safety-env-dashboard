@@ -512,6 +512,56 @@ export default function PropertyDamageWorkspace({
                   )}
                 </div>
 
+                {/* Chart C: แยกตามประเภทความสูญเสีย (ทรัพย์สิน vs Production Loss) */}
+                {(() => {
+                  const LOSS_TYPE_DEFS = [
+                    { key: 'ทรัพย์สินเสียหาย', label: 'ทรัพย์สินเสียหาย', color: '#1e40af' },
+                    { key: 'เหตุการณ์สูญเสียการผลิต (Production Loss)', label: 'Production Loss', color: '#0ea5e9' },
+                  ];
+                  const cell = (t: string, y: number) => {
+                    const rows = categoryIncidents.filter(i => i.incident_type === t && i.year === y);
+                    return { count: rows.length, cost: rows.reduce((s, i) => s + costOfInc(i), 0) };
+                  };
+                  const maxCost = Math.max(...LOSS_TYPE_DEFS.flatMap(d => years.map(y => cell(d.key, y).cost)), 1);
+                  return (
+                    <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+                        แยกตามประเภทความสูญเสีย — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแถบเพื่อดูรายการเคส</span>
+                      </h3>
+                      <div className="space-y-4">
+                        {LOSS_TYPE_DEFS.map(d => {
+                          const tot = years.reduce((s, y) => { const c = cell(d.key, y); return { count: s.count + c.count, cost: s.cost + c.cost }; }, { count: 0, cost: 0 });
+                          return (
+                            <div key={d.key}>
+                              <p className="text-[12px] font-bold mb-1" style={{ color: d.color }}>
+                                {d.label} <span className="font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>— รวม {tot.count} เหตุ · {fmtCost(tot.cost)}</span>
+                              </p>
+                              <div className="space-y-1">
+                                {years.map(y => {
+                                  const c = cell(d.key, y);
+                                  return (
+                                    <div key={y} className="flex items-center gap-2" style={{ cursor: c.count > 0 ? 'pointer' : 'default' }}
+                                      onClick={c.count > 0 ? () => openYearDrill(y, i => i.incident_type === d.key, d.label) : undefined}>
+                                      <span className="text-[10px] w-8 shrink-0 font-bold" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
+                                      <div className="flex-1 h-[11px] rounded" style={{ background: 'var(--bg-secondary)' }}>
+                                        <div className="h-[11px] rounded" style={{ width: `${(c.cost / maxCost) * 100}%`, background: d.color, opacity: 0.85, minWidth: c.count > 0 ? 4 : 0 }} />
+                                      </div>
+                                      <span className="text-[10.5px] shrink-0 text-right" style={{ color: 'var(--text-primary)', minWidth: 110 }}>
+                                        <b>{c.count}</b> เหตุ · {c.cost > 0 ? fmtCost(c.cost) : '0 ฿'}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--text-secondary)' }}>ความยาวแถบ = มูลค่าความเสียหาย (Direct + Indirect)</p>
+                    </div>
+                  );
+                })()}
+
                 {/* Chart B: เหตุการณ์/การสัมผัส × ปี */}
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                   <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
