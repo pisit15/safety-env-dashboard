@@ -948,9 +948,9 @@ export default function HQIncidentsPage() {
                     const c = i.company_id.toUpperCase();
                     byCompany[c] = byCompany[c] || { count: 0, cost: 0 };
                     byCompany[c].count++; byCompany[c].cost += costOf(i);
-                    // แกนที่ 2+3
-                    const a = (i.damaged_asset as string) || '';
-                    if (a) { byAsset[a] = byAsset[a] || { count: 0, cost: 0 }; byAsset[a].count++; byAsset[a].cost += costOf(i); }
+                    // แกนที่ 2+3 (แกนที่ 2 = แหล่งที่มา — ชี้จุดโฟกัสมาตรการป้องกัน)
+                    const a = (i.agency_source as string) || '';
+                    if (a && a !== 'อื่นๆ') { byAsset[a] = byAsset[a] || { count: 0, cost: 0 }; byAsset[a].count++; byAsset[a].cost += costOf(i); }
                     const n = (i.damage_nature as string) || '';
                     if (n) { byNature[n] = byNature[n] || { count: 0, cost: 0 }; byNature[n].count++; byNature[n].cost += costOf(i); }
                     // สัตว์ตามฤดูกาล
@@ -997,10 +997,10 @@ export default function HQIncidentsPage() {
                             </div>
                           ))}
                         </div>
-                        {/* แกนที่ 2: ทรัพย์สินที่เสียหาย */}
+                        {/* แกนที่ 2: แหล่งที่มา — โฟกัสมาตรการป้องกัน */}
                         {topAssets.length > 0 && (
                           <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>ทรัพย์สินที่เสียหาย</p>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>แหล่งที่มา</p>
                             {topAssets.map(([t, v]) => (
                               <div key={t} style={{ marginBottom: 8 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
@@ -1395,7 +1395,7 @@ export default function HQIncidentsPage() {
                                           <th style={{ padding: '5px 8px' }}>เลขที่เหตุการณ์</th>
                                           <th style={{ padding: '5px 8px' }}>วันที่</th>
                                           <th style={{ padding: '5px 8px' }}>เหตุการณ์</th>
-                                          <th style={{ padding: '5px 8px' }}>ทรัพย์สิน / ลักษณะ</th>
+                                          <th style={{ padding: '5px 8px' }}>แหล่งที่มา / ลักษณะ</th>
                                           <th style={{ padding: '5px 8px' }}>รายละเอียด</th>
                                           <th style={{ padding: '5px 8px', textAlign: 'right' }}>Direct (฿)</th>
                                           <th style={{ padding: '5px 8px', textAlign: 'right' }}>Indirect (฿)</th>
@@ -1410,7 +1410,7 @@ export default function HQIncidentsPage() {
                                             </td>
                                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
                                             <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 150 }}>{(i.contact_type as string) || '—'}</td>
-                                            <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 150 }}>{[(i.damaged_asset as string), (i.damage_nature as string)].filter(Boolean).join(' · ') || '—'}</td>
+                                            <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 150 }}>{[(i.agency_source as string), (i.damage_nature as string)].filter(Boolean).join(' · ') || '—'}</td>
                                             <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={(i.property_damage_detail as string) || (i.description as string) || ''}>
                                               {(i.property_damage_detail as string) || (i.description as string) || '—'}
                                             </td>
@@ -1493,7 +1493,7 @@ export default function HQIncidentsPage() {
                               <th style={{ padding: '5px 8px' }}>บริษัท</th>
                               <th style={{ padding: '5px 8px' }}>เลขที่เหตุการณ์</th>
                               <th style={{ padding: '5px 8px' }}>วันที่</th>
-                              <th style={{ padding: '5px 8px' }}>ทรัพย์สิน / ลักษณะความเสียหาย</th>
+                              <th style={{ padding: '5px 8px' }}>แหล่งที่มา / ลักษณะความเสียหาย</th>
                               <th style={{ padding: '5px 8px' }}>รายละเอียด</th>
                               <th style={{ padding: '5px 8px', textAlign: 'right' }}>ค่าเสียหาย (฿)</th>
                             </tr>
@@ -1506,7 +1506,7 @@ export default function HQIncidentsPage() {
                                 </td>
                                 <td style={{ padding: '6px 8px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{i.incident_no}</td>
                                 <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{new Date(i.incident_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
-                                <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{[(i.damaged_asset as string), (i.damage_nature as string)].filter(Boolean).join(' · ') || (i.property_damage_type as string) || '—'}</td>
+                                <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{[(i.agency_source as string), (i.damage_nature as string)].filter(Boolean).join(' · ') || (i.property_damage_type as string) || '—'}</td>
                                 <td style={{ padding: '6px 8px', color: 'var(--text-secondary)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={(i.property_damage_detail as string) || (i.description as string) || ''}>
                                   {(i.property_damage_detail as string) || (i.description as string) || '—'}
                                 </td>

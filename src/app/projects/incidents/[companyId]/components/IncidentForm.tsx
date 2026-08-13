@@ -730,10 +730,6 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             <SH num="4" label="PROPERTY DAMAGE" bg="rgba(168,85,247,0.1)" fg="#7c3aed" />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label text="ทรัพย์สินที่เสียหาย" />
-                <RefSelect value={(formData.damaged_asset as string) || ''} options={sourceOptions} onChange={v => updateForm('damaged_asset', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น รถยนต์, แผงโซล่าร์..." />
-              </div>
-              <div>
                 <Label text="ลักษณะความเสียหาย" />
                 <RefSelect value={(formData.damage_nature as string) || ''} options={natureOptions} onChange={v => updateForm('damage_nature', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ไหม้, แตกหัก, บุบ..." />
               </div>
