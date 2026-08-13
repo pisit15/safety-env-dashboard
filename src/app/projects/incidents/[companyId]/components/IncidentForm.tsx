@@ -673,6 +673,9 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <Label text="จำนวนผู้บาดเจ็บ" />
                 <input type="number" value={(formData.injured_count as number) || 0} onChange={e => updateForm('injured_count', parseInt(e.target.value) || 0)} style={inputStyle} min={0} />
               </div>
+              </>
+              )}
+              {/* การจำแนก 3 แกน — แสดงทุกประเภทอุบัติการณ์ (รวม ทรัพย์สินเสียหาย / Production Loss) */}
               <div>
                 <Label text="เหตุการณ์/การสัมผัส" />
                 <RefSelect value={(formData.contact_type as string) || ''} options={eventOptions} onChange={v => updateForm('contact_type', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ตกจากที่สูง, ไฟไหม้..." />
@@ -686,8 +689,6 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <RefSelect value={(formData.secondary_source as string) || ''} options={sourceOptions} onChange={v => updateForm('secondary_source', v)} style={inputStyle} placeholder="เช่น สัตว์กัดสายไฟจนไฟไหม้ → ต้นทาง: สัตว์" />
                 <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>กรณีมีต้นเหตุอีกชั้น เช่น งูทำให้ไฟฟ้าลัดวงจร — แหล่งที่มา = ไฟฟ้า, ต้นทาง = สัตว์เลื้อยคลาน</div>
               </div>
-              </>
-              )}
             </div>
             <div className="mt-3">
               <Label text="รายละเอียดเหตุการณ์" />
