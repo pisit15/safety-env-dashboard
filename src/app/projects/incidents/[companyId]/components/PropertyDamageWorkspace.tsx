@@ -441,15 +441,6 @@ export default function PropertyDamageWorkspace({
           {(() => {
             const years = propActiveYears;
             if (years.length === 0) return null;
-            const byYear: Record<number, { direct: number; indirect: number; count: number }> = {};
-            years.forEach(y => { byYear[y] = { direct: 0, indirect: 0, count: 0 }; });
-            categoryIncidents.forEach(inc => {
-              const b = byYear[inc.year]; if (!b) return;
-              b.direct += Number(inc.direct_cost) || 0;
-              b.indirect += Number(inc.indirect_cost) || 0;
-              b.count++;
-            });
-            const maxYearVal = Math.max(...years.map(y => (cmpMetric === 'cost' ? byYear[y].direct + byYear[y].indirect : byYear[y].count)), 1);
             const openYearDrill = (y: number, extra?: (i: Incident) => boolean, label?: string) => {
               const items = categoryIncidents.filter(i => i.year === y && (!extra || extra(i))).sort((a, b2) => costOfInc(b2) - costOfInc(a));
               setCmpDrill({ title: `${y}${label ? ` · ${label}` : ''} — ${items.length} เหตุ · รวม ${fmtCost(items.reduce((s, i) => s + costOfInc(i), 0))}`, items });
@@ -469,98 +460,79 @@ export default function PropertyDamageWorkspace({
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                     <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                      {cmpMetric === 'cost' ? 'มูลค่าความเสียหาย' : 'จำนวนเหตุ'}รายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
+                      ความสูญเสียรายปี — ทรัพย์สิน vs Production Loss <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
                     </h3>
                     <div className="flex gap-1.5">
                       {toggle(cmpMetric === 'cost', 'มูลค่า ฿', () => setCmpMetric('cost'))}
                       {toggle(cmpMetric === 'count', 'จำนวนเหตุ', () => setCmpMetric('count'))}
                     </div>
                   </div>
-                  <svg viewBox={`0 0 ${40 + years.length * 90} 190`} style={{ width: '100%', maxWidth: 120 + years.length * 110, height: 'auto' }}>
-                    <line x1={16} y1={155} x2={24 + years.length * 90} y2={155} stroke="var(--border)" strokeWidth={1} />
-                    {years.map((y, yi) => {
-                      const d = byYear[y];
-                      const total = cmpMetric === 'cost' ? d.direct + d.indirect : d.count;
-                      const h = (total / maxYearVal) * 120;
-                      const hDir = cmpMetric === 'cost' && total > 0 ? h * (d.direct / (d.direct + d.indirect || 1)) : h;
-                      const x = 30 + yi * 90;
-                      const col = YEAR_COLORS_PROP[y] || '#4E79A7';
-                      return (
-                        <g key={y} onClick={total > 0 ? () => openYearDrill(y) : undefined} style={total > 0 ? { cursor: 'pointer' } : undefined}>
-                          <rect x={x - 4} y={20} width={58} height={140} fill="transparent" />
-                          {cmpMetric === 'cost' && h - hDir > 0.5 && <rect x={x} y={155 - h} width={50} height={h - hDir} rx={3} fill={col} opacity={0.3} />}
-                          <rect x={x} y={155 - hDir} width={50} height={Math.max(hDir, total > 0 ? 2 : 0)} rx={3} fill={col} opacity={0.9} />
-                          {total > 0 && <text x={x + 25} y={148 - h} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{cmpMetric === 'cost' ? fmtCostShort(total) : total}</text>}
-                          {/* ตัวเลขย่อยในแต่ละชั้น (แสดงเมื่อชั้นสูงพอ) */}
-                          {cmpMetric === 'cost' && hDir >= 14 && d.direct > 0 && (
-                            <text x={x + 25} y={155 - hDir / 2 + 3.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#fff" style={{ pointerEvents: 'none' }}>{fmtCostShort(d.direct)}</text>
-                          )}
-                          {cmpMetric === 'cost' && h - hDir >= 14 && d.indirect > 0 && (
-                            <text x={x + 25} y={155 - hDir - (h - hDir) / 2 + 3.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--text-primary)" style={{ pointerEvents: 'none' }}>{fmtCostShort(d.indirect)}</text>
-                          )}
-                          <text x={x + 25} y={172} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-secondary)">{y}</text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                  {cmpMetric === 'cost' && (
-                    <p className="text-[10px] mt-1 flex items-center gap-3" style={{ color: 'var(--text-secondary)' }}>
-                      <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', opacity: 0.9, display: 'inline-block' }} /> Direct</span>
-                      <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', opacity: 0.3, display: 'inline-block' }} /> Indirect</span>
-                      <span>มูลค่า = Direct + Indirect</span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Chart C: แยกตามประเภทความสูญเสีย (ทรัพย์สิน vs Production Loss) */}
-                {(() => {
-                  const LOSS_TYPE_DEFS = [
-                    { key: 'ทรัพย์สินเสียหาย', label: 'ทรัพย์สินเสียหาย', color: '#1e40af' },
-                    { key: 'เหตุการณ์สูญเสียการผลิต (Production Loss)', label: 'Production Loss', color: '#0ea5e9' },
-                  ];
-                  const cell = (t: string, y: number) => {
-                    const rows = categoryIncidents.filter(i => i.incident_type === t && i.year === y);
-                    return { count: rows.length, cost: rows.reduce((s, i) => s + costOfInc(i), 0) };
-                  };
-                  const maxCost = Math.max(...LOSS_TYPE_DEFS.flatMap(d => years.map(y => cell(d.key, y).cost)), 1);
-                  return (
-                    <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                      <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
-                        แยกตามประเภทความสูญเสีย — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแถบเพื่อดูรายการเคส</span>
-                      </h3>
-                      <div className="space-y-4">
-                        {LOSS_TYPE_DEFS.map(d => {
-                          const tot = years.reduce((s, y) => { const c = cell(d.key, y); return { count: s.count + c.count, cost: s.cost + c.cost }; }, { count: 0, cost: 0 });
-                          return (
-                            <div key={d.key}>
-                              <p className="text-[12px] font-bold mb-1" style={{ color: d.color }}>
-                                {d.label} <span className="font-semibold text-[11px]" style={{ color: 'var(--text-secondary)' }}>— รวม {tot.count} เหตุ · {fmtCost(tot.cost)}</span>
-                              </p>
-                              <div className="space-y-1">
-                                {years.map(y => {
-                                  const c = cell(d.key, y);
+                  {(() => {
+                    const LOSS_DEFS = [
+                      { key: 'ทรัพย์สินเสียหาย', label: 'ทรัพย์สินเสียหาย', color: '#1e40af' },
+                      { key: 'เหตุการณ์สูญเสียการผลิต (Production Loss)', label: 'Production Loss', color: '#0ea5e9' },
+                    ];
+                    const cell = (t: string, y: number) => {
+                      const rows = categoryIncidents.filter(i => i.incident_type === t && i.year === y);
+                      return {
+                        count: rows.length,
+                        direct: rows.reduce((sm, i) => sm + (Number(i.direct_cost) || 0), 0),
+                        indirect: rows.reduce((sm, i) => sm + (Number(i.indirect_cost) || 0), 0),
+                      };
+                    };
+                    const val = (c: { count: number; direct: number; indirect: number }) => (cmpMetric === 'cost' ? c.direct + c.indirect : c.count);
+                    const maxV = Math.max(...years.flatMap(y => LOSS_DEFS.map(d => val(cell(d.key, y)))), 1);
+                    const bw = 40, bgap = 8, gw = bw * 2 + bgap + 40;
+                    const W = 30 + years.length * gw;
+                    return (
+                      <>
+                        <svg viewBox={`0 0 ${W} 210`} style={{ width: '100%', maxWidth: Math.max(W * 1.3, 560), height: 'auto', display: 'block', margin: '0 auto' }}>
+                          <line x1={14} y1={158} x2={W - 10} y2={158} stroke="var(--border)" strokeWidth={1} />
+                          {years.map((y, yi) => {
+                            const gx = 24 + yi * gw;
+                            const totals = LOSS_DEFS.map(d => cell(d.key, y));
+                            const yearTotal = cmpMetric === 'cost' ? totals.reduce((sm, c) => sm + c.direct + c.indirect, 0) : totals.reduce((sm, c) => sm + c.count, 0);
+                            return (
+                              <g key={y}>
+                                {LOSS_DEFS.map((d, di) => {
+                                  const c = totals[di];
+                                  const v = val(c);
+                                  const h = Math.max((v / maxV) * 105, v > 0 ? 3 : 0);
+                                  const frac = cmpMetric === 'cost' && v > 0 ? c.direct / (c.direct + c.indirect || 1) : 1;
+                                  const hDir = h * frac;
+                                  const x = gx + di * (bw + bgap);
+                                  const clickable = c.count > 0;
                                   return (
-                                    <div key={y} className="flex items-center gap-2" style={{ cursor: c.count > 0 ? 'pointer' : 'default' }}
-                                      onClick={c.count > 0 ? () => openYearDrill(y, i => i.incident_type === d.key, d.label) : undefined}>
-                                      <span className="text-[10px] w-8 shrink-0 font-bold" style={{ color: YEAR_COLORS_PROP[y] || '#9ca3af' }}>{y}</span>
-                                      <div className="flex-1 h-[11px] rounded" style={{ background: 'var(--bg-secondary)' }}>
-                                        <div className="h-[11px] rounded" style={{ width: `${(c.cost / maxCost) * 100}%`, background: d.color, opacity: 0.85, minWidth: c.count > 0 ? 4 : 0 }} />
-                                      </div>
-                                      <span className="text-[10.5px] shrink-0 text-right" style={{ color: 'var(--text-primary)', minWidth: 110 }}>
-                                        <b>{c.count}</b> เหตุ · {c.cost > 0 ? fmtCost(c.cost) : '0 ฿'}
-                                      </span>
-                                    </div>
+                                    <g key={d.key} onClick={clickable ? () => openYearDrill(y, i => i.incident_type === d.key, d.label) : undefined} style={clickable ? { cursor: 'pointer' } : undefined}>
+                                      <rect x={x - 2} y={28} width={bw + 4} height={130} fill="transparent" />
+                                      {h - hDir > 0.5 && <rect x={x} y={158 - h} width={bw} height={h - hDir} rx={3} fill={d.color} opacity={0.3} />}
+                                      <rect x={x} y={158 - hDir} width={bw} height={Math.max(hDir, v > 0 ? 2 : 0)} rx={3} fill={d.color} opacity={0.9} />
+                                      {v > 0 && <text x={x + bw / 2} y={151 - h} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={d.color} style={{ pointerEvents: 'none' }}>{cmpMetric === 'cost' ? fmtCostShort(v) : v}</text>}
+                                      <text x={x + bw / 2} y={170} textAnchor="middle" fontSize={8.5} fill="var(--text-secondary)" style={{ pointerEvents: 'none' }}>{c.count} เหตุ</text>
+                                    </g>
                                   );
                                 })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[10px] mt-2" style={{ color: 'var(--text-secondary)' }}>ความยาวแถบ = มูลค่าความเสียหาย (Direct + Indirect)</p>
-                    </div>
-                  );
-                })()}
+                                <text x={gx + bw + bgap / 2} y={186} textAnchor="middle" fontSize={11.5} fontWeight={700} fill="var(--text-primary)">{y}</text>
+                                <text x={gx + bw + bgap / 2} y={200} textAnchor="middle" fontSize={8.5} fill="var(--text-secondary)">รวม {cmpMetric === 'cost' ? fmtCostShort(yearTotal) + ' ฿' : `${yearTotal} เหตุ`}</text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                        <p className="text-[10px] mt-1 flex items-center gap-3 flex-wrap" style={{ color: 'var(--text-secondary)' }}>
+                          <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', display: 'inline-block' }} /> ทรัพย์สินเสียหาย</span>
+                          <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#0ea5e9', display: 'inline-block' }} /> Production Loss</span>
+                          {cmpMetric === 'cost' && (
+                            <>
+                              <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', opacity: 0.9, display: 'inline-block' }} /> Direct (เข้ม)</span>
+                              <span className="inline-flex items-center gap-1"><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1e40af', opacity: 0.3, display: 'inline-block' }} /> Indirect (อ่อน)</span>
+                              <span>มูลค่า = Direct + Indirect</span>
+                            </>
+                          )}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
 
                 {/* Chart B: เหตุการณ์/การสัมผัส × ปี */}
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
