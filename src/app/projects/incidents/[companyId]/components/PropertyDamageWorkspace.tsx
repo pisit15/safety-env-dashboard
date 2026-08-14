@@ -265,7 +265,9 @@ export default function PropertyDamageWorkspace({
     const st = i.report_status || 'Draft';
     return st === 'Draft' || st === 'Open' || st === 'In Progress';
   });
-  const highCostThreshold = totalPropCost > 0 ? totalPropCost * 0.2 : 50000;
+  // เกณฑ์ต้องคงที่ (คิดจากเคสทั้งหมด ไม่ใช่หลังกรอง) — ไม่งั้นตัวเลข chip จะเปลี่ยนเมื่อกดกรอง
+  const allCatCost = categoryIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0);
+  const highCostThreshold = allCatCost > 0 ? allCatCost * 0.2 : 50000;
   const highCostRecords = categoryIncidents.filter(i =>
     (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0) >= highCostThreshold
   );
