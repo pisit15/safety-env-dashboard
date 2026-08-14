@@ -688,6 +688,20 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <Label text="แหล่งที่มาต้นทาง (ถ้ามี)" />
                 <RefSelect value={(formData.secondary_source as string) || ''} options={sourceOptions} onChange={v => updateForm('secondary_source', v)} style={inputStyle} placeholder="เช่น สัตว์กัดสายไฟจนไฟไหม้ → ต้นทาง: สัตว์" />
                 <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>กรณีมีต้นเหตุอีกชั้น เช่น งูทำให้ไฟฟ้าลัดวงจร — แหล่งที่มา = ไฟฟ้า, ต้นทาง = สัตว์เลื้อยคลาน</div>
+                {/* เตือนเมื่อค่าดูเหมือนใส่สลับช่อง (สิ่งมีชีวิตควรอยู่ฝั่งต้นทาง) */}
+                {(() => {
+                  const srcV = (formData.agency_source as string) || '';
+                  const secV = (formData.secondary_source as string) || '';
+                  const living = (s: string) => /^(สัตว์|บุคคล|พืช)/.test(s);
+                  if (srcV && secV && living(srcV) && !living(secV)) {
+                    return (
+                      <div style={{ fontSize: 10.5, color: '#d97706', marginTop: 4, padding: '4px 8px', background: 'rgba(242,142,43,0.1)', borderRadius: 6 }}>
+                        ⚠ ค่าอาจสลับช่องกัน — ปกติ สิ่งมีชีวิต (สัตว์/บุคคล/พืช) ควรอยู่ช่อง &ldquo;ต้นทาง&rdquo; และสิ่งที่เกิดเหตุ (เช่น ระบบไฟฟ้า) อยู่ช่อง &ldquo;แหล่งที่มา&rdquo;
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
             <div className="mt-3">

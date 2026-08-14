@@ -948,8 +948,13 @@ export default function HQIncidentsPage() {
                     const c = i.company_id.toUpperCase();
                     byCompany[c] = byCompany[c] || { count: 0, cost: 0 };
                     byCompany[c].count++; byCompany[c].cost += costOf(i);
-                    // แกนที่ 2+3 (แกนที่ 2 = แหล่งที่มา — ชี้จุดโฟกัสมาตรการป้องกัน)
-                    const a = (i.agency_source as string) || '';
+                    // แกนที่ 2 = สาเหตุต้นทาง (Root Source) — 1 เคสนับครั้งเดียว ไม่ซ้ำซ้อน
+                    // กติกา: สิ่งมีชีวิต/ภัยธรรมชาติมีลำดับความสำคัญสูงสุด (กันกรณี user ใส่สลับช่อง)
+                    //        ไม่งั้นใช้ ต้นทาง ถ้ามี → ไม่มีจึงใช้ แหล่งที่มา
+                    const srcV = (i.agency_source as string) || '';
+                    const secV = (i.secondary_source as string) || '';
+                    const isRootish = (s: string) => /^(สัตว์|บุคคล|พืช)/.test(s);
+                    const a = isRootish(secV) ? secV : isRootish(srcV) ? srcV : (secV || srcV);
                     if (a && a !== 'อื่นๆ') { byAsset[a] = byAsset[a] || { count: 0, cost: 0 }; byAsset[a].count++; byAsset[a].cost += costOf(i); }
                     const n = (i.damage_nature as string) || '';
                     if (n) { byNature[n] = byNature[n] || { count: 0, cost: 0 }; byNature[n].count++; byNature[n].cost += costOf(i); }
@@ -997,10 +1002,11 @@ export default function HQIncidentsPage() {
                             </div>
                           ))}
                         </div>
-                        {/* แกนที่ 2: แหล่งที่มา — โฟกัสมาตรการป้องกัน */}
+                        {/* แกนที่ 2: สาเหตุต้นทาง — โฟกัสมาตรการป้องกัน (นับเคสละครั้ง) */}
                         {topAssets.length > 0 && (
                           <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>แหล่งที่มา</p>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>สาเหตุต้นทาง (โฟกัสการป้องกัน)</p>
+                            <p style={{ fontSize: 9.5, color: 'var(--text-secondary)', margin: '0 0 8px' }}>ใช้ต้นทางถ้ามี ไม่งั้นใช้แหล่งที่มา · 1 เคสนับครั้งเดียว</p>
                             {topAssets.map(([t, v]) => (
                               <div key={t} style={{ marginBottom: 8 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
