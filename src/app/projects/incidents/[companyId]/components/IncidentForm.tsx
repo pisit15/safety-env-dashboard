@@ -677,7 +677,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               )}
               {/* การจำแนก 3 แกน — แสดงทุกประเภทอุบัติการณ์ (รวม ทรัพย์สินเสียหาย / Production Loss) */}
               <div>
-                <Label text="เหตุการณ์/การสัมผัส" />
+                <Label text="เหตุการณ์" />
                 <RefSelect value={(formData.contact_type as string) || ''} options={eventOptions} onChange={v => updateForm('contact_type', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ตกจากที่สูง, ไฟไหม้..." />
               </div>
               <div>

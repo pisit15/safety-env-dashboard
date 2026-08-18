@@ -447,7 +447,7 @@ export default function PropertyDamageWorkspace({
               const items = categoryIncidents.filter(i => i.year === y && (!extra || extra(i))).sort((a, b2) => costOfInc(b2) - costOfInc(a));
               setCmpDrill({ title: `${y}${label ? ` · ${label}` : ''} — ${items.length} เหตุ · รวม ${fmtCost(items.reduce((s, i) => s + costOfInc(i), 0))}`, items });
             };
-            // Top events (เหตุการณ์/การสัมผัส)
+            // Top events (เหตุการณ์)
             const evCount: Record<string, number> = {};
             categoryIncidents.forEach(i => { const e = ((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ'; evCount[e] = (evCount[e] || 0) + 1; });
             const topEvents = Object.entries(evCount).sort((a, b2) => b2[1] - a[1]).slice(0, 6);
@@ -536,10 +536,10 @@ export default function PropertyDamageWorkspace({
                   })()}
                 </div>
 
-                {/* Chart B: เหตุการณ์/การสัมผัส × ปี */}
+                {/* Chart B: เหตุการณ์ × ปี */}
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                   <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
-                    เหตุการณ์/การสัมผัส — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
+                    เหตุการณ์ — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
                   </h3>
                   <div className="space-y-3">
                     {topEvents.map(([ev]) => (

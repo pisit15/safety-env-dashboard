@@ -941,7 +941,7 @@ export default function HQIncidentsPage() {
                   const animalByMonth: number[] = Array(12).fill(0);
                   const isAnimal = (i: Incident) => ((i.secondary_source as string) || '').startsWith('สัตว์') || ((i.agency_source as string) || '').startsWith('สัตว์');
                   propInc.forEach(i => {
-                    // แกนที่ 1: เหตุการณ์/การสัมผัส (ครบทุกเคสหลัง backfill)
+                    // แกนที่ 1: เหตุการณ์ (ครบทุกเคสหลัง backfill)
                     const t = (i.contact_type as string) || 'ไม่ระบุ';
                     byType[t] = byType[t] || { count: 0, cost: 0 };
                     byType[t].count++; byType[t].cost += costOf(i);
@@ -987,9 +987,9 @@ export default function HQIncidentsPage() {
                         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ (ทรัพย์สิน {nProp} · Production Loss {nProd}) · ค่าเสียหายรวม {fmtBaht(totalCost)} · ตามตัวกรองด้านบน</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
-                        {/* แกนที่ 1: เหตุการณ์/การสัมผัส */}
+                        {/* แกนที่ 1: เหตุการณ์ */}
                         <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px' }}>
-                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>เหตุการณ์/การสัมผัส</p>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px' }}>เหตุการณ์</p>
                           {topTypes.map(([t, v]) => (
                             <div key={t} style={{ marginBottom: 8 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
@@ -1274,7 +1274,7 @@ export default function HQIncidentsPage() {
                             {/* Chart 2 */}
                             <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>เหตุการณ์/การสัมผัส รายบริษัท — เทียบรายปี</p>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>เหตุการณ์ รายบริษัท — เทียบรายปี</p>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                   {toggleBtn(pdEventMode === 'select', 'เลือกเหตุการณ์', () => setPdEventMode('select'))}
                                   {toggleBtn(pdEventMode === 'stack', 'ภาพรวม (Stacked)', () => setPdEventMode('stack'))}
@@ -1355,7 +1355,7 @@ export default function HQIncidentsPage() {
                                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: 24 }}>
                                             {row('ประเภทอุบัติการณ์', c.incident_type)}
                                             {row('ความรุนแรง', c.actual_severity)}
-                                            {row('เหตุการณ์/การสัมผัส', c.contact_type)}
+                                            {row('เหตุการณ์', c.contact_type)}
                                             {row('แหล่งที่มา', c.agency_source)}
                                             {row('แหล่งที่มาต้นทาง', c.secondary_source)}
                                             {row('ทรัพย์สินที่เสียหาย', c.damaged_asset)}

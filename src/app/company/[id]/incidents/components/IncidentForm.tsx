@@ -348,7 +348,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <input type="number" value={(formData.injured_count as number) || 0} onChange={e => updateForm('injured_count', parseInt(e.target.value) || 0)} style={inputStyle} min={0} />
               </div>
               <div>
-                <Label text="เหตุการณ์/การสัมผัส" />
+                <Label text="เหตุการณ์" />
                 <select value={(formData.contact_type as string) || ''} onChange={e => updateForm('contact_type', e.target.value)} style={selectStyle}>
                   <option value="">เลือก</option>
                   {CONTACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}

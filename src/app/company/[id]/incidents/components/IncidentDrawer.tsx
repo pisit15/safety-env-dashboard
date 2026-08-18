@@ -225,7 +225,7 @@ export default function IncidentDrawer({
               <FieldRow label="เกี่ยวกับงาน" value={str('work_related')} />
               <FieldRow label="กิจกรรม" value={str('activity')} />
               <FieldRow label="สภาพแวดล้อม" value={str('environment')} />
-              <FieldRow label="ประเภทการสัมผัส" value={str('contact_type')} />
+              <FieldRow label="เหตุการณ์" value={str('contact_type')} />
               <FieldRow label="แหล่งที่มา/อุปกรณ์" value={str('agency_source')} />
               <FieldRow label="ความรุนแรงจริง" value={str('actual_severity')} />
               <FieldRow label="ความรุนแรงศักยภาพ" value={str('potential_severity')} />

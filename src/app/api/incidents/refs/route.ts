@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 /**
  * Incident classification masters (admin-editable):
- *   events         — เหตุการณ์/การสัมผัส (แกน 1)
+ *   events         — เหตุการณ์ (แกน 1)
  *   sources        — แหล่งที่มา / แหล่งที่มาต้นทาง / ทรัพย์สินที่เสียหาย (แกน 2+4 ใช้ master เดียวกัน)
  *   damage_natures — ลักษณะความเสียหาย (แกน 3)
  */
