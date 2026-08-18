@@ -221,7 +221,8 @@ export default function PropertyDamageWorkspace({
   };
 
   // ---- Data for breakdown charts ----
-  const dmgTypeData = groupByField('property_damage_type', incidentsFor('property_damage_type'));
+  // ลักษณะความเสียหาย (damage_nature — แกนใหม่) แทน property_damage_type เดิม
+  const dmgTypeData = groupByField('damage_nature', incidentsFor('damage_nature'));
   const areaData = groupByField('area', incidentsFor('area'));
   const agencyData = groupByField('agency_source', incidentsFor('agency_source'));
   const deptData = groupByField('department', incidentsFor('department'));
@@ -277,13 +278,6 @@ export default function PropertyDamageWorkspace({
   categoryIncidents.forEach(inc => {
     const ic = (inc as Record<string, unknown>).insurance_claim as string || 'ไม่ระบุ';
     claimCounts[ic] = (claimCounts[ic] || 0) + 1;
-  });
-
-  // ---- Production impact summary ----
-  const impactCounts: Record<string, number> = {};
-  categoryIncidents.forEach(inc => {
-    const pi = (inc as Record<string, unknown>).production_impact as string || 'ไม่ระบุ';
-    impactCounts[pi] = (impactCounts[pi] || 0) + 1;
   });
 
   // ---- Quick filter chips ----
@@ -626,33 +620,11 @@ export default function PropertyDamageWorkspace({
               </div>
             </div>
 
-            {/* Production Impact Summary */}
-            <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-              <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Production Impact</h3>
-              <div className="space-y-2">
-                {Object.entries(impactCounts).sort((a, b) => b[1] - a[1]).map(([impact, count]) => {
-                  const pct = categoryIncidents.length > 0 ? Math.round((count / categoryIncidents.length) * 100) : 0;
-                  const impactColor = impact === 'ไม่มีผลกระทบ' ? '#16a34a' : impact === 'ผลกระทบเล็กน้อย' ? '#eab308' : '#dc2626';
-                  return (
-                    <div key={impact} className="flex items-center gap-3 cursor-pointer rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--bg-secondary)]"
-                      onClick={() => setPropFilter({ field: 'production_impact', value: impact })}
-                      style={{ opacity: propFilter?.field === 'production_impact' && propFilter.value !== impact ? 0.35 : 1 }}
-                    >
-                      <span className="text-[11px] shrink-0" style={{ width: 110, color: 'var(--text-secondary)' }}>{impact}</span>
-                      <div className="flex-1 relative rounded-full overflow-hidden" style={{ height: 8, background: 'var(--bg-secondary)' }}>
-                        <div className="absolute left-0 top-0 bottom-0 rounded-full" style={{ width: `${Math.max(pct, count > 0 ? 5 : 0)}%`, background: impactColor }} />
-                      </div>
-                      <span className="text-[11px] font-bold shrink-0 text-right" style={{ width: 35, color: 'var(--text-primary)' }}>{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
           {/* Charts Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-            {renderPropStackedBar('Property Damage Type', 'property_damage_type', dmgTypeData)}
+            {renderPropStackedBar('ลักษณะความเสียหาย', 'damage_nature', dmgTypeData)}
             {renderPropStackedBar('Area/Location', 'area', areaData)}
             {renderPropStackedBar('Agency Source', 'agency_source', agencyData)}
             {renderPropStackedBar('Department', 'department', deptData)}
