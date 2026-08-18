@@ -76,6 +76,7 @@ export default function IncidentsPage() {
 
   // List view data (separate from dashboard)
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [allListIncidents, setAllListIncidents] = useState<Incident[]>([]); // ชุดเต็มก่อนแบ่งหน้า สำหรับ Export CSV
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -528,6 +529,7 @@ export default function IncidentsPage() {
       if (filterDateTo) allInc = allInc.filter(i => (i.incident_date || '').slice(0, 10) <= filterDateTo);
       allInc.sort((a, b) => (b.incident_date || '').localeCompare(a.incident_date || ''));
       setTotal(allInc.length);
+      setAllListIncidents(allInc); // เก็บชุดเต็ม (ก่อนแบ่งหน้า) ไว้ให้ Export CSV
       const start = (page - 1) * 20;
       setIncidents(allInc.slice(start, start + 20));
     } catch { /* empty */ }
@@ -773,7 +775,7 @@ export default function IncidentsPage() {
               openDrawer={openDrawer}
               openEditForm={openEditForm}
               handleDelete={handleDelete}
-              allIncidentsForExport={categoryIncidents}
+              allIncidentsForExport={allListIncidents.length > 0 ? allListIncidents : categoryIncidents}
               companyId={id}
               onImported={() => { fetchList(); fetchDashboard(); }}
               isLoggedIn={(() => {
