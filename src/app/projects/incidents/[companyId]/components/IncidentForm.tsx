@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import DateInput from '@/components/DateInput';
+import { BUSINESS_UNITS } from '@/lib/companies';
 import { useAuth } from '@/components/AuthContext';
 import { X, Plus, Camera, Trash2, ImageIcon, Upload, Loader2, Save, CloudOff, CheckCircle2 } from 'lucide-react';
 import type { Incident } from '../types';
@@ -28,7 +29,7 @@ interface IncidentFormProps {
 /* ------------------------------------------------------------------ */
 /*  Classification master item + searchable single-select             */
 /* ------------------------------------------------------------------ */
-export interface RefItem { id: number; name: string; grp: string; sort_order: number; is_active: boolean }
+export interface RefItem { id: number; name: string; grp: string; sort_order: number; is_active: boolean; bu_scope?: string }
 
 // Searchable dropdown for long classification lists (่>20 รายการห้ามใช้ select ธรรมดา)
 // — พิมพ์ค้นหาได้ทั้งชื่อและกลุ่ม เลือกจากรายการ หรือพิมพ์ค่าเองก็ได้
@@ -117,6 +118,13 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
       })
       .catch(() => { /* fallback to constants below */ });
   }, []);
+  // กรองอุปกรณ์ตาม BU ของบริษัท (bu_scope ว่าง = ทุกบริษัท / บริษัทไม่มี BU = เห็นทั้งหมด)
+  const myBuKeys = BUSINESS_UNITS.filter(b => b.companyIds.includes(companyId)).map(b => b.key);
+  const equipmentForBu = refEquipment.filter(x => {
+    const scope = (x.bu_scope || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (scope.length === 0 || myBuKeys.length === 0) return true;
+    return scope.some(k => myBuKeys.includes(k));
+  });
   const eventOptions = refEvents.length > 0 ? refEvents.map(x => ({ name: x.name, grp: x.grp })) : CONTACT_TYPES.map(n => ({ name: n }));
   const sourceOptions = refSources.length > 0 ? refSources.map(x => ({ name: x.name, grp: x.grp })) : AGENCY_SOURCES.map(n => ({ name: n }));
   const natureOptions = refNatures.map(x => ({ name: x.name, grp: x.grp }));
@@ -768,8 +776,8 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                           ))}
                         </div>
                       )}
-                      <RefSelect value="" options={refEquipment.filter(x => !sel.includes(x.name)).map(x => ({ name: x.name, grp: x.grp }))}
-                        onChange={v => { if (v && refEquipment.some(x => x.name === v) && !sel.includes(v)) updateForm('damaged_asset', [...sel, v].join(', ')); }}
+                      <RefSelect value="" options={equipmentForBu.filter(x => !sel.includes(x.name)).map(x => ({ name: x.name, grp: x.grp }))}
+                        onChange={v => { if (v && equipmentForBu.some(x => x.name === v) && !sel.includes(v)) updateForm('damaged_asset', [...sel, v].join(', ')); }}
                         style={inputStyle} placeholder="พิมพ์ค้นหาแล้วเลือกเพิ่ม เช่น Termination kit, สาย TAC..." />
                     </>
                   );

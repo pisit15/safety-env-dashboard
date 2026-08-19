@@ -10,18 +10,19 @@ const C_PRIMARY = '#4E79A7';
 const C_POSITIVE = '#59A14F';
 const C_DANGER = '#E15759';
 
-interface RefItem { id: number; name: string; grp: string; sort_order: number; is_active: boolean }
+interface RefItem { id: number; name: string; grp: string; sort_order: number; is_active: boolean; bu_scope?: string }
 type RefKind = 'event' | 'source' | 'damage_nature' | 'equipment';
 
 const refInputStyle: React.CSSProperties = { width: '100%', padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 12 };
 
 // Manager for one classification master list (search + add + inline edit + active toggle + delete)
-function RefSection({ title, hint, rows, onAdd, onSave, onToggle, onDelete }: {
+function RefSection({ title, hint, rows, onAdd, onSave, onToggle, onDelete, buField = false }: {
   title: string;
   hint: string;
   rows: RefItem[];
-  onAdd: (name: string, grp: string) => Promise<boolean>;
-  onSave: (id: number, name: string, grp: string) => Promise<boolean>;
+  buField?: boolean;
+  onAdd: (name: string, grp: string, bu?: string) => Promise<boolean>;
+  onSave: (id: number, name: string, grp: string, bu?: string) => Promise<boolean>;
   onToggle: (item: RefItem) => void;
   onDelete: (item: RefItem) => void;
 }) {
@@ -31,13 +32,15 @@ function RefSection({ title, hint, rows, onAdd, onSave, onToggle, onDelete }: {
   const [editId, setEditId] = useState<number | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftGrp, setDraftGrp] = useState('');
+  const [newBu, setNewBu] = useState('');
+  const [draftBu, setDraftBu] = useState('');
 
   const q = search.trim().toLowerCase();
   const filtered = q ? rows.filter(r => r.name.toLowerCase().includes(q) || r.grp.toLowerCase().includes(q)) : rows;
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
-    if (await onAdd(newName, newGrp)) { setNewName(''); setNewGrp(''); }
+    if (await onAdd(newName, newGrp, buField ? newBu : undefined)) { setNewName(''); setNewGrp(''); setNewBu(''); }
   };
 
   return (
@@ -57,6 +60,10 @@ function RefSection({ title, hint, rows, onAdd, onSave, onToggle, onDelete }: {
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} style={{ ...refInputStyle, flex: 2, minWidth: 200 }} />
         <input value={newGrp} onChange={e => setNewGrp(e.target.value)} placeholder="กลุ่ม (เช่น ยานพาหนะ, ธรรมชาติ)"
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} style={{ ...refInputStyle, flex: 1, minWidth: 160 }} />
+        {buField && (
+          <input value={newBu} onChange={e => setNewBu(e.target.value)} placeholder="BU (เช่น wind,solar — ว่าง=ทุกบริษัท)"
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }} style={{ ...refInputStyle, flex: 1, minWidth: 180 }} />
+        )}
         <button onClick={handleAdd} disabled={!newName.trim()} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: C_PRIMARY }}>
           <Plus size={13} /> เพิ่ม
         </button>
@@ -72,18 +79,20 @@ function RefSection({ title, hint, rows, onAdd, onSave, onToggle, onDelete }: {
               <>
                 <input value={draftName} onChange={e => setDraftName(e.target.value)} style={{ ...refInputStyle, flex: 2 }} />
                 <input value={draftGrp} onChange={e => setDraftGrp(e.target.value)} style={{ ...refInputStyle, flex: 1 }} />
-                <button onClick={async () => { if (await onSave(r.id, draftName, draftGrp)) setEditId(null); }} title="บันทึก" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><Check size={15} style={{ color: C_POSITIVE }} /></button>
+                {buField && <input value={draftBu} onChange={e => setDraftBu(e.target.value)} placeholder="BU" style={{ ...refInputStyle, flex: 1 }} />}
+                <button onClick={async () => { if (await onSave(r.id, draftName, draftGrp, buField ? draftBu : undefined)) setEditId(null); }} title="บันทึก" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><Check size={15} style={{ color: C_POSITIVE }} /></button>
                 <button onClick={() => setEditId(null)} title="ยกเลิก" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><X size={15} style={{ color: 'var(--text-secondary)' }} /></button>
               </>
             ) : (
               <>
                 <span style={{ flex: 2, fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{r.name}</span>
                 <span style={{ flex: 1, fontSize: 11, color: 'var(--text-secondary)' }}>{r.grp || '—'}</span>
+                {buField && <span style={{ flex: 1, fontSize: 10.5, color: '#4E79A7' }}>{r.bu_scope || 'ทุกบริษัท'}</span>}
                 <button onClick={() => onToggle(r)}
                   style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--card-solid)', color: r.is_active ? C_POSITIVE : 'var(--text-secondary)' }}>
                   {r.is_active ? 'ใช้งาน' : 'ปิด'}
                 </button>
-                <button onClick={() => { setEditId(r.id); setDraftName(r.name); setDraftGrp(r.grp); }} title="แก้ไข" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={13} style={{ color: C_PRIMARY }} /></button>
+                <button onClick={() => { setEditId(r.id); setDraftName(r.name); setDraftGrp(r.grp); setDraftBu(r.bu_scope || ''); }} title="แก้ไข" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={13} style={{ color: C_PRIMARY }} /></button>
                 <button onClick={() => onDelete(r)} title="ลบ" style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={13} style={{ color: C_DANGER }} /></button>
               </>
             )}
@@ -120,14 +129,14 @@ export default function IncidentSettingsPage() {
   };
   useEffect(() => { if (auth.isAdmin) loadAll(); }, [auth.isAdmin]);
 
-  const addRef = async (kind: RefKind, name: string, grp: string): Promise<boolean> => {
-    const res = await fetch('/api/incidents/refs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, name, grp }) });
+  const addRef = async (kind: RefKind, name: string, grp: string, bu?: string): Promise<boolean> => {
+    const res = await fetch('/api/incidents/refs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, name, grp, ...(bu !== undefined ? { bu_scope: bu } : {}) }) });
     const data = await res.json();
     if (data.error) { setToast({ type: 'error', msg: data.error }); return false; }
     setToast({ type: 'success', msg: 'เพิ่มรายการแล้ว' }); loadAll(); return true;
   };
-  const saveRef = async (kind: RefKind, id: number, name: string, grp: string): Promise<boolean> => {
-    const res = await fetch('/api/incidents/refs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, id, name, grp }) });
+  const saveRef = async (kind: RefKind, id: number, name: string, grp: string, bu?: string): Promise<boolean> => {
+    const res = await fetch('/api/incidents/refs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, id, name, grp, ...(bu !== undefined ? { bu_scope: bu } : {}) }) });
     const data = await res.json();
     if (data.error) { setToast({ type: 'error', msg: data.error }); return false; }
     setToast({ type: 'success', msg: 'บันทึกการแก้ไขแล้ว' }); loadAll(); return true;
@@ -193,10 +202,11 @@ export default function IncidentSettingsPage() {
 
       <RefSection
         title="อุปกรณ์ที่เสียหาย (Equipment)"
-        hint="แกนที่ 4: อุปกรณ์อะไรพัง — เลือกได้หลายชิ้นต่อเคสในฟอร์ม ใช้วิเคราะห์ว่าอะไรพังบ่อย/แนวโน้มรายปี"
+        hint="แกนที่ 4: อุปกรณ์อะไรพัง — เลือกได้หลายชิ้นต่อเคส • คอลัมน์ BU กำหนดว่าบริษัทกลุ่มไหนเห็นตัวเลือกนี้ (ว่าง=ทุกบริษัท) คีย์: battery, bio, wind, solar, waste, others"
         rows={equipment}
-        onAdd={(n, g) => addRef('equipment', n, g)}
-        onSave={(id, n, g) => saveRef('equipment', id, n, g)}
+        buField
+        onAdd={(n, g, b) => addRef('equipment', n, g, b)}
+        onSave={(id, n, g, b) => saveRef('equipment', id, n, g, b)}
         onToggle={item => toggleRef('equipment', item)}
         onDelete={item => setConfirmDelete({ kind: 'equipment', item })}
       />

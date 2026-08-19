@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
     if (!TABLES[kind]) return NextResponse.json({ error: 'Invalid kind' }, { status: 400 });
     if (!body.name?.trim()) return NextResponse.json({ error: 'กรุณากรอกชื่อรายการ' }, { status: 400 });
     const db = getServiceSupabase();
-    const { data, error } = await db.from(TABLES[kind]).insert([{
+    const insertRow: Record<string, unknown> = {
       name: String(body.name).trim(),
       grp: String(body.grp || '').trim(),
       sort_order: Number(body.sort_order) || 50,
-    }]).select();
+    };
+    if (kind === 'equipment' && body.bu_scope !== undefined) insertRow.bu_scope = String(body.bu_scope).trim();
+    const { data, error } = await db.from(TABLES[kind]).insert([insertRow]).select();
     if (error) throw error;
     return NextResponse.json({ item: data[0] }, { status: 201 });
   } catch (error: unknown) {
@@ -70,6 +72,7 @@ export async function PUT(request: NextRequest) {
     if (body.grp !== undefined) fields.grp = String(body.grp).trim();
     if (body.sort_order !== undefined) fields.sort_order = Number(body.sort_order) || 0;
     if (body.is_active !== undefined) fields.is_active = !!body.is_active;
+    if (kind === 'equipment' && body.bu_scope !== undefined) fields.bu_scope = String(body.bu_scope).trim();
     const { data, error } = await db.from(TABLES[kind]).update(fields).eq('id', body.id).select();
     if (error) throw error;
     return NextResponse.json({ item: data[0] });
