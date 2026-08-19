@@ -32,3 +32,4 @@ next-env.d.ts
 
 build-log.txt
 DESIGN.local.md
+tsc-log.txt
