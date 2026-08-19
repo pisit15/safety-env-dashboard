@@ -453,11 +453,21 @@ export default function PropertyDamageWorkspace({
               const items = categoryIncidents.filter(i => i.year === y && (!extra || extra(i))).sort((a, b2) => costOfInc(b2) - costOfInc(a));
               setCmpDrill({ title: `${y}${label ? ` · ${label}` : ''} — ${items.length} เหตุ · รวม ${fmtCost(items.reduce((s, i) => s + costOfInc(i), 0))}`, items });
             };
-            // Top events (เหตุการณ์)
-            const evCount: Record<string, number> = {};
-            categoryIncidents.forEach(i => { const e = ((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ'; evCount[e] = (evCount[e] || 0) + 1; });
-            const topEvents = Object.entries(evCount).sort((a, b2) => b2[1] - a[1]).slice(0, 6);
-            const maxEvYear = Math.max(...topEvents.flatMap(([e]) => years.map(y => categoryIncidents.filter(i => (((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ') === e && i.year === y).length)), 1);
+            // Top events (เหตุการณ์) — สลับ มูลค่า/จำนวน ตาม cmpMetric
+            const evOf = (i: Incident) => (((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ');
+            const evRows = (e: string, y: number) => categoryIncidents.filter(i => evOf(i) === e && i.year === y);
+            const evVal = (e: string, y: number) => {
+              const rows = evRows(e, y);
+              return cmpMetric === 'cost' ? rows.reduce((s, i) => s + costOfInc(i), 0) : rows.length;
+            };
+            const evAgg: Record<string, { count: number; cost: number }> = {};
+            categoryIncidents.forEach(i => {
+              const e = evOf(i);
+              if (!evAgg[e]) evAgg[e] = { count: 0, cost: 0 };
+              evAgg[e].count += 1; evAgg[e].cost += costOfInc(i);
+            });
+            const topEvents = Object.entries(evAgg).sort((a, b2) => (cmpMetric === 'cost' ? b2[1].cost - a[1].cost : b2[1].count - a[1].count)).slice(0, 6);
+            const maxEvYear = Math.max(...topEvents.flatMap(([e]) => years.map(y => evVal(e, y))), 1);
             const toggle = (active: boolean, label: string, onClick: () => void) => (
               <button key={label} onClick={onClick} className="px-3 py-1 rounded-full text-[11px] font-semibold"
                 style={{ border: active ? '1px solid #1e40af' : '1px solid var(--border)', background: active ? 'rgba(30,64,175,0.1)' : 'var(--card-solid)', color: active ? '#1e40af' : 'var(--text-secondary)', cursor: 'pointer' }}>{label}</button>
@@ -542,36 +552,53 @@ export default function PropertyDamageWorkspace({
                   })()}
                 </div>
 
-                {/* Chart D: อุปกรณ์ที่เสียหาย × ปี (damaged_asset = multi-select comma-separated) */}
+                {/* Chart D: อุปกรณ์ที่เสียหาย × ปี (damaged_asset = multi-select comma-separated) — สลับ มูลค่า/จำนวน ตาม cmpMetric */}
                 {(() => {
                   const eqOf = (i: Incident) => (((i as Record<string, unknown>).damaged_asset as string) || '').split(',').map(s => s.trim()).filter(Boolean);
-                  const eqCount: Record<string, number> = {};
-                  categoryIncidents.forEach(i => eqOf(i).forEach(e => { eqCount[e] = (eqCount[e] || 0) + 1; }));
-                  const topEq = Object.entries(eqCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+                  const eqRows = (e: string, y: number) => categoryIncidents.filter(i => i.year === y && eqOf(i).includes(e));
+                  const eqVal = (e: string, y: number) => {
+                    const rows = eqRows(e, y);
+                    return cmpMetric === 'cost' ? rows.reduce((s, i) => s + costOfInc(i), 0) : rows.length;
+                  };
+                  const eqAgg: Record<string, { count: number; cost: number }> = {};
+                  categoryIncidents.forEach(i => eqOf(i).forEach(e => {
+                    if (!eqAgg[e]) eqAgg[e] = { count: 0, cost: 0 };
+                    eqAgg[e].count += 1; eqAgg[e].cost += costOfInc(i);
+                  }));
+                  const topEq = Object.entries(eqAgg).sort((a, b) => (cmpMetric === 'cost' ? b[1].cost - a[1].cost : b[1].count - a[1].count)).slice(0, 8);
                   if (topEq.length === 0) return null;
-                  const maxEqYear = Math.max(...topEq.flatMap(([e]) => years.map(y => categoryIncidents.filter(i => i.year === y && eqOf(i).includes(e)).length)), 1);
+                  const maxEqYear = Math.max(...topEq.flatMap(([e]) => years.map(y => eqVal(e, y))), 1);
                   return (
                     <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                      <h3 className="text-[13px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
-                        อุปกรณ์ที่เสียหาย — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแถบเพื่อดูรายการเคส</span>
-                      </h3>
-                      <p className="text-[10px] mb-3" style={{ color: 'var(--text-secondary)' }}>1 เคสอาจมีหลายอุปกรณ์ — ผลรวมจึงมากกว่าจำนวนเคสได้</p>
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                        <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                          อุปกรณ์ที่เสียหาย — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแถบเพื่อดูรายการเคส</span>
+                        </h3>
+                        <div className="flex gap-1.5">
+                          {toggle(cmpMetric === 'cost', 'มูลค่า ฿', () => setCmpMetric('cost'))}
+                          {toggle(cmpMetric === 'count', 'จำนวนเหตุ', () => setCmpMetric('count'))}
+                        </div>
+                      </div>
+                      <p className="text-[10px] mb-3" style={{ color: 'var(--text-secondary)' }}>
+                        1 เคสอาจมีหลายอุปกรณ์ — ผลรวมจึงมากกว่าจำนวนเคสได้{cmpMetric === 'cost' ? ' · มูลค่านับเต็มเคสให้ทุกอุปกรณ์ในเคสนั้น' : ''}
+                      </p>
                       <div className="space-y-3">
-                        {topEq.map(([eq, tot]) => (
+                        {topEq.map(([eq, agg]) => (
                           <div key={eq}>
-                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{eq} <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>— รวม {tot} เคส</span></p>
+                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{eq} <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>— รวม {agg.count} เคส{cmpMetric === 'cost' ? ` · ${fmtCostShort(agg.cost)} ฿` : ''}</span></p>
                             <div className="space-y-1">
                               {years.map(y => {
-                                const n = categoryIncidents.filter(i => i.year === y && eqOf(i).includes(eq)).length;
+                                const n = eqRows(eq, y).length;
+                                const v = eqVal(eq, y);
                                 const col = YEAR_COLORS_PROP[y] || '#9ca3af';
                                 return (
                                   <div key={y} className="flex items-center gap-2" style={{ cursor: n > 0 ? 'pointer' : 'default' }}
                                     onClick={n > 0 ? () => openYearDrill(y, i => eqOf(i).includes(eq), eq) : undefined}>
                                     <span className="text-[10px] w-8 shrink-0 font-bold" style={{ color: col }}>{y}</span>
                                     <div className="flex-1 h-[9px] rounded" style={{ background: 'var(--bg-secondary)' }}>
-                                      <div className="h-[9px] rounded" style={{ width: `${(n / maxEqYear) * 100}%`, background: col, opacity: 0.85, minWidth: n > 0 ? 4 : 0 }} />
+                                      <div className="h-[9px] rounded" style={{ width: `${(v / maxEqYear) * 100}%`, background: col, opacity: 0.85, minWidth: v > 0 ? 4 : 0 }} />
                                     </div>
-                                    <span className="text-[10px] w-6 text-right shrink-0" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{n || ''}</span>
+                                    <span className="text-[10px] w-12 text-right shrink-0" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{v > 0 ? (cmpMetric === 'cost' ? fmtCostShort(v) : v) : ''}</span>
                                   </div>
                                 );
                               })}
@@ -583,27 +610,34 @@ export default function PropertyDamageWorkspace({
                   );
                 })()}
 
-                {/* Chart B: เหตุการณ์ × ปี */}
+                {/* Chart B: เหตุการณ์ × ปี — สลับ มูลค่า/จำนวน ตาม cmpMetric */}
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
-                  <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
-                    เหตุการณ์ — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
-                  </h3>
+                  <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                    <h3 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                      เหตุการณ์ — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแท่งเพื่อดูรายการเคส</span>
+                    </h3>
+                    <div className="flex gap-1.5">
+                      {toggle(cmpMetric === 'cost', 'มูลค่า ฿', () => setCmpMetric('cost'))}
+                      {toggle(cmpMetric === 'count', 'จำนวนเหตุ', () => setCmpMetric('count'))}
+                    </div>
+                  </div>
                   <div className="space-y-3">
-                    {topEvents.map(([ev]) => (
+                    {topEvents.map(([ev, agg]) => (
                       <div key={ev}>
-                        <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{ev}</p>
+                        <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{ev} <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>— รวม {agg.count} เหตุ{cmpMetric === 'cost' ? ` · ${fmtCostShort(agg.cost)} ฿` : ''}</span></p>
                         <div className="space-y-1">
                           {years.map(y => {
-                            const n = categoryIncidents.filter(i => (((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ') === ev && i.year === y).length;
+                            const n = evRows(ev, y).length;
+                            const v = evVal(ev, y);
                             const col = YEAR_COLORS_PROP[y] || '#9ca3af';
                             return (
                               <div key={y} className="flex items-center gap-2" style={{ cursor: n > 0 ? 'pointer' : 'default' }}
-                                onClick={n > 0 ? () => openYearDrill(y, i => ((((i as Record<string, unknown>).contact_type as string) || 'ไม่ระบุ') === ev), ev) : undefined}>
+                                onClick={n > 0 ? () => openYearDrill(y, i => evOf(i) === ev, ev) : undefined}>
                                 <span className="text-[10px] w-8 shrink-0" style={{ color: col, fontWeight: 700 }}>{y}</span>
                                 <div className="flex-1 h-[9px] rounded" style={{ background: 'var(--bg-secondary)' }}>
-                                  <div className="h-[9px] rounded" style={{ width: `${(n / maxEvYear) * 100}%`, background: col, opacity: 0.85, minWidth: n > 0 ? 4 : 0 }} />
+                                  <div className="h-[9px] rounded" style={{ width: `${(v / maxEvYear) * 100}%`, background: col, opacity: 0.85, minWidth: v > 0 ? 4 : 0 }} />
                                 </div>
-                                <span className="text-[10px] w-6 text-right shrink-0" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{n || ''}</span>
+                                <span className="text-[10px] w-12 text-right shrink-0" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{v > 0 ? (cmpMetric === 'cost' ? fmtCostShort(v) : v) : ''}</span>
                               </div>
                             );
                           })}
