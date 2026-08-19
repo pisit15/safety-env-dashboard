@@ -64,6 +64,14 @@ export default function PropertyDamageWorkspace({
   const selectedYears = Array.from(new Set(categoryIncidents.map(i => i.year))).sort();
   const propActiveYears = selectedYears.sort();
 
+  // สาเหตุต้นทาง (root source) — สิ่งมีชีวิต (สัตว์/บุคคล/พืช) มาก่อนไม่ว่าอยู่ช่องไหน เช่นเดียวกับหน้า HQ
+  const isRootish = (s: string) => /^(สัตว์|บุคคล|พืช)/.test(s);
+  const rootSourceOf = (inc: Incident): string => {
+    const sec = ((inc as Record<string, unknown>).secondary_source as string) || '';
+    const src = inc.agency_source || '';
+    return isRootish(sec) ? sec : isRootish(src) ? src : (sec || src || 'ไม่ระบุ');
+  };
+
   // Apply cross-filter from propFilter (including special virtual fields)
   const propFilteredIncidents = propFilter
     ? categoryIncidents.filter(inc => {
@@ -82,6 +90,9 @@ export default function PropertyDamageWorkspace({
         }
         if (propFilter.field === '_missing_cost') {
           return !Number(inc.direct_cost) && !Number(inc.indirect_cost);
+        }
+        if (propFilter.field === '_root_source') {
+          return rootSourceOf(inc) === propFilter.value;
         }
         // Generic field match (works for property_damage_type, area, agency_source, insurance_claim, production_impact, etc.)
         const val = (inc as Record<string, unknown>)[propFilter.field] as string || (inc[propFilter.field as keyof Incident] as string) || 'ไม่ระบุ';
@@ -224,7 +235,8 @@ export default function PropertyDamageWorkspace({
   // ลักษณะความเสียหาย (damage_nature — แกนใหม่) แทน property_damage_type เดิม
   const dmgTypeData = groupByField('damage_nature', incidentsFor('damage_nature'));
   const areaData = groupByField('area', incidentsFor('area'));
-  const agencyData = groupByField('agency_source', incidentsFor('agency_source'));
+  const agencyData = groupByField('_root_source',
+    incidentsFor('_root_source').map(i => ({ ...i, _root_source: rootSourceOf(i) })) as unknown as Incident[]);
   const deptData = groupByField('department', incidentsFor('department'));
 
   // ---- Top 5 highest cost incidents ----
@@ -667,7 +679,7 @@ export default function PropertyDamageWorkspace({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
             {renderPropStackedBar('ลักษณะความเสียหาย', 'damage_nature', dmgTypeData)}
             {renderPropStackedBar('Area/Location', 'area', areaData)}
-            {renderPropStackedBar('Agency Source', 'agency_source', agencyData)}
+            {renderPropStackedBar('สาเหตุต้นทาง (โฟกัสการป้องกัน)', '_root_source', agencyData)}
             {renderPropStackedBar('Department', 'department', deptData)}
           </div>
 
