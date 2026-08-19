@@ -748,16 +748,6 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <Label text="ลักษณะความเสียหาย" />
                 <RefSelect value={(formData.damage_nature as string) || ''} options={natureOptions} onChange={v => updateForm('damage_nature', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ไหม้, แตกหัก, บุบ..." />
               </div>
-              {!!(formData.property_damage_type as string) && (
-                <div>
-                  <Label text="ประเภททรัพย์สินเสียหาย (ระบบเดิม)" />
-                  <select value={(formData.property_damage_type as string) || ''} onChange={e => updateForm('property_damage_type', e.target.value)} style={selectStyle}>
-                    <option value="">เลือก</option>
-                    {PROP_DMG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    {!PROP_DMG_TYPES.includes(formData.property_damage_type as string) && <option value={formData.property_damage_type as string}>{formData.property_damage_type as string}</option>}
-                  </select>
-                </div>
-              )}
               <div>
                 <Label text="อุปกรณ์ดับเพลิงที่ใช้" />
                 <input type="text" value={(formData.fire_equipment_used as string) || ''} onChange={e => updateForm('fire_equipment_used', e.target.value)} style={inputStyle} placeholder="ถ้ามี" />

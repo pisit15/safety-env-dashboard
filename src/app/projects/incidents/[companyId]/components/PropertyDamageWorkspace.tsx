@@ -77,7 +77,7 @@ export default function PropertyDamageWorkspace({
           return tc >= thresh;
         }
         if (propFilter.field === '_missing_type') {
-          const t = (inc as Record<string, unknown>).property_damage_type as string || '';
+          const t = (inc as Record<string, unknown>).damage_nature as string || '';
           return !t || t === 'ไม่ระบุ';
         }
         if (propFilter.field === '_missing_cost') {
@@ -240,7 +240,7 @@ export default function PropertyDamageWorkspace({
   const totalPropCost = propFilteredIncidents.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0);
   const costByDmgType: Record<string, number> = {};
   propFilteredIncidents.forEach(inc => {
-    const t = (inc as Record<string, unknown>).property_damage_type as string || 'ไม่ระบุ';
+    const t = (inc as Record<string, unknown>).damage_nature as string || 'ไม่ระบุ';
     costByDmgType[t] = (costByDmgType[t] || 0) + (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
   });
   const topCostDriver = Object.entries(costByDmgType).sort((a, b) => b[1] - a[1])[0];
@@ -256,7 +256,7 @@ export default function PropertyDamageWorkspace({
 
   // ---- Missing data detection ----
   const missingDmgType = categoryIncidents.filter(i => {
-    const t = (i as Record<string, unknown>).property_damage_type as string || '';
+    const t = (i as Record<string, unknown>).damage_nature as string || '';
     return !t || t === 'ไม่ระบุ';
   });
   const missingCost = categoryIncidents.filter(i =>
@@ -287,12 +287,12 @@ export default function PropertyDamageWorkspace({
     { label: 'Production Loss', field: 'incident_type', value: 'เหตุการณ์สูญเสียการผลิต (Production Loss)', count: categoryIncidents.filter(i => i.incident_type === 'เหตุการณ์สูญเสียการผลิต (Production Loss)').length, color: '#0ea5e9' },
     { label: 'Open/Draft', field: '_status', value: 'open', count: openRecords.length, color: '#d97706' },
     { label: 'High Cost', field: '_highcost', value: 'high', count: highCostRecords.length, color: '#dc2626' },
-    { label: 'ไม่ระบุประเภท', field: '_missing_type', value: 'missing', count: missingDmgType.length, color: '#9333ea' },
+    { label: 'ไม่ระบุลักษณะเสียหาย', field: '_missing_type', value: 'missing', count: missingDmgType.length, color: '#9333ea' },
     { label: 'ไม่มี Cost', field: '_missing_cost', value: 'missing', count: missingCost.length, color: '#9333ea' },
-    { label: 'เครื่องจักร/อุปกรณ์', field: 'property_damage_type', value: 'เครื่องจักร/อุปกรณ์เสียหาย' },
-    { label: 'ยานพาหนะ', field: 'property_damage_type', value: 'ยานพาหนะเสียหาย' },
-    { label: 'โครงสร้าง', field: 'property_damage_type', value: 'โครงสร้างอาคาร/ผนัง' },
-    { label: 'เพลิงไหม้', field: 'property_damage_type', value: 'เพลิงไหม้' },
+    { label: 'ระบบไฟฟ้าเสียหาย', field: 'damage_nature', value: 'ระบบไฟฟ้า-อิเล็กทรอนิกส์เสียหาย' },
+    { label: 'ไหม้/หลอมละลาย', field: 'damage_nature', value: 'ไหม้/หลอมละลาย/เกรียม' },
+    { label: 'แตก/ร้าว', field: 'damage_nature', value: 'แตก/ร้าว/ทะลุ' },
+    { label: 'บุบ/เสียรูป', field: 'damage_nature', value: 'บุบ/เสียรูป/งอ' },
   ];
 
   // ---- Export CSV helper ----
@@ -303,7 +303,7 @@ export default function PropertyDamageWorkspace({
       area: inc.area || '',
       agency_source: inc.agency_source || '',
       description: (inc.description || '').replace(/"/g, '""'),
-      damage_type: (inc as Record<string, unknown>).property_damage_type as string || '',
+      damage_nature: (inc as Record<string, unknown>).damage_nature as string || '',
       direct_cost: Number(inc.direct_cost) || 0,
       indirect_cost: Number(inc.indirect_cost) || 0,
       total_cost: (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0),
@@ -663,7 +663,7 @@ export default function PropertyDamageWorkspace({
                       >
                         <td className="py-2 px-2" style={{ color: 'var(--text-primary)' }}>{inc.incident_no}</td>
                         <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{inc.incident_date}</td>
-                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{(inc as Record<string, unknown>).property_damage_type as string || '—'}</td>
+                        <td className="py-2 px-2" style={{ color: 'var(--text-secondary)' }}>{(inc as Record<string, unknown>).damage_nature as string || '—'}</td>
                         <td className="py-2 px-2 text-right font-bold" style={{ color: '#dc2626' }}>{fmtCostShort(inc.totalCostVal)} ฿</td>
                       </tr>
                     ))}
@@ -693,7 +693,7 @@ export default function PropertyDamageWorkspace({
                 </thead>
                 <tbody>
                   {propFilteredIncidents.map(inc => {
-                    const dmgType = (inc as Record<string, unknown>).property_damage_type as string || '';
+                    const dmgType = (inc as Record<string, unknown>).damage_nature as string || '';
                     const hasMissingType = !dmgType || dmgType === 'ไม่ระบุ';
                     const hasMissingCost = !Number(inc.direct_cost) && !Number(inc.indirect_cost);
                     return (
