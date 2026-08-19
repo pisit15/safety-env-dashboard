@@ -105,13 +105,15 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   const [refEvents, setRefEvents] = useState<RefItem[]>([]);
   const [refSources, setRefSources] = useState<RefItem[]>([]);
   const [refNatures, setRefNatures] = useState<RefItem[]>([]);
+  const [refEquipment, setRefEquipment] = useState<RefItem[]>([]);
   useEffect(() => {
     fetch('/api/incidents/refs')
       .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { events?: RefItem[]; sources?: RefItem[]; damage_natures?: RefItem[] }) => {
+      .then((d: { events?: RefItem[]; sources?: RefItem[]; damage_natures?: RefItem[]; equipment?: RefItem[] }) => {
         setRefEvents((d.events || []).filter(x => x.is_active));
         setRefSources((d.sources || []).filter(x => x.is_active));
         setRefNatures((d.damage_natures || []).filter(x => x.is_active));
+        setRefEquipment((d.equipment || []).filter(x => x.is_active));
       })
       .catch(() => { /* fallback to constants below */ });
   }, []);
@@ -747,6 +749,31 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               <div>
                 <Label text="ลักษณะความเสียหาย" />
                 <RefSelect value={(formData.damage_nature as string) || ''} options={natureOptions} onChange={v => updateForm('damage_nature', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ไหม้, แตกหัก, บุบ..." />
+              </div>
+              <div className="col-span-2">
+                <Label text="อุปกรณ์ที่เสียหาย (เลือกได้หลายชิ้น)" />
+                {/* chips ของที่เลือกแล้ว */}
+                {(() => {
+                  const sel = ((formData.damaged_asset as string) || '').split(',').map(s => s.trim()).filter(Boolean);
+                  return (
+                    <>
+                      {sel.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                          {sel.map(eq => (
+                            <span key={eq} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 12, background: 'rgba(78,121,167,0.12)', color: '#4E79A7' }}>
+                              {eq}
+                              <button type="button" onClick={() => updateForm('damaged_asset', sel.filter(x => x !== eq).join(', '))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4E79A7', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <RefSelect value="" options={refEquipment.filter(x => !sel.includes(x.name)).map(x => ({ name: x.name, grp: x.grp }))}
+                        onChange={v => { if (v && refEquipment.some(x => x.name === v) && !sel.includes(v)) updateForm('damaged_asset', [...sel, v].join(', ')); }}
+                        style={inputStyle} placeholder="พิมพ์ค้นหาแล้วเลือกเพิ่ม เช่น Termination kit, สาย TAC..." />
+                    </>
+                  );
+                })()}
               </div>
               <div>
                 <Label text="อุปกรณ์ดับเพลิงที่ใช้" />

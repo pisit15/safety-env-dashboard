@@ -530,6 +530,47 @@ export default function PropertyDamageWorkspace({
                   })()}
                 </div>
 
+                {/* Chart D: อุปกรณ์ที่เสียหาย × ปี (damaged_asset = multi-select comma-separated) */}
+                {(() => {
+                  const eqOf = (i: Incident) => (((i as Record<string, unknown>).damaged_asset as string) || '').split(',').map(s => s.trim()).filter(Boolean);
+                  const eqCount: Record<string, number> = {};
+                  categoryIncidents.forEach(i => eqOf(i).forEach(e => { eqCount[e] = (eqCount[e] || 0) + 1; }));
+                  const topEq = Object.entries(eqCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+                  if (topEq.length === 0) return null;
+                  const maxEqYear = Math.max(...topEq.flatMap(([e]) => years.map(y => categoryIncidents.filter(i => i.year === y && eqOf(i).includes(e)).length)), 1);
+                  return (
+                    <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
+                      <h3 className="text-[13px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+                        อุปกรณ์ที่เสียหาย — เทียบรายปี <span className="font-normal text-[10px]" style={{ color: 'var(--muted)' }}>· คลิกแถบเพื่อดูรายการเคส</span>
+                      </h3>
+                      <p className="text-[10px] mb-3" style={{ color: 'var(--text-secondary)' }}>1 เคสอาจมีหลายอุปกรณ์ — ผลรวมจึงมากกว่าจำนวนเคสได้</p>
+                      <div className="space-y-3">
+                        {topEq.map(([eq, tot]) => (
+                          <div key={eq}>
+                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{eq} <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>— รวม {tot} เคส</span></p>
+                            <div className="space-y-1">
+                              {years.map(y => {
+                                const n = categoryIncidents.filter(i => i.year === y && eqOf(i).includes(eq)).length;
+                                const col = YEAR_COLORS_PROP[y] || '#9ca3af';
+                                return (
+                                  <div key={y} className="flex items-center gap-2" style={{ cursor: n > 0 ? 'pointer' : 'default' }}
+                                    onClick={n > 0 ? () => openYearDrill(y, i => eqOf(i).includes(eq), eq) : undefined}>
+                                    <span className="text-[10px] w-8 shrink-0 font-bold" style={{ color: col }}>{y}</span>
+                                    <div className="flex-1 h-[9px] rounded" style={{ background: 'var(--bg-secondary)' }}>
+                                      <div className="h-[9px] rounded" style={{ width: `${(n / maxEqYear) * 100}%`, background: col, opacity: 0.85, minWidth: n > 0 ? 4 : 0 }} />
+                                    </div>
+                                    <span className="text-[10px] w-6 text-right shrink-0" style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{n || ''}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Chart B: เหตุการณ์ × ปี */}
                 <div className="rounded-2xl p-5" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)' }}>
                   <h3 className="text-[13px] font-bold mb-3" style={{ color: 'var(--text-primary)' }}>

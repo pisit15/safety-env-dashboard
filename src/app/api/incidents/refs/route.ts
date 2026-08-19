@@ -14,21 +14,23 @@ const TABLES = {
   event: 'incident_ref_events',
   source: 'incident_ref_sources',
   damage_nature: 'incident_ref_damage_natures',
+  equipment: 'incident_ref_equipment',
 } as const;
 type RefKind = keyof typeof TABLES;
 
 export async function GET() {
   try {
     const db = getServiceSupabase();
-    const [ev, src, dn] = await Promise.all([
+    const [ev, src, dn, eq] = await Promise.all([
       db.from('incident_ref_events').select('*').order('sort_order', { ascending: true }),
       db.from('incident_ref_sources').select('*').order('sort_order', { ascending: true }),
       db.from('incident_ref_damage_natures').select('*').order('sort_order', { ascending: true }),
+      db.from('incident_ref_equipment').select('*').order('sort_order', { ascending: true }),
     ]);
     if (ev.error) throw ev.error;
     if (src.error) throw src.error;
     if (dn.error) throw dn.error;
-    return NextResponse.json({ events: ev.data || [], sources: src.data || [], damage_natures: dn.data || [] });
+    return NextResponse.json({ events: ev.data || [], sources: src.data || [], damage_natures: dn.data || [], equipment: eq.data || [] });
   } catch (error) {
     console.error('Error fetching incident refs:', error);
     return NextResponse.json({ error: 'Failed to fetch incident references' }, { status: 500 });

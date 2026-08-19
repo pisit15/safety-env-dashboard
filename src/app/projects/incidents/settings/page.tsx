@@ -11,7 +11,7 @@ const C_POSITIVE = '#59A14F';
 const C_DANGER = '#E15759';
 
 interface RefItem { id: number; name: string; grp: string; sort_order: number; is_active: boolean }
-type RefKind = 'event' | 'source' | 'damage_nature';
+type RefKind = 'event' | 'source' | 'damage_nature' | 'equipment';
 
 const refInputStyle: React.CSSProperties = { width: '100%', padding: '6px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', fontSize: 12 };
 
@@ -106,6 +106,7 @@ export default function IncidentSettingsPage() {
   const [events, setEvents] = useState<RefItem[]>([]);
   const [sources, setSources] = useState<RefItem[]>([]);
   const [natures, setNatures] = useState<RefItem[]>([]);
+  const [equipment, setEquipment] = useState<RefItem[]>([]);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
 
@@ -114,6 +115,7 @@ export default function IncidentSettingsPage() {
       setEvents(d.events || []);
       setSources(d.sources || []);
       setNatures(d.damage_natures || []);
+      setEquipment(d.equipment || []);
     }).catch(() => setToast({ type: 'error', msg: 'โหลดข้อมูลล้มเหลว' }));
   };
   useEffect(() => { if (auth.isAdmin) loadAll(); }, [auth.isAdmin]);
@@ -187,6 +189,16 @@ export default function IncidentSettingsPage() {
         onSave={(id, n, g) => saveRef('damage_nature', id, n, g)}
         onToggle={item => toggleRef('damage_nature', item)}
         onDelete={item => setConfirmDelete({ kind: 'damage_nature', item })}
+      />
+
+      <RefSection
+        title="อุปกรณ์ที่เสียหาย (Equipment)"
+        hint="แกนที่ 4: อุปกรณ์อะไรพัง — เลือกได้หลายชิ้นต่อเคสในฟอร์ม ใช้วิเคราะห์ว่าอะไรพังบ่อย/แนวโน้มรายปี"
+        rows={equipment}
+        onAdd={(n, g) => addRef('equipment', n, g)}
+        onSave={(id, n, g) => saveRef('equipment', id, n, g)}
+        onToggle={item => toggleRef('equipment', item)}
+        onDelete={item => setConfirmDelete({ kind: 'equipment', item })}
       />
 
       {confirmDelete && (
