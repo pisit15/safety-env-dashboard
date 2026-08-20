@@ -799,7 +799,7 @@ export default function HQIncidentsPage() {
               {alerts.length > 0 && (
                 <div style={{ marginBottom: 16, marginTop: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <AlertTriangle size={14} style={{ color: '#dc2626' }} /> ต้องดูวันนี้
+                    <AlertTriangle size={14} style={{ color: '#dc2626' }} /> จุดที่ต้องโฟกัส <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--muted)' }}>· ตามช่วงเวลาที่เลือก ({yearLabel}{quarter > 0 ? ` Q${quarter}` : ''})</span>
                     {tableFilter !== 'all' && (
                       <button onClick={() => setTableFilter('all')} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer', marginLeft: 8 }}>
                         ล้าง filter ตาราง
