@@ -311,6 +311,23 @@ export default function HQIncidentsPage() {
     const label = monthlyCaseType === 'all' ? 'ทุกประเภท' : monthlyCaseType === 'trc' ? 'TRC' : 'LTI';
     openCaseDrill(`${TH_M[m]} ${y} · ${label}`, baseInc.filter(i => i.year === y && monthIdxOf(i) === m && matchMonthlyCaseType(i)));
   };
+  // Drill from company comparison table cells
+  const drillCompanyCell = (companyId: string, kind: 'total' | 'injuries' | 'lti' | 'nearMiss' | 'propertyDamage' | 'fatality') => {
+    const name = COMPANIES.find(c => c.id === companyId)?.shortName || companyId.toUpperCase();
+    const labels: Record<string, string> = { total: 'ทุกประเภท', injuries: 'บาดเจ็บ', lti: 'LTI', nearMiss: 'Near Miss', propertyDamage: 'ทรัพย์สินเสียหาย', fatality: 'เสียชีวิต' };
+    const match = (i: Incident) => {
+      const t = i.incident_type || '';
+      switch (kind) {
+        case 'injuries': return isTrcT(t);
+        case 'lti': return isLtiT(t);
+        case 'nearMiss': return t === 'Near Miss';
+        case 'propertyDamage': return t === 'ทรัพย์สินเสียหาย';
+        case 'fatality': return t.includes('เสียชีวิต');
+        default: return true;
+      }
+    };
+    openCaseDrill(`${name} · ${labels[kind]}`, baseInc.filter(i => i.company_id === companyId && match(i)));
+  };
   const drillCum = (kind: 'trc' | 'lti') => (y: number, m: number) => {
     const match = kind === 'trc' ? isTrcT : isLtiT;
     openCaseDrill(`สะสม ม.ค.–${TH_M[m]} ${y} · ${kind.toUpperCase()}`, baseInc.filter(i => i.year === y && monthIdxOf(i) <= m && match(i.incident_type || '')));
@@ -1710,12 +1727,22 @@ export default function HQIncidentsPage() {
                               {companyName}
                               {noManHours && <span style={{ fontSize: 9, marginLeft: 4, padding: '1px 4px', borderRadius: 3, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>ไม่มี MH</span>}
                             </td>
-                            <td className="px-3 py-3 font-bold" style={{ color: 'var(--text-primary)' }}>{stats.total}</td>
-                            <td className="px-3 py-3" style={{ color: STATUS.warning }}>{stats.injuries}</td>
-                            <td className="px-3 py-3 font-semibold" style={{ color: stats.lti > 0 ? STATUS.critical : 'var(--muted)' }}>{stats.lti}</td>
-                            <td className="px-3 py-3" style={{ color: PALETTE.primary }}>{stats.nearMiss}</td>
-                            <td className="px-3 py-3" style={{ color: STATUS.positive }}>{stats.propertyDamage}</td>
-                            <td className="px-3 py-3 font-bold" style={{ color: hasFatality ? STATUS.critical : 'var(--muted)' }}>{stats.fatality}</td>
+                            {([
+                              { kind: 'total' as const, val: stats.total, style: { color: 'var(--text-primary)' }, cls: 'px-3 py-3 font-bold' },
+                              { kind: 'injuries' as const, val: stats.injuries, style: { color: STATUS.warning }, cls: 'px-3 py-3' },
+                              { kind: 'lti' as const, val: stats.lti, style: { color: stats.lti > 0 ? STATUS.critical : 'var(--muted)' }, cls: 'px-3 py-3 font-semibold' },
+                              { kind: 'nearMiss' as const, val: stats.nearMiss, style: { color: PALETTE.primary }, cls: 'px-3 py-3' },
+                              { kind: 'propertyDamage' as const, val: stats.propertyDamage, style: { color: STATUS.positive }, cls: 'px-3 py-3' },
+                              { kind: 'fatality' as const, val: stats.fatality, style: { color: hasFatality ? STATUS.critical : 'var(--muted)' }, cls: 'px-3 py-3 font-bold' },
+                            ]).map(cell => (
+                              <td
+                                key={cell.kind}
+                                className={cell.cls}
+                                style={{ ...cell.style, ...(cell.val > 0 ? { cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : {}) }}
+                                title={cell.val > 0 ? 'คลิกดูรายการเคส' : undefined}
+                                onClick={cell.val > 0 ? (e) => { e.stopPropagation(); drillCompanyCell(companyId, cell.kind); } : undefined}
+                              >{cell.val}</td>
+                            ))}
                             <td className="px-3 py-3 font-mono" style={{ color: stats.trir !== null ? STATUS.warning : 'var(--muted)' }}>
                               {stats.trir !== null ? stats.trir.toFixed(2) : (
                                 <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
