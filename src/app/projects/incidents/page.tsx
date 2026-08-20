@@ -77,6 +77,8 @@ export default function HQIncidentsPage() {
   const router = useRouter();
   const { companies: COMPANIES } = useCompanies();
   const [selectedYears, setSelectedYears] = useState<number[]>([CURRENT_YEAR]);
+  // Quarter filter: 0 = ทั้งปี, 1-4 = Q1-Q4 (กรองทั้งเคสและชั่วโมงการทำงานรายเดือน)
+  const [quarter, setQuarter] = useState<number>(0);
   const [manHoursByYearHq, setManHoursByYearHq] = useState<Record<number, Record<string, { employee: number; contractor: number }>>>({});
   const [hqInjured, setHqInjured] = useState<{ persons: HqInjuredPerson[]; map: Record<string, HqIncidentMeta> }>({ persons: [], map: {} });
   const [workRelatedOnly, setWorkRelatedOnly] = useState(true);
@@ -157,11 +159,13 @@ export default function HQIncidentsPage() {
       incResults.forEach(r => { if (r.incidents) allInc.push(...r.incidents); });
       setAllIncidents(allInc);
 
-      // Merge manhours by company (group client-side)
+      // Merge manhours by company (group client-side) — กรองเดือนตามไตรมาสถ้าเลือก
+      const inQ = (m: number) => quarter === 0 || (m >= quarter * 3 - 2 && m <= quarter * 3);
       const mhMap: Record<string, { employee: number; contractor: number; total: number }> = {};
       mhResults.forEach(r => (r.manHours || []).forEach((row: Record<string, unknown>) => {
         const cid = String(row.company_id || '');
         if (!cid) return;
+        if (!inQ(Number(row.month) || 0)) return;
         if (!mhMap[cid]) mhMap[cid] = { employee: 0, contractor: 0, total: 0 };
         const emp = Number(row.employee_manhours) || 0;
         const con = Number(row.contractor_manhours) || 0;
@@ -179,6 +183,7 @@ export default function HQIncidentsPage() {
         (r.manHours || []).forEach((row: Record<string, unknown>) => {
           const cid = String(row.company_id || '');
           if (!cid) return;
+          if (!inQ(Number(row.month) || 0)) return;
           if (!mhYearMap[y][cid]) mhYearMap[y][cid] = { employee: 0, contractor: 0 };
           mhYearMap[y][cid].employee += Number(row.employee_manhours) || 0;
           mhYearMap[y][cid].contractor += Number(row.contractor_manhours) || 0;
@@ -187,14 +192,29 @@ export default function HQIncidentsPage() {
       setManHoursByYearHq(mhYearMap);
     } catch { /* empty */ }
     setLoading(false);
-  }, [selectedYears]);
+  }, [selectedYears, quarter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Quarter filter for incidents (month = ตัวเลข 1-12 / ชื่อเดือนอังกฤษ / fallback จาก incident_date)
+  const monthIdxOf = (i: { month?: unknown; incident_date?: string }): number => {
+    const mNum = parseInt(String(i.month));
+    if (mNum >= 1 && mNum <= 12) return mNum - 1;
+    if (MONTHS.includes(String(i.month))) return MONTHS.indexOf(String(i.month));
+    if (i.incident_date) return new Date(i.incident_date).getMonth();
+    return -1;
+  };
+  const inQuarterInc = (i: Incident): boolean => {
+    if (quarter === 0) return true;
+    const mi = monthIdxOf(i);
+    return mi >= (quarter - 1) * 3 && mi < quarter * 3;
+  };
 
   // Filtered by workRelatedOnly
   const INJURY_TYPES_P = ['บาดเจ็บ', 'เสียชีวิต', 'โรคจากการทำงาน'];
   const baseInc = (workRelatedOnly ? allIncidents.filter(i => i.work_related === 'ใช่') : allIncidents)
     .filter(i => inBu(i.company_id))
+    .filter(inQuarterInc)
     .filter(i => personFilter === 'all' ? true
       : personFilter === 'employee' ? (i.person_type || '').includes('พนักงาน')
       : (i.person_type || '').includes('ผู้รับเหมา'));
@@ -261,13 +281,6 @@ export default function HQIncidentsPage() {
   });
 
   // Cumulative series per case type (TRC / LTI) — independent of the toggle above
-  const monthIdxOf = (i: { month?: unknown; incident_date?: string }): number => {
-    const mNum = parseInt(String(i.month));
-    if (mNum >= 1 && mNum <= 12) return mNum - 1;
-    if (MONTHS.includes(String(i.month))) return MONTHS.indexOf(String(i.month));
-    if (i.incident_date) return new Date(i.incident_date).getMonth();
-    return -1;
-  };
   const cumSeriesFor = (type: 'trc' | 'lti') => [...selectedYears].sort().map(y => {
     const counts = new Array(12).fill(0);
     baseInc.filter(i => {
@@ -629,6 +642,26 @@ export default function HQIncidentsPage() {
                 {showAdvancedYears ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                 เลือกเอง
               </button>
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            {/* Quarter filter — กรองทั้งเคสและชั่วโมงการทำงาน */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>ไตรมาส:</span>
+              {[0, 1, 2, 3, 4].map(q => (
+                <button
+                  key={q}
+                  onClick={() => setQuarter(q)}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    border: quarter === q ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    background: quarter === q ? 'rgba(59,130,246,0.08)' : 'transparent',
+                    color: quarter === q ? 'var(--accent)' : 'var(--text-secondary)',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {q === 0 ? 'ทั้งปี' : `Q${q}`}
+                </button>
+              ))}
             </div>
             {/* Advanced: individual year checkboxes */}
             {showAdvancedYears && (
