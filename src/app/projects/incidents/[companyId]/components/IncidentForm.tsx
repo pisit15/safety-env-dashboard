@@ -245,6 +245,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         // report back to Draft (that hides it from the list view)
         report_status: (data.report_status as string) || 'Draft',
         performed_by: editorName,
+        __is_admin: auth.isAdmin === true,
         injured_persons: injured.length > 0 ? injured : undefined,
         ...(existingNo ? { incident_no: existingNo } : {}),
       };
@@ -470,6 +471,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
           ? (formData.report_status as string)
           : 'Under Review',
         performed_by: editorName,
+        __is_admin: auth.isAdmin === true,
         injured_persons: injuredPersons.length > 0 ? injuredPersons : undefined,
         ...(existingNo ? { incident_no: existingNo } : {}),
       };

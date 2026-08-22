@@ -332,11 +332,24 @@ export async function PUT(request: NextRequest) {
   try {
     const supabase = getServiceSupabase();
     const body = await request.json();
-    const { id, incident_no, ...fields } = body;
+    const { id, incident_no, __is_admin, ...fields } = body;
 
     if (!id && !incident_no) {
       return NextResponse.json({ error: 'Missing id or incident_no' }, { status: 400 });
     }
+
+    // Lock guard: เคสที่ admin ล็อกไว้ แก้ไขได้เฉพาะ admin
+    {
+      let lockQ = supabase.from('incidents').select('locked');
+      lockQ = id ? lockQ.eq('id', id) : lockQ.eq('incident_no', incident_no);
+      const { data: lockRow } = await lockQ.maybeSingle();
+      if (lockRow?.locked && __is_admin !== true) {
+        return NextResponse.json({ error: 'เคสนี้ถูกล็อกโดย Admin — กดขอปลดล็อกก่อนแก้ไข', locked: true }, { status: 403 });
+      }
+    }
+    // Lock fields จัดการผ่าน /api/incidents/lock เท่านั้น — กันฟอร์มเขียนทับ
+    delete fields.locked; delete fields.locked_by; delete fields.locked_at;
+    delete fields.unlock_request; delete fields.unlock_requested_at;
 
     fields.updated_at = new Date().toISOString();
 
@@ -415,6 +428,16 @@ export async function DELETE(request: NextRequest) {
 
     if (!id && !incidentNo) {
       return NextResponse.json({ error: 'Missing id or incident_no' }, { status: 400 });
+    }
+
+    // Lock guard: เคสที่ล็อกไว้ ลบได้เฉพาะ admin
+    {
+      let lockQ = supabase.from('incidents').select('locked');
+      lockQ = id ? lockQ.eq('id', id) : lockQ.eq('incident_no', incidentNo);
+      const { data: lockRow } = await lockQ.maybeSingle();
+      if (lockRow?.locked && searchParams.get('isAdmin') !== 'true') {
+        return NextResponse.json({ error: 'เคสนี้ถูกล็อกโดย Admin — ลบไม่ได้', locked: true }, { status: 403 });
+      }
     }
 
     let query = supabase.from('incidents').delete();

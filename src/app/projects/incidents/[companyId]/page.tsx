@@ -542,14 +542,53 @@ export default function IncidentsPage() {
 
   /* ═══ Form handlers ═══ */
 
+  const isAdminUser = (auth as unknown as { isAdmin: boolean })?.isAdmin || false;
+  const actorName = (() => {
+    const a = auth as unknown as { isAdmin: boolean; adminName?: string; getCompanyAuth: (id: string) => { isLoggedIn: boolean; displayName: string } };
+    if (a?.isAdmin) return a.adminName || 'Admin';
+    return a?.getCompanyAuth?.(id)?.displayName || 'user';
+  })();
+  const [lockToast, setLockToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  useEffect(() => { if (lockToast) { const t = setTimeout(() => setLockToast(null), 3000); return () => clearTimeout(t); } }, [lockToast]);
+
   const openNewForm = () => { setEditingIncident(null); setViewMode('form'); };
-  const openEditForm = (incident: Incident) => { setEditingIncident(incident); setViewMode('form'); };
+  const openEditForm = (incident: Incident) => {
+    if (incident.locked && !isAdminUser) {
+      setLockToast({ type: 'error', msg: `${incident.incident_no} ถูกล็อกโดย Admin — กดปุ่มขอปลดล็อกหากต้องการแก้ไข` });
+      return;
+    }
+    setEditingIncident(incident); setViewMode('form');
+  };
   const handleDelete = async (inc: Incident) => {
+    if (inc.locked && !isAdminUser) {
+      setLockToast({ type: 'error', msg: `${inc.incident_no} ถูกล็อกโดย Admin — ลบไม่ได้` });
+      return;
+    }
     if (!confirm(`ต้องการลบ ${inc.incident_no}?`)) return;
     try {
-      await fetch(`/api/incidents?id=${inc.id}`, { method: 'DELETE' });
+      await fetch(`/api/incidents?id=${inc.id}${isAdminUser ? '&isAdmin=true' : ''}`, { method: 'DELETE' });
       fetchList();
     } catch { /* empty */ }
+  };
+  const handleLockAction = async (inc: Incident, action: 'lock' | 'unlock' | 'request_unlock' | 'reject_request') => {
+    try {
+      const res = await fetch('/api/incidents/lock', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: inc.id, action, isAdmin: isAdminUser, by: actorName }),
+      });
+      const data = await res.json();
+      if (data.error) { setLockToast({ type: 'error', msg: data.error }); return; }
+      const msgs: Record<string, string> = {
+        lock: `ล็อก ${inc.incident_no} แล้ว`,
+        unlock: `ปลดล็อก ${inc.incident_no} แล้ว`,
+        request_unlock: `ส่งคำขอปลดล็อก ${inc.incident_no} ให้ Admin แล้ว`,
+        reject_request: `ปฏิเสธคำขอปลดล็อก ${inc.incident_no} แล้ว`,
+      };
+      setLockToast({ type: 'success', msg: msgs[action] });
+      fetchList();
+    } catch {
+      setLockToast({ type: 'error', msg: 'ดำเนินการไม่สำเร็จ' });
+    }
   };
 
   /* ═══ Loading state ═══ */
@@ -775,6 +814,8 @@ export default function IncidentsPage() {
               openDrawer={openDrawer}
               openEditForm={openEditForm}
               handleDelete={handleDelete}
+              isAdmin={isAdminUser}
+              onLockAction={handleLockAction}
               allIncidentsForExport={allListIncidents.length > 0 ? allListIncidents : categoryIncidents}
               companyId={id}
               onImported={() => { fetchList(); fetchDashboard(); }}
@@ -793,6 +834,16 @@ export default function IncidentsPage() {
             />
           ) : null}
         </div>
+
+      {lockToast && (
+        <div className="fixed bottom-6 right-6 z-[100] px-4 py-3 rounded-xl text-[13px] font-semibold shadow-lg" style={{
+          background: lockToast.type === 'success' ? '#dcfce7' : '#fee2e2',
+          color: lockToast.type === 'success' ? '#15803d' : '#b91c1c',
+          border: `1px solid ${lockToast.type === 'success' ? '#86efac' : '#fca5a5'}`,
+        }}>
+          {lockToast.msg}
+        </div>
+      )}
 
       <IncidentDrawer
         open={drawerOpen}

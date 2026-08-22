@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, type Dispatch, type SetStateAction } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Download, Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Download, Upload, X, AlertCircle, CheckCircle, Lock, Unlock } from 'lucide-react';
 import type { Incident } from '../types';
 import { getSevColor, getTypeBadge } from '../types';
 import { INCIDENT_TYPES, ACTUAL_SEVERITIES, inputStyle, selectStyle } from '../constants';
@@ -32,6 +32,8 @@ interface IncidentListViewProps {
   companyId: string;
   onImported?: () => void;
   isLoggedIn?: boolean;
+  isAdmin?: boolean;
+  onLockAction?: (inc: Incident, action: 'lock' | 'unlock' | 'request_unlock' | 'reject_request') => void;
 }
 
 /* ---- CSV Parser ---- */
@@ -105,7 +107,7 @@ export default function IncidentListView({
   filterSeverity, setFilterSeverity, filterStatus, setFilterStatus,
   filterDateFrom, setFilterDateFrom, filterDateTo, setFilterDateTo,
   openDrawer, openEditForm, handleDelete,
-  allIncidentsForExport, companyId, onImported, isLoggedIn,
+  allIncidentsForExport, companyId, onImported, isLoggedIn, isAdmin, onLockAction,
 }: IncidentListViewProps) {
   /* Import modal state */
   const [showImport, setShowImport] = useState(false);
@@ -351,22 +353,80 @@ export default function IncidentListView({
                   </td>
                   <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{inc.area || '-'}</td>
                   <td className="px-4 py-3">
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{
-                      background: inc.report_status === 'Closed' ? '#dcfce7' : inc.report_status === 'Approved' ? '#dbeafe' : '#fef3c7',
-                      color: inc.report_status === 'Closed' ? '#16a34a' : inc.report_status === 'Approved' ? '#2563eb' : '#d97706',
-                    }}>
-                      {inc.report_status || 'Draft'}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full" style={{
+                        background: inc.report_status === 'Closed' ? '#dcfce7' : inc.report_status === 'Approved' ? '#dbeafe' : '#fef3c7',
+                        color: inc.report_status === 'Closed' ? '#16a34a' : inc.report_status === 'Approved' ? '#2563eb' : '#d97706',
+                      }}>
+                        {inc.report_status || 'Draft'}
+                      </span>
+                      {inc.locked && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                          style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}
+                          title={`ล็อกโดย ${inc.locked_by || 'Admin'} — แก้ไข/ลบไม่ได้`}>
+                          <Lock size={9} /> ล็อก
+                        </span>
+                      )}
+                      {inc.locked && inc.unlock_request && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                          style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}
+                          title={`${inc.unlock_request} ขอปลดล็อก`}>
+                          ขอปลดล็อก: {inc.unlock_request}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   {isLoggedIn && (
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); openEditForm(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }}>
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDelete(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#ef4444' }}>
-                          <Trash2 size={14} />
-                        </button>
+                        {/* Admin: ปุ่มล็อก/ปลดล็อก + อนุมัติ/ปฏิเสธคำขอ */}
+                        {isAdmin && (
+                          inc.locked ? (
+                            <>
+                              {inc.unlock_request && (
+                                <button onClick={(e) => { e.stopPropagation(); onLockAction?.(inc, 'reject_request'); }}
+                                  className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold hover:opacity-80"
+                                  style={{ background: '#fee2e2', color: '#b91c1c' }} title="ปฏิเสธคำขอปลดล็อก (คงล็อกไว้)">
+                                  ปฏิเสธ
+                                </button>
+                              )}
+                              <button onClick={(e) => { e.stopPropagation(); onLockAction?.(inc, 'unlock'); }}
+                                className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#16a34a' }}
+                                title={inc.unlock_request ? `อนุมัติปลดล็อก (ผู้ขอ: ${inc.unlock_request})` : 'ปลดล็อกเคส'}>
+                                <Unlock size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <button onClick={(e) => { e.stopPropagation(); onLockAction?.(inc, 'lock'); }}
+                              className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#64748b' }} title="ล็อกเคส (ห้าม user แก้/ลบ)">
+                              <Lock size={14} />
+                            </button>
+                          )
+                        )}
+                        {/* User: เคสล็อก → ปุ่มขอปลดล็อกแทนแก้/ลบ */}
+                        {inc.locked && !isAdmin ? (
+                          inc.unlock_request ? (
+                            <span className="text-[10px] font-semibold px-2 py-1 rounded-md" style={{ background: '#fef3c7', color: '#b45309' }}>
+                              รอ Admin ปลดล็อก
+                            </span>
+                          ) : (
+                            <button onClick={(e) => { e.stopPropagation(); onLockAction?.(inc, 'request_unlock'); }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold hover:opacity-80"
+                              style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}
+                              title="ส่งคำขอให้ Admin ปลดล็อกเพื่อแก้ไข">
+                              <Unlock size={11} /> ขอปลดล็อก
+                            </button>
+                          )
+                        ) : (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); openEditForm(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }}>
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: '#ef4444' }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   )}

@@ -36,6 +36,12 @@ export interface Incident {
   production_downtime?: string; // ระยะเวลาหยุดการผลิต (5 bands)
   classification_status?: string; // '' | 'auto' (rule backfill) | 'review' (ทีมต้องตรวจ/เติม)
   additional_outcomes?: string;   // ผลกระทบเพิ่มเติมนอกเหนือประเภทหลัก (comma-separated)
+  // Case lock (admin เท่านั้นที่ lock/unlock ได้ — user แก้/ลบเคสที่ lock ไม่ได้)
+  locked?: boolean;
+  locked_by?: string;
+  locked_at?: string;
+  unlock_request?: string;      // ชื่อผู้ขอปลดล็อก ('' = ไม่มีคำขอ)
+  unlock_requested_at?: string;
   [key: string]: unknown;
 }
 
