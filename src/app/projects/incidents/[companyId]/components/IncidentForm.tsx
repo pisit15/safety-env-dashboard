@@ -24,6 +24,7 @@ interface IncidentFormProps {
   editingIncident: Incident | null;
   onClose: () => void;
   onSaved: () => void;
+  readOnly?: boolean; // เคสถูก admin ล็อก — เปิดดูได้ทุกช่อง แต่แก้/บันทึกไม่ได้
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,7 +93,7 @@ const SH = ({ num, label, bg, fg }: { num: string; label: string; bg: string; fg
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
-export default function IncidentForm({ companyId, companyName, editingIncident, onClose, onSaved }: IncidentFormProps) {
+export default function IncidentForm({ companyId, companyName, editingIncident, onClose, onSaved, readOnly = false }: IncidentFormProps) {
   const auth = useAuth();
   // Display name of the logged-in user — sent with saves so the audit log shows who did it
   const editorName = auth.isAdmin
@@ -276,6 +277,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
 
   // Debounced auto-save: trigger 2 seconds after last change
   useEffect(() => {
+    if (readOnly) return; // เคสล็อก — ห้าม auto-save
     if (isInitializing.current) return;
     if (saving) return; // Don't auto-save while user is manually saving
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -454,6 +456,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
 
   /* Save (finalize — changes status from Draft to Under Review) */
   const handleSave = async () => {
+    if (readOnly) return; // เคสล็อก — ห้ามบันทึก
     if (!formData.incident_type || !formData.incident_date) {
       alert('กรุณากรอกวันที่และประเภทอุบัติการณ์');
       return;
@@ -515,16 +518,21 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     <div className="max-w-4xl">
       <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
         {/* Form Header */}
-        <div className="px-6 py-4" style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
+        <div className="px-6 py-4" style={{ background: readOnly ? 'linear-gradient(135deg, #475569 0%, #334155 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-[16px] font-bold text-white">
-                {editingIncident ? `แก้ไข ${editingIncident.incident_no}` : 'บันทึกอุบัติเหตุใหม่'}
+                {readOnly ? `🔒 ${editingIncident?.incident_no || ''} (ดูอย่างเดียว)` : editingIncident ? `แก้ไข ${editingIncident.incident_no}` : 'บันทึกอุบัติเหตุใหม่'}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="text-[12px] text-white/70">{companyName}</p>
+                {readOnly && (
+                  <span className="text-[10px] text-white/80">
+                    เคสถูกล็อกโดย Admin{editingIncident?.locked_by ? ` (${editingIncident.locked_by})` : ''} — แก้ไขไม่ได้ กด "ขอปลดล็อก" ที่หน้ารายการหากต้องการแก้ไข
+                  </span>
+                )}
                 {/* Draft auto-save indicator */}
-                {draftStatus === 'saving' && (
+                {!readOnly && draftStatus === 'saving' && (
                   <span className="flex items-center gap-1 text-[10px] text-white/60">
                     <Loader2 size={10} className="animate-spin" /> กำลังบันทึกร่าง...
                   </span>
@@ -548,6 +556,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
         </div>
 
         <div className="p-6 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto">
+        <fieldset disabled={readOnly} className="space-y-5" style={{ border: 'none', margin: 0, padding: 0, minWidth: 0, ...(readOnly ? { opacity: 0.85 } : {}) }}>
           {/* Section 1: Identification */}
           <div>
             <SH num="1" label="IDENTIFICATION" bg="var(--danger, #fee2e2)" fg="#dc2626" />
@@ -1396,22 +1405,26 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             </div>
           )}
 
-          {/* Actions */}
+          </fieldset>
+          {/* Actions — อยู่นอก fieldset เพื่อให้ปุ่มปิดกดได้เสมอ */}
           <div className="flex gap-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-semibold text-white"
-              style={{ background: saving ? 'var(--muted)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
-            >
-              {saving ? 'กำลังบันทึก...' : editingIncident ? 'อัปเดต' : 'บันทึก'}
-            </button>
+            {!readOnly && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-[13px] font-semibold text-white"
+                style={{ background: saving ? 'var(--muted)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}
+              >
+                {saving ? 'กำลังบันทึก...' : editingIncident ? 'อัปเดต' : 'บันทึก'}
+              </button>
+            )}
             <button
               onClick={onClose}
+              disabled={false}
               className="px-6 py-2.5 rounded-xl text-[13px] font-medium"
-              style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)' }}
+              style={{ color: 'var(--text-secondary)', background: 'var(--bg-secondary)', pointerEvents: 'auto' }}
             >
-              ยกเลิก
+              {readOnly ? 'ปิด' : 'ยกเลิก'}
             </button>
           </div>
         </div>

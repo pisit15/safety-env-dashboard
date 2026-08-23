@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, type Dispatch, type SetStateAction } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Download, Upload, X, AlertCircle, CheckCircle, Lock, Unlock } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Download, Upload, X, AlertCircle, CheckCircle, Lock, Unlock, Eye } from 'lucide-react';
 import type { Incident } from '../types';
 import { getSevColor, getTypeBadge } from '../types';
 import { INCIDENT_TYPES, ACTUAL_SEVERITIES, inputStyle, selectStyle } from '../constants';
@@ -403,9 +403,13 @@ export default function IncidentListView({
                             </button>
                           )
                         )}
-                        {/* User: เคสล็อก → ปุ่มขอปลดล็อกแทนแก้/ลบ */}
+                        {/* User: เคสล็อก → เปิดดูได้ (read-only) + ปุ่มขอปลดล็อกแทนแก้/ลบ */}
                         {inc.locked && !isAdmin ? (
-                          inc.unlock_request ? (
+                          <>
+                          <button onClick={(e) => { e.stopPropagation(); openEditForm(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }} title="เปิดดูรายงานฉบับเต็ม (ดูอย่างเดียว)">
+                            <Eye size={14} />
+                          </button>
+                          {inc.unlock_request ? (
                             <span className="text-[10px] font-semibold px-2 py-1 rounded-md" style={{ background: '#fef3c7', color: '#b45309' }}>
                               รอ Admin ปลดล็อก
                             </span>
@@ -416,7 +420,8 @@ export default function IncidentListView({
                               title="ส่งคำขอให้ Admin ปลดล็อกเพื่อแก้ไข">
                               <Unlock size={11} /> ขอปลดล็อก
                             </button>
-                          )
+                          )}
+                          </>
                         ) : (
                           <>
                             <button onClick={(e) => { e.stopPropagation(); openEditForm(inc); }} className="p-1.5 rounded-lg hover:opacity-80" style={{ color: 'var(--accent)' }}>

@@ -551,12 +551,11 @@ export default function IncidentsPage() {
   const [lockToast, setLockToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   useEffect(() => { if (lockToast) { const t = setTimeout(() => setLockToast(null), 3000); return () => clearTimeout(t); } }, [lockToast]);
 
-  const openNewForm = () => { setEditingIncident(null); setViewMode('form'); };
+  const [formReadOnly, setFormReadOnly] = useState(false);
+  const openNewForm = () => { setEditingIncident(null); setFormReadOnly(false); setViewMode('form'); };
   const openEditForm = (incident: Incident) => {
-    if (incident.locked && !isAdminUser) {
-      setLockToast({ type: 'error', msg: `${incident.incident_no} ถูกล็อกโดย Admin — กดปุ่มขอปลดล็อกหากต้องการแก้ไข` });
-      return;
-    }
+    // เคสล็อก: user เปิดดูได้ทุกช่อง (read-only) แต่แก้/บันทึกไม่ได้
+    setFormReadOnly(!!incident.locked && !isAdminUser);
     setEditingIncident(incident); setViewMode('form');
   };
   const handleDelete = async (inc: Incident) => {
@@ -829,6 +828,7 @@ export default function IncidentsPage() {
               companyId={id}
               companyName={companyName}
               editingIncident={editingIncident}
+              readOnly={formReadOnly}
               onClose={() => setViewMode('list')}
               onSaved={() => { setViewMode('list'); fetchList(); }}
             />
