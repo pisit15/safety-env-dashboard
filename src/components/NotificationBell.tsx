@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   FileText,
   Settings,
+  Unlock,
   X,
 } from 'lucide-react';
 
@@ -16,7 +17,7 @@ const APPLE_FONT = `-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro
 
 interface NotifItem {
   id: string;
-  type: 'nearmiss' | 'edit_request' | 'cancel_request' | 'incident';
+  type: 'nearmiss' | 'edit_request' | 'cancel_request' | 'incident' | 'unlock_request';
   title: string;
   detail: string;
   companyId: string;
@@ -30,6 +31,7 @@ const TYPE_ICONS: Record<string, { icon: typeof Bell; color: string }> = {
   incident: { icon: AlertTriangle, color: '#ef4444' },
   edit_request: { icon: Settings, color: '#0a84ff' },
   cancel_request: { icon: FileText, color: '#ff9500' },
+  unlock_request: { icon: Unlock, color: '#8b5cf6' },
 };
 
 function timeAgo(ts: string): string {

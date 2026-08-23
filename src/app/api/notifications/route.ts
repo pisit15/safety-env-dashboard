@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getServiceSupabase();
 
-    const [nmRes, editRes, cancelRes, incRes] = await Promise.all([
+    const [nmRes, editRes, cancelRes, incRes, unlockRes] = await Promise.all([
       // New near miss reports
       supabase
         .from('near_miss_reports')
@@ -56,11 +56,20 @@ export async function GET(request: NextRequest) {
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .limit(10),
+
+      // Pending unlock requests on locked incidents (แสดงจนกว่า admin จะอนุมัติ/ปฏิเสธ — ไม่กรอง since)
+      supabase
+        .from('incidents')
+        .select('id, incident_no, company_id, unlock_request, unlock_requested_at')
+        .eq('locked', true)
+        .neq('unlock_request', '')
+        .order('unlock_requested_at', { ascending: false })
+        .limit(20),
     ]);
 
     type NotifItem = {
       id: string;
-      type: 'nearmiss' | 'edit_request' | 'cancel_request' | 'incident';
+      type: 'nearmiss' | 'edit_request' | 'cancel_request' | 'incident' | 'unlock_request';
       title: string;
       detail: string;
       companyId: string;
@@ -124,6 +133,20 @@ export async function GET(request: NextRequest) {
         timestamp: r.created_at,
         href: `/projects/incidents/${r.company_id}`,
         priority: 'normal',
+      });
+    });
+
+    // Unlock requests (คำขอปลดล็อกเคสอุบัติเหตุ)
+    (unlockRes.data || []).forEach((r) => {
+      items.push({
+        id: `unlock-${r.id}`,
+        type: 'unlock_request',
+        title: 'ขอปลดล็อกเคสอุบัติเหตุ',
+        detail: `${r.incident_no || ''} — ผู้ขอ: ${r.unlock_request || ''}`,
+        companyId: r.company_id,
+        timestamp: r.unlock_requested_at || new Date().toISOString(),
+        href: `/projects/incidents/${r.company_id}`,
+        priority: 'high',
       });
     });
 
