@@ -232,6 +232,10 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     // Must have at least incident_type or some meaningful data to auto-save
     const hasContent = data.incident_type || data.description || data.reporter || data.area;
     if (!hasContent) return;
+    // ไม่ auto-save ขณะข้อมูลอยู่ในสภาพต้องห้าม (แหล่งที่มา = ต้นเหตุอีกขั้น)
+    const _src = ((data.agency_source as string) || '').trim();
+    const _sec = ((data.secondary_source as string) || '').trim();
+    if (_src && _sec && _src === _sec) return;
 
     const currentJson = JSON.stringify({ data, injured });
     if (currentJson === lastSavedJson.current) return; // No changes
@@ -455,8 +459,53 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
   };
 
   /* Save (finalize — changes status from Draft to Under Review) */
+  /* ---- Validation: ตรวจความสอดคล้องของการจำแนก/ค่าเสียหายก่อนบันทึก ---- */
+  const validateForm = (): { errors: string[]; warnings: string[] } => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const src = ((formData.agency_source as string) || '').trim();
+    const sec = ((formData.secondary_source as string) || '').trim();
+    const type = (formData.incident_type as string) || '';
+    const dc = Number(formData.direct_cost) || 0;
+    const ic = Number(formData.indirect_cost) || 0;
+    const nature = ((formData.damage_nature as string) || '').trim();
+    const assets = ((formData.damaged_asset as string) || '').trim();
+    const desc = `${(formData.description as string) || ''} ${(formData.property_damage_detail as string) || ''}`;
+
+    if (src && sec && src === sec) {
+      errors.push('"สิ่งที่ทำให้เกิดความเสียหาย" กับ "ต้นเหตุอีกขั้น" ต้องไม่ใช่ค่าเดียวกัน — ถ้าตัวการทำให้เสียหายโดยตรง ให้เว้นช่องต้นเหตุอีกขั้นว่าง');
+    }
+    if (type === 'Near Miss' && (dc > 0 || ic > 0)) {
+      warnings.push('Near Miss ตามนิยามต้องไม่มีค่าเสียหาย — ตรวจสอบประเภทเหตุการณ์อีกครั้ง');
+    }
+    if (type === 'เหตุการณ์สูญเสียการผลิต (Production Loss)' && dc > 0) {
+      warnings.push('Production Loss หมายถึงไม่มีอุปกรณ์เสียหาย — ถ้ามีของต้องซ่อม ควรเป็น "ทรัพย์สินเสียหาย"');
+    }
+    if (dc > 0 && ic > 0 && dc === ic) {
+      warnings.push('ค่าเสียหายทางตรงและทางอ้อมเท่ากันพอดี มักเกิดจากกรอกซ้ำ — ทางตรง = ค่าซ่อม/เปลี่ยนอุปกรณ์ · ทางอ้อม = มูลค่าไฟที่ผลิตไม่ได้');
+    }
+    if (nature === 'ระบบทำงานผิดพลาด/หยุดชะงัก (ไม่เสียหายกายภาพ)' && (dc > 0 || assets)) {
+      warnings.push('เลือกว่า "ไม่เสียหายกายภาพ" แต่มีค่าซ่อม/มีอุปกรณ์เสียหาย — ข้อมูลขัดกัน');
+    }
+    if (assets && !nature) {
+      warnings.push('มีอุปกรณ์ที่เสียหาย — กรุณาระบุ "ลักษณะความเสียหาย" ด้วย');
+    }
+    if (/คาดว่า|คาดการณ์/.test(desc) && (/^สัตว์/.test(src) || /^สัตว์/.test(sec))) {
+      warnings.push('รายงานระบุว่าเป็นการคาดการณ์ — ใส่หมวดสัตว์ได้เฉพาะเมื่อเห็นตัว พบซาก หรือมีรอยไหม้เท่านั้น ถ้าไม่ยืนยัน ให้ใช้ "ไม่สามารถระบุสาเหตุได้ (ตรวจแล้วไม่พบ)" หรือ "(เข้าตรวจสอบไม่ถึง)"');
+    }
+    return { errors, warnings };
+  };
+  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] } | null>(null);
+  const [warnAcknowledged, setWarnAcknowledged] = useState(false);
+  // แก้ข้อมูลใดๆ → ต้องยืนยันคำเตือนใหม่
+  useEffect(() => { setWarnAcknowledged(false); }, [formData]);
+
   const handleSave = async () => {
     if (readOnly) return; // เคสล็อก — ห้ามบันทึก
+    const v = validateForm();
+    setValidation(v);
+    if (v.errors.length > 0) return; // error → บล็อกบันทึก
+    if (v.warnings.length > 0 && !warnAcknowledged) { setWarnAcknowledged(true); return; } // ครั้งแรกแสดงคำเตือน กดซ้ำเพื่อยืนยัน
     if (!formData.incident_type || !formData.incident_date) {
       alert('กรุณากรอกวันที่และประเภทอุบัติการณ์');
       return;
@@ -702,13 +751,21 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <RefSelect value={(formData.contact_type as string) || ''} options={eventOptions} onChange={v => updateForm('contact_type', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ตกจากที่สูง, ไฟไหม้..." />
               </div>
               <div>
-                <Label text="แหล่งที่มาอุบัติเหตุ" />
-                <RefSelect value={(formData.agency_source as string) || ''} options={sourceOptions} onChange={v => updateForm('agency_source', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ยานพาหนะ, สัตว์..." />
+                <Label text="สิ่งที่ทำให้เกิดความเสียหาย (ตัวที่ปะทะโดยตรง)" />
+                <RefSelect value={(formData.agency_source as string) || ''} options={sourceOptions} onChange={v => updateForm('agency_source', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ระบบไฟฟ้า, หม้อแปลง..." />
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5 }}>
+                  ถามว่า <b>อะไรมาโดน</b> — ถ้าไม่มีตัวกลาง ให้ใส่ตัวการตรงนี้แล้วเว้นช่อง &ldquo;ต้นเหตุอีกขั้น&rdquo; ไว้ว่าง<br />
+                  อุปกรณ์บนเสา/แนวสาย → โครงสร้าง : ระบบไฟฟ้า · อุปกรณ์ในสถานีไฟฟ้า (เบรกเกอร์ SWGR RMU หม้อแปลง) → หม้อแปลง/สถานีไฟฟ้า<br />
+                  อาคาร Inverter / แผง PV → Inverter/แผงโซล่าร์ · ตัวกังหันลม → กังหันลม (WTG)
+                </div>
               </div>
               <div>
-                <Label text="แหล่งที่มาต้นทาง (ถ้ามี)" />
-                <RefSelect value={(formData.secondary_source as string) || ''} options={sourceOptions} onChange={v => updateForm('secondary_source', v)} style={inputStyle} placeholder="เช่น สัตว์กัดสายไฟจนไฟไหม้ → ต้นทาง: สัตว์" />
-                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>กรณีมีต้นเหตุอีกชั้น เช่น งูทำให้ไฟฟ้าลัดวงจร — แหล่งที่มา = ไฟฟ้า, ต้นทาง = สัตว์เลื้อยคลาน</div>
+                <Label text="ต้นเหตุอีกขั้น (ถ้ามี)" />
+                <RefSelect value={(formData.secondary_source as string) || ''} options={sourceOptions} onChange={v => updateForm('secondary_source', v)} style={inputStyle} placeholder="เช่น งูทำให้ไฟลัดวงจร → สัตว์ : เลื้อยคลาน" />
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5 }}>
+                  ใส่เฉพาะเมื่อมีตัวการอีกขั้นก่อนหน้า เช่น งูทำให้ไฟลัดวงจรจนฟิวส์ขาด → ใส่ สัตว์ : เลื้อยคลาน<br />
+                  ถ้าตัวการทำให้เสียหายโดยตรงอยู่แล้ว ให้เว้นว่าง
+                </div>
                 {/* เตือนเมื่อค่าดูเหมือนใส่สลับช่อง (สิ่งมีชีวิตควรอยู่ฝั่งต้นทาง) */}
                 {(() => {
                   const srcV = (formData.agency_source as string) || '';
@@ -761,7 +818,8 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             </div>
           </div>
 
-          {/* Section 4: Property Damage */}
+          {/* Section 4: Property Damage — ซ่อนสำหรับ Fatality / หยุดงาน > 3 วัน (ทุกเคสกลุ่มนี้เว้นว่างเสมอ) */}
+          {!['เสียชีวิต (Fatality)', 'บาดเจ็บ - หยุดงาน > 3 วัน'].includes(selectedType) && (
           <div>
             <SH num="4" label="PROPERTY DAMAGE" bg="rgba(168,85,247,0.1)" fg="#7c3aed" />
             <div className="grid grid-cols-2 gap-3">
@@ -770,7 +828,8 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
                 <RefSelect value={(formData.damage_nature as string) || ''} options={natureOptions} onChange={v => updateForm('damage_nature', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ไหม้, แตกหัก, บุบ..." />
               </div>
               <div className="col-span-2">
-                <Label text="อุปกรณ์ที่เสียหาย (เลือกได้หลายชิ้น)" />
+                <Label text="อุปกรณ์ที่เสียหาย (ของที่พังจริง)" />
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 4 }}>ถามว่า <b>อะไรโดน</b> — ถ้าไม่มีของพัง ให้เว้นว่าง · เลือกได้หลายชิ้น</div>
                 {/* chips ของที่เลือกแล้ว */}
                 {(() => {
                   const sel = ((formData.damaged_asset as string) || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -804,6 +863,7 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               <textarea value={(formData.property_damage_detail as string) || ''} onChange={e => updateForm('property_damage_detail', e.target.value)} style={{ ...inputStyle, minHeight: 60 }} placeholder="รายละเอียดทรัพย์สินที่เสียหาย..." />
             </div>
           </div>
+          )}
 
           {/* Section 5: Consequence */}
           <div>
@@ -1406,6 +1466,28 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
           )}
 
           </fieldset>
+          {/* Validation results */}
+          {validation && validation.errors.length > 0 && (
+            <div className="rounded-xl p-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <p className="text-[12px] font-bold mb-1" style={{ color: '#dc2626' }}>บันทึกไม่ได้ — กรุณาแก้ไขก่อน:</p>
+              {validation.errors.map((e, i) => (
+                <p key={i} className="text-[11.5px]" style={{ color: '#b91c1c', lineHeight: 1.6 }}>• {e}</p>
+              ))}
+            </div>
+          )}
+          {validation && validation.errors.length === 0 && validation.warnings.length > 0 && (
+            <div className="rounded-xl p-3" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.35)' }}>
+              <p className="text-[12px] font-bold mb-1" style={{ color: '#b45309' }}>คำเตือน — ตรวจสอบก่อนบันทึก:</p>
+              {validation.warnings.map((w, i) => (
+                <p key={i} className="text-[11.5px]" style={{ color: '#92400e', lineHeight: 1.6 }}>• {w}</p>
+              ))}
+              {warnAcknowledged && (
+                <p className="text-[11.5px] font-semibold mt-1.5" style={{ color: '#b45309' }}>
+                  ถ้าตรวจสอบแล้วข้อมูลถูกต้อง กด &ldquo;{editingIncident ? 'อัปเดต' : 'บันทึก'}&rdquo; อีกครั้งเพื่อยืนยัน
+                </p>
+              )}
+            </div>
+          )}
           {/* Actions — อยู่นอก fieldset เพื่อให้ปุ่มปิดกดได้เสมอ */}
           <div className="flex gap-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
             {!readOnly && (
