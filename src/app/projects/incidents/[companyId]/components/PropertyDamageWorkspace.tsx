@@ -105,6 +105,15 @@ export default function PropertyDamageWorkspace({
     propFilter && propFilter.field !== chartField ? propFilteredIncidents : categoryIncidents;
 
   const fmtCostShort = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toLocaleString();
+  // หน่วยเดียวทั้งกราฟ: ล้านบาท — ทศนิยม 2 ตำแหน่ง, ค่าน้อยเพิ่มทศนิยมจนเห็นค่า (ห้ามเป็น 0.00), ศูนย์จริง = "0"
+  const fmtMB = (v: number): string => {
+    if (v === 0) return '0';
+    const m = v / 1_000_000;
+    const a = Math.abs(m);
+    if (a >= 0.01) return m.toFixed(2);
+    if (a >= 0.001) return m.toFixed(3);
+    return m.toFixed(4);
+  };
 
   // ---- Monthly cost trend data ----
   const monthlyCostData: Record<number, { direct: number; indirect: number }[]> = {};
@@ -521,13 +530,13 @@ export default function PropertyDamageWorkspace({
                                       <rect x={x - 2} y={28} width={bw + 4} height={130} fill="transparent" />
                                       {h - hDir > 0.5 && <rect x={x} y={158 - h} width={bw} height={h - hDir} rx={3} fill={d.color} opacity={0.3} />}
                                       <rect x={x} y={158 - hDir} width={bw} height={Math.max(hDir, v > 0 ? 2 : 0)} rx={3} fill={d.color} opacity={0.9} />
-                                      {v > 0 && <text x={x + bw / 2} y={151 - h} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={d.color} style={{ pointerEvents: 'none' }}>{cmpMetric === 'cost' ? fmtCostShort(v) : v}</text>}
+                                      {v > 0 && <text x={x + bw / 2} y={151 - h} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={d.color} style={{ pointerEvents: 'none' }}>{cmpMetric === 'cost' ? fmtMB(v) : v}</text>}
                                       <text x={x + bw / 2} y={170} textAnchor="middle" fontSize={8.5} fill="var(--text-secondary)" style={{ pointerEvents: 'none' }}>{c.count} เหตุ</text>
                                     </g>
                                   );
                                 })}
                                 <text x={gx + bw + bgap / 2} y={186} textAnchor="middle" fontSize={11.5} fontWeight={700} fill="var(--text-primary)">{y}</text>
-                                <text x={gx + bw + bgap / 2} y={200} textAnchor="middle" fontSize={8.5} fill="var(--text-secondary)">รวม {cmpMetric === 'cost' ? fmtCostShort(yearTotal) + ' ฿' : `${yearTotal} เหตุ`}</text>
+                                <text x={gx + bw + bgap / 2} y={200} textAnchor="middle" fontSize={8.5} fill="var(--text-secondary)">รวม {cmpMetric === 'cost' ? fmtMB(yearTotal) : `${yearTotal} เหตุ`}</text>
                               </g>
                             );
                           })}
@@ -543,6 +552,11 @@ export default function PropertyDamageWorkspace({
                             </>
                           )}
                         </p>
+                        {cmpMetric === 'cost' && (
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                            หน่วย: ล้านบาท · ตัวเลขปัดเศษ ผลรวมอาจต่างจากผลบวกของส่วนย่อย ±0.01
+                          </p>
+                        )}
                       </>
                     );
                   })()}
