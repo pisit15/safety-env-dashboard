@@ -471,7 +471,8 @@ export default function PropertyDamageWorkspace({
               if (!evAgg[e]) evAgg[e] = { count: 0, cost: 0 };
               evAgg[e].count += 1; evAgg[e].cost += costOfInc(i);
             });
-            const topEvents = Object.entries(evAgg).sort((a, b2) => b2[1].cost - a[1].cost).slice(0, 6);
+            // แสดงเหตุการณ์ครบทุกหมวด (ไม่จำกัด top-N) เรียงตามมูลค่ารวม
+            const topEvents = Object.entries(evAgg).sort((a, b2) => b2[1].cost - a[1].cost);
             const maxEvCost = Math.max(...topEvents.flatMap(([e]) => years.map(y => evRows(e, y).reduce((s, i) => s + costOfInc(i), 0))), 1);
             const toggle = (active: boolean, label: string, onClick: () => void) => (
               <button key={label} onClick={onClick} className="px-3 py-1 rounded-full text-[11px] font-semibold"
