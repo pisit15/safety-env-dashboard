@@ -749,6 +749,10 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
               <div>
                 <Label text="เหตุการณ์" />
                 <RefSelect value={(formData.contact_type as string) || ''} options={eventOptions} onChange={v => updateForm('contact_type', v)} style={inputStyle} placeholder="พิมพ์ค้นหา เช่น ตกจากที่สูง, ไฟไหม้..." />
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, lineHeight: 1.5 }}>
+                  เลือก &ldquo;เพลิงไหม้&rdquo; เมื่อไฟลุกลามออกนอกตัวอุปกรณ์ (ลงหญ้า ลงพื้น ไหม้ของที่ไม่ใช่ตัวนำ) หรือต้องเข้าระงับเหตุ<br />
+                  ถ้าอุปกรณ์แค่มีรอยไหม้/ควันจากไฟฟ้า แล้วดับเอง — ให้เลือกเหตุการณ์ตามสาเหตุจริง (ไฟฟ้าลัดวงจร / แรงดันเกิน / ฯลฯ) แล้วระบุ &ldquo;ลักษณะความเสียหาย = ไหม้/หลอมละลาย/เกรียม&rdquo; แทน
+                </div>
               </div>
               <div>
                 <Label text="สิ่งที่ทำให้เกิดความเสียหาย (ตัวที่ปะทะโดยตรง)" />
