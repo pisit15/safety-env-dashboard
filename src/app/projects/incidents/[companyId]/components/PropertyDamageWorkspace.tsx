@@ -94,6 +94,10 @@ export default function PropertyDamageWorkspace({
         if (propFilter.field === '_root_source') {
           return rootSourceOf(inc) === propFilter.value;
         }
+        if (propFilter.field === '_est_cost') {
+          const tc = (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0);
+          return tc > 0 && (((inc as Record<string, unknown>).cost_status as string) || 'ประมาณการ') === 'ประมาณการ';
+        }
         // Generic field match (works for property_damage_type, area, agency_source, insurance_claim, production_impact, etc.)
         const val = (inc as Record<string, unknown>)[propFilter.field] as string || (inc[propFilter.field as keyof Incident] as string) || 'ไม่ระบุ';
         return val === propFilter.value;
@@ -310,6 +314,7 @@ export default function PropertyDamageWorkspace({
     { label: 'High Cost', field: '_highcost', value: 'high', count: highCostRecords.length, color: '#dc2626' },
     { label: 'ไม่ระบุลักษณะเสียหาย', field: '_missing_type', value: 'missing', count: missingDmgType.length, color: '#9333ea' },
     { label: 'ไม่มี Cost', field: '_missing_cost', value: 'missing', count: missingCost.length, color: '#9333ea' },
+    { label: 'มูลค่าประมาณการ', field: '_est_cost', value: 'est', count: categoryIncidents.filter(i => costOfInc(i) > 0 && (((i as Record<string, unknown>).cost_status as string) || 'ประมาณการ') === 'ประมาณการ').length, color: '#b45309' },
     { label: 'ระบบไฟฟ้าเสียหาย', field: 'damage_nature', value: 'ระบบไฟฟ้า-อิเล็กทรอนิกส์เสียหาย' },
     { label: 'ไหม้/หลอมละลาย', field: 'damage_nature', value: 'ไหม้/หลอมละลาย/เกรียม' },
     { label: 'แตก/ร้าว', field: 'damage_nature', value: 'แตก/ร้าว/ทะลุ' },
@@ -330,6 +335,7 @@ export default function PropertyDamageWorkspace({
       total_cost: (Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0),
       production_impact: (inc as Record<string, unknown>).production_impact as string || '',
       insurance_claim: (inc as Record<string, unknown>).insurance_claim as string || '',
+      cost_status: (inc as Record<string, unknown>).cost_status as string || 'ประมาณการ',
       status: inc.report_status || 'Draft',
     }));
     const headers = Object.keys(rows[0] || {});
@@ -353,6 +359,7 @@ export default function PropertyDamageWorkspace({
     if (chip.field === '_highcost') { setPropFilter({ field: '_highcost', value: 'high' }); return; }
     if (chip.field === '_missing_type') { setPropFilter({ field: '_missing_type', value: 'missing' }); return; }
     if (chip.field === '_missing_cost') { setPropFilter({ field: '_missing_cost', value: 'missing' }); return; }
+    if (chip.field === '_est_cost') { setPropFilter({ field: '_est_cost', value: 'est' }); return; }
     setPropFilter({ field: chip.field, value: chip.value });
   };
 
@@ -558,6 +565,22 @@ export default function PropertyDamageWorkspace({
                             หน่วย: ล้านบาท · ตัวเลขปัดเศษ ผลรวมอาจต่างจากผลบวกของส่วนย่อย ±0.01
                           </p>
                         )}
+                        {cmpMetric === 'cost' && (() => {
+                          const estRows = categoryIncidents.filter(i => costOfInc(i) > 0 && (((i as Record<string, unknown>).cost_status as string) || 'ประมาณการ') === 'ประมาณการ');
+                          if (estRows.length === 0) return null;
+                          const estCost = estRows.reduce((s, i) => s + costOfInc(i), 0);
+                          const totCost = categoryIncidents.reduce((s, i) => s + costOfInc(i), 0);
+                          const pct = totCost > 0 ? Math.round((estCost / totCost) * 100) : 0;
+                          return (
+                            <p className="text-[10px] mt-0.5 cursor-pointer hover:underline" style={{ color: '#b45309' }}
+                              onClick={() => setCmpDrill({
+                                title: `มูลค่าประมาณการ (รอยืนยันค่าจริง) — ${estRows.length} เหตุ · รวม ${fmtCost(estCost)}`,
+                                items: [...estRows].sort((a, b) => costOfInc(b) - costOfInc(a)),
+                              })}>
+                              ~ รวมค่าประมาณการ {estRows.length} เหตุ ({fmtMB(estCost)} ลบ. · {pct}% ของมูลค่ารวม) — คลิกดูรายการ
+                            </p>
+                          );
+                        })()}
                       </>
                     );
                   })()}

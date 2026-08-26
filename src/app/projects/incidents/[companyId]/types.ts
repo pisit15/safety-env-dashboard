@@ -36,6 +36,11 @@ export interface Incident {
   production_downtime?: string; // ระยะเวลาหยุดการผลิต (5 bands)
   classification_status?: string; // '' | 'auto' (rule backfill) | 'review' (ทีมต้องตรวจ/เติม)
   additional_outcomes?: string;   // ผลกระทบเพิ่มเติมนอกเหนือประเภทหลัก (comma-separated)
+  // สถานะมูลค่าความเสียหาย: 'ประมาณการ' (default) | 'ค่าจริง' (มีหลักฐานการเงินยืนยัน)
+  cost_status?: string;
+  cost_ref_doc?: string;       // เลขที่ Invoice/PO/เคลม (optional)
+  cost_confirmed_by?: string;
+  cost_confirmed_at?: string;
   // Case lock (admin เท่านั้นที่ lock/unlock ได้ — user แก้/ลบเคสที่ lock ไม่ได้)
   locked?: boolean;
   locked_by?: string;

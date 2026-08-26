@@ -1273,6 +1273,22 @@ export default function HQIncidentsPage() {
                                   )}
                                 </div>
                                 {pdMetric === 'cost' && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>มูลค่า = Direct + Indirect · เคสเก่าบางส่วนไม่ได้กรอกค่าเสียหาย — สลับดู &ldquo;จำนวนเหตุ&rdquo; ประกอบ</span>}
+                                {pdMetric === 'cost' && (() => {
+                                  const estRows = propInc.filter(i => costOf(i) > 0 && (((i as Record<string, unknown>).cost_status as string) || 'ประมาณการ') === 'ประมาณการ');
+                                  if (estRows.length === 0) return null;
+                                  const estCost = estRows.reduce((s, i) => s + costOf(i), 0);
+                                  const totCost = propInc.reduce((s, i) => s + costOf(i), 0);
+                                  const pct = totCost > 0 ? Math.round((estCost / totCost) * 100) : 0;
+                                  return (
+                                    <span style={{ fontSize: 10, color: '#b45309', cursor: 'pointer', textDecoration: 'underline dotted' }}
+                                      onClick={() => setPdDrill({
+                                        title: `มูลค่าประมาณการ (รอยืนยันค่าจริง) — ${estRows.length} เหตุ · รวม ${fmtCompact(estCost)} ฿`,
+                                        items: [...estRows].sort((a, b) => costOf(b) - costOf(a)),
+                                      })}>
+                                      ~ รวมค่าประมาณการ {estRows.length} เหตุ ({fmtCompact(estCost)} ฿ · {pct}%) — คลิกดูรายการ
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
 

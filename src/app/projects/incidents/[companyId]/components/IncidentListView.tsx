@@ -367,6 +367,13 @@ export default function IncidentListView({
                           <Lock size={9} /> ล็อก
                         </span>
                       )}
+                      {((Number(inc.direct_cost) || 0) + (Number(inc.indirect_cost) || 0) > 0) && (inc.cost_status || 'ประมาณการ') === 'ประมาณการ' && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(234,179,8,0.12)', color: '#b45309', border: '1px solid rgba(234,179,8,0.4)' }}
+                          title="มูลค่าความเสียหายยังเป็นค่าประมาณการ — รอยืนยันด้วยเอกสารการเงิน">
+                          ~ ประมาณการ
+                        </span>
+                      )}
                       {inc.locked && inc.unlock_request && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                           style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}

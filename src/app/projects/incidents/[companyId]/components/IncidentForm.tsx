@@ -377,6 +377,17 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     }
   };
 
+  // แก้ตัวเลขค่าเสียหายหลังยืนยัน "ค่าจริง" แล้ว → ธงเด้งกลับเป็น "ประมาณการ" อัตโนมัติ
+  const updateCost = (key: 'direct_cost' | 'indirect_cost', value: number) => {
+    setFormData(prev => {
+      const changed = (Number(prev[key]) || 0) !== value;
+      if (changed && (prev.cost_status as string) === 'ค่าจริง') {
+        return { ...prev, [key]: value, cost_status: 'ประมาณการ', cost_confirmed_by: '', cost_confirmed_at: null };
+      }
+      return { ...prev, [key]: value };
+    });
+  };
+
   /* Injured persons helpers */
   const addInjuredPerson = () => {
     setInjuredPersons(prev => [...prev, {
@@ -489,6 +500,9 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
     }
     if (assets && !nature) {
       warnings.push('มีอุปกรณ์ที่เสียหาย — กรุณาระบุ "ลักษณะความเสียหาย" ด้วย');
+    }
+    if (['Closed', 'Final', 'Approved'].includes((formData.report_status as string) || '') && (dc + ic > 0) && ((formData.cost_status as string) || 'ประมาณการ') === 'ประมาณการ') {
+      warnings.push('เคสอยู่สถานะปิด/อนุมัติแล้ว แต่มูลค่าความเสียหายยังเป็น "ประมาณการ" — ถ้าได้ตัวเลขจริงแล้ว กรุณายืนยันเป็น "ค่าจริง"');
     }
     if (/คาดว่า|คาดการณ์/.test(desc) && (/^สัตว์/.test(src) || /^สัตว์/.test(sec))) {
       warnings.push('รายงานระบุว่าเป็นการคาดการณ์ — ใส่หมวดสัตว์ได้เฉพาะเมื่อเห็นตัว พบซาก หรือมีรอยไหม้เท่านั้น ถ้าไม่ยืนยัน ให้ใช้ "ไม่สามารถระบุสาเหตุได้ (ตรวจแล้วไม่พบ)" หรือ "(เข้าตรวจสอบไม่ถึง)"');
@@ -875,11 +889,58 @@ export default function IncidentForm({ companyId, companyName, editingIncident, 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label text="ค่าเสียหายโดยตรง (บาท)" />
-                <input type="number" value={(formData.direct_cost as number) || 0} onChange={e => updateForm('direct_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
+                <input type="number" value={(formData.direct_cost as number) || 0} onChange={e => updateCost('direct_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
               </div>
               <div>
                 <Label text="ค่าเสียหายทางอ้อม (บาท)" />
-                <input type="number" value={(formData.indirect_cost as number) || 0} onChange={e => updateForm('indirect_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
+                <input type="number" value={(formData.indirect_cost as number) || 0} onChange={e => updateCost('indirect_cost', parseFloat(e.target.value) || 0)} style={inputStyle} min={0} />
+              </div>
+              {/* สถานะมูลค่าความเสียหาย: ประมาณการ / ค่าจริง */}
+              <div className="col-span-2">
+                <Label text="สถานะมูลค่าความเสียหาย" />
+                <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                  {([
+                    { val: 'ประมาณการ', label: '~ ประมาณการ', color: '#d97706', bg: 'rgba(234,179,8,0.12)' },
+                    { val: 'ค่าจริง', label: '✓ ค่าจริง', color: '#16a34a', bg: 'rgba(34,197,94,0.12)' },
+                  ]).map(c => {
+                    const active = ((formData.cost_status as string) || 'ประมาณการ') === c.val;
+                    return (
+                      <button key={c.val} type="button"
+                        onClick={() => {
+                          if (c.val === 'ค่าจริง') {
+                            setFormData(prev => ({ ...prev, cost_status: 'ค่าจริง', cost_confirmed_by: editorName, cost_confirmed_at: new Date().toISOString() }));
+                          } else {
+                            setFormData(prev => ({ ...prev, cost_status: 'ประมาณการ', cost_confirmed_by: '', cost_confirmed_at: null }));
+                          }
+                        }}
+                        style={{
+                          flex: 1, padding: '9px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                          border: active ? `2px solid ${c.color}` : '1px solid var(--border)',
+                          background: active ? c.bg : 'var(--bg-secondary)',
+                          color: active ? c.color : 'var(--muted)',
+                          opacity: active ? 1 : 0.7,
+                        }}>
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.5 }}>
+                  ประมาณการ = ยังไม่มีใบแจ้งหนี้/ใบเสร็จยืนยัน · ค่าจริง = มีเอกสารการเงินอ้างอิงแล้ว · แก้ตัวเลขหลังยืนยันแล้ว ธงจะกลับเป็นประมาณการอัตโนมัติ
+                </div>
+                {((formData.cost_status as string) || '') === 'ค่าจริง' && (
+                  <div className="mt-2">
+                    <Label text="เอกสารอ้างอิง (ถ้ามี)" />
+                    <input type="text" value={(formData.cost_ref_doc as string) || ''} onChange={e => updateForm('cost_ref_doc', e.target.value)}
+                      style={inputStyle} placeholder="เช่น เลขที่ Invoice/PO/เคลมประกัน — เว้นว่างได้" />
+                    {(formData.cost_confirmed_by as string) && (
+                      <div style={{ fontSize: 10, color: '#16a34a', marginTop: 3 }}>
+                        ✓ ยืนยันค่าจริงโดย {formData.cost_confirmed_by as string}
+                        {formData.cost_confirmed_at ? ` · ${new Date(formData.cost_confirmed_at as string).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <Label text="ผลกระทบต่อการผลิต" />
