@@ -26,9 +26,20 @@ interface Employee {
 
 interface TrainingRecord {
   id: string;
+  plan_id?: string;
+  session_id?: string;
   training_plans?: { course_name: string; category: string; hours_per_course: number; planned_month: number; year: number };
   training_sessions?: { status: string; scheduled_date_start: string; scheduled_date_end: string };
   created_at: string;
+}
+
+interface TrainPlanOption {
+  id: string;
+  course_name: string;
+  planned_month?: number;
+  hours_per_course?: number;
+  category?: string;
+  training_sessions?: { id: string; status?: string; scheduled_date_start?: string | null }[];
 }
 
 interface CourseAttendee {
@@ -122,6 +133,16 @@ export default function EmployeesPage() {
   /* ── Training history (for detail panel) ── */
   const [trainingRecords, setTrainingRecords] = useState<TrainingRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  /* ── Add training (inline form in training tab) ── */
+  const [showTrainForm, setShowTrainForm] = useState(false);
+  const [trainYear, setTrainYear] = useState<number>(new Date().getFullYear());
+  const [trainPlans, setTrainPlans] = useState<TrainPlanOption[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [trainPlanId, setTrainPlanId] = useState('');
+  const [trainSessionId, setTrainSessionId] = useState('');
+  const [savingTrain, setSavingTrain] = useState(false);
+  const [trainError, setTrainError] = useState('');
 
   /* ── Certificates (for detail panel) ── */
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -231,6 +252,18 @@ export default function EmployeesPage() {
     setLoadingHistory(false);
   }, [companyId]);
 
+  /* ── Load plans for the add-training form ── */
+  useEffect(() => {
+    if (!showTrainForm) return;
+    setLoadingPlans(true);
+    setTrainPlanId(''); setTrainSessionId(''); setTrainError('');
+    fetch(`/api/training/plans?companyId=${companyId}&year=${trainYear}`)
+      .then(r => r.json())
+      .then(d => setTrainPlans(Array.isArray(d) ? (d as TrainPlanOption[]) : []))
+      .catch(() => setTrainPlans([]))
+      .finally(() => setLoadingPlans(false));
+  }, [showTrainForm, trainYear, companyId]);
+
   /* ── Fetch certs for selected employee ── */
   const fetchCerts = useCallback(async (emp: Employee) => {
     setLoadingCerts(true);
@@ -242,6 +275,43 @@ export default function EmployeesPage() {
     } catch { setCertificates([]); }
     setLoadingCerts(false);
   }, [companyId]);
+
+  /* ── Save / delete training record ── */
+  const saveTraining = async () => {
+    const emp = employees.find(e => e.id === selectedEmpId);
+    if (!emp) return;
+    const plan = trainPlans.find(p => p.id === trainPlanId);
+    if (!plan) { setTrainError('กรุณาเลือกหลักสูตร'); return; }
+    const sessions = plan.training_sessions || [];
+    const session = sessions.find(s => s.id === trainSessionId) || sessions[0];
+    if (!session) { setTrainError('หลักสูตรนี้ยังไม่มีรอบอบรม — สร้างรอบอบรมในหน้าแผนการอบรมก่อน'); return; }
+    if (trainingRecords.some(r => r.plan_id === plan.id)) { setTrainError('พนักงานคนนี้มีรายการหลักสูตรนี้อยู่แล้ว'); return; }
+    setSavingTrain(true); setTrainError('');
+    try {
+      const res = await fetch('/api/training/attendees', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: session.id, plan_id: plan.id, company_id: companyId,
+          emp_code: emp.emp_code, first_name: emp.first_name, last_name: emp.last_name,
+          gender: emp.gender || '', position: emp.position || '', department: emp.department || '',
+          hours_attended: plan.hours_per_course || 0,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { setTrainError(data.error); }
+      else { setShowTrainForm(false); fetchTraining(emp); }
+    } catch { setTrainError('บันทึกไม่สำเร็จ'); }
+    setSavingTrain(false);
+  };
+  const deleteTraining = async (rec: TrainingRecord) => {
+    const emp = employees.find(e => e.id === selectedEmpId);
+    if (!emp) return;
+    if (!confirm(`ลบรายการอบรม "${rec.training_plans?.course_name || ''}" ของ ${emp.first_name}?`)) return;
+    try {
+      await fetch(`/api/training/attendees?id=${rec.id}${rec.session_id ? `&sessionId=${rec.session_id}` : ''}`, { method: 'DELETE' });
+      fetchTraining(emp);
+    } catch { /* ignore */ }
+  };
 
   /* ── Select employee → load detail data ── */
   const selectEmployee = useCallback((emp: Employee) => {
@@ -1015,12 +1085,79 @@ export default function EmployeesPage() {
                       {/* ── Training Tab ── */}
                       {detailTab === 'training' && (
                         <>
+                          {/* Add training header + inline form */}
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                              {loadingHistory ? 'กำลังโหลด...' : `${trainingRecords.length} หลักสูตร`}
+                            </span>
+                            {!showTrainForm && (
+                              <button onClick={() => { setShowTrainForm(true); }}
+                                className="btn-primary flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium">
+                                <Plus size={12} /> เพิ่มการอบรม
+                              </button>
+                            )}
+                          </div>
+                          {showTrainForm && (
+                            <div className="rounded-lg p-3 mb-3 space-y-2" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>ปีแผนอบรม</label>
+                                  <select value={trainYear} onChange={e => setTrainYear(parseInt(e.target.value))}
+                                    className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }}>
+                                    {[0, 1, 2, 3].map(d => { const y = new Date().getFullYear() - d; return <option key={y} value={y}>{y}</option>; })}
+                                  </select>
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="block text-[10px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>หลักสูตร</label>
+                                  <select value={trainPlanId} onChange={e => { setTrainPlanId(e.target.value); setTrainSessionId(''); setTrainError(''); }}
+                                    className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }}>
+                                    <option value="">{loadingPlans ? 'กำลังโหลด...' : trainPlans.length === 0 ? `ไม่มีหลักสูตรในแผนปี ${trainYear}` : 'เลือกหลักสูตร'}</option>
+                                    {trainPlans.map(p => (
+                                      <option key={p.id} value={p.id}>{p.course_name}{p.hours_per_course ? ` (${p.hours_per_course} ชม.)` : ''}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              {(() => {
+                                const plan = trainPlans.find(p => p.id === trainPlanId);
+                                const sessions = plan?.training_sessions || [];
+                                if (!plan || sessions.length <= 1) return null;
+                                return (
+                                  <div>
+                                    <label className="block text-[10px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>รอบอบรม</label>
+                                    <select value={trainSessionId} onChange={e => setTrainSessionId(e.target.value)}
+                                      className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)' }}>
+                                      {sessions.map((s, si) => (
+                                        <option key={s.id} value={s.id}>
+                                          รอบ {si + 1}{s.scheduled_date_start ? ` · ${new Date(s.scheduled_date_start).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}` : ''}{s.status === 'completed' ? ' · อบรมแล้ว' : s.status === 'cancelled' ? ' · ยกเลิก' : ' · วางแผน'}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              })()}
+                              {trainError && <div className="text-[11px]" style={{ color: STATUS.critical }}>{trainError}</div>}
+                              <div className="flex gap-2">
+                                <button onClick={saveTraining} disabled={savingTrain || !trainPlanId}
+                                  className="btn-primary px-4 py-1.5 rounded-lg text-xs font-medium" style={{ opacity: savingTrain || !trainPlanId ? 0.6 : 1 }}>
+                                  {savingTrain ? 'กำลังบันทึก...' : 'บันทึก'}
+                                </button>
+                                <button onClick={() => { setShowTrainForm(false); setTrainError(''); }}
+                                  className="px-4 py-1.5 rounded-lg text-xs" style={{ color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                                  ยกเลิก
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           {loadingHistory ? (
                             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
                           ) : trainingRecords.length === 0 ? (
                             <div className="text-center py-8">
                               <GraduationCap size={32} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
                               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>ยังไม่มีประวัติการอบรม</p>
+                              {!showTrainForm && (
+                                <button onClick={() => setShowTrainForm(true)} className="mt-2 text-xs underline" style={{ color: 'var(--accent)' }}>เพิ่มการอบรมรายการแรก</button>
+                              )}
                             </div>
                           ) : (
                             <>
@@ -1053,6 +1190,10 @@ export default function EmployeesPage() {
                                         style={{ background: isDone ? STATUS.positiveBg : session?.status === 'cancelled' ? STATUS.criticalBg : '#f3f4f6', color: isDone ? STATUS.positive : session?.status === 'cancelled' ? STATUS.critical : '#9ca3af' }}>
                                         {isDone ? 'อบรมแล้ว' : session?.status === 'cancelled' ? 'ยกเลิก' : 'วางแผน'}
                                       </span>
+                                      <button onClick={() => deleteTraining(rec)} title="ลบรายการอบรม"
+                                        className="p-1 rounded flex-shrink-0 hover:opacity-70" style={{ color: STATUS.critical }}>
+                                        <Trash2 size={13} />
+                                      </button>
                                     </div>
                                   );
                                 })}
