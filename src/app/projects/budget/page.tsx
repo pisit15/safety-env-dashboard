@@ -191,10 +191,8 @@ export default function BudgetLanding() {
         const totalE = dash.perCompany.reduce((s, c) => s + c.environment, 0);
         const compRows = dash.perCompany.filter(c => c.total > 0);
         const maxComp = Math.max(...compRows.map(c => c.total), 1);
-        const topCats = dash.perCategory.filter(c => c.total > 0).slice(0, 8);
-        const otherCats = dash.perCategory.filter(c => c.total > 0).slice(8);
-        const otherTotal = otherCats.reduce((s, c) => s + c.total, 0);
-        const maxCat = Math.max(...topCats.map(c => c.total), otherTotal, 1);
+        const topCats = dash.perCategory.filter(c => c.total > 0);
+        const maxCat = Math.max(...topCats.map(c => c.total), 1);
         const maxMonth = Math.max(...dash.perMonth.map(m => m.safety + m.environment), 1);
         const peakMonth = dash.perMonth.reduce((best, m) => (m.safety + m.environment > best.safety + best.environment ? m : best), dash.perMonth[0]);
         const nameOf = (cid: string) => companies.find(c => c.id === cid)?.name || cid.toUpperCase();
@@ -248,7 +246,7 @@ export default function BudgetLanding() {
 
               {/* Top หมวดค่าใช้จ่าย */}
               <div style={card}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>หมวดค่าใช้จ่ายสูงสุด</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>หมวดค่าใช้จ่าย — ครบทุกหมวด เรียงจากมากไปน้อย</div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', marginBottom: 10 }}>% = สัดส่วนของงบรวมทั้งกลุ่ม</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {topCats.map((c, i) => (
@@ -266,9 +264,6 @@ export default function BudgetLanding() {
                       </div>
                     </div>
                   ))}
-                  {otherTotal > 0 && (
-                    <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>+ หมวดอื่นๆ อีก {otherCats.length} หมวด รวม {fmtMB(otherTotal)} ลบ.</div>
-                  )}
                 </div>
               </div>
 
