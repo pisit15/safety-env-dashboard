@@ -9,7 +9,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { DEFAULT_YEAR } from '@/lib/companies';
 import { Wallet, Lock, CheckCircle2, CircleDashed, BarChart3 } from 'lucide-react';
 
-interface DashCompany { companyId: string; safety: number; environment: number; total: number }
+interface DashCompany { companyId: string; safety: number; environment: number; guard: number; total: number }
 interface DashCategory { name: string; planType: string; total: number; count: number }
 interface DashMonth { month: number; safety: number; environment: number }
 interface DashData { perCompany: DashCompany[]; perCategory: DashCategory[]; perMonth: DashMonth[] }
@@ -189,6 +189,7 @@ export default function BudgetLanding() {
         const totalAll = dash.perCompany.reduce((s, c) => s + c.total, 0);
         const totalS = dash.perCompany.reduce((s, c) => s + c.safety, 0);
         const totalE = dash.perCompany.reduce((s, c) => s + c.environment, 0);
+        const totalG = dash.perCompany.reduce((s, c) => s + (c.guard || 0), 0);
         const compRows = dash.perCompany.filter(c => c.total > 0);
         const maxComp = Math.max(...compRows.map(c => c.total), 1);
         const topCats = dash.perCategory.filter(c => c.total > 0);
@@ -211,8 +212,9 @@ export default function BudgetLanding() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
               {[
                 { label: 'งบรวมทั้งกลุ่ม', value: `${fmtMB(totalAll)} ลบ.`, color: '#4E79A7', sub: `${dash.perCompany.reduce((s, c) => s + (c.total > 0 ? 1 : 0), 0)} บริษัทที่มีงบ` },
-                { label: 'Safety', value: `${fmtMB(totalS)} ลบ.`, color: '#F28E2B', sub: totalAll > 0 ? `${Math.round((totalS / totalAll) * 100)}% ของงบรวม` : '' },
+                { label: 'Safety (ไม่รวม รปภ.)', value: `${fmtMB(totalS)} ลบ.`, color: '#F28E2B', sub: totalAll > 0 ? `${Math.round((totalS / totalAll) * 100)}% ของงบรวม` : '' },
                 { label: 'Environment', value: `${fmtMB(totalE)} ลบ.`, color: '#59A14F', sub: totalAll > 0 ? `${Math.round((totalE / totalAll) * 100)}% ของงบรวม` : '' },
+                { label: 'รปภ.', value: `${fmtMB(totalG)} ลบ.`, color: '#8b5cf6', sub: totalAll > 0 ? `${Math.round((totalG / totalAll) * 100)}% ของงบรวม` : '' },
                 { label: 'เดือนที่ใช้งบสูงสุด', value: TH_MONTHS[peakMonth.month - 1], color: '#E15759', sub: `${fmtMB(peakMonth.safety + peakMonth.environment)} ลบ.` },
               ].map(k => (
                 <div key={k.label} style={{ ...card, borderLeft: `4px solid ${k.color}`, padding: '14px 16px' }}>
@@ -224,23 +226,38 @@ export default function BudgetLanding() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 14 }}>
-              {/* งบรายบริษัท (stacked S/E, มาก→น้อย) */}
+              {/* งบรายบริษัท (stacked Safety ไม่รวม รปภ. / Environment / รปภ., มาก→น้อย) */}
               <div style={card}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>งบรายบริษัท — เรียงจากมากไปน้อย</div>
                 <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', marginBottom: 10 }}>
-                  <span style={{ color: '#F28E2B' }}>■</span> Safety&nbsp;&nbsp;<span style={{ color: '#59A14F' }}>■</span> Environment
+                  <span style={{ color: '#F28E2B' }}>■</span> Safety (ไม่รวม รปภ.)&nbsp;&nbsp;<span style={{ color: '#59A14F' }}>■</span> Environment&nbsp;&nbsp;<span style={{ color: '#8b5cf6' }}>■</span> รปภ.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {compRows.map(c => (
-                    <Link key={c.companyId} href={`/projects/budget/${c.companyId}`} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }} title={`เปิดแผนงบ ${nameOf(c.companyId)}`}>
-                      <span style={{ fontSize: 11, fontWeight: 700, width: 62, flexShrink: 0, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nameOf(c.companyId)}</span>
-                      <div style={{ flex: 1, height: 12, borderRadius: 6, background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex' }}>
-                        <div style={{ width: `${(c.safety / maxComp) * 100}%`, background: '#F28E2B', minWidth: c.safety > 0 ? 2 : 0 }} />
-                        <div style={{ width: `${(c.environment / maxComp) * 100}%`, background: '#59A14F', minWidth: c.environment > 0 ? 2 : 0 }} />
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, width: 58, textAlign: 'right', flexShrink: 0, color: 'var(--text-primary)' }}>{fmtMB(c.total)}</span>
-                    </Link>
-                  ))}
+                  {compRows.map(c => {
+                    const seg = (val: number, bg: string) => {
+                      const pct = (val / maxComp) * 100;
+                      return (
+                        <div key={bg} style={{ width: `${pct}%`, background: bg, minWidth: val > 0 ? 2 : 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                          {pct > 7 && <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{fmtMB(val)}</span>}
+                        </div>
+                      );
+                    };
+                    return (
+                      <Link key={c.companyId} href={`/projects/budget/${c.companyId}`} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
+                        title={`${nameOf(c.companyId)} — Safety ${fmtMB(c.safety)} · Environment ${fmtMB(c.environment)} · รปภ. ${fmtMB(c.guard)} ลบ.`}>
+                        <span style={{ fontSize: 11, fontWeight: 700, width: 62, flexShrink: 0, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nameOf(c.companyId)}</span>
+                        <div style={{ flex: 1, height: 16, borderRadius: 6, background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex' }}>
+                          {seg(c.safety, '#F28E2B')}
+                          {seg(c.environment, '#59A14F')}
+                          {seg(c.guard, '#8b5cf6')}
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, width: 58, textAlign: 'right', flexShrink: 0, color: 'var(--text-primary)' }}>{fmtMB(c.total)}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 8 }}>
+                  ตัวเลขในแท่ง = ลบ. (แสดงเมื่อพื้นที่พอ — ชี้เมาส์ดูครบทุกค่า) · รปภ. = หมวดค่าบริการรักษาความปลอดภัย
                 </div>
               </div>
 

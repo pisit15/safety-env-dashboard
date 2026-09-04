@@ -8,7 +8,8 @@ export const revalidate = 0;
  * GET ?year= — aggregates for the executive dashboard on the budget landing page.
  * ตัวเลขทั้งหมดเป็น "งบตั้ง (แผน)" คำนวณจาก monthly_amounts (คอลัมน์ amount ไม่ได้ใช้)
  * Returns:
- *   perCompany: [{ companyId, safety, environment, total }]
+ *   perCompany: [{ companyId, safety, environment, guard, total }]
+ *     — guard = หมวด "ค่าบริการรักษาความปลอดภัย" (รปภ.) แยกออกจาก safety
  *   perCategory: [{ name, planType, total, count }]
  *   perMonth: [{ month: 1-12, safety, environment }]
  */
@@ -29,8 +30,11 @@ export async function GET(request: NextRequest) {
 
     const catName: Record<string, string> = {};
     (catsRes.data || []).forEach((c: { id: number; name: string }) => { catName[String(c.id)] = c.name; });
+    // หมวด รปภ. — จับจากชื่อหมวด (ทนต่อ id เปลี่ยน)
+    const isGuardCat = (categoryId: number | null) =>
+      (catName[String(categoryId)] || '').includes('บริการรักษาความปลอดภัย');
 
-    const perCompany: Record<string, { safety: number; environment: number }> = {};
+    const perCompany: Record<string, { safety: number; environment: number; guard: number }> = {};
     const perCategory: Record<string, { name: string; planType: string; total: number; count: number }> = {};
     const perMonth = Array.from({ length: 12 }, () => ({ safety: 0, environment: 0 }));
 
@@ -39,8 +43,9 @@ export async function GET(request: NextRequest) {
       category_id: number | null; monthly_amounts: Record<string, number> | null;
     }) => {
       const isEnv = it.plan_type === 'environment';
+      const isGuard = !isEnv && isGuardCat(it.category_id);
       const cid = it.company_id;
-      if (!perCompany[cid]) perCompany[cid] = { safety: 0, environment: 0 };
+      if (!perCompany[cid]) perCompany[cid] = { safety: 0, environment: 0, guard: 0 };
       let itemTotal = 0;
       if (it.monthly_amounts) {
         for (const [m, v] of Object.entries(it.monthly_amounts)) {
@@ -53,7 +58,9 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-      if (isEnv) perCompany[cid].environment += itemTotal; else perCompany[cid].safety += itemTotal;
+      if (isEnv) perCompany[cid].environment += itemTotal;
+      else if (isGuard) perCompany[cid].guard += itemTotal;
+      else perCompany[cid].safety += itemTotal;
 
       const cKey = `${it.category_id ?? 'none'}|${isEnv ? 'environment' : 'safety'}`;
       if (!perCategory[cKey]) {
@@ -70,7 +77,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       year,
       perCompany: Object.entries(perCompany).map(([companyId, v]) => ({
-        companyId, safety: v.safety, environment: v.environment, total: v.safety + v.environment,
+        companyId, safety: v.safety, environment: v.environment, guard: v.guard,
+        total: v.safety + v.environment + v.guard,
       })).sort((a, b) => b.total - a.total),
       perCategory: Object.values(perCategory).sort((a, b) => b.total - a.total),
       perMonth: perMonth.map((v, i) => ({ month: i + 1, ...v })),
