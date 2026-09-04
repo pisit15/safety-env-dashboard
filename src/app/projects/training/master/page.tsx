@@ -18,7 +18,7 @@ interface MasterCourse {
   is_active: boolean;
 }
 
-const CATEGORIES = ['Mandatory (กฎหมาย / บังคับ)', 'ISO', 'Function Upskill', 'อื่นๆ'];
+const CATEGORIES = ['Mandatory (กฎหมาย / บังคับ)', 'ISO / Compliance Requirement', 'Functional Competency', 'Upskills'];
 
 export default function TrainingCourseMasterPage() {
   const auth = useAuth();
