@@ -18,10 +18,13 @@ interface PlanRow {
   is_active: boolean; training_sessions?: { id: string }[];
 }
 interface RowState {
-  selected: boolean; planned_month: number | ''; hours: number; participants: number;
+  selected: boolean; months: number[]; hours: number; participants: number;
   target_group: string; necessity: string; budget: number; in_ex: string;
   hasSessions: boolean; existed: boolean;
 }
+
+// เริ่มใช้ระบบทำแผนตั้งแต่ปี 2027 — ปีเก่า (2025/2026) ไม่เปิดให้แก้จากหน้านี้
+const MIN_PLAN_YEAR = 2027;
 
 const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const norm = (s: string) => (s || '').replace(/\s+/g, ' ').trim();
@@ -33,7 +36,7 @@ export default function TrainingPlanBuilderPage() {
   const auth = useAuth();
   const company = COMPANIES.find(c => c.id === companyId);
 
-  const [year, setYear] = useState<number>(new Date().getFullYear() + 1);
+  const [year, setYear] = useState<number>(Math.max(new Date().getFullYear() + 1, MIN_PLAN_YEAR));
   const [master, setMaster] = useState<MasterCourse[]>([]);
   const [rows, setRows] = useState<Record<string, RowState>>({}); // key = master.id
   const [loading, setLoading] = useState(true);
@@ -86,24 +89,26 @@ export default function TrainingPlanBuilderPage() {
       const res = await fetch(`/api/training/plan-builder?companyId=${companyId}&year=${year}`);
       const data = await res.json();
       const m: MasterCourse[] = data.master || [];
-      const plans: Record<string, PlanRow> = data.plans || {};
+      const plans: Record<string, PlanRow[]> = data.plans || {};
       setMaster(m);
       const next: Record<string, RowState> = {};
       m.forEach(c => {
-        const p = plans[norm(c.course_name)];
-        next[c.id] = p ? {
-          selected: p.is_active !== false,
-          planned_month: p.planned_month || '',
-          hours: Number(p.hours_per_course) || Number(c.default_hours) || 0,
-          participants: Number(p.planned_participants) || 0,
-          target_group: p.target_group || '',
-          necessity: p.training_necessity || c.necessity_default || '',
-          budget: Number(p.budget) || 0,
-          in_ex: p.in_house_external || c.in_house_external || 'In-House',
-          hasSessions: (p.training_sessions || []).length > 0,
+        const list = plans[norm(c.course_name)] || [];
+        const activeRows = list.filter(p => p.is_active !== false);
+        const ref = activeRows[0] || list[0];
+        next[c.id] = ref ? {
+          selected: activeRows.length > 0,
+          months: Array.from(new Set(activeRows.map(p => p.planned_month).filter((x): x is number => !!x))).sort((a, b) => a - b),
+          hours: Number(ref.hours_per_course) || Number(c.default_hours) || 0,
+          participants: Number(ref.planned_participants) || 0,
+          target_group: ref.target_group || '',
+          necessity: ref.training_necessity || c.necessity_default || '',
+          budget: Number(ref.budget) || 0,
+          in_ex: ref.in_house_external || c.in_house_external || 'In-House',
+          hasSessions: list.some(p => (p.training_sessions || []).length > 0),
           existed: true,
         } : {
-          selected: false, planned_month: '', hours: Number(c.default_hours) || 0, participants: 0,
+          selected: false, months: [], hours: Number(c.default_hours) || 0, participants: 0,
           target_group: '', necessity: c.necessity_default || '', budget: 0,
           in_ex: c.in_house_external || 'In-House', hasSessions: false, existed: false,
         };
@@ -118,19 +123,21 @@ export default function TrainingPlanBuilderPage() {
 
   const summary = useMemo(() => {
     const sel = master.filter(c => rows[c.id]?.selected);
+    const nRounds = (c: MasterCourse) => Math.max(rows[c.id].months.length, 1);
     return {
       count: sel.length,
-      people: sel.reduce((s, c) => s + (rows[c.id].participants || 0), 0),
-      hours: sel.reduce((s, c) => s + (rows[c.id].hours || 0) * (rows[c.id].participants || 0), 0),
-      budget: sel.reduce((s, c) => s + (rows[c.id].budget || 0), 0),
+      rounds: sel.reduce((s, c) => s + nRounds(c), 0),
+      people: sel.reduce((s, c) => s + (rows[c.id].participants || 0) * nRounds(c), 0),
+      hours: sel.reduce((s, c) => s + (rows[c.id].hours || 0) * (rows[c.id].participants || 0) * nRounds(c), 0),
+      budget: sel.reduce((s, c) => s + (rows[c.id].budget || 0) * nRounds(c), 0),
     };
   }, [master, rows]);
 
   const handleSave = async () => {
     if (readOnly) return;
-    const missingMonth = master.filter(c => rows[c.id]?.selected && !rows[c.id].planned_month);
+    const missingMonth = master.filter(c => rows[c.id]?.selected && rows[c.id].months.length === 0);
     if (missingMonth.length > 0) {
-      setToast({ type: 'error', msg: `กรุณาระบุเดือนแผนของ: ${missingMonth.slice(0, 3).map(c => c.course_name).join(', ')}${missingMonth.length > 3 ? ` และอีก ${missingMonth.length - 3} หลักสูตร` : ''}` });
+      setToast({ type: 'error', msg: `กรุณาเลือกเดือนของ: ${missingMonth.slice(0, 3).map(c => c.course_name).join(', ')}${missingMonth.length > 3 ? ` และอีก ${missingMonth.length - 3} หลักสูตร` : ''}` });
       return;
     }
     setSaving(true);
@@ -139,7 +146,7 @@ export default function TrainingPlanBuilderPage() {
         const r = rows[c.id];
         return {
           course_name: c.course_name, category: c.category, sort_order: c.sort_order,
-          selected: !!r?.selected, planned_month: r?.planned_month || null,
+          selected: !!r?.selected, planned_months: r?.months || [],
           hours_per_course: r?.hours || 0, planned_participants: r?.participants || 0,
           target_group: r?.target_group || '', training_necessity: r?.necessity || '',
           budget: r?.budget || 0, in_house_external: r?.in_ex || 'In-House',
@@ -153,7 +160,7 @@ export default function TrainingPlanBuilderPage() {
       if (d.error || (d.errors && d.errors.length > 0)) {
         setToast({ type: 'error', msg: d.error || `บันทึกบางส่วนไม่สำเร็จ: ${(d.errors || []).slice(0, 2).join('; ')}` });
       } else {
-        setToast({ type: 'success', msg: `บันทึกแผนปี ${year} แล้ว — เพิ่ม ${d.inserted} · แก้ไข ${d.updated}${d.deactivated ? ` · เอาออก ${d.deactivated}` : ''}` });
+        setToast({ type: 'success', msg: `บันทึกแผนปี ${year} แล้ว — เพิ่ม ${d.inserted} รอบ · อัปเดต ${d.updated} รอบ${d.deactivated ? ` · เอาออก ${d.deactivated} รอบ` : ''}` });
         load();
       }
     } catch { setToast({ type: 'error', msg: 'บันทึกไม่สำเร็จ' }); }
@@ -197,12 +204,16 @@ export default function TrainingPlanBuilderPage() {
           )}
           <select value={year} onChange={e => setYear(Number(e.target.value))}
             style={{ ...inputSt, fontWeight: 600, cursor: 'pointer', padding: '7px 12px' }}>
-            {[0, 1, 2].map(d => { const y = new Date().getFullYear() + 1 - d; return <option key={y} value={y}>ปี {y}</option>; })}
+            {/* เริ่มใช้ตั้งแต่ปี 2027 — ปีเก่าซ่อนเพื่อความปลอดภัยของแผนที่ดำเนินการอยู่ */}
+            {Array.from({ length: Math.max(new Date().getFullYear() + 2 - MIN_PLAN_YEAR, 2) }, (_, i) => MIN_PLAN_YEAR + i).map(y => (
+              <option key={y} value={y}>ปี {y}</option>
+            ))}
           </select>
         </div>
       </div>
       <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
-        ติ๊กเลือกหลักสูตรที่จะจัดในปี {year} แล้วกรอกรายละเอียด — รายชื่อและลำดับมาจาก Master กลาง ทุกบริษัทเรียงเหมือนกัน · หลักสูตรที่ไม่จัดให้เว้นว่าง
+        ติ๊กเลือกหลักสูตรที่จะจัดในปี {year} แล้วกรอกรายละเอียด — รายชื่อและลำดับมาจาก Master กลาง ทุกบริษัทเรียงเหมือนกัน · หลักสูตรที่ไม่จัดให้เว้นว่าง<br />
+        เลือกเดือนได้หลายเดือน (จัดหลายรอบ) — 1 เดือน = 1 รอบในตารางปี · <b>จำนวนคน / ชม. / งบ = ต่อรอบ</b>
       </p>
 
       {/* Lock banner (user เมื่อแผนถูกล็อก) */}
@@ -214,7 +225,7 @@ export default function TrainingPlanBuilderPage() {
 
       {/* Summary + Save */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px', background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 10, position: 'sticky', top: 0, zIndex: 10 }}>
-        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>เลือกแล้ว <b style={{ color: '#2563eb' }}>{summary.count}</b> หลักสูตร</span>
+        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>เลือกแล้ว <b style={{ color: '#2563eb' }}>{summary.count}</b> หลักสูตร ({summary.rounds} รอบ)</span>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>ผู้เข้าอบรมรวม <b style={{ color: 'var(--text-primary)' }}>{summary.people.toLocaleString()}</b> คน</span>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>รวม <b style={{ color: 'var(--text-primary)' }}>{summary.hours.toLocaleString()}</b> ชม.-คน</span>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>งบรวม <b style={{ color: 'var(--text-primary)' }}>{summary.budget.toLocaleString()}</b> ฿</span>
@@ -287,11 +298,20 @@ export default function TrainingPlanBuilderPage() {
                             </select>
                           </td>
                           <td style={{ padding: '6px 4px' }}>
-                            <select value={r.planned_month} onChange={e => upd(c.id, { planned_month: e.target.value ? Number(e.target.value) : '' })}
-                              style={{ ...inputSt, width: 76, borderColor: r.planned_month ? undefined : '#f59e0b' }}>
-                              <option value="">เดือน*</option>
-                              {TH_MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                            </select>
+                            {/* เลือกได้หลายเดือน — 1 เดือน = 1 รอบ (สร้างแถวในตารางปีให้อัตโนมัติ) */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, width: 150, padding: 3, borderRadius: 7, border: `1px solid ${r.months.length > 0 ? 'var(--border)' : '#f59e0b'}` }}>
+                              {TH_MONTHS.map((m, i) => {
+                                const on = r.months.includes(i + 1);
+                                return (
+                                  <button key={i} type="button"
+                                    onClick={() => upd(c.id, { months: on ? r.months.filter(x => x !== i + 1) : [...r.months, i + 1].sort((a, b) => a - b) })}
+                                    style={{ padding: '2px 0', borderRadius: 4, border: 'none', fontSize: 9, fontWeight: 700, cursor: 'pointer', background: on ? '#2563eb' : 'var(--bg-secondary)', color: on ? '#fff' : 'var(--text-secondary)' }}>
+                                    {m.replace('.', '')}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {r.months.length > 1 && <div style={{ fontSize: 9, color: '#2563eb', fontWeight: 700, marginTop: 2 }}>{r.months.length} รอบ</div>}
                           </td>
                           <td style={{ padding: '6px 4px' }}>
                             <input type="number" min={0} value={r.hours} onChange={e => upd(c.id, { hours: parseFloat(e.target.value) || 0 })} style={{ ...inputSt, width: 52 }} />
