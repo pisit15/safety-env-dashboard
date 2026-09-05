@@ -101,6 +101,9 @@ export default function HQIncidentsPage() {
   };
   const [loading, setLoading] = useState(true);
   const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
+  // ข้อมูลปีก่อนหน้า (โหลดเมื่อเลือกปีเดียว) — บริบทเทียบสำหรับ KPI cards
+  const [prevIncidents, setPrevIncidents] = useState<Incident[]>([]);
+  const [prevManHours, setPrevManHours] = useState<Record<string, { employee: number; contractor: number }>>({});
   const [manHoursByCompany, setManHoursByCompany] = useState<Record<string, { employee: number; contractor: number; total: number }>>({});
   const [showAdvancedYears, setShowAdvancedYears] = useState(false);
   // Wave C: chart toggle
@@ -136,7 +139,9 @@ export default function HQIncidentsPage() {
       // per year per endpoint (the APIs return all companies when companyId is
       // omitted). Previously this looped per company: 17 companies × years × 2
       // endpoints = 34-102 requests per page view.
-      const [incResults, mhResults, injuredRes] = await Promise.all([
+      // ปีก่อนหน้า (เมื่อเลือกปีเดียว) — ใช้เป็นบริบทเทียบให้ KPI/TRIR/LTIFR
+      const prevYear = selectedYears.length === 1 ? selectedYears[0] - 1 : null;
+      const [incResults, mhResults, injuredRes, prevRes] = await Promise.all([
         Promise.all(selectedYears.map(y =>
           fetch(`/api/incidents?year=${y}&limit=5000`).then(r => r.json())
         )),
@@ -147,6 +152,10 @@ export default function HQIncidentsPage() {
         fetch(`/api/incidents/dashboard?companyId=all&years=${selectedYears.join(',')}`)
           .then(r => r.json())
           .catch(() => ({})),
+        prevYear ? Promise.all([
+          fetch(`/api/incidents?year=${prevYear}&limit=5000`).then(r => r.json()).catch(() => ({})),
+          fetch(`/api/manhours?year=${prevYear}`).then(r => r.json()).catch(() => ({})),
+        ]) : Promise.resolve(null),
       ]);
 
       setHqInjured({
@@ -190,6 +199,23 @@ export default function HQIncidentsPage() {
         });
       });
       setManHoursByYearHq(mhYearMap);
+
+      // เก็บข้อมูลปีก่อน (เคส + man-hours กรองไตรมาสเดียวกัน) ไว้เทียบ
+      if (prevRes) {
+        const pmh: Record<string, { employee: number; contractor: number }> = {};
+        ((prevRes[1] as { manHours?: Record<string, unknown>[] }).manHours || []).forEach((row) => {
+          const cid = String(row.company_id || '');
+          if (!cid || !inQ(Number(row.month) || 0)) return;
+          if (!pmh[cid]) pmh[cid] = { employee: 0, contractor: 0 };
+          pmh[cid].employee += Number(row.employee_manhours) || 0;
+          pmh[cid].contractor += Number(row.contractor_manhours) || 0;
+        });
+        setPrevIncidents((prevRes[0] as { incidents?: Incident[] }).incidents || []);
+        setPrevManHours(pmh);
+      } else {
+        setPrevIncidents([]);
+        setPrevManHours({});
+      }
     } catch { /* empty */ }
     setLoading(false);
   }, [selectedYears, quarter]);
@@ -298,6 +324,28 @@ export default function HQIncidentsPage() {
   });
   const hqCumTrc = cumSeriesFor('trc');
   const hqCumLti = cumSeriesFor('lti');
+  // แกน Y ร่วมของกราฟสะสม TRC/LTI (small multiples เทียบข้ามกราฟได้ตรง)
+  const cumYMax = Math.max(...hqCumTrc.flatMap(s => s.counts), ...hqCumLti.flatMap(s => s.counts), 1);
+
+  // Insight อัตโนมัติใต้หัวกราฟรายเดือน — เดือนพีคของปีล่าสุด + เทียบช่วงเดียวกันกับปีก่อน (กัน cherry-pick ปีที่ยังไม่จบ)
+  const monthlyInsight = (() => {
+    if (hqMonthlyByYear.length === 0) return '';
+    const THM = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const latest = hqMonthlyByYear[hqMonthlyByYear.length - 1];
+    const peak = Math.max(...latest.counts);
+    if (peak === 0) return `ปี ${latest.year} ยังไม่มีเคสตามตัวกรอง`;
+    const peakM = latest.counts.indexOf(peak);
+    let lastM = 11;
+    while (lastM > 0 && latest.counts[lastM] === 0) lastM--;
+    let s = `ปี ${latest.year} สูงสุด ${THM[peakM]} (${peak} เคส)`;
+    if (hqMonthlyByYear.length >= 2) {
+      const prevS = hqMonthlyByYear[hqMonthlyByYear.length - 2];
+      const a = latest.counts.slice(0, lastM + 1).reduce((x, y) => x + y, 0);
+      const b = prevS.counts.slice(0, lastM + 1).reduce((x, y) => x + y, 0);
+      if (b > 0) s += ` · ม.ค.–${THM[lastM]}: ${a} เคส เทียบปี ${prevS.year} ช่วงเดียวกัน ${b} เคส (${a > b ? '+' : ''}${Math.round(((a - b) / b) * 100)}%)`;
+    }
+    return s;
+  })();
 
   // Drill-down helpers for injury charts (ใช้ modal เดียวกับ property damage)
   const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -492,6 +540,13 @@ export default function HQIncidentsPage() {
 
   const maxMonthly = Math.max(...displayMonths.map(m => monthlyData[m]?.total || 0), 1);
   const yearLabel = selectedYears.length === 1 ? String(selectedYears[0]) : `${selectedYears[0]}-${selectedYears[selectedYears.length - 1]}`;
+  // ป้ายตัวกรองรวม — แสดงบนหัวกราฟทุกตัวให้รู้ว่ากำลังดูข้อมูลช่วงไหน/BU ไหน
+  const buLabel = buKeys.length > 0
+    ? BUSINESS_UNITS.filter(b => buKeys.includes(b.key)).map(b => b.shortLabel).join('+')
+    : buFilter === 'factory' ? 'โรงงาน' : buFilter === 'nonfactory' ? 'นอกโรงงาน' : '';
+  const filterLabel = `${yearLabel}${quarter > 0 ? ` Q${quarter}` : ''}${buLabel ? ` · ${buLabel}` : ''}`;
+  // หน่วยเงินเดียวทั้งหน้า: ล้านบาท (ตรงกับกราฟความสูญเสีย)
+  const fmtMBHq = (v: number) => { const m = v / 1000000; if (m === 0) return '0'; if (m >= 0.01) return m.toFixed(2); if (m >= 0.001) return m.toFixed(3); return m.toFixed(4); };
 
   // "ต้องดูวันนี้" alerts — with table filter key
   type AlertFilterKey = 'fatality' | 'lti' | 'highRate' | 'highCost' | 'noMH';
@@ -533,11 +588,15 @@ export default function HQIncidentsPage() {
     alerts.push({ icon: <Wallet size={16} />, label: `ค่าเสียหายสูงสุด: ${top.cost.toLocaleString()} ฿`, detail: name, severity: 'info', filterKey: 'highCost' });
   }
 
-  // Wave B: Previous year data for trend comparison
-  const prevYearInc = allIncidents.filter(i => {
-    if (selectedYears.length !== 1) return false;
-    return i.year === selectedYears[0] - 1;
-  });
+  // Wave B: Previous year data for trend comparison — ใช้ตัวกรองชุดเดียวกับปีปัจจุบัน (ไตรมาส + BU)
+  const prevYearInc = selectedYears.length === 1
+    ? prevIncidents.filter(i => {
+        if (!inBu(i.company_id)) return false;
+        if (quarter === 0) return true;
+        const m = monthIdxOf(i) + 1;
+        return m >= quarter * 3 - 2 && m <= quarter * 3;
+      })
+    : [];
   const hasPrevYear = selectedYears.length === 1 && prevYearInc.length > 0;
   const prevSummary = hasPrevYear ? (() => {
     const pInc = workRelatedOnly ? prevYearInc.filter(i => i.work_related === 'ใช่') : prevYearInc;
@@ -551,6 +610,14 @@ export default function HQIncidentsPage() {
       totalCost: pInc.reduce((s, i) => s + (Number(i.direct_cost) || 0) + (Number(i.indirect_cost) || 0), 0),
     };
   })() : null;
+
+  // TRIR/LTIFR ปีก่อน — บริบทเทียบบนการ์ด (man-hours ปีก่อนกรองไตรมาส/BU/บุคคลชุดเดียวกัน)
+  const prevMHTotal = Object.entries(prevManHours).reduce((s, [cid, v]) => {
+    if (!inBu(cid)) return s;
+    return s + (personFilter === 'employee' ? v.employee : personFilter === 'contractor' ? v.contractor : v.employee + v.contractor);
+  }, 0);
+  const prevTRIR = hasPrevYear && prevSummary && prevMHTotal > 0 ? (prevSummary.totalInjuries / prevMHTotal) * 1000000 : null;
+  const prevLTIFR = hasPrevYear && prevSummary && prevMHTotal > 0 ? (prevSummary.ltiCases / prevMHTotal) * 1000000 : null;
 
   // Per-company previous year stats for delta comparison
   const prevCompanyStats: Record<string, { total: number; lti: number; cost: number }> = {};
@@ -584,7 +651,7 @@ export default function HQIncidentsPage() {
     return (
       <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 4, color: up ? '#dc2626' : '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
         {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-        {up ? '+' : '-'}{diff} vs ปีก่อน
+        {up ? '+' : '-'}{Number.isInteger(diff) ? diff : diff.toFixed(2)} vs ปีก่อน
       </span>
     );
   };
@@ -838,6 +905,23 @@ export default function HQIncidentsPage() {
                 </div>
               )}
 
+              {/* ═══ Section jump nav (sticky) — จอแรกตัดสินใจ ที่เหลือกระโดดไปดู ═══ */}
+              <div style={{ position: 'sticky', top: 0, zIndex: 30, background: 'var(--bg-primary, var(--card-solid))', padding: '8px 0', marginBottom: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ไปที่:</span>
+                {[
+                  ['top', '⬆ ภาพรวม'],
+                  ['hq-companies', 'ตารางบริษัท'],
+                  ['hq-injury', 'กราฟบาดเจ็บ'],
+                  ['hq-loss', 'ความสูญเสีย'],
+                ].map(([id, label]) => (
+                  <button key={id}
+                    onClick={() => id === 'top' ? window.scrollTo({ top: 0, behavior: 'smooth' }) : document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}
+                    style={{ fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--card-solid)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               {/* ═══ Tier 1: Hero — Fatality (most critical metric) ═══ */}
               <div className="mb-4" style={{ marginTop: alerts.length > 0 ? 0 : 16 }}>
                 <div className="glass-card rounded-2xl p-5" style={{
@@ -866,8 +950,8 @@ export default function HQIncidentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {[
                   // TRIR: no official target yet — show the value only, no target comparison
-                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: null as number | null, targetLabel: '', icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}` },
-                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: LTIFR_TARGET as number | null, targetLabel: LTIFR_TARGET_LABEL, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}` },
+                  { label: 'TRIR', value: totalTRIR !== null ? totalTRIR.toFixed(2) : 'N/A', target: null as number | null, targetLabel: '', icon: Activity, subtitle: totalTRIR === null ? 'ไม่มี man-hours' : `MH: ${Math.round(totalManHours).toLocaleString()}`, prev: prevTRIR, cur: totalTRIR },
+                  { label: 'LTIFR', value: totalLTIFR !== null ? totalLTIFR.toFixed(2) : 'N/A', target: LTIFR_TARGET as number | null, targetLabel: LTIFR_TARGET_LABEL, icon: BarChart3, subtitle: totalLTIFR === null ? 'ไม่มี man-hours' : `LTI: ${totalSummary.ltiCases}`, prev: prevLTIFR, cur: totalLTIFR },
                 ].map((kpi, idx) => {
                   const numVal = parseFloat(String(kpi.value));
                   const aboveTarget = kpi.target !== null && !isNaN(numVal) && numVal > kpi.target;
@@ -891,6 +975,11 @@ export default function HQIncidentsPage() {
                           )}
                         </div>
                       )}
+                      {kpi.prev !== null && kpi.cur !== null && (
+                        <p style={{ fontSize: 11, marginTop: 4, color: kpi.cur > kpi.prev ? '#dc2626' : kpi.cur < kpi.prev ? '#16a34a' : 'var(--muted)', fontWeight: 600 }}>
+                          ปีก่อน ({selectedYears[0] - 1}): {kpi.prev.toFixed(2)} {kpi.cur > kpi.prev ? '▲ สูงขึ้น' : kpi.cur < kpi.prev ? '▼ ลดลง' : '→ เท่าเดิม'}
+                        </p>
+                      )}
                       {kpi.subtitle && <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{kpi.subtitle}</p>}
                     </div>
                   );
@@ -901,7 +990,7 @@ export default function HQIncidentsPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
                 {[
                   { label: 'LTI Cases', value: totalSummary.ltiCases, icon: Clock, color: STATUS.critical, trend: prevSummary ? trendBadge(totalSummary.ltiCases, prevSummary.ltiCases) : null, spark: displayMonths.map(m => monthlyExt[m]?.lti || 0) },
-                  { label: 'ค่าเสียหายรวม', value: `${((totalSummary.totalDirectCost + totalSummary.totalIndirectCost) / 1000).toFixed(0)}K`, icon: DollarSign, color: STATUS.warning, trend: prevSummary ? trendBadge(totalSummary.totalDirectCost + totalSummary.totalIndirectCost, prevSummary.totalCost) : null, spark: displayMonths.map(m => monthlyExt[m]?.cost || 0) },
+                  { label: 'ค่าเสียหายรวม (ลบ.)', value: fmtMBHq(totalSummary.totalDirectCost + totalSummary.totalIndirectCost), icon: DollarSign, color: STATUS.warning, trend: prevSummary ? trendBadge(Number(fmtMBHq(totalSummary.totalDirectCost + totalSummary.totalIndirectCost)), Number(fmtMBHq(prevSummary.totalCost))) : null, spark: displayMonths.map(m => monthlyExt[m]?.cost || 0) },
                   { label: 'Near Miss', value: totalSummary.nearMisses, icon: Shield, color: PALETTE.primary, trend: prevSummary ? trendBadge(totalSummary.nearMisses, prevSummary.nearMisses) : null, spark: displayMonths.map(m => monthlyData[m]?.nearMiss || 0) },
                   { label: 'Man-hours', value: totalManHours > 0 ? Math.round(totalManHours).toLocaleString() : 'N/A', icon: Activity, color: totalManHours > 0 ? 'var(--text-primary)' : STATUS.neutral, trend: null, spark: [] as number[] },
                   { label: 'บาดเจ็บทั้งหมด', value: totalSummary.totalInjuries, icon: Users, color: STATUS.warning, trend: prevSummary ? trendBadge(totalSummary.totalInjuries, prevSummary.totalInjuries) : null, spark: displayMonths.map(m => monthlyData[m]?.injuries || 0) },
@@ -935,10 +1024,188 @@ export default function HQIncidentsPage() {
                 })}
               </div>
 
+              {/* ═══ Company Comparison Table — Triage-First ═══ */}
+              <div id="hq-companies" className="glass-card rounded-2xl overflow-hidden mb-6" style={{ scrollMarginTop: 56 }}>
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    เปรียบเทียบรายบริษัท — {filterLabel}
+                    {tableFilter !== 'all' && (
+                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', fontWeight: 600 }}>
+                        {tableFilter === 'fatality' ? 'มีผู้เสียชีวิต' : tableFilter === 'lti' ? 'มี LTI' : tableFilter === 'highRate' ? 'Rate สูง' : tableFilter === 'highCost' ? 'ค่าเสียหาย' : 'ไม่มี MH'}
+                      </span>
+                    )}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: 'var(--muted)' }}>
+                      เรียงตาม {sortCol === 'risk' ? 'Risk Score' : sortCol.toUpperCase()} {sortCol !== 'risk' && (sortDir === 'asc' ? '↑' : '↓')}
+                    </span>
+                    {sortCol !== 'risk' && (
+                      <button onClick={() => { setSortCol('risk'); setSortDir('desc'); }} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer', marginLeft: 4 }}>
+                        Reset
+                      </button>
+                    )}
+                    {tableFilter !== 'all' && (
+                      <button onClick={() => setTableFilter('all')} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer' }}>
+                        แสดงทั้งหมด
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary)' }}>
+                        {([
+                          { key: '', label: '' },
+                          { key: 'company', label: 'บริษัท' },
+                          { key: 'total', label: 'รวม' },
+                          { key: 'injuries', label: 'บาดเจ็บ' },
+                          { key: 'lti', label: 'LTI' },
+                          { key: 'nearMiss', label: 'Near Miss' },
+                          { key: 'propertyDamage', label: 'ทรัพย์สิน' },
+                          { key: 'fatality', label: 'เสียชีวิต' },
+                          { key: 'trir', label: 'TRIR' },
+                          { key: 'ltifr', label: 'LTIFR' },
+                          { key: 'cost', label: 'ค่าเสียหาย' },
+                          ...(hasPrevYear ? [{ key: 'delta', label: 'Δ ปีก่อน' }] : []),
+                        ] as { key: string; label: string }[]).map(h => {
+                          const sortable = !['', 'company', 'delta'].includes(h.key);
+                          const isActive = sortCol === h.key;
+                          return (
+                            <th
+                              key={h.key || h.label}
+                              className="text-left px-3 py-3 font-semibold whitespace-nowrap"
+                              style={{ color: isActive ? 'var(--accent)' : 'var(--muted)', fontSize: 11, cursor: sortable ? 'pointer' : 'default', userSelect: 'none' }}
+                              onClick={() => sortable && handleSort(h.key)}
+                            >
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                {h.label}
+                                {sortable && (
+                                  isActive
+                                    ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
+                                    : <ArrowUpDown size={10} style={{ opacity: 0.4 }} />
+                                )}
+                              </span>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredCompanies.map(([companyId, stats], idx) => {
+                        const companyName = COMPANIES.find(c => c.id === companyId)?.shortName || companyId.toUpperCase();
+                        const hasFatality = stats.fatality > 0;
+                        const isTopLtifr = top3LtifrIds.has(companyId);
+                        const noManHours = stats.trir === null && stats.total > 0;
+                        // Row highlight logic
+                        const rowBg = hasFatality ? '#fef2f2' : isTopLtifr ? '#fefce8' : noManHours ? '#fff7ed' : undefined;
+                        const rowBorder = hasFatality ? '#fca5a5' : isTopLtifr ? '#fde68a' : noManHours ? '#fed7aa' : 'var(--border)';
+                        // Risk indicator
+                        const riskDot = hasFatality
+                          ? <Circle size={10} fill={STATUS.critical} color={STATUS.critical} />
+                          : isTopLtifr
+                            ? <Circle size={10} fill={STATUS.warning} color={STATUS.warning} />
+                            : noManHours
+                              ? <Circle size={10} fill="#f97316" color="#f97316" />
+                              : null;
+                        // Per-company delta
+                        const prev = prevCompanyStats[companyId];
+                        const deltaTotal = prev ? stats.total - prev.total : null;
+                        const deltaLti = prev ? stats.lti - prev.lti : null;
+                        return (
+                          <tr
+                            key={companyId}
+                            style={{
+                              borderTop: idx > 0 ? `1px solid ${rowBorder}` : undefined,
+                              background: rowBg,
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => router.push(`/projects/incidents/${companyId}`)}
+                            onMouseEnter={e => { if (!rowBg) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                            onMouseLeave={e => { if (!rowBg) e.currentTarget.style.background = ''; else e.currentTarget.style.background = rowBg; }}
+                          >
+                            <td className="px-3 py-3 text-center" style={{ width: 30 }}>{riskDot}</td>
+                            <td className="px-3 py-3 font-semibold" style={{ color: 'var(--accent)' }}>
+                              {companyName}
+                              {noManHours && <span style={{ fontSize: 9, marginLeft: 4, padding: '1px 4px', borderRadius: 3, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>ไม่มี MH</span>}
+                            </td>
+                            {([
+                              { kind: 'total' as const, val: stats.total, style: { color: 'var(--text-primary)' }, cls: 'px-3 py-3 font-bold' },
+                              { kind: 'injuries' as const, val: stats.injuries, style: { color: STATUS.warning }, cls: 'px-3 py-3' },
+                              { kind: 'lti' as const, val: stats.lti, style: { color: stats.lti > 0 ? STATUS.critical : 'var(--muted)' }, cls: 'px-3 py-3 font-semibold' },
+                              { kind: 'nearMiss' as const, val: stats.nearMiss, style: { color: PALETTE.primary }, cls: 'px-3 py-3' },
+                              { kind: 'propertyDamage' as const, val: stats.propertyDamage, style: { color: STATUS.positive }, cls: 'px-3 py-3' },
+                              { kind: 'fatality' as const, val: stats.fatality, style: { color: hasFatality ? STATUS.critical : 'var(--muted)' }, cls: 'px-3 py-3 font-bold' },
+                            ]).map(cell => (
+                              <td
+                                key={cell.kind}
+                                className={cell.cls}
+                                style={{ ...cell.style, ...(cell.val > 0 ? { cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : {}) }}
+                                title={cell.val > 0 ? 'คลิกดูรายการเคส' : undefined}
+                                onClick={cell.val > 0 ? (e) => { e.stopPropagation(); drillCompanyCell(companyId, cell.kind); } : undefined}
+                              >{cell.val}</td>
+                            ))}
+                            <td className="px-3 py-3 font-mono" style={{ color: stats.trir !== null ? STATUS.warning : 'var(--muted)' }}>
+                              {stats.trir !== null ? stats.trir.toFixed(2) : (
+                                <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 font-mono" style={{ color: stats.ltifr !== null ? (isTopLtifr ? STATUS.critical : STATUS.warning) : 'var(--muted)', fontWeight: isTopLtifr ? 700 : undefined }}>
+                              {stats.ltifr !== null ? stats.ltifr.toFixed(2) : (
+                                <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
+                              )}
+                              {isTopLtifr && <span style={{ fontSize: 9, marginLeft: 3 }}>▲</span>}
+                            </td>
+                            <td className="px-3 py-3 text-right" style={{ color: 'var(--text-secondary)' }}>
+                              {(stats.directCost + stats.indirectCost).toLocaleString()}
+                            </td>
+                            {hasPrevYear && (
+                              <td className="px-3 py-3" style={{ fontSize: 10 }}>
+                                {prev ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <span style={{ color: deltaTotal !== null && deltaTotal > 0 ? '#dc2626' : deltaTotal !== null && deltaTotal < 0 ? '#16a34a' : 'var(--muted)', fontWeight: 600 }}>
+                                      {deltaTotal !== null ? (deltaTotal > 0 ? `+${deltaTotal}` : deltaTotal === 0 ? '=' : `${deltaTotal}`) : '-'} เหตุ
+                                    </span>
+                                    {deltaLti !== null && deltaLti !== 0 && (
+                                      <span style={{ color: deltaLti > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                                        {deltaLti > 0 ? `+${deltaLti}` : `${deltaLti}`} LTI
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลปีก่อน</span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                      {filteredCompanies.length === 0 && (
+                        <tr>
+                          <td colSpan={hasPrevYear ? 12 : 11} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
+                            {tableFilter !== 'all' ? 'ไม่มีบริษัทตรงกับเงื่อนไข' : `ไม่พบข้อมูลอุบัติเหตุในปี ${yearLabel}`}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Table legend */}
+                {filteredCompanies.length > 0 && (
+                  <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 10, color: 'var(--muted)', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill={STATUS.critical} color={STATUS.critical} /> มีผู้เสียชีวิต</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill={STATUS.warning} color={STATUS.warning} /> LTIFR สูงสุด 3 อันดับ</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill="#f97316" color="#f97316" /> ไม่มี man-hours</span>
+                    <span>N/A = ไม่มีข้อมูล man-hours</span>
+                    <span style={{ marginLeft: 'auto', opacity: 0.7 }}>คลิก row เพื่อดูรายละเอียดบริษัท</span>
+                  </div>
+                )}
+              </div>
+
               {/* ═══ Yearly comparison — TRIR / LTIFR / Manhours ═══ */}
-              <div className="mb-6">
+              <div id="hq-injury" className="mb-6" style={{ scrollMarginTop: 56 }}>
                 <YearlyTrendChart data={hqYearlyTrend} />
-                <YearlyCasesChart data={hqYearlyTrend} title="จำนวนเคสบาดเจ็บรายปี — TRC / LTI (ทุกบริษัท)" onBarClick={drillYearly} />
+                <YearlyCasesChart data={hqYearlyTrend} title={`จำนวนเคสบาดเจ็บรายปี — TRC / LTI (${filterLabel})`} onBarClick={drillYearly} />
                 {/* Case-type chips for the monthly comparison chart */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16, fontSize: 12 }}>
                   <span style={{ color: 'var(--text-secondary)' }}>ประเภทเคส:</span>
@@ -951,23 +1218,29 @@ export default function HQIncidentsPage() {
                 </div>
                 <MonthlyByYearChart
                   series={hqMonthlyByYear}
-                  title={`อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (${monthlyCaseType === 'all' ? 'ทุกบริษัท ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะเคสบาดเจ็บ TRC' : 'เฉพาะเคสหยุดงาน LTI'})`}
+                  title={`อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี (${monthlyCaseType === 'all' ? 'ทุกประเภท' : monthlyCaseType === 'trc' ? 'เฉพาะ TRC' : 'เฉพาะ LTI'} · ${filterLabel})`}
+                  subtitle={monthlyInsight || undefined}
                   onPointClick={drillMonthly}
                 />
-                <MonthlyByYearChart
-                  series={hqCumTrc}
-                  cumulative
-                  title="เคสบาดเจ็บสะสมตั้งแต่ต้นปี — TRC (Cumulative)"
-                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสบาดเจ็บ/เสียชีวิต/โรคจากการทำงาน · คลิกจุดเพื่อดูรายการเคส"
-                  onPointClick={drillCum('trc')}
-                />
-                <MonthlyByYearChart
-                  series={hqCumLti}
-                  cumulative
-                  title="เคสหยุดงานสะสมตั้งแต่ต้นปี — LTI (Cumulative)"
-                  subtitle="ยอดสะสม ม.ค. → ธ.ค. · เฉพาะเคสหยุดงาน/เสียชีวิต · คลิกจุดเพื่อดูรายการเคส"
-                  onPointClick={drillCum('lti')}
-                />
+                {/* Small multiples: สะสม TRC / LTI คู่กัน แกน Y ร่วมกัน — เทียบข้ามกราฟได้ตรง */}
+                <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 0, columnGap: 16 }}>
+                  <MonthlyByYearChart
+                    series={hqCumTrc}
+                    cumulative
+                    yMax={cumYMax}
+                    title={`เคสบาดเจ็บสะสม — TRC (${filterLabel})`}
+                    subtitle="แกน Y เท่ากับกราฟ LTI · คลิกจุดดูรายการเคส"
+                    onPointClick={drillCum('trc')}
+                  />
+                  <MonthlyByYearChart
+                    series={hqCumLti}
+                    cumulative
+                    yMax={cumYMax}
+                    title={`เคสหยุดงานสะสม — LTI (${filterLabel})`}
+                    subtitle="แกน Y เท่ากับกราฟ TRC · คลิกจุดดูรายการเคส"
+                    onPointClick={drillCum('lti')}
+                  />
+                </div>
                 <HqInjuryAnalytics
                   persons={hqInjured.persons.filter(p => inBu(hqInjured.map[p.incident_no]?.company_id || ''))}
                   incidentMap={hqInjured.map}
@@ -1021,10 +1294,10 @@ export default function HQIncidentsPage() {
                   // ยังต้อง render modal แม้ไม่มีเคสทรัพย์สิน (drill-down จากกราฟบาดเจ็บใช้ modal ตัวเดียวกัน)
                   if (propInc.length === 0 && !pdDrill && !pdImgView) return null;
                   return (
-                    <div style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginTop: 16 }}>
+                    <div id="hq-loss" style={{ background: 'var(--card-solid)', borderRadius: 12, border: '1px solid var(--border)', padding: '20px 24px', marginTop: 16, scrollMarginTop: 56 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>วิเคราะห์ความสูญเสีย — ทรัพย์สินเสียหาย + Production Loss (ทุกบริษัท)</h3>
-                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ (ทรัพย์สิน {nProp} · Production Loss {nProd}) · ค่าเสียหายรวม {fmtBaht(totalCost)} · ตามตัวกรองด้านบน</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{propInc.length} เหตุ (ทรัพย์สิน {nProp} · Production Loss {nProd}) · ค่าเสียหายรวม {fmtBaht(totalCost)} · {filterLabel}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
                         {/* แกนที่ 1: เหตุการณ์ */}
@@ -1605,189 +1878,11 @@ export default function HQIncidentsPage() {
                 </div>
               </div>
 
-              {/* ═══ Company Comparison Table — Triage-First ═══ */}
-              <div className="glass-card rounded-2xl overflow-hidden mb-6">
-                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    เปรียบเทียบรายบริษัท — {yearLabel}
-                    {tableFilter !== 'all' && (
-                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', fontWeight: 600 }}>
-                        {tableFilter === 'fatality' ? 'มีผู้เสียชีวิต' : tableFilter === 'lti' ? 'มี LTI' : tableFilter === 'highRate' ? 'Rate สูง' : tableFilter === 'highCost' ? 'ค่าเสียหาย' : 'ไม่มี MH'}
-                      </span>
-                    )}
-                  </h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: 'var(--muted)' }}>
-                      เรียงตาม {sortCol === 'risk' ? 'Risk Score' : sortCol.toUpperCase()} {sortCol !== 'risk' && (sortDir === 'asc' ? '↑' : '↓')}
-                    </span>
-                    {sortCol !== 'risk' && (
-                      <button onClick={() => { setSortCol('risk'); setSortDir('desc'); }} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer', marginLeft: 4 }}>
-                        Reset
-                      </button>
-                    )}
-                    {tableFilter !== 'all' && (
-                      <button onClick={() => setTableFilter('all')} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--accent)', cursor: 'pointer' }}>
-                        แสดงทั้งหมด
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)' }}>
-                        {([
-                          { key: '', label: '' },
-                          { key: 'company', label: 'บริษัท' },
-                          { key: 'total', label: 'รวม' },
-                          { key: 'injuries', label: 'บาดเจ็บ' },
-                          { key: 'lti', label: 'LTI' },
-                          { key: 'nearMiss', label: 'Near Miss' },
-                          { key: 'propertyDamage', label: 'ทรัพย์สิน' },
-                          { key: 'fatality', label: 'เสียชีวิต' },
-                          { key: 'trir', label: 'TRIR' },
-                          { key: 'ltifr', label: 'LTIFR' },
-                          { key: 'cost', label: 'ค่าเสียหาย' },
-                          ...(hasPrevYear ? [{ key: 'delta', label: 'Δ ปีก่อน' }] : []),
-                        ] as { key: string; label: string }[]).map(h => {
-                          const sortable = !['', 'company', 'delta'].includes(h.key);
-                          const isActive = sortCol === h.key;
-                          return (
-                            <th
-                              key={h.key || h.label}
-                              className="text-left px-3 py-3 font-semibold whitespace-nowrap"
-                              style={{ color: isActive ? 'var(--accent)' : 'var(--muted)', fontSize: 11, cursor: sortable ? 'pointer' : 'default', userSelect: 'none' }}
-                              onClick={() => sortable && handleSort(h.key)}
-                            >
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                                {h.label}
-                                {sortable && (
-                                  isActive
-                                    ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
-                                    : <ArrowUpDown size={10} style={{ opacity: 0.4 }} />
-                                )}
-                              </span>
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCompanies.map(([companyId, stats], idx) => {
-                        const companyName = COMPANIES.find(c => c.id === companyId)?.shortName || companyId.toUpperCase();
-                        const hasFatality = stats.fatality > 0;
-                        const isTopLtifr = top3LtifrIds.has(companyId);
-                        const noManHours = stats.trir === null && stats.total > 0;
-                        // Row highlight logic
-                        const rowBg = hasFatality ? '#fef2f2' : isTopLtifr ? '#fefce8' : noManHours ? '#fff7ed' : undefined;
-                        const rowBorder = hasFatality ? '#fca5a5' : isTopLtifr ? '#fde68a' : noManHours ? '#fed7aa' : 'var(--border)';
-                        // Risk indicator
-                        const riskDot = hasFatality
-                          ? <Circle size={10} fill={STATUS.critical} color={STATUS.critical} />
-                          : isTopLtifr
-                            ? <Circle size={10} fill={STATUS.warning} color={STATUS.warning} />
-                            : noManHours
-                              ? <Circle size={10} fill="#f97316" color="#f97316" />
-                              : null;
-                        // Per-company delta
-                        const prev = prevCompanyStats[companyId];
-                        const deltaTotal = prev ? stats.total - prev.total : null;
-                        const deltaLti = prev ? stats.lti - prev.lti : null;
-                        return (
-                          <tr
-                            key={companyId}
-                            style={{
-                              borderTop: idx > 0 ? `1px solid ${rowBorder}` : undefined,
-                              background: rowBg,
-                              cursor: 'pointer',
-                            }}
-                            onClick={() => router.push(`/projects/incidents/${companyId}`)}
-                            onMouseEnter={e => { if (!rowBg) e.currentTarget.style.background = 'var(--bg-secondary)'; }}
-                            onMouseLeave={e => { if (!rowBg) e.currentTarget.style.background = ''; else e.currentTarget.style.background = rowBg; }}
-                          >
-                            <td className="px-3 py-3 text-center" style={{ width: 30 }}>{riskDot}</td>
-                            <td className="px-3 py-3 font-semibold" style={{ color: 'var(--accent)' }}>
-                              {companyName}
-                              {noManHours && <span style={{ fontSize: 9, marginLeft: 4, padding: '1px 4px', borderRadius: 3, background: '#fff7ed', color: '#c2410c', fontWeight: 700 }}>ไม่มี MH</span>}
-                            </td>
-                            {([
-                              { kind: 'total' as const, val: stats.total, style: { color: 'var(--text-primary)' }, cls: 'px-3 py-3 font-bold' },
-                              { kind: 'injuries' as const, val: stats.injuries, style: { color: STATUS.warning }, cls: 'px-3 py-3' },
-                              { kind: 'lti' as const, val: stats.lti, style: { color: stats.lti > 0 ? STATUS.critical : 'var(--muted)' }, cls: 'px-3 py-3 font-semibold' },
-                              { kind: 'nearMiss' as const, val: stats.nearMiss, style: { color: PALETTE.primary }, cls: 'px-3 py-3' },
-                              { kind: 'propertyDamage' as const, val: stats.propertyDamage, style: { color: STATUS.positive }, cls: 'px-3 py-3' },
-                              { kind: 'fatality' as const, val: stats.fatality, style: { color: hasFatality ? STATUS.critical : 'var(--muted)' }, cls: 'px-3 py-3 font-bold' },
-                            ]).map(cell => (
-                              <td
-                                key={cell.kind}
-                                className={cell.cls}
-                                style={{ ...cell.style, ...(cell.val > 0 ? { cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 } : {}) }}
-                                title={cell.val > 0 ? 'คลิกดูรายการเคส' : undefined}
-                                onClick={cell.val > 0 ? (e) => { e.stopPropagation(); drillCompanyCell(companyId, cell.kind); } : undefined}
-                              >{cell.val}</td>
-                            ))}
-                            <td className="px-3 py-3 font-mono" style={{ color: stats.trir !== null ? STATUS.warning : 'var(--muted)' }}>
-                              {stats.trir !== null ? stats.trir.toFixed(2) : (
-                                <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 font-mono" style={{ color: stats.ltifr !== null ? (isTopLtifr ? STATUS.critical : STATUS.warning) : 'var(--muted)', fontWeight: isTopLtifr ? 700 : undefined }}>
-                              {stats.ltifr !== null ? stats.ltifr.toFixed(2) : (
-                                <span title="ไม่มีข้อมูล man-hours จึงคำนวณไม่ได้" style={{ cursor: 'help', borderBottom: '1px dashed var(--muted)' }}>N/A</span>
-                              )}
-                              {isTopLtifr && <span style={{ fontSize: 9, marginLeft: 3 }}>▲</span>}
-                            </td>
-                            <td className="px-3 py-3 text-right" style={{ color: 'var(--text-secondary)' }}>
-                              {(stats.directCost + stats.indirectCost).toLocaleString()}
-                            </td>
-                            {hasPrevYear && (
-                              <td className="px-3 py-3" style={{ fontSize: 10 }}>
-                                {prev ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                    <span style={{ color: deltaTotal !== null && deltaTotal > 0 ? '#dc2626' : deltaTotal !== null && deltaTotal < 0 ? '#16a34a' : 'var(--muted)', fontWeight: 600 }}>
-                                      {deltaTotal !== null ? (deltaTotal > 0 ? `+${deltaTotal}` : deltaTotal === 0 ? '=' : `${deltaTotal}`) : '-'} เหตุ
-                                    </span>
-                                    {deltaLti !== null && deltaLti !== 0 && (
-                                      <span style={{ color: deltaLti > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
-                                        {deltaLti > 0 ? `+${deltaLti}` : `${deltaLti}`} LTI
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span style={{ color: 'var(--muted)' }}>ไม่มีข้อมูลปีก่อน</span>
-                                )}
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                      {filteredCompanies.length === 0 && (
-                        <tr>
-                          <td colSpan={hasPrevYear ? 12 : 11} className="px-4 py-12 text-center" style={{ color: 'var(--muted)' }}>
-                            {tableFilter !== 'all' ? 'ไม่มีบริษัทตรงกับเงื่อนไข' : `ไม่พบข้อมูลอุบัติเหตุในปี ${yearLabel}`}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                {/* Table legend */}
-                {filteredCompanies.length > 0 && (
-                  <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 16, fontSize: 10, color: 'var(--muted)', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill={STATUS.critical} color={STATUS.critical} /> มีผู้เสียชีวิต</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill={STATUS.warning} color={STATUS.warning} /> LTIFR สูงสุด 3 อันดับ</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Circle size={8} fill="#f97316" color="#f97316" /> ไม่มี man-hours</span>
-                    <span>N/A = ไม่มีข้อมูล man-hours</span>
-                    <span style={{ marginLeft: 'auto', opacity: 0.7 }}>คลิก row เพื่อดูรายละเอียดบริษัท</span>
-                  </div>
-                )}
-              </div>
-
               {/* ═══ Wave C: Monthly Chart with Toggle ═══ */}
               <div className="glass-card rounded-2xl p-5 mb-6">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h3 className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    อุบัติการณ์รายเดือน — {chartMode === 'all' ? 'ทุกบริษัท' : `Top 5 บริษัท`} ({yearLabel})
+                    อุบัติการณ์รายเดือน — {chartMode === 'all' ? 'ทุกบริษัท' : `Top 5 บริษัท`} ({filterLabel})
                   </h3>
                   <div style={{ display: 'flex', gap: 4 }}>
                     {[

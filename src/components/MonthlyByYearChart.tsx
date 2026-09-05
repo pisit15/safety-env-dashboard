@@ -18,6 +18,8 @@ interface Props {
   subtitle?: string;
   /** คลิกจุดบนกราฟ → drill-down (year, monthIdx 0-11) */
   onPointClick?: (year: number, monthIdx: number) => void;
+  /** บังคับค่าสูงสุดแกน Y — ใช้ทำ small multiples แกนร่วมกัน (เทียบข้ามกราฟได้ตรง) */
+  yMax?: number;
 }
 
 const MONTH_TH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -29,7 +31,7 @@ const YEAR_COLORS: Record<number, string> = {
 const FALLBACK_COLORS = ['#4E79A7', '#F28E2B', '#59A14F', '#E15759', '#76B7B2', '#B07AA1'];
 const colorOf = (year: number, i: number) => YEAR_COLORS[year] || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
 
-export default function MonthlyByYearChart({ series, title = 'อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี', cumulative = false, subtitle, onPointClick }: Props) {
+export default function MonthlyByYearChart({ series, title = 'อุบัติการณ์รายเดือน — เปรียบเทียบระหว่างปี', cumulative = false, subtitle, onPointClick, yMax }: Props) {
   const sorted = [...series].sort((a, b) => a.year - b.year);
 
   const W = 760, H = 260;
@@ -37,7 +39,7 @@ export default function MonthlyByYearChart({ series, title = 'อุบัติ
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  const maxV = Math.max(...sorted.flatMap(s => s.counts), 1);
+  const maxV = Math.max(yMax || 0, ...sorted.flatMap(s => s.counts), 1);
   const x = (m: number) => padL + (plotW / 11) * m;
   const y = (v: number) => padT + plotH - (v / maxV) * plotH;
 
