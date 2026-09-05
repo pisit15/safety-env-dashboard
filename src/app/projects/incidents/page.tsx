@@ -563,7 +563,7 @@ export default function HQIncidentsPage() {
   const ltiCompanies = sortedCompanies.filter(([, s]) => s.lti > 0);
   if (ltiCompanies.length > 0) {
     const totalLti = ltiCompanies.reduce((s, [, st]) => s + st.lti, 0);
-    alerts.push({ icon: <Hospital size={16} />, label: `LTI ${totalLti} ราย (${ltiCompanies.length} บริษัท)`, detail: ltiCompanies.slice(0, 3).map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', ') + (ltiCompanies.length > 3 ? ` +${ltiCompanies.length - 3}` : ''), severity: 'critical', filterKey: 'lti' });
+    alerts.push({ icon: <Hospital size={16} />, label: `LTI ${totalLti} ราย (${ltiCompanies.length} บริษัท)`, detail: ltiCompanies.map(([cId]) => COMPANIES.find(c => c.id === cId)?.shortName || cId.toUpperCase()).join(', '), severity: 'critical', filterKey: 'lti' });
   }
   // 3. Highest LTIFR
   if (ltifrValues.length > 0 && ltifrValues[0].ltifr! > 0) {
@@ -895,7 +895,7 @@ export default function HQIncidentsPage() {
                           <div style={{ display: 'flex', alignItems: 'center', color: isActive ? '#fff' : severityStyle.color, flexShrink: 0 }}>{alert.icon}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: isActive ? '#fff' : severityStyle.color }}>{alert.label}</div>
-                            <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : severityStyle.color, opacity: isActive ? 1 : 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.detail}</div>
+                            <div style={{ fontSize: 11, color: isActive ? 'rgba(255,255,255,0.8)' : severityStyle.color, opacity: isActive ? 1 : 0.8, overflowWrap: 'break-word' }}>{alert.detail}</div>
                           </div>
                           <ChevronRight size={14} style={{ color: isActive ? '#fff' : severityStyle.color, opacity: 0.5, flexShrink: 0 }} />
                         </div>
