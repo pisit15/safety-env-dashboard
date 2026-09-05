@@ -1396,6 +1396,12 @@ export default function CompanyTraining() {
             )}
             {/* Spacer to push right items */}
             <div style={{ flex: 1 }} />
+            {/* ทำแผนปีหน้า (เลือกหลักสูตรจาก Master กลาง) */}
+            <a href={`/projects/training/${companyId}/plan`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 14px', borderRadius: 7, border: '1px solid #2563eb', background: 'rgba(37,99,235,0.08)', color: '#2563eb', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}
+              title="เลือกหลักสูตรจาก Master กลางเพื่อทำแผนอบรมปีถัดไป">
+              📝 ทำแผนปี {new Date().getFullYear() + 1}
+            </a>
             {/* View mode toggle */}
             <div style={{ display: 'flex', padding: 2, borderRadius: 7, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
               {[
