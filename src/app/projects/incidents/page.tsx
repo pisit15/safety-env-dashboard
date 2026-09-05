@@ -988,8 +988,6 @@ export default function HQIncidentsPage() {
                   const byCompany: Record<string, { count: number; cost: number }> = {};
                   const byAsset: Record<string, { count: number; cost: number }> = {};
                   const byNature: Record<string, { count: number; cost: number }> = {};
-                  const animalByMonth: number[] = Array(12).fill(0);
-                  const isAnimal = (i: Incident) => ((i.secondary_source as string) || '').startsWith('สัตว์') || ((i.agency_source as string) || '').startsWith('สัตว์');
                   propInc.forEach(i => {
                     // แกนที่ 1: เหตุการณ์ (ครบทุกเคสหลัง backfill)
                     const t = (i.contact_type as string) || 'ไม่ระบุ';
@@ -1008,11 +1006,6 @@ export default function HQIncidentsPage() {
                     if (a && a !== 'อื่นๆ') { byAsset[a] = byAsset[a] || { count: 0, cost: 0 }; byAsset[a].count++; byAsset[a].cost += costOf(i); }
                     const n = (i.damage_nature as string) || '';
                     if (n) { byNature[n] = byNature[n] || { count: 0, cost: 0 }; byNature[n].count++; byNature[n].cost += costOf(i); }
-                    // สัตว์ตามฤดูกาล
-                    if (isAnimal(i)) {
-                      const m = new Date(i.incident_date).getMonth();
-                      if (m >= 0 && m <= 11) animalByMonth[m]++;
-                    }
                   });
                   const topTypes = Object.entries(byType).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
                   const topCompanies = Object.entries(byCompany).sort((a, b) => b[1].count - a[1].count).slice(0, 6);
@@ -1023,9 +1016,6 @@ export default function HQIncidentsPage() {
                   const maxCompCount = Math.max(...topCompanies.map(([, v]) => v.count), 1);
                   const maxAssetCount = Math.max(...topAssets.map(([, v]) => v.count), 1);
                   const maxNatureCount = Math.max(...topNatures.map(([, v]) => v.count), 1);
-                  const animalTotal = animalByMonth.reduce((s, v) => s + v, 0);
-                  const maxAnimal = Math.max(...animalByMonth, 1);
-                  const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
                   const reviewQueue = propInc.filter(i => (i.classification_status as string) === 'review');
                   const fmtBaht = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(2)}M ฿` : v >= 1000 ? `${Math.round(v / 1000).toLocaleString()}K ฿` : `${v.toLocaleString()} ฿`;
                   // ยังต้อง render modal แม้ไม่มีเคสทรัพย์สิน (drill-down จากกราฟบาดเจ็บใช้ modal ตัวเดียวกัน)
@@ -1512,29 +1502,6 @@ export default function HQIncidentsPage() {
                           </>
                         );
                       })()}
-
-                      {/* สัตว์ทำความเสียหาย — รายเดือน (ฤดูกาล) */}
-                      {animalTotal > 0 && (
-                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>🐍 เหตุจากสัตว์ — แนวโน้มรายเดือน (รวมทุกปีที่เลือก)</p>
-                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{animalTotal} เหตุ</span>
-                          </div>
-                          <svg viewBox="0 0 720 130" style={{ width: '100%', height: 'auto' }}>
-                            {animalByMonth.map((v, m) => {
-                              const bw = 44; const x = 16 + m * 58; const h = (v / maxAnimal) * 80;
-                              return (
-                                <g key={m}>
-                                  <rect x={x} y={100 - h} width={bw} height={h} rx={3} fill={v === maxAnimal && v > 0 ? '#E15759' : '#59A14F'} opacity={0.85} />
-                                  {v > 0 && <text x={x + bw / 2} y={94 - h} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text-primary)">{v}</text>}
-                                  <text x={x + bw / 2} y={116} textAnchor="middle" fontSize={10} fill="var(--text-secondary)">{TH_MONTHS[m]}</text>
-                                </g>
-                              );
-                            })}
-                          </svg>
-                          <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '4px 0 0' }}>นับจากเคสที่แหล่งที่มาหรือต้นทางเป็นสัตว์ · เดือนสีแดง = สูงสุด ใช้วางแผนป้องกันตามฤดูกาล</p>
-                        </div>
-                      )}
 
                       {/* คิวรอตรวจสอบการจำแนก */}
                       {reviewQueue.length > 0 && (
