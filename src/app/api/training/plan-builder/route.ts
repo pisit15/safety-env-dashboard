@@ -57,11 +57,17 @@ interface BuilderItem {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { companyId, year, items } = body as { companyId?: string; year?: number; items?: BuilderItem[] };
+    const { companyId, year, items, isAdmin } = body as { companyId?: string; year?: number; items?: BuilderItem[]; isAdmin?: boolean };
     if (!companyId || !Number.isFinite(Number(year)) || !Array.isArray(items)) {
       return NextResponse.json({ error: 'Missing companyId, year or items' }, { status: 400 });
     }
     const sb = getSupabase();
+    // Lock guard: แผนที่ admin ล็อกแล้ว user แก้ไม่ได้
+    const { data: lockRow } = await sb.from('training_plan_locks').select('locked_by')
+      .eq('company_id', companyId).eq('year', Number(year)).maybeSingle();
+    if (lockRow && isAdmin !== true) {
+      return NextResponse.json({ error: `แผนปี ${year} ถูกล็อกโดย Admin แล้ว — แก้ไขไม่ได้`, locked: true }, { status: 403 });
+    }
     const { data: existing, error: exErr } = await sb
       .from('training_plans').select('id, course_name').eq('company_id', companyId).eq('year', year);
     if (exErr) throw exErr;

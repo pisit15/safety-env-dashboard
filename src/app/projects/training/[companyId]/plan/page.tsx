@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
-import { ClipboardList, ArrowLeft, Save } from 'lucide-react';
+import { ClipboardList, ArrowLeft, Save, Lock, Unlock } from 'lucide-react';
 
 interface MasterCourse {
   id: string; sort_order: number; category: string; course_name: string;
@@ -40,6 +40,39 @@ export default function TrainingPlanBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); } }, [toast]);
+
+  /* Lock (pattern เดียวกับแผนงบประมาณ) */
+  const [lockInfo, setLockInfo] = useState<{ locked: boolean; lockedBy: string | null }>({ locked: false, lockedBy: null });
+  const fetchLock = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/training/plan-locks?companyId=${companyId}&year=${year}`);
+      const d = await res.json();
+      setLockInfo({ locked: !!d.locked, lockedBy: d.lock?.locked_by || null });
+    } catch { setLockInfo({ locked: false, lockedBy: null }); }
+  }, [companyId, year]);
+  useEffect(() => { fetchLock(); }, [fetchLock]);
+  const readOnly = lockInfo.locked && !auth.isAdmin;
+
+  const toggleLock = async () => {
+    if (!auth.isAdmin) return;
+    try {
+      if (lockInfo.locked) {
+        const res = await fetch(`/api/training/plan-locks?companyId=${companyId}&year=${year}&isAdmin=true&by=${encodeURIComponent((auth as unknown as { adminName?: string }).adminName || 'admin')}`, { method: 'DELETE' });
+        const d = await res.json();
+        if (d.error) { setToast({ type: 'error', msg: d.error }); return; }
+        setToast({ type: 'success', msg: `ปลดล็อกแผนปี ${year} แล้ว — user แก้ไขได้` });
+      } else {
+        const res = await fetch('/api/training/plan-locks', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId, year, isAdmin: true, lockedBy: (auth as unknown as { adminName?: string }).adminName || 'admin' }),
+        });
+        const d = await res.json();
+        if (d.error) { setToast({ type: 'error', msg: d.error }); return; }
+        setToast({ type: 'success', msg: `ล็อกแผนปี ${year} แล้ว — user แก้ไขไม่ได้` });
+      }
+      fetchLock();
+    } catch { setToast({ type: 'error', msg: 'ดำเนินการไม่สำเร็จ' }); }
+  };
 
   const isLoggedIn = auth.isAdmin || auth.getCompanyAuth(companyId).isLoggedIn;
   useEffect(() => {
@@ -94,6 +127,7 @@ export default function TrainingPlanBuilderPage() {
   }, [master, rows]);
 
   const handleSave = async () => {
+    if (readOnly) return;
     const missingMonth = master.filter(c => rows[c.id]?.selected && !rows[c.id].planned_month);
     if (missingMonth.length > 0) {
       setToast({ type: 'error', msg: `กรุณาระบุเดือนแผนของ: ${missingMonth.slice(0, 3).map(c => c.course_name).join(', ')}${missingMonth.length > 3 ? ` และอีก ${missingMonth.length - 3} หลักสูตร` : ''}` });
@@ -113,7 +147,7 @@ export default function TrainingPlanBuilderPage() {
       });
       const res = await fetch('/api/training/plan-builder', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, year, items }),
+        body: JSON.stringify({ companyId, year, items, isAdmin: auth.isAdmin === true }),
       });
       const d = await res.json();
       if (d.error || (d.errors && d.errors.length > 0)) {
@@ -150,21 +184,42 @@ export default function TrainingPlanBuilderPage() {
         ติ๊กเลือกหลักสูตรที่จะจัดในปี {year} แล้วกรอกรายละเอียด — รายชื่อและลำดับมาจาก Master กลาง ทุกบริษัทเรียงเหมือนกัน · หลักสูตรที่ไม่จัดให้เว้นว่าง
       </p>
 
+      {/* Lock banner (user เมื่อแผนถูกล็อก) */}
+      {readOnly && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '10px 14px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 12.5, color: '#475569', fontWeight: 600 }}>
+          <Lock size={14} /> แผนปี {year} ถูกล็อกโดย Admin{lockInfo.lockedBy ? ` (${lockInfo.lockedBy})` : ''} — ดูได้อย่างเดียว หากต้องการแก้ไขกรุณาติดต่อ Admin
+        </div>
+      )}
+
       {/* Summary + Save */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px', background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 10, position: 'sticky', top: 0, zIndex: 10 }}>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>เลือกแล้ว <b style={{ color: '#2563eb' }}>{summary.count}</b> หลักสูตร</span>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>ผู้เข้าอบรมรวม <b style={{ color: 'var(--text-primary)' }}>{summary.people.toLocaleString()}</b> คน</span>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>รวม <b style={{ color: 'var(--text-primary)' }}>{summary.hours.toLocaleString()}</b> ชม.-คน</span>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>งบรวม <b style={{ color: 'var(--text-primary)' }}>{summary.budget.toLocaleString()}</b> ฿</span>
-        <button onClick={handleSave} disabled={saving || loading}
-          style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, border: 'none', background: saving ? '#93c5fd' : '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          <Save size={14} /> {saving ? 'กำลังบันทึก...' : `บันทึกแผนปี ${year}`}
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          {auth.isAdmin && (
+            <button onClick={toggleLock}
+              title={lockInfo.locked ? 'ปลดล็อกให้ user แก้ไขได้' : 'ล็อกแผน — user จะแก้ไขไม่ได้'}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: `1px solid ${lockInfo.locked ? '#16a34a' : '#64748b'}`, background: lockInfo.locked ? 'rgba(34,197,94,0.1)' : 'var(--bg-secondary)', color: lockInfo.locked ? '#16a34a' : '#475569' }}>
+              {lockInfo.locked ? <><Unlock size={14} /> ปลดล็อก</> : <><Lock size={14} /> ล็อกแผน</>}
+            </button>
+          )}
+          {lockInfo.locked && !auth.isAdmin ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: '#475569' }}><Lock size={14} /> ล็อกแล้ว</span>
+          ) : (
+            <button onClick={handleSave} disabled={saving || loading || readOnly}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, border: 'none', background: saving ? '#93c5fd' : '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <Save size={14} /> {saving ? 'กำลังบันทึก...' : `บันทึกแผนปี ${year}`}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
       ) : (
+        <fieldset disabled={readOnly} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0, opacity: readOnly ? 0.8 : 1 }}>
         <div style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
             <thead>
@@ -243,6 +298,7 @@ export default function TrainingPlanBuilderPage() {
             </tbody>
           </table>
         </div>
+        </fieldset>
       )}
 
       {toast && (
