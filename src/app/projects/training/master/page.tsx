@@ -32,6 +32,8 @@ export default function TrainingCourseMasterPage() {
   const [showAdd, setShowAdd] = useState(false);
   const emptyForm = { course_name: '', category: CATEGORIES[0], default_hours: 6, in_house_external: 'In-House', necessity_default: '', dsd_eligible: false };
   const [addForm, setAddForm] = useState({ ...emptyForm });
+  // Category filter
+  const [catFilter, setCatFilter] = useState<string>('');
   // Inline edit
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ ...emptyForm });
@@ -88,12 +90,19 @@ export default function TrainingCourseMasterPage() {
   };
 
   const move = async (c: MasterCourse, dir: -1 | 1) => {
-    const activeSorted = courses;
+    const activeSorted = catFilter ? courses.filter(x => x.category === catFilter) : courses;
     const idx = activeSorted.findIndex(x => x.id === c.id);
     const target = activeSorted[idx + dir];
     if (!target) return;
     const d = await api('PUT', { id: c.id, swapWith: target.id });
     if (d.error) { setToast({ type: 'error', msg: d.error }); return; }
+    fetchCourses();
+  };
+
+  const bulkToggleCategory = async (cat: string, active: boolean) => {
+    const d = await api('PUT', { bulkCategory: cat, is_active: active });
+    if (d.error) { setToast({ type: 'error', msg: d.error }); return; }
+    setToast({ type: 'success', msg: `${active ? 'เปิด' : 'ปิด'}ใช้งานทั้งหมวด "${cat}" แล้ว` });
     fetchCourses();
   };
 
@@ -170,6 +179,37 @@ export default function TrainingCourseMasterPage() {
         </div>
       )}
 
+      {/* Category filter + bulk enable/disable */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {['', ...CATEGORIES].map(cat => {
+          const active = catFilter === cat;
+          const count = cat === '' ? courses.length : courses.filter(c => c.category === cat).length;
+          return (
+            <button key={cat || 'all'} onClick={() => setCatFilter(cat)}
+              style={{ padding: '5px 13px', borderRadius: 14, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: active ? '2px solid #2563eb' : '1px solid var(--border)', background: active ? 'rgba(37,99,235,0.08)' : 'var(--card-solid)', color: active ? '#2563eb' : 'var(--text-secondary)' }}>
+              {cat === '' ? 'ทุกหมวด' : cat.split(' ')[0]} ({count})
+            </button>
+          );
+        })}
+        {catFilter && (() => {
+          const inCat = courses.filter(c => c.category === catFilter);
+          const nActive = inCat.filter(c => c.is_active).length;
+          return (
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', marginLeft: 8, paddingLeft: 12, borderLeft: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ใช้งาน {nActive}/{inCat.length}</span>
+              <button onClick={() => bulkToggleCategory(catFilter, true)}
+                style={{ padding: '4px 11px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid #16a34a', background: 'rgba(34,197,94,0.08)', color: '#16a34a' }}>
+                เปิดทั้งหมวด
+              </button>
+              <button onClick={() => bulkToggleCategory(catFilter, false)}
+                style={{ padding: '4px 11px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: '1px solid #dc2626', background: 'rgba(239,68,68,0.08)', color: '#dc2626' }}>
+                ปิดทั้งหมวด
+              </button>
+            </span>
+          );
+        })()}
+      </div>
+
       <div style={{ background: 'var(--card-solid)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: 30, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>กำลังโหลด...</div>
@@ -183,12 +223,12 @@ export default function TrainingCourseMasterPage() {
               </tr>
             </thead>
             <tbody>
-              {courses.map((c, idx) => (
+              {(catFilter ? courses.filter(c => c.category === catFilter) : courses).map((c, idx, arr) => (
                 <tr key={c.id} style={{ borderTop: '1px solid var(--border)', opacity: c.is_active ? 1 : 0.45 }}>
                   <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 700, marginRight: 4 }}>{idx + 1}</span>
                     <button onClick={() => move(c, -1)} disabled={idx === 0} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', opacity: idx === 0 ? 0.25 : 1, padding: 1 }}><ChevronUp size={13} /></button>
-                    <button onClick={() => move(c, 1)} disabled={idx === courses.length - 1} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', opacity: idx === courses.length - 1 ? 0.25 : 1, padding: 1 }}><ChevronDown size={13} /></button>
+                    <button onClick={() => move(c, 1)} disabled={idx === arr.length - 1} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)', opacity: idx === arr.length - 1 ? 0.25 : 1, padding: 1 }}><ChevronDown size={13} /></button>
                   </td>
                   {editId === c.id ? (
                     <>

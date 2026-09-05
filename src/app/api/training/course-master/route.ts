@@ -59,8 +59,16 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     if (body.isAdmin !== true) return NextResponse.json({ error: 'Admin only' }, { status: 403 });
-    if (!body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+    if (!body.id && !body.bulkCategory) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     const sb = getSupabase();
+
+    // เปิด/ปิดใช้งานทั้งหมวด
+    if (body.bulkCategory && body.is_active !== undefined) {
+      const { error } = await sb.from('training_course_master')
+        .update({ is_active: !!body.is_active }).eq('category', String(body.bulkCategory));
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
 
     // สลับลำดับกับอีกรายการ (ปุ่มเลื่อนขึ้น/ลง)
     if (body.swapWith) {
