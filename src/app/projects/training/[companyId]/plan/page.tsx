@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthContext';
 import { COMPANIES } from '@/lib/companies';
-import { ClipboardList, ArrowLeft, Save, Lock, Unlock } from 'lucide-react';
+import { ClipboardList, ArrowLeft, Save, Lock, Unlock, Download } from 'lucide-react';
 
 interface MasterCourse {
   id: string; sort_order: number; category: string; course_name: string;
@@ -175,10 +175,31 @@ export default function TrainingPlanBuilderPage() {
             ทำแผนอบรมปี {year} — {company?.name || companyId.toUpperCase()}
           </h1>
         </div>
-        <select value={year} onChange={e => setYear(Number(e.target.value))}
-          style={{ ...inputSt, fontWeight: 600, cursor: 'pointer', padding: '7px 12px' }}>
-          {[0, 1, 2].map(d => { const y = new Date().getFullYear() + 1 - d; return <option key={y} value={y}>ปี {y}</option>; })}
-        </select>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => window.open(`/api/training/plan-export?year=${year}&format=survey&companyId=${companyId}`, '_blank')}
+            title="Export แบบสำรวจของบริษัทนี้เป็น Excel"
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <Download size={13} /> Export บริษัทนี้
+          </button>
+          {auth.isAdmin && (
+            <>
+              <button onClick={() => window.open(`/api/training/plan-export?year=${year}&format=survey`, '_blank')}
+                title="Export แบบสำรวจทุกบริษัท (Summary + sheet ละบริษัท)"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <Download size={13} /> ทุกบริษัท
+              </button>
+              <button onClick={() => window.open(`/api/training/plan-export?year=${year}&format=matrix`, '_blank')}
+                title="Export ตารางไขว้ หลักสูตร × บริษัท (จำนวนคน, N = ไม่จัด)"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <Download size={13} /> ตารางไขว้
+              </button>
+            </>
+          )}
+          <select value={year} onChange={e => setYear(Number(e.target.value))}
+            style={{ ...inputSt, fontWeight: 600, cursor: 'pointer', padding: '7px 12px' }}>
+            {[0, 1, 2].map(d => { const y = new Date().getFullYear() + 1 - d; return <option key={y} value={y}>ปี {y}</option>; })}
+          </select>
+        </div>
       </div>
       <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
         ติ๊กเลือกหลักสูตรที่จะจัดในปี {year} แล้วกรอกรายละเอียด — รายชื่อและลำดับมาจาก Master กลาง ทุกบริษัทเรียงเหมือนกัน · หลักสูตรที่ไม่จัดให้เว้นว่าง
